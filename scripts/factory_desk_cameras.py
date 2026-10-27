@@ -12,7 +12,32 @@ from robofrontier.task_families import ROOT
 from robofrontier.workstation import Workstation
 
 
-def make_cameras(scene):
+def fit_view(points, orientation, fov, aspect=1.6, frame_fraction=.86):
+    """Fit frozen station geometry, preserving view direction and field of view."""
+    if not 0 < frame_fraction < 1 or aspect <= 0:
+        raise ValueError('Invalid frame size')
+    points = np.asarray(points, dtype=float)
+    if points.ndim != 2 or points.shape[1] != 3 or not len(points) or not np.isfinite(points).all():
+        raise ValueError('Invalid station geometry')
+    origin = (points.min(axis=0) + points.max(axis=0)) / 2
+    local = (points - origin) @ orientation
+    center = (local.min(axis=0) + local.max(axis=0)) / 2
+    origin += orientation[:, 0] * center[0] + orientation[:, 1] * center[1]
+    tangent = math.tan(math.radians(fov) / 2)
+    for _ in range(5):
+        local = (points - origin) @ orientation
+        required = np.maximum(np.abs(local[:, 0]) / (tangent * aspect * frame_fraction),
+                              np.abs(local[:, 1]) / (tangent * frame_fraction)) + local[:, 2]
+        distance = max(.1, float(np.max(required)) + .03)
+        depth = distance - local[:, 2]
+        projected = local[:, :2] / depth[:, None]
+        midpoint = (projected.min(axis=0) + projected.max(axis=0)) / 2
+        origin += orientation[:, 0] * midpoint[0] * distance + orientation[:, 1] * midpoint[1] * distance
+    position = origin + orientation[:, 2] * distance
+    return position, origin
+
+
+def make_cameras(scene, views=('front', 'side')):
     scene = Path(scene)
     manifest = json.loads((scene.parent / 'manifest.json').read_text())
     model = mujoco.MjModel.from_xml_path(str(scene))
@@ -37,7 +62,8 @@ def make_cameras(scene):
             half = np.abs(r) @ box[3:]
             points.extend(center + half * signs for signs in itertools.product((-1, 1), repeat=3))
         station_points = np.asarray(points)
-        for view, source_name in (('front', 'global'), ('top', 'top'), ('side', 'global_side')):
+        for view in views:
+            source_name = {'front':'global', 'top':'top', 'side':'global_side'}[view]
             cid = source.model.camera(source_name).id
             if source.model.cam_projection[cid] != 0:
                 raise ValueError(f'{case}/{source_name}: expected perspective source camera')
@@ -55,11 +81,8 @@ def make_cameras(scene):
                 forward = target - position; forward /= np.linalg.norm(forward)
                 right = np.cross(forward, [0, 0, 1.]); right /= np.linalg.norm(right)
                 orientation = np.column_stack((right, np.cross(right, forward), -forward))
-                local = (station_points - position) @ orientation
-                tangent = math.tan(math.radians(fov) / 2)
-                needed = np.maximum(np.abs(local[:, 0]) / (tangent * 1.6), np.abs(local[:, 1]) / tangent) * 1.1 + local[:, 2]
-                position += orientation[:, 2] * max(0., float(np.max(needed)))
-                target = position - orientation[:, 2]
+            if view in ('front', 'side'):
+                position, target = fit_view(station_points, orientation, fov)
             if view == 'top':
                 label = labels['ws_caption_' + case]['bounds_xy_m']
                 table = place['table_bounds_xy_m']
@@ -94,7 +117,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--scene', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--views', nargs='+', choices=('front','top','side'), default=['front','side'])
     args = parser.parse_args()
-    cameras = make_cameras(args.scene)
+    cameras = make_cameras(args.scene, args.views)
     args.output.write_text(json.dumps(cameras, indent=2) + '\n')
-    print(f'{len(cameras)} cameras for {len(cameras)//3} workstations')
+    print(f'{len(cameras)} cameras for {len(cameras)//len(args.views)} workstations')
