@@ -89,7 +89,8 @@ def make_cameras(scene, views=('front', 'side')):
                 # The front must include its floor caption. The side keeps the
                 # original side-on composition even if the desk hides it.
                 points = np.vstack((station_points, label_points)) if view == 'front' else station_points
-                position, target = fit_view(points, orientation, fov)
+                position, target = fit_view(points, orientation, fov,
+                                            frame_fraction=.95 if view == 'front' else .86)
             if view == 'top':
                 label = labels['ws_caption_' + case]['bounds_xy_m']
                 table = place['table_bounds_xy_m']
