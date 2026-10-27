@@ -1,5 +1,6 @@
 """Explicit presentation materials; never mutate frozen MuJoCo assets or RGBA events."""
 import re
+import colorsys
 
 
 ROBOT_BODY = re.compile(r'__[A-Z]_(?:link\d|hand|left_?finger|right_?finger)$')
@@ -23,6 +24,10 @@ def task_role(geom):
     if (name.startswith('relay-') and re.search(r'__payload_\d+_beam$',name)
             or name.startswith('mosaic-') and re.search(r'__[A-Z]_stock\d+_geom$',name)):
         return 'painted_wood'
+    if (name.startswith('transport-') and re.search(r'__(?:[A-Z]_item\d+_geom|[A-Z]_slot\d+_cue_color\d+|board_[A-Z]_plate)$',name)
+            or name.startswith('relay-') and re.search(r'__relay_(?:direction|start|goal)_',name)
+            or name.startswith('dial-') and re.search(r'__D\d+_(?:module_disk|red_knob|red_knob_grip_\d+|orange_pointer|pointer_tip)$',name)):
+        return 'task_color'
     return None
 
 
@@ -43,4 +48,12 @@ def resolve(spec, role=None, calibrated=True):
                       metallic=0., specular=.30)
     if role in ('print','painted_wood'):
         result.update(roughness=.80 if role=='print' else .58,metallic=0.,specular=.18 if role=='print' else .25)
+    if role=='task_color' and max(result['rgba'][:3])-min(result['rgba'][:3]) < .06:
+        result.update(roughness=.65,metallic=0.,specular=.18)
+    if role in ('print','painted_wood','task_color'):
+        # Presentation-only chroma adjustment; neutral whites and alpha remain
+        # unchanged, as do the frozen source and replay event values.
+        h,s,v=colorsys.rgb_to_hsv(*result['rgba'][:3])
+        if s > .08:
+            result['rgba'][:3]=colorsys.hsv_to_rgb(h,min(1.,s*1.65),v)
     return result
