@@ -19,7 +19,7 @@ class FactoryLayoutChecks(unittest.TestCase):
                         table_bounds_xy_m=[x-1,y-1,x+1,y+1]))
                     cases.append(dict(id=case_id, family=family, level=level, arms=size))
                     labels.append(dict(id='ws_caption_'+case_id,
-                        bounds_xy_m=[x-1,y+1.2,x+1,y+1.46]))
+                        bounds_xy_m=[x-1,y-1.46,x+1,y-1.2]))
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             manifest = root/'manifest.json'; catalog = root/'catalog.json'
@@ -35,11 +35,11 @@ class FactoryLayoutChecks(unittest.TestCase):
                 check(root/'scene.xml', catalog)
             labels[0]['bounds_xy_m'][0] -= .35
             labels[0]['bounds_xy_m'][2] -= .35
-            labels[0]['bounds_xy_m'][1] = places[0]['table_bounds_xy_m'][1] - .5
+            labels[0]['bounds_xy_m'][3] = places[0]['table_bounds_xy_m'][3] + .5
             write()
             with self.assertRaisesRegex(ValueError, 'caption'):
                 check(root/'scene.xml', catalog)
-            labels[0]['bounds_xy_m'][1] = places[0]['table_bounds_xy_m'][3] + .2
+            labels[0]['bounds_xy_m'][3] = places[0]['table_bounds_xy_m'][1] - .2
             cases[0]['level'] = 3
             write()
             with self.assertRaisesRegex(ValueError, 'ordering'):

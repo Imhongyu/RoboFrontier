@@ -24,9 +24,9 @@ def check(scene, catalog):
             label = labels['ws_caption_'+p['case_id']]
             if abs(sum(label['bounds_xy_m'][::2]) - sum(p['table_bounds_xy_m'][::2])) > 1e-6:
                 raise ValueError(f'{p["case_id"]}: caption is not centered over tabletop')
-            gap = label['bounds_xy_m'][1] - p['table_bounds_xy_m'][3]
+            gap = p['table_bounds_xy_m'][1] - label['bounds_xy_m'][3]
             if not .1 <= gap <= 1.01:
-                raise ValueError(f'{p["case_id"]}: caption not above tabletop or too far away ({gap})')
+                raise ValueError(f'{p["case_id"]}: caption not below tabletop or too far away ({gap})')
     return dict(passed=True, grids=rows, stations=36, scope='Top camera grid and table-edge clearance; initial state only')
 
 

@@ -62,6 +62,10 @@ def make_cameras(scene, views=('front', 'side')):
             half = np.abs(r) @ box[3:]
             points.extend(center + half * signs for signs in itertools.product((-1, 1), repeat=3))
         station_points = np.asarray(points)
+        gid = model.geom('ws_caption_' + case).id
+        box = model.geom_aabb[gid]; r = data.geom_xmat[gid].reshape(3, 3)
+        center = data.geom_xpos[gid] + r @ box[:3]; half = np.abs(r) @ box[3:]
+        label_points = np.asarray([center + half * signs for signs in itertools.product((-1, 1), repeat=3)])
         for view in views:
             source_name = {'front':'global', 'top':'top', 'side':'global_side'}[view]
             cid = source.model.camera(source_name).id
@@ -82,7 +86,10 @@ def make_cameras(scene, views=('front', 'side')):
                 right = np.cross(forward, [0, 0, 1.]); right /= np.linalg.norm(right)
                 orientation = np.column_stack((right, np.cross(right, forward), -forward))
             if view in ('front', 'side'):
-                position, target = fit_view(station_points, orientation, fov)
+                # The front must include its floor caption. The side keeps the
+                # original side-on composition even if the desk hides it.
+                points = np.vstack((station_points, label_points)) if view == 'front' else station_points
+                position, target = fit_view(points, orientation, fov)
             if view == 'top':
                 label = labels['ws_caption_' + case]['bounds_xy_m']
                 table = place['table_bounds_xy_m']
@@ -90,10 +97,6 @@ def make_cameras(scene, views=('front', 'side')):
                 position[:2] = (low + high) / 2
                 # Preserve the source direction and lens, moving back only as
                 # needed to fit the desk and its floor caption at 16:10.
-                gid = model.geom('ws_caption_' + case).id
-                box = model.geom_aabb[gid]; r = data.geom_xmat[gid].reshape(3, 3)
-                center = data.geom_xpos[gid] + r @ box[:3]; half = np.abs(r) @ box[3:]
-                label_points = np.asarray([center + half * signs for signs in itertools.product((-1, 1), repeat=3)])
                 local = (np.vstack((station_points, label_points)) - position) @ orientation
                 tangent = math.tan(math.radians(fov) / 2)
                 needed = np.maximum(np.abs(local[:, 0]) / (tangent * 1.6), np.abs(local[:, 1]) / tangent) * 1.1 + local[:, 2]
@@ -106,7 +109,7 @@ def make_cameras(scene, views=('front', 'side')):
             camera = dict(id=f'{case}--{view}', station=case, source_camera=source_name,
                 position_m=position.tolist(), target_m=target.tolist(), projection='perspective',
                 vertical_fov_deg=fov,
-                show_caption=view == 'top',
+                show_caption=view in ('front', 'top'),
                 hidden_layers=['roof'] if view == 'top' else [])
             camera['rotation_matrix']=orientation.tolist()
             cameras.append(camera)
