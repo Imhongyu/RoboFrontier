@@ -42,7 +42,7 @@ class FactoryRenderer:
         self.renderer_name=renderer;self.options=mujoco.MjvOption();self.camera_id='interior_south'
         self.camera=next(c.copy() for c in self.manifest['cameras'] if c['id']==self.camera_id)
         self.render_times=[];self.last_pixels=None
-        if renderer!='classic':raise ValueError('Interactive renderer must be classic; use Blender for Cycles/Eevee')
+        if renderer!='classic':raise ValueError('Interactive inspection requires classic; offline factory output uses Cycles')
         self.renderer=mujoco.Renderer(self.model,height=height,width=width,max_geom=max(self.model.ngeom+1000,5000))
         self.set_camera(self.camera)
         # Settle initial material compilation/post-processing before inspecting output.
@@ -113,24 +113,6 @@ class FactoryRenderer:
 
     def close(self):
         self.renderer.close()
-
-
-def render_views(scene, output, renderer='classic', width=1600, height=1000, views=None, benchmark_frames=8):
-    output=Path(output);output.mkdir(parents=True,exist_ok=True)
-    r=FactoryRenderer(scene,renderer,width,height);reports=[]
-    try:
-        for name in views or ['interior_south','interior_north','interior_diagonal','detail_storage','detail_ceiling','top','from_south','from_north','from_east','from_west']:
-            r.select(name)
-            for _ in range(3):r.render()
-            Image.fromarray(r.render()).save(output/(name+'.png'))
-            start=len(r.render_times)
-            for _ in range(benchmark_frames):r.render()
-            stats=r.report();times=r.render_times[start:];stats['measured_view_mean_ms']=1000*float(np.mean(times)) if times else None
-            stats['image']=str((output/(name+'.png')).resolve());reports.append(stats)
-            print(json.dumps({'view':name,'renderer':renderer,'mean_ms':stats['measured_view_mean_ms'],'image':stats['image']}),flush=True)
-        (output/'render-report.json').write_text(json.dumps(dict(scope='Static factory renders; no physics, GPT or task objects',views=reports),indent=2)+'\n')
-    finally:r.close()
-    return reports
 
 
 def serve(scene, renderer='classic', width=1280, height=720, port=0, play=False):

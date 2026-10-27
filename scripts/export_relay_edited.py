@@ -1,4 +1,4 @@
-"""Freeze reusable edited 60Hz tracks; render paired backgrounds at 20x/30fps.
+"""Freeze reusable edited 60Hz tracks; render simple backgrounds at 20x/30fps.
 
 Only private presentation models are changed. Original worlds, trajectories,
 native reports and earlier movies are never written or stepped.
@@ -18,8 +18,7 @@ from robofrontier.relay_motion_edit import (
 )
 from robofrontier.motion_recording import MotionReader, digest, freeze_source
 from robofrontier.workstation import Workstation
-from robofrontier.factory_workstations import compose, FactoryPlayback
-from robofrontier.factory_view import FactoryRenderer
+from robofrontier.factory_workstations import compose
 
 
 def write_json(path, data):
@@ -145,6 +144,8 @@ def validate_movie(path, frames, fps):
 
 
 def render_case(folder, output, factory_renderer=None, play=None, fps=30, speed=20):
+    if factory_renderer is not None or play is not None:
+        raise ValueError('Factory video now uses Cycles: run python -m scripts.factory video')
     edit = json.loads((folder / 'edit.json').read_text())
     if edit.get('schema') not in ('robofrontier.relay-motion-edit.v1','robofrontier.motion-edit.v1') or not {'track_sha256','kept_intervals_source_s'} <= edit.keys():
         raise ValueError('Expected a Relay recorded-track edit; a frame-reference timeline needs its own adapter')
@@ -164,27 +165,16 @@ def render_case(folder, output, factory_renderer=None, play=None, fps=30, speed=
         assert prior['plan'] == plan
         for key in prior['videos']:
             validate_movie(output / f'{key}.mp4', len(indices), fps)
-        print(case, 'existing paired movies verified', flush=True)
+        print(case, 'existing simple movie verified', flush=True)
         return prior
     paths = {'simple':output / 'simple.mp4'}
-    if play:
-        paths['factory'] = output / 'factory.mp4'
-        place = next(p for p in play.manifest['placements'] if p['case_id'] == case)
-        yaw=place['yaw_rad'];c,s=np.cos(yaw),np.sin(yaw);rot=np.array([[c,-s,0],[s,c,0],[0,0,1.]])
-        camera=source.model.camera('global').id;position=source.model.cam_pos[camera]
-        from robofrontier.robot_control import quat_matrix
-        rotation=quat_matrix(source.model.cam_quat[camera]);shift=np.asarray(place['translation_m'])
-        factory_renderer.set_camera(dict(position_m=(rot@position+shift).tolist(),
-            target_m=(rot@(position-rotation[:,2])+shift).tolist(),projection='perspective',
-            vertical_fov_deg=float(source.model.cam_fovy[camera]),hidden_layers=['roof']))
     initial=json.loads((folder / 'initial-rgba.json').read_text());source.model.geom_rgba[:]=initial
     geometry_ids={g['id']:g['source_index'] for g in source.manifest['geometries']}
-    if play:play.appearance(case,{name:initial[g] for name,g in geometry_ids.items()})
     events=iter(json.loads(line) for line in (folder / 'events.jsonl').read_text().splitlines())
     event=next(events,None);font=ImageFont.truetype('/System/Library/Fonts/STHeiti Medium.ttc',22)
     partials={name:path.with_name(path.stem+'.partial.mp4') for name,path in paths.items()}
     encoders={name:encoder(path,fps) for name,path in partials.items()}
-    maximum_position_error=0.;maximum_rotation_error=0.;started=time.monotonic()
+    maximum_position_error=None;maximum_rotation_error=None;started=time.monotonic()
     mapfile=(output / 'frame-map.csv').open('w')
     mapfile.write('video_frame,video_time_s,source_time_s,edited_time_s,track_row,source_frame,segment,context\n')
     source.model.vis.quality.offsamples=0
@@ -200,21 +190,13 @@ def render_case(folder, output, factory_renderer=None, play=None, fps=30, speed=
                 while event is not None and event['sim_time_s'] <= stamp+1e-9:
                     if event['event']=='rgba':
                         for name,color in event['geoms'].items():source.model.geom_rgba[geometry_ids[name]]=color
-                        if play:play.appearance(case,event['geoms'])
                     event=next(events,None)
-                if play:
-                    error=play.apply_arrays(case,source,q,stamp,verify=True)
-                    maximum_position_error=max(maximum_position_error,error['position_error_m'])
-                    maximum_rotation_error=max(maximum_rotation_error,error['rotation_matrix_error'])
-                else:
-                    source.data.qpos[:]=q;source.data.time=stamp
-                    mujoco.mj_kinematics(source.model,source.data);mujoco.mj_comPos(source.model,source.data);mujoco.mj_camlight(source.model,source.data)
+                source.data.qpos[:]=q;source.data.time=stamp
+                mujoco.mj_kinematics(source.model,source.data);mujoco.mj_comPos(source.model,source.data);mujoco.mj_camlight(source.model,source.data)
                 renderer.update_scene(source.data,camera='global')
                 renderer.scene.flags[mujoco.mjtRndFlag.mjRND_SHADOW]=False
                 renderer.scene.flags[mujoco.mjtRndFlag.mjRND_REFLECTION]=False
                 images={'simple':renderer.render()}
-                if factory_renderer:
-                    images['factory']=factory_renderer.render()
                 for name,pixels in images.items():
                     image=Image.fromarray(pixels);draw=ImageDraw.Draw(image)
                     draw.rectangle((10,10,1268,77),fill='#f3f5f7')
@@ -225,7 +207,7 @@ def render_case(folder, output, factory_renderer=None, play=None, fps=30, speed=
                     if n==len(indices)-1:image.save(output / f'{name}-last.png')
                     if n==len(indices)//2:image.save(output / f'{name}-middle.png')
                 mapfile.write(f'{n},{n/fps:.9f},{stamp:.9f},{edited:.9f},{row},{raw},{segment},{int(row<0)}\n')
-                if (n+1)%300==0:print(case,'20x paired frames',n+1,'/',len(indices),'wall',round(time.monotonic()-started,1),flush=True)
+                if (n+1)%300==0:print(case,'20x simple frames',n+1,'/',len(indices),'wall',round(time.monotonic()-started,1),flush=True)
     finally:
         mapfile.close()
         for process in encoders.values():process.stdin.close()
@@ -240,22 +222,18 @@ def render_case(folder, output, factory_renderer=None, play=None, fps=30, speed=
         physics_stepped=False,original_worlds_or_trajectories_changed=False,
         source_scene_sha256=edit['source_scene_sha256'],wall_s=time.monotonic()-started)
     write_json(output / 'render.json',result)
-    print(case,'paired render complete',len(indices)/fps,'seconds',flush=True)
+    print(case,'simple render complete',len(indices)/fps,'seconds',flush=True)
     return result
 
 
 def render_all(bundle, output, factory, renderer_name, only=None):
+    if factory:raise ValueError('Factory video now uses Cycles: run python -m scripts.factory video')
     edits=json.loads((bundle / 'summary.json').read_text())['cases']
-    factory_renderer=FactoryRenderer(factory,renderer=renderer_name,width=1280,height=800) if factory else None
-    play=FactoryPlayback(factory,model=factory_renderer.model,data=factory_renderer.data) if factory else None
-    try:
-        reports=[]
-        for edit in edits:
-            if only and edit['case_id']!=only:continue
-            reports.append(render_case(bundle / edit['case_id'],output / edit['case_id'],factory_renderer,play))
-        write_json(output / ('summary.json' if not only else only+'-summary.json'),dict(complete=not only,cases=reports))
-    finally:
-        if factory_renderer:factory_renderer.close()
+    reports=[]
+    for edit in edits:
+        if only and edit['case_id']!=only:continue
+        reports.append(render_case(bundle / edit['case_id'],output / edit['case_id']))
+    write_json(output / ('summary.json' if not only else only+'-summary.json'),dict(complete=not only,cases=reports))
 
 
 def main():

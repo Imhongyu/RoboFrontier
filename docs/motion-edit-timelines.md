@@ -39,7 +39,7 @@ python -m scripts.export_mosaic_edit_timelines \
 python -m scripts.replay_motion_in_factory RECORDING_DIRECTORY \
   --factory MATCHING_FACTORY_DIRECTORY/scene.xml \
   --edit-timeline CASE_TIMELINE.json \
-  --output NEW_VIDEO_DIRECTORY --render
+  --output NEW_CHECK_DIRECTORY
 
 python -m scripts.export_factory_recorded_pose RECORDING_DIRECTORY \
   --factory MATCHING_FACTORY_DIRECTORY/scene.xml \
@@ -47,8 +47,7 @@ python -m scripts.export_factory_recorded_pose RECORDING_DIRECTORY \
   --output NEW_POSE.json
 ```
 
-The replay renders simple and factory views from the same ordered source states
-and exact output cadence. Appearance events crossed by a cut are applied up to
+The replay verifies factory placement for the selected recorded states. Factory video rendering uses the Cycles `scripts.factory video` entry point. Appearance events crossed by a cut are applied up to
 the selected original timestamp. The pose export supports downstream Blender
 presentation using the same output-frame numbering. Neither path steps physics,
 solves IK, smooths states, or fabricates a restart checkpoint.

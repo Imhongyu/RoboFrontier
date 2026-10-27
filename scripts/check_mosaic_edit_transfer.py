@@ -15,6 +15,7 @@ from robofrontier.workstation import Workstation
 
 
 def check(timelines, factory, output, render_case=None):
+    if render_case:raise ValueError('Factory images use Cycles via scripts.render_factory_blender')
     timelines = Path(timelines).resolve()
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
