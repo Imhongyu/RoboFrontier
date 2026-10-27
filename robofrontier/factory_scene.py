@@ -253,6 +253,8 @@ class _Builder:
             if 'floor_rgba' not in region:continue
             import copy
             floor=copy.deepcopy(self.asset.find("material[@name='factory_floor']"))
+            for layer in floor.findall('layer'):
+                if layer.get('role') in ('rgb','rgba'):floor.remove(layer)
             floor.set('name','factory_zone_floor_'+region['id']);floor.set('rgba',_vec(region['floor_rgba']));self.asset.append(floor)
             for kind,rgba in [('accent',region['accent_rgba']),('cabinet',region['accent_rgba'])]:
                 ET.SubElement(self.asset,'material',name='factory_zone_'+kind+'_'+region['id'],rgba=_vec(rgba),roughness='.65',metallic='.05',specular='.25')

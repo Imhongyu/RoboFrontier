@@ -39,7 +39,7 @@ def main():
     parser.add_argument('--instances',action=argparse.BooleanOptionalAction,default=True)
     parser.add_argument('--lighting-config',type=Path,help='Offline lighting overrides; source task state stays frozen')
     parser.add_argument('--camera-config',type=Path,help='Named offline camera overrides for matched-engine look development')
-    parser.add_argument('--desk-cameras',type=Path,help='JSON array of isolated workstation inspection cameras (requires --no-instances)')
+    parser.add_argument('--desk-cameras',type=Path,help='JSON array of workstation inspection cameras')
     parser.add_argument('--denoise',action=argparse.BooleanOptionalAction,default=True,help='GPU denoising for low-sample output')
     parser.add_argument('--save-blend',action='store_true');parser.add_argument('--usd',action='store_true')
     parser.add_argument('--recorded-pose',type=Path,help='Derived recorded-state pose, matching this exact factory; no physics')
@@ -74,7 +74,7 @@ def main():
     args.asset=args.asset.resolve();args.output=args.output.resolve();args.output.mkdir(parents=True,exist_ok=True)
     metadata=json.loads((args.asset/'scene.json').read_text());arrays=np.load(args.asset/'meshes.npz')
     if args.desk_cameras:
-        if args.instances or args.animation or args.recorded_pose:raise ValueError('Desk cameras require static rendering and --no-instances')
+        if args.animation or args.recorded_pose:raise ValueError('Desk cameras require static rendering')
         desk_cameras=json.loads(args.desk_cameras.read_text())
         metadata['cameras'].extend(desk_cameras)
     args.views=args.views or ([c['id'] for c in desk_cameras] if args.desk_cameras else ['interior_south','interior_diagonal'])
@@ -146,6 +146,9 @@ def main():
         for texture_role in ('mjTEXROLE_RGB','mjTEXROLE_RGBA','mjTEXROLE_ROUGHNESS','mjTEXROLE_NORMAL'):
             tid=roles.get(texture_role)
             if tid not in textures:continue
+            # Zone paint carries its authored color directly; the concrete's
+            # gray albedo must not dull it. Keep its roughness and normal maps.
+            if spec['name'].startswith('factory_zone_floor_') and texture_role in ('mjTEXROLE_RGB','mjTEXROLE_RGBA'):continue
             tex=nodes.new('ShaderNodeTexImage');tex.image=image(tid,texture_role in ('mjTEXROLE_ROUGHNESS','mjTEXROLE_NORMAL'))
             tex.extension='REPEAT';uv=nodes.new('ShaderNodeUVMap');mapping=nodes.new('ShaderNodeVectorMath');mapping.operation='MULTIPLY'
             mapping.inputs[1].default_value=(*spec['texrepeat'],1.)
@@ -162,6 +165,10 @@ def main():
             else:
                 mix=nodes.new('ShaderNodeMixRGB');mix.blend_type='MULTIPLY';mix.inputs[0].default_value=1.;mix.inputs[2].default_value=spec['rgba']
                 color=tex.outputs['Color']
+                if spec['name']=='factory_floor':
+                    normalization=nodes.new('ShaderNodeVectorMath');normalization.operation='SCALE'
+                    normalization.inputs['Scale'].default_value=1.35
+                    links.new(color,normalization.inputs[0]);color=normalization.outputs['Vector']
                 if lighting.get('normalize_paint_textures',False) and spec['name'] in ('factory_wall','factory_roof'):
                     # These grayscale images describe paint/rib variation, not
                     # a second dark paint layer over the chosen base albedo.
@@ -171,7 +178,11 @@ def main():
                 links.new(color,mix.inputs[1])
                 if role in ('print','painted_wood','task_color'):
                     chroma=nodes.new('ShaderNodeHueSaturation');chroma.inputs['Saturation'].default_value=1.65
-                    links.new(mix.outputs[0],chroma.inputs['Color']);links.new(chroma.outputs['Color'],bsdf.inputs['Base Color'])
+                    links.new(mix.outputs[0],chroma.inputs['Color'])
+                    if role=='print':
+                        contrast=nodes.new('ShaderNodeGamma');contrast.inputs['Gamma'].default_value=1.8
+                        links.new(chroma.outputs['Color'],contrast.inputs['Color']);links.new(contrast.outputs['Color'],bsdf.inputs['Base Color'])
+                    else:links.new(chroma.outputs['Color'],bsdf.inputs['Base Color'])
                 else:links.new(mix.outputs[0],bsdf.inputs['Base Color'])
         if role=='painted_wood' or spec['name']=='factory_bench_wood':
             # Fine sealed grain, in stable local UVs; no displacement or color
@@ -251,7 +262,6 @@ def main():
         from factory_blender_objects import build
         camera_positions=[f['camera']['position_m']for f in animation['frames']]if animation else [c['position_m']for c in metadata['cameras']if c['id']in args.views]
         mutable=set(animation['appearance_geom_ids'])if animation else set()
-        if args.desk_cameras:mutable.update(g['id'] for g in metadata['geoms'] if g['name'].startswith('ws_caption_'))
         grouped=build(metadata,meshes,primitive,geom_material,scene,mutable,args.instances,camera_positions,args.profile=='fast',lighting.get('robot_lod',{}))
         objects=grouped['objects'];max_position_error=grouped['position_error'];max_rotation_error=grouped['rotation_error']
     for g in ([] if grouped else metadata['geoms']):
@@ -389,25 +399,6 @@ def main():
         report['recorded_pose']=dict(case_id=recorded['case_id'],time_s=recorded['selected_recorded_time_s'],geometries=len(recorded['geoms']),
             source_scene_sha256=recorded['source_scene_sha256'],motion_index_sha256=recorded['motion_index_sha256'])
     hidden_state=None
-    station_objects={}
-    if args.desk_cameras:
-        shell_objects=set();caption_objects={}
-        for geom in metadata['geoms']:
-            name=geom['name']
-            if '__' in name:
-                station_objects.setdefault(name.split('__',1)[0],set()).add(objects[geom['id']])
-            elif name.startswith('ws_caption_'):
-                caption_objects[name[len('ws_caption_'):]]=objects[geom['id']]
-            else:
-                shell_objects.add(objects[geom['id']])
-        # A neutral floor makes each desk readable without factory furniture
-        # or building columns obscuring its orthographic inspection views.
-        bpy.ops.mesh.primitive_plane_add(size=200, location=(0,0,-.015))
-        stage=bpy.context.object
-        stage.name='Desk inspection floor'
-        stage_mat=bpy.data.materials.new('Desk inspection floor')
-        stage_mat.diffuse_color=(.45,.45,.45,1)
-        stage.data.materials.append(stage_mat)
     def render_camera(source,file):
         nonlocal hidden_state
         position=Vector(source['position_m']);target=Vector(source['target_m']);camera.location=position
@@ -428,12 +419,6 @@ def main():
                 obj.visible_camera=group not in {layers[x] for x in camera_hidden if x in layers}
             for obj in exterior_objects:obj.hide_render=bool(hidden or camera_hidden)
             hidden_state=state
-        if args.desk_cameras:
-            station=source.get('station')
-            for obj in shell_objects:obj.hide_render=True
-            for case,obj in caption_objects.items():obj.hide_render=case!=station or not source.get('show_caption',False)
-            for case,station_group in station_objects.items():
-                for obj in station_group:obj.hide_render=case!=station
         offset=lighting.get('top_exposure_offset_ev',0.) if source.get('projection')=='orthographic' else 0.
         scene.view_settings.exposure=args.exposure+source.get('exposure_offset_ev',offset)
         scene.render.filepath=str(file);before=time.monotonic();bpy.ops.render.render(write_still=True)

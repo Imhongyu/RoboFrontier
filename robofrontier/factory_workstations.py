@@ -151,9 +151,9 @@ def compose(shell,catalog_path,output,table_opening_scale=None,source_overrides=
     occupied.extend(p['planning_bounds_xy_m']for p in plan)
     del shell_model,shell_data
     def floor_label(name,text,position,half):
-        image=Image.new('RGB',(1600,256),(216,220,216));draw=ImageDraw.Draw(image)
+        image=Image.new('RGB',(1600,256),(245,245,240));draw=ImageDraw.Draw(image)
         font=ImageFont.truetype(str(root_dir/'assets/robo_factory/fonts/BarlowCondensed-SemiBold.ttf'),150)
-        draw.text((800,128),text,font=font,anchor='mm',fill=(35,57,67))
+        draw.text((800,128),text,font=font,anchor='mm',fill=(0,0,0))
         file=output/'workstation-assets'/(name+'.png');file.parent.mkdir(exist_ok=True);image.save(file)
         ET.SubElement(root.find('asset'),'texture',name=name,type='2d',file=str(file.relative_to(output)))
         ET.SubElement(root.find('asset'),'material',name=name,texture=name,texuniform='false',specular='0',roughness='.85')

@@ -50,3 +50,12 @@ class MaterialChecks(unittest.TestCase):
             self.assertIsNotNone(task_role(dict(name=name)),name)
         source=dict(rgba=[.9,.9,.9,1.],roughness=.5,metallic=0.)
         self.assertEqual(resolve(source,'task_color')['rgba'],source['rgba'])
+
+    def test_printed_labels_use_matte_nonmetallic_finish(self):
+        for name in ('transport-a04-d1__A_label', 'dial-best5-n04-d1__score_title_geom',
+                     'relay-a08-d1__payload_01_label'):
+            self.assertEqual(task_role(dict(name=name)), 'print')
+        result = resolve(dict(rgba=[1, 1, 1, 1], roughness=.2, metallic=.4), 'print')
+        self.assertEqual(result['specular'], 0.)
+        self.assertGreaterEqual(result['roughness'], .9)
+        self.assertEqual(result['metallic'], 0.)

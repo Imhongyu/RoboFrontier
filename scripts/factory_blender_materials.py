@@ -20,7 +20,7 @@ def robot_role(spec):
 def task_role(geom):
     name=geom.get('name','')
     if '__' not in name:return None
-    if '_label' in name or '_print' in name:return 'print'
+    if any(mark in name for mark in ('_label','_print','_mark','__score_title_geom')):return 'print'
     if (name.startswith('relay-') and re.search(r'__payload_\d+_beam$',name)
             or name.startswith('mosaic-') and re.search(r'__[A-Z]_stock\d+_geom$',name)):
         return 'painted_wood'
@@ -47,7 +47,7 @@ def resolve(spec, role=None, calibrated=True):
                       roughness=.54 if role == 'joint' else .46,
                       metallic=0., specular=.30)
     if role in ('print','painted_wood'):
-        result.update(roughness=.80 if role=='print' else .58,metallic=0.,specular=.18 if role=='print' else .25)
+        result.update(roughness=.95 if role=='print' else .58,metallic=0.,specular=0. if role=='print' else .25)
     if role=='task_color' and max(result['rgba'][:3])-min(result['rgba'][:3]) < .06:
         result.update(roughness=.65,metallic=0.,specular=.18)
     if role in ('print','painted_wood','task_color'):

@@ -185,11 +185,10 @@ Blender集成检查读取最终求值几何的面材质，验证独立变色、�
 python -m scripts.export_factory_blender --scene SCENE/scene.xml --output ASSET
 python -m scripts.factory_desk_cameras --scene SCENE/scene.xml --output desk-cameras.json
 blender --background --python-exit-code 1 --python scripts/render_factory_blender.py -- \
-  --asset ASSET --output DESK_OUTPUT --desk-cameras desk-cameras.json --no-instances \
+  --asset ASSET --output DESK_OUTPUT --desk-cameras desk-cameras.json \
   --width 1280 --height 800 --samples 16 --profile fast
 ```
 
-默认每桌输出 front、top、side 三个透视视图，分别使用该任务简单背景的
-global、top、global_side 相机，并按工位在工厂中的刚体位置变换；其他工位及工厂设施隐藏，
-中性地面用于检查工位本身。俯视图保留原相机方向，调整位置和视野以在
+默认每桌输出 front、top、side 三个透视视图，并保留工厂环境；正面沿用该任务简单背景的
+global 相机，侧面在相同工位侧轴正对桌子。俯视图保留原相机方向，调整位置和视野以在
 16:10 画幅内容纳桌子及其标签，并降低透视造成的遮挡。结果是静态初始姿态，不代表运行时所有姿态。
