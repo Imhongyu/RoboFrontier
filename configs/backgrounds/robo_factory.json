@@ -84,6 +84,7 @@
     {
       "id": "dial",
       "label": "DIAL LAB",
+      "workstation_gap_m": 0.6,
       "bounds_xy_m": [
         1.5,
         -22.0,
@@ -231,9 +232,7 @@
     "fixture_width_m": 0.2,
     "emission_scale": 4.0,
     "top_exposure_offset_ev": 0.6,
-    "eevee_top_exposure_offset_ev": 0.25,
     "visible_sky_strength": 1.6,
-    "eevee_all_shadows": false,
     "sun_color": [
       1.0,
       0.86,

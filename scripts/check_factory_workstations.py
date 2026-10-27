@@ -7,11 +7,16 @@ from robofrontier.factory_workstations import FactoryPlayback
 from robofrontier.factory_playback import current_scene
 from robofrontier.workstation import Workstation
 from robofrontier.run_setup import write_json
+from robofrontier.task_families import ROOT, RELEASE, read
 
 def check(scene,output,render=False):
+ if render:raise ValueError('Factory still images use Cycles via scripts.render_factory_blender')
  output=Path(output);output.mkdir(parents=True,exist_ok=True);play=FactoryPlayback(scene);rows=[]
+ release=read(ROOT/RELEASE);cases={c['id']:c for family in release['families'].values() for c in family['oracle']}
  for place in play.manifest['placements']:
-  source=Workstation(place['source_directory']);frame=play.apply(place['case_id'],source,source.initial_qpos,0);names=play.manifest['workstation_names'][place['case_id']]['geom_names'];position=0.;rotation=0.
+  source=Workstation(place['source_directory']);spec=cases[place['case_id']]
+  play.configure_workstation(place['case_id'],source,spec.get('table_opening_scale',1.))
+  frame=play.apply(place['case_id'],source,source.initial_qpos,0);names=play.manifest['workstation_names'][place['case_id']]['geom_names'];position=0.;rotation=0.
   for name,target in names.items():
    gid=play.model.geom(target).id;pose=frame['geometries'][name];position=max(position,float(np.linalg.norm(play.data.geom_xpos[gid]-pose['position_m'])))
    actual=np.empty(4);mujoco.mju_mat2Quat(actual,play.data.geom_xmat[gid]);rotation=max(rotation,1-abs(float(actual@pose['quaternion_wxyz'])))
