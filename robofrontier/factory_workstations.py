@@ -199,7 +199,7 @@ def compose(shell,catalog_path,output,table_opening_scale=None,source_overrides=
     for place in plan:
         lowx,lowy,highx,highy=place['table_bounds_xy_m'];cx=(lowx+highx)/2
         half=[min(1.4,(highx-lowx)/2-.10),.13]
-        candidates=[[cx+dx,highy+half[1]+gap,.004]for gap in (.20,.30,.45,.60,1.)for dx in (0,-.35,.35)]
+        candidates=[[cx,highy+half[1]+gap,.004]for gap in (.20,.30,.45,.60,1.)]
         # The planning envelope deliberately extends beyond the tabletop; it
         # must not force a caption far away from its own table.
         blocked=shell_occupied+[p['planning_bounds_xy_m'] for p in plan if p is not place]+[x['bounds_xy_m'] for x in labels]

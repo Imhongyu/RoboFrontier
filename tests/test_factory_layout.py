@@ -28,6 +28,13 @@ class FactoryLayoutChecks(unittest.TestCase):
                 catalog.write_text(json.dumps(dict(cases=cases)))
             write()
             self.assertTrue(check(root/'scene.xml', catalog)['passed'])
+            labels[0]['bounds_xy_m'][0] += .35
+            labels[0]['bounds_xy_m'][2] += .35
+            write()
+            with self.assertRaisesRegex(ValueError, 'not centered'):
+                check(root/'scene.xml', catalog)
+            labels[0]['bounds_xy_m'][0] -= .35
+            labels[0]['bounds_xy_m'][2] -= .35
             labels[0]['bounds_xy_m'][1] = places[0]['table_bounds_xy_m'][1] - .5
             write()
             with self.assertRaisesRegex(ValueError, 'caption'):

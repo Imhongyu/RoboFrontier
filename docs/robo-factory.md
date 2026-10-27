@@ -176,3 +176,20 @@ Blender集成检查读取最终求值几何的面材质，验证独立变色、�
 ## 数据清理后的交付入口
 
 `outputs/final/factory/` 提供当前 top、side 和环视 MP4 的链接。当前场景、Blender导出、光照配置、36条源流和v3剪辑保留；旧版本试图和编码后的逐帧PNG缓存按保留策略清理。旧验收中的帧数／解码结果是当时检查记录，不能据此声称PNG缓存现在仍存在。更新后的独立渲染输出不纳入本轮清理。
+
+## 单桌三视图
+
+对已构建的场景先导出 Blender 资源，再生成相机并渲染：
+
+```bash
+python -m scripts.export_factory_blender --scene SCENE/scene.xml --output ASSET
+python -m scripts.factory_desk_cameras --scene SCENE/scene.xml --output desk-cameras.json
+blender --background --python-exit-code 1 --python scripts/render_factory_blender.py -- \
+  --asset ASSET --output DESK_OUTPUT --desk-cameras desk-cameras.json --no-instances \
+  --width 1280 --height 800 --samples 16 --profile fast
+```
+
+默认每桌输出 front、top、side 三个透视视图，分别使用该任务简单背景的
+global、top、global_side 相机，并按工位在工厂中的刚体位置变换；其他工位及工厂设施隐藏，
+中性地面用于检查工位本身。俯视图保留原相机方向，调整位置和视野以在
+16:10 画幅内容纳桌子及其标签，并降低透视造成的遮挡。结果是静态初始姿态，不代表运行时所有姿态。

@@ -30,7 +30,7 @@ SCRIPT_SHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--asset',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--views',nargs='+',default=['interior_south','interior_diagonal'])
+    parser.add_argument('--views',nargs='+',help='Named cameras; defaults to all desk cameras or the two interior views')
     parser.add_argument('--width',type=int,default=1280);parser.add_argument('--height',type=int,default=800)
     parser.add_argument('--exposure',type=float);parser.add_argument('--samples',type=int,default=64);parser.add_argument('--device',choices=['METAL','CPU'],default='METAL')
     parser.add_argument('--engine',choices=['cycles'],default='cycles',help='Factory offline rendering uses Cycles')
@@ -39,6 +39,7 @@ def main():
     parser.add_argument('--instances',action=argparse.BooleanOptionalAction,default=True)
     parser.add_argument('--lighting-config',type=Path,help='Offline lighting overrides; source task state stays frozen')
     parser.add_argument('--camera-config',type=Path,help='Named offline camera overrides for matched-engine look development')
+    parser.add_argument('--desk-cameras',type=Path,help='JSON array of isolated workstation inspection cameras (requires --no-instances)')
     parser.add_argument('--denoise',action=argparse.BooleanOptionalAction,default=True,help='GPU denoising for low-sample output')
     parser.add_argument('--save-blend',action='store_true');parser.add_argument('--usd',action='store_true')
     parser.add_argument('--recorded-pose',type=Path,help='Derived recorded-state pose, matching this exact factory; no physics')
@@ -72,6 +73,11 @@ def main():
     if platform.system()=='Darwin':threading.Thread(target=monitor_gpu,daemon=True).start()
     args.asset=args.asset.resolve();args.output=args.output.resolve();args.output.mkdir(parents=True,exist_ok=True)
     metadata=json.loads((args.asset/'scene.json').read_text());arrays=np.load(args.asset/'meshes.npz')
+    if args.desk_cameras:
+        if args.instances or args.animation or args.recorded_pose:raise ValueError('Desk cameras require static rendering and --no-instances')
+        desk_cameras=json.loads(args.desk_cameras.read_text())
+        metadata['cameras'].extend(desk_cameras)
+    args.views=args.views or ([c['id'] for c in desk_cameras] if args.desk_cameras else ['interior_south','interior_diagonal'])
     if args.camera_config:
         overrides=json.loads(args.camera_config.read_text())
         metadata['cameras']=[overrides.get(c['id'],c)for c in metadata['cameras']]
@@ -244,7 +250,9 @@ def main():
         sys.path.insert(0,str(Path(__file__).resolve().parent))
         from factory_blender_objects import build
         camera_positions=[f['camera']['position_m']for f in animation['frames']]if animation else [c['position_m']for c in metadata['cameras']if c['id']in args.views]
-        grouped=build(metadata,meshes,primitive,geom_material,scene,set(animation['appearance_geom_ids'])if animation else set(),args.instances,camera_positions,args.profile=='fast',lighting.get('robot_lod',{}))
+        mutable=set(animation['appearance_geom_ids'])if animation else set()
+        if args.desk_cameras:mutable.update(g['id'] for g in metadata['geoms'] if g['name'].startswith('ws_caption_'))
+        grouped=build(metadata,meshes,primitive,geom_material,scene,mutable,args.instances,camera_positions,args.profile=='fast',lighting.get('robot_lod',{}))
         objects=grouped['objects'];max_position_error=grouped['position_error'];max_rotation_error=grouped['rotation_error']
     for g in ([] if grouped else metadata['geoms']):
         mesh=meshes[('mesh',g['mesh'])] if g['kind']==7 else primitive(g['kind'])
@@ -381,10 +389,30 @@ def main():
         report['recorded_pose']=dict(case_id=recorded['case_id'],time_s=recorded['selected_recorded_time_s'],geometries=len(recorded['geoms']),
             source_scene_sha256=recorded['source_scene_sha256'],motion_index_sha256=recorded['motion_index_sha256'])
     hidden_state=None
+    station_objects={}
+    if args.desk_cameras:
+        shell_objects=set();caption_objects={}
+        for geom in metadata['geoms']:
+            name=geom['name']
+            if '__' in name:
+                station_objects.setdefault(name.split('__',1)[0],set()).add(objects[geom['id']])
+            elif name.startswith('ws_caption_'):
+                caption_objects[name[len('ws_caption_'):]]=objects[geom['id']]
+            else:
+                shell_objects.add(objects[geom['id']])
+        # A neutral floor makes each desk readable without factory furniture
+        # or building columns obscuring its orthographic inspection views.
+        bpy.ops.mesh.primitive_plane_add(size=200, location=(0,0,-.015))
+        stage=bpy.context.object
+        stage.name='Desk inspection floor'
+        stage_mat=bpy.data.materials.new('Desk inspection floor')
+        stage_mat.diffuse_color=(.45,.45,.45,1)
+        stage.data.materials.append(stage_mat)
     def render_camera(source,file):
         nonlocal hidden_state
         position=Vector(source['position_m']);target=Vector(source['target_m']);camera.location=position
-        camera.rotation_euler=(target-position).to_track_quat('-Z','Y').to_euler()
+        camera.rotation_euler=(Matrix(source['rotation_matrix']).to_euler() if 'rotation_matrix' in source
+            else (target-position).to_track_quat('-Z','Y').to_euler())
         if source.get('projection')=='orthographic':
             camera_data.type='ORTHO';camera_data.sensor_fit='HORIZONTAL'
             camera_data.ortho_scale=source['orthographic_height_m']*args.width/args.height
@@ -400,6 +428,12 @@ def main():
                 obj.visible_camera=group not in {layers[x] for x in camera_hidden if x in layers}
             for obj in exterior_objects:obj.hide_render=bool(hidden or camera_hidden)
             hidden_state=state
+        if args.desk_cameras:
+            station=source.get('station')
+            for obj in shell_objects:obj.hide_render=True
+            for case,obj in caption_objects.items():obj.hide_render=case!=station or not source.get('show_caption',False)
+            for case,station_group in station_objects.items():
+                for obj in station_group:obj.hide_render=case!=station
         offset=lighting.get('top_exposure_offset_ev',0.) if source.get('projection')=='orthographic' else 0.
         scene.view_settings.exposure=args.exposure+source.get('exposure_offset_ev',offset)
         scene.render.filepath=str(file);before=time.monotonic();bpy.ops.render.render(write_still=True)
