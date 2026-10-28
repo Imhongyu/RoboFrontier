@@ -109,6 +109,7 @@ class Scheduler:
                     s.db.execute('UPDATE wakes SET trigger_key=? WHERE id=?',(key+'|cancelled:'+existing['id'],existing['id']))
                 wake_id = uuid.uuid4().hex
                 prompt = (f"运行通知〔wake_id={wake_id}〕：平台状态观察显示你的上一轮已结束；"
+                          '当前运行状态：running，团队已经START。'
                           + '；'.join(reasons) + '。请合并新增事件，复用有效上下文；需要时恢复已保存工作，自行决定继续、等待或结束。'
                           '本通知不包含任务分工或动作建议。结束前按当前角色协议保存状态或交回委派；交付/收件不代表接受或任务完成。')
                 value = {'wake_id': wake_id, 'actor': actor, 'thread_id': a['thread_id'],

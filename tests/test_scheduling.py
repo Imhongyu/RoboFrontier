@@ -100,6 +100,12 @@ class SchedulingTests(unittest.TestCase):
         wake=self.commands()[0]
         self.assertEqual(wake['actor'],'A')
         self.assertEqual(self.s.actions(),{})
+    def test_start_wake_explicitly_reports_the_running_lifecycle(self):
+        self.s.checkpoint_work('A','continue','START; form your own plan within role authority',now=100)
+        wake=self.commands()[0]
+        self.assertIn('运行状态：running',wake['prompt'])
+        self.assertIn('团队已经START',wake['prompt'])
+        self.assertEqual(self.s.actions(),{})
     def test_availability_is_declared_not_inferred_from_idle_or_tool_end(self):
         self.assertEqual(self.s.pending('Coordinator')['signals'],0)
         self.s.checkpoint_work('A','available','local work done, can cooperate',now=100)
