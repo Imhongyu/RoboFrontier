@@ -107,6 +107,12 @@ DEEPSEEK_API_KEY=
 
 ## 先小测，再正式运行
 
+本机增加的 OpenRouter GLM 配置位于 `configs/models-openrouter.json`，profile 为
+`glm-openrouter`，模型为 `z-ai/glm-5.3-flash`，使用 `OPENROUTER_API_KEY`。
+在下方 preflight、plan 和 prepare 命令中指定
+`--models glm-openrouter --model-config configs/models-openrouter.json`。
+该来源的结果单独记录，不与智谱直连的 `glm` profile 混用。
+
 先运行不调用付费模型的检查：
 
 ```sh

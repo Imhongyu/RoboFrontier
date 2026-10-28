@@ -10,7 +10,8 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const read = file=>JSON.parse(fs.readFileSync(file,'utf8'));
 const robotTool = {type:'function',name:'robot',description:
   'Call your assigned RoboFrontier role API. Same operations/data as the frozen skill. Selected views return actual RGB images. Never manage sessions or use another role connection.',
-  inputSchema:{type:'object',properties:{op:{type:'string'},data:{type:'object'},
+  inputSchema:{type:'object',properties:{op:{type:'string'},data:{type:'object',additionalProperties:true,
+    description:'Operation parameters from the frozen role API, including all required fields such as note, state or robot.'},
     call_id:{type:'string'},views:{type:'array',items:{type:'string'}}},required:['op','data']}};
 
 class PolicyHost {

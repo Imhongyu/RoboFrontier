@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-28",
+  "context_window": 272000,
+  "auto_compact_token_limit": 245000,
+  "profiles": {
+    "glm-openrouter": {
+      "model": "z-ai/glm-5.3-flash",
+      "provider": "openrouter",
+      "effort": "max",
+      "vision": true,
+      "context_capacity": 1048576,
+      "base_url": "https://openrouter.ai/api/v1",
+      "env_key": "OPENROUTER_API_KEY",
+      "documentation": "https://openrouter.ai/z-ai/glm-5.3-flash",
+      "compatibility": "Requires live image/tool/compaction/fork preflight through OpenRouter"
+    }
+  }
+}

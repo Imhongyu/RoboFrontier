@@ -1,6 +1,7 @@
 // Explicitly invoked paid connectivity test, separate from scored robot trials.
 const fs=require('node:fs'),path=require('node:path');
 const {CodexRpc}=require('./codex_rpc');
+const {robotTool}=require('./codex_policy_host');
 async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
   const launch=JSON.parse(fs.readFileSync(path.join(folder,'launch.json')));
   const waits=new Map();
@@ -16,7 +17,9 @@ async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
     },onRequest:async(m,p)=>{
       if(m!=='item/tool/call' || p.tool!=='protocol_check')throw new Error('Unsupported preflight request');
       const a=typeof p.arguments==='string'?JSON.parse(p.arguments):p.arguments;
-      const valid=a.left==='red'&&a.right==='blue'; tools.set(p.threadId,valid);
+      const valid=a.left==='red'&&a.right==='blue'&&a.data?.note==='protocol-check'
+        &&a.data?.colors?.left==='red'&&a.data?.colors?.right==='blue';
+      tools.set(p.threadId,valid);
       return {success:valid,contentItems:[{type:'inputText',text:valid?'VISION_TOOL_OK':'Incorrect image colors'}]};
     }});
   fs.closeSync(serverLog);
@@ -36,16 +39,17 @@ async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
     const a=await rpc.call('thread/start',{cwd:folder,model:launch.model,modelProvider:launch.provider,
       approvalPolicy:'never',sandbox:'read-only',dynamicTools:[{type:'function',name:'protocol_check',
         description:'Submit the two dominant image colors from left to right.',inputSchema:{type:'object',
-        properties:{left:{type:'string'},right:{type:'string'}},required:['left','right']}}]});id=a.thread.id;
+        properties:{left:{type:'string'},right:{type:'string'},data:robotTool.inputSchema.properties.data},
+        required:['left','right','data']}}]});id=a.thread.id;
     await rpc.call('thread/name/set',{threadId:id,name:'API preflight · '+launch.model});
     const finished=nextTurn(id);
     await rpc.call('turn/start',{threadId:id,model:launch.model,effort:launch.effort,input:[
-      {type:'text',text:'Inspect the attached image. Call protocol_check with the dominant color in the left half and the right half, using lowercase English color names. Then reply with the tool result. Do not use shell or other tools.'},
+      {type:'text',text:'Inspect the attached image. Call protocol_check with the dominant color in the left half and the right half, using lowercase English color names. Also include data with note "protocol-check" and colors containing the same left and right values, to check nested robot parameter transport. Then reply with the tool result. Do not use shell or other tools.'},
       {type:'localImage',path:path.join(folder,'colors.png')} ]});
     const turn=await deadline(finished,180000);
     if(turn.status!=='completed' || !tools.get(id))throw new Error('Parent image/tool turn failed: '+JSON.stringify(turn.error));
     if(smokeOnly) {
-      report={...report,passed:true,vision_and_function:true,thread_id:id};
+      report={...report,passed:true,vision_and_function:true,robot_payload:true,thread_id:id};
       return report;
     }
     await rpc.call('thread/compact/start',{threadId:id});
@@ -56,10 +60,10 @@ async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
     if(fork.thread.forkedFromId!==id)throw new Error('Fork parent mismatch');
     const childFinished=nextTurn(childId);
     await rpc.call('turn/start',{threadId:childId,model:launch.model,effort:launch.effort,input:[
-      {type:'text',text:'Using the image and tool result from our prior conversation, call protocol_check again with the same left and right colors. Do not use shell or other tools.'}]});
+      {type:'text',text:'Using the image and tool result from our prior conversation, call protocol_check again with the same left and right colors and the same nested data payload. Do not use shell or other tools.'}]});
     const child=await deadline(childFinished,180000);
     if(child.status!=='completed' || !tools.get(childId))throw new Error('Fork did not inherit usable image history and tool');
-    report={...report,passed:true,vision_and_function:true,compaction:compact,
+    report={...report,passed:true,vision_and_function:true,robot_payload:true,compaction:compact,
       fork_parent_verified:true,fork_history_and_tool:true,thread_id:id,child_thread_id:childId};
   } catch(e) {report.error=e.message;}
   finally {

@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {preflight}=require('../scripts/codex_preflight');
-function fakeRpc({badParent=false,badChild=false,badImage=false,noFork=false}={}) {
+function fakeRpc({badParent=false,badChild=false,badImage=false,badData=false,noFork=false}={}) {
   return class {
     constructor(args,handlers){this.handlers=handlers;}
     async initialize(){}
@@ -16,7 +16,8 @@ function fakeRpc({badParent=false,badChild=false,badImage=false,noFork=false}={}
       if(method==='turn/start') {
         const child=p.threadId==='child';
         await this.handlers.onRequest('item/tool/call',{tool:'protocol_check',threadId:p.threadId,
-          arguments:JSON.stringify({left:badImage||child&&badChild?'green':'red',right:'blue'})});
+          arguments:JSON.stringify({left:badImage||child&&badChild?'green':'red',right:'blue',
+            data:badData?{}:{note:'protocol-check',colors:{left:'red',right:'blue'}}})});
         this.handlers.onEvent({method:'turn/completed',params:{threadId:p.threadId,turn:{status:'completed'}}});
         return {};
       }
@@ -48,4 +49,8 @@ test('smoke checks vision and tools without compaction or fork qualification',as
 });
 test('smoke rejects incorrect image interpretation',async()=>{
   const result=await run({badImage:true},{smokeOnly:true});assert.equal(result.passed,false);
+});
+test('preflight rejects a provider that returns colors but loses the robot payload',async()=>{
+  const result=await run({badData:true},{smokeOnly:true});
+  assert.equal(result.passed,false);
 });
