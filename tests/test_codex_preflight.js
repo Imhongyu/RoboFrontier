@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {preflight}=require('../scripts/codex_preflight');
-function fakeRpc({badParent=false,badChild=false,badImage=false,badData=false,noFork=false}={}) {
+function fakeRpc({badParent=false,badChild=false,badImage=false,badData=false,noFork=false,skipToolImage=false}={}) {
   return class {
     constructor(args,handlers){this.handlers=handlers;}
     async initialize(){}
@@ -15,9 +15,11 @@ function fakeRpc({badParent=false,badChild=false,badImage=false,badData=false,no
       }
       if(method==='turn/start') {
         const child=p.threadId==='child';
-        await this.handlers.onRequest('item/tool/call',{tool:'protocol_check',threadId:p.threadId,
-          arguments:JSON.stringify({left:badImage||child&&badChild?'green':'red',right:'blue',
-            data:badData?{}:{note:'protocol-check',colors:{left:'red',right:'blue'}}})});
+        for(const [left,right] of child?[['blue','yellow']]:skipToolImage?[['red','blue']]:[['red','blue'],['blue','yellow']]) {
+          await this.handlers.onRequest('item/tool/call',{tool:'protocol_check',threadId:p.threadId,
+            arguments:JSON.stringify({left:badImage||child&&badChild?'green':left,right,
+              data:badData?{}:{note:'protocol-check',colors:{left,right}}})});
+        }
         this.handlers.onEvent({method:'turn/completed',params:{threadId:p.threadId,turn:{status:'completed'}}});
         return {};
       }
@@ -29,12 +31,14 @@ async function run(opts,mode={}) {
   const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rf-preflight-'));
   try {
     fs.writeFileSync(path.join(folder,'launch.json'),JSON.stringify({args:[],model:'sample',provider:'sample',effort:'high',context_window:272000,auto_compact_token_limit:245000}));
+    fs.writeFileSync(path.join(folder,'colors-tool.png'),'synthetic image fixture');
     return await preflight(folder,fakeRpc(opts),mode);
   } finally {fs.rmSync(folder,{recursive:true,force:true});}
 }
 test('preflight verifies fork parent and inherited tool result',async()=>{
   const result=await run();assert.equal(result.passed,true);assert.equal(result.fork_history_and_tool,true);
   assert.equal(result.automatic_compaction_tested,false);assert.equal(result.context_stress_tested,false);
+  assert.equal(result.tool_image_round_trip,true);
 });
 test('preflight fails closed on incorrect fork parent',async()=>{
   const result=await run({badParent:true});assert.equal(result.passed,false);assert.match(result.error,/parent mismatch/);
@@ -52,5 +56,9 @@ test('smoke rejects incorrect image interpretation',async()=>{
 });
 test('preflight rejects a provider that returns colors but loses the robot payload',async()=>{
   const result=await run({badData:true},{smokeOnly:true});
+  assert.equal(result.passed,false);
+});
+test('preflight rejects a provider that stops before reading the tool-returned image',async()=>{
+  const result=await run({skipToolImage:true},{smokeOnly:true});
   assert.equal(result.passed,false);
 });

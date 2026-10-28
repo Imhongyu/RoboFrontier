@@ -6,6 +6,19 @@ class RpcError extends Error {
   constructor(value) { super(value.message); this.detail = value; }
 }
 class CodexRpc {
+  static async create(args=[],options={}) {
+    const config={};
+    for(let i=0;i<args.length;i++) if(args[i]==='-c') {
+      const entry=args[++i],split=entry.indexOf('=');
+      config[entry.slice(0,split)]=entry.slice(split+1);
+    }
+    if(config.model_provider!=='"openrouter"') return new CodexRpc(args,options);
+    const {createBridge}=require('./openrouter_bridge');
+    const bridge=await createBridge(JSON.parse(config['model_providers.openrouter.base_url']));
+    const rpc=new CodexRpc([...args,'-c','model_providers.openrouter.base_url='+JSON.stringify(bridge.url)],options);
+    rpc.bridge=bridge;
+    return rpc;
+  }
   constructor(args = [], {stderr = 'ignore', onEvent = () => {}, onRequest} = {}) {
     this.next = 0; this.pending = new Map(); this.onEvent = onEvent;
     this.process = spawn('codex', ['app-server', ...args, '--listen', 'stdio://'],
@@ -55,11 +68,14 @@ class CodexRpc {
     this.write({method:'initialized'}); return result;
   }
   async close() {
-    if (this.closed) return;
-    const exited = new Promise(resolve => this.process.once('exit',resolve));
-    this.process.kill('SIGTERM');
-    const timer = setTimeout(() => this.process.kill('SIGKILL'),3000);
-    await exited; clearTimeout(timer);
+    try {
+      if (!this.closed) {
+        const exited = new Promise(resolve => this.process.once('exit',resolve));
+        this.process.kill('SIGTERM');
+        const timer = setTimeout(() => this.process.kill('SIGKILL'),3000);
+        await exited; clearTimeout(timer);
+      }
+    } finally {if(this.bridge)await this.bridge.close();}
   }
 }
 function capacityFailure(error) {

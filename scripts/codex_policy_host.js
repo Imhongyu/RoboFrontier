@@ -59,7 +59,7 @@ class PolicyHost {
   }
   async startServer() {
     const log=fs.openSync(path.join(this.run,'private/outputs/codex-server.log'),'a');
-    this.rpc=new CodexRpc(this.launch.args,{stderr:log,onRequest:(m,p)=>this.toolRequest(m,p),onEvent:m=>{
+    this.rpc=await CodexRpc.create(this.launch.args,{stderr:log,onRequest:(m,p)=>this.toolRequest(m,p),onEvent:m=>{
       const p=m.params||{};
       if (m.method==='turn/completed') {
         this.turns.set(p.threadId,p.turn);
@@ -71,7 +71,7 @@ class PolicyHost {
       }
       if (['turn/started','turn/completed','thread/status/changed','thread/tokenUsage/updated','error'].includes(m.method))
         this.event({event:m.method,thread_id:p.threadId,turn_id:p.turn?.id,status:p.turn?.status,
-          token_usage:p.tokenUsage,error:p.error});
+          token_usage:p.tokenUsage,error:p.turn?.error||p.error});
     }});
     fs.closeSync(log); await this.rpc.initialize();
   }

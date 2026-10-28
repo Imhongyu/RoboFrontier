@@ -131,7 +131,7 @@ API 通过。`plan` 输出任务数、臂数、来源与 qualification，不创�
 .venv/bin/python -m scripts.benchmark preflight --models kimi --smoke-only
 ```
 
-它给模型一张合成红蓝图片，要求调用检查工具并回复。通过才证明本账号在该配置下
+它先给模型一张合成红蓝图片，再通过工具返回另一张1280×720带纹理的蓝黄图片，要求模型重新辨色并调用检查工具。通过才证明本账号在该配置下
 能完成这一小段图片/函数工具往返，不代表整个机器人实验已经适配。输出在
 `runs/engineering/model-smoke/kimi/report.json`。可依次替换 `kimi` 为
 `qwen`、`glm`、`deepseek`；这些命令会产生真实 API 费用。
@@ -146,6 +146,13 @@ API 通过。`plan` 输出任务数、臂数、来源与 qualification，不创�
 `runs/engineering/model-compatibility/kimi/report.json`。smoke 回执不能代替它。
 完整检查仍未压测272K上下文或自动压缩，也不能独立证明服务器背后的实际模型身份。
 更改型号、endpoint、effort、模型 catalog 或 CLI 版本后重新检查。
+
+OpenRouter 使用本机临时 HTTP 转换层。工具返回的文字保持字符串，图片和文件按原字节
+放到紧随工具结果的用户媒体消息中，避免供应商把图片编码当成文本。仅向上游发送
+function 工具定义；原生 custom 和 namespace 工具不参与本评测的机器人协议。
+转换层不删减历史图片，不改变模型、观察分辨率或机器人动作。日志保留原始错误。
+可用 `scripts.check_codex_cli --openrouter-compat` 在本地假接口验证安装的 CLI，
+该检查不调用外部模型。付费预检仍需在目标服务器执行。
 
 ## 分配任务和控制并行
 

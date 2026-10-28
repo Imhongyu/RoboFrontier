@@ -18,13 +18,16 @@ from robofrontier.run_setup import write_json
 from robofrontier.runtime_cli import fork_provenance
 
 
-def check(output):
+def check(output, openrouter_compat=False):
     output=Path(output).absolute();output.mkdir(parents=True,exist_ok=True)
     requests=[]
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args):pass
         def do_POST(self):
             body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append(body)
+            if openrouter_compat and (any(t['type']!='function' for t in body.get('tools',[])) or
+                    any(not isinstance(i['output'],str) for i in body.get('input',[]) if i.get('type')=='function_call_output')):
+                self.send_response(400);self.end_headers();self.wfile.write(b'{"error":{"message":"Incompatible tools or output"}}');return
             image_seen='input_image' in json.dumps(body.get('input'))
             item=(dict(id='fc_probe',type='function_call',call_id='call_probe',name='probe',arguments='{}',status='completed')
                   if not image_seen else dict(id='msg_probe',type='message',role='assistant',status='completed',
@@ -42,7 +45,7 @@ def check(output):
             self.wfile.flush()
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
     threading.Thread(target=server.serve_forever,daemon=True).start()
-    p=dict(model='offline-protocol',provider='offline_protocol',effort='high',vision=True,
+    p=dict(model='offline-protocol',provider='openrouter' if openrouter_compat else 'offline_protocol',effort='high',vision=True,
         context_window=272000,auto_compact_token_limit=245000,
         base_url=f'http://127.0.0.1:{server.server_port}',env_key='ROBOFRONTIER_OFFLINE_STUB_TOKEN')
     write_json(output/'launch.json',launch_config(p,output))
@@ -53,7 +56,7 @@ const fs=require('fs'),{CodexRpc}=require(process.argv[1]+'/scripts/codex_rpc');
 const out=process.argv[2],launch=JSON.parse(fs.readFileSync(out+'/launch.json'));
 process.env.ROBOFRONTIER_OFFLINE_STUB_TOKEN='local-stub-no-credential';
 (async()=>{let done,completed=new Promise(r=>done=r),calls=0;
-const rpc=new CodexRpc(launch.args,{stderr:fs.openSync(out+'/server.log','w'),
+const rpc=await CodexRpc.create(launch.args,{stderr:fs.openSync(out+'/server.log','w'),
 onEvent:m=>{if(m.method==='turn/completed')done(m.params);},
 onRequest:async(m,p)=>{if(m!=='item/tool/call')throw new Error(m);calls++;
 return {success:true,contentItems:[{type:'inputText',text:'local tool result'},
@@ -80,6 +83,9 @@ for(const f of forks)await rpc.call('thread/archive',{threadId:f.id});await rpc.
         report=dict(passed=native['tool_calls']==1 and len(requests)==2 and proofs[0]==proofs[1],
             external_model_calls=0,local_stub_requests=len(requests),native=native,lineage=proofs,
             image_returned_to_model='input_image' in json.dumps(requests[-1]),
+            openrouter_compat=openrouter_compat,
+            media_in_user_message=any(i.get('role')=='user' and any(p.get('type')=='input_image' for p in i.get('content',[]))
+                for i in requests[-1].get('input',[])),
             scope='Actual installed CLI, local Responses stub; not provider access or Desktop UI acceptance')
         write_json(output/'report.json',report);return report
     finally:server.shutdown()
@@ -87,5 +93,7 @@ for(const f of forks)await rpc.call('thread/archive',{threadId:f.id});await rpc.
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output',type=Path,required=True)
-    result=check(parser.parse_args().output);print(json.dumps(result,indent=2))
+    parser.add_argument('--openrouter-compat',action='store_true')
+    args=parser.parse_args()
+    result=check(args.output,args.openrouter_compat);print(json.dumps(result,indent=2))
     raise SystemExit(0 if result['passed'] else 1)

@@ -187,6 +187,8 @@ def _run_batch_locked(folder, parallel, batch):
         receipt=ROOT/'runs/engineering/model-compatibility'/job['profile']/'report.json'
         if not receipt.is_file():raise ValueError('Run benchmark preflight for '+job['profile']+' before scored trials')
         checked=read(receipt)
+        if launch['profile'].get('provider')=='openrouter' and not checked.get('tool_image_round_trip'):
+            raise ValueError('OpenRouter tool-output image check missing; rerun preflight')
         expected=__import__('hashlib').sha256(json.dumps(launch['profile'],sort_keys=True).encode()).hexdigest()
         if not checked.get('passed') or checked.get('profile_sha256')!=expected:
             raise ValueError('Model compatibility preflight missing/failed or provider configuration changed')
@@ -262,6 +264,12 @@ def main():
             # under the new provider/model fingerprint.
             write_json(target/'report.json',{'passed':False,'error':'Preflight did not complete'})
             image=Image.new('RGB',(256,128),'red');ImageDraw.Draw(image).rectangle((128,0,255,127),fill='blue');image.save(target/'colors.png')
+            # Camera-sized textured pixels expose providers that tokenize image bytes as text.
+            import numpy as np
+            pixels=np.random.default_rng(20261028).integers(0,32,size=(720,1280,3),dtype=np.uint8)
+            pixels[:,:640]+=np.array([0,0,224],dtype=np.uint8)
+            pixels[:,640:]+=np.array([224,224,0],dtype=np.uint8)
+            Image.fromarray(pixels).save(target/'colors-tool.png')
             command=['node',str(ROOT/'scripts/codex_preflight.js'),str(target)]
             if args.smoke_only:command.append('--smoke-only')
             result=subprocess.run(command)
