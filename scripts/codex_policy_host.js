@@ -10,6 +10,9 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const read = file=>JSON.parse(fs.readFileSync(file,'utf8'));
 const outputExhausted = error=>/max_output_tokens/.test(error?.message||'') &&
   !/\b400\b|value exceeds|invalid_request|unsupported/i.test(JSON.stringify(error));
+const transientFailure = error=>capacityFailure(error) ||
+  /network|connection|timed out|timeout|stream.*disconnect|error sending request|fetch failed|\b50[234]\b/i.test(JSON.stringify(error)) &&
+  !/invalid[_ ]api[_ ]key|insufficient[_ ]quota|\b40[013]\b/i.test(JSON.stringify(error));
 const robotTool = {type:'function',name:'robot',description:
   'Call your assigned RoboFrontier role API. Same operations/data as the frozen skill. Selected views return actual RGB images. Never manage sessions or use another role connection.',
   inputSchema:{type:'object',properties:{op:{type:'string'},data:{type:'object',additionalProperties:true,
@@ -23,6 +26,7 @@ class PolicyHost {
     this.wallLimit=read(path.join(this.run,'private/inputs/task.json')).run_protocol.total_wall_limit_s;
     this.actors=new Map(); this.turns=new Map(); this.failures=new Map(); this.retries=new Set();
     this.outputRecoveries=new Map(); this.compactions=new Map();
+    this.guardHoldFile=path.resolve(this.run,'../..','GUARD_HOLD');
     this.stopped=false; this.began=Date.now();
   }
   event(value) {
@@ -33,9 +37,21 @@ class PolicyHost {
       '--run-dir',this.run,op,'--data',JSON.stringify(data)],{cwd:this.cwd,maxBuffer:8*1024*1024});
     return JSON.parse(stdout);
   }
+  async waitForSpendGuard() {
+    while(fs.existsSync(this.guardHoldFile)) {
+      if(this.stopped || fs.existsSync(path.join(this.run,'STOP')) || Date.now()-this.began>=this.wallLimit*1000)
+        throw new Error('Run stopped during spend guard hold');
+      await sleep(250);
+    }
+  }
+  canRecoverOutput(threadId) {
+    return this.launch.profile?.recover_output_limits === true ||
+      (this.outputRecoveries.get(threadId)||0)<(this.launch.profile?.output_limit_retries||0);
+  }
   async toolRequest(method,p) {
     if (method!=='item/tool/call' || p.tool!=='robot') throw new Error('Unsupported host tool');
     const actor=this.actors.get(p.threadId); if (!actor) throw new Error('Unbound policy role');
+    await this.waitForSpendGuard();
     const a=typeof p.arguments==='string'?JSON.parse(p.arguments):p.arguments;
     if (['move','gripper','action_batch'].includes(a.op) && a.data?.cameras===undefined)
       a.data={...(a.data||{}),cameras:a.views||[]};
@@ -65,6 +81,7 @@ class PolicyHost {
     const log=fs.openSync(path.join(this.run,'private/outputs/codex-server.log'),'a');
     this.rpc=await CodexRpc.create(this.launch.args,{stderr:log,
       maxOutputTokens:this.launch.profile?.max_output_tokens,
+      holdPath:this.guardHoldFile,stopPath:path.join(this.run,'STOP'),
       auditPath:path.join(this.run,'private/outputs/provider-requests.jsonl'),
       onRequest:(m,p)=>this.toolRequest(m,p),onEvent:m=>{
       const p=m.params||{};
@@ -72,13 +89,13 @@ class PolicyHost {
         this.compactions.get(p.threadId)?.();
       if (m.method==='turn/completed') {
         this.turns.set(p.threadId,p.turn);
-        if (p.turn.status==='failed' && capacityFailure(p.turn.error)) {
+        if (p.turn.status==='failed' && transientFailure(p.turn.error)) {
           const key=p.threadId+':'+p.turn.id;
           if (!this.failures.has(key)) this.failures.set(key,Date.now());
-          this.event({event:'capacity_wait',thread_id:p.threadId,turn_id:p.turn.id,retry_after_s:10});
+          this.event({event:capacityFailure(p.turn.error)?'capacity_wait':'transport_wait',thread_id:p.threadId,turn_id:p.turn.id,retry_after_s:10});
         } else if(p.turn.status==='failed') {
           const outputLimit=/max_output_tokens/.test(p.turn.error?.message||'');
-          if(outputExhausted(p.turn.error) && (this.outputRecoveries.get(p.threadId)||0)<(this.launch.profile?.output_limit_retries||0)) {
+          if(outputExhausted(p.turn.error) && this.canRecoverOutput(p.threadId)) {
             const key=p.threadId+':'+p.turn.id;
             if(!this.failures.has(key))this.failures.set(key,Date.now());
             this.event({event:'output_limit_wait',thread_id:p.threadId,turn_id:p.turn.id});
@@ -108,6 +125,7 @@ class PolicyHost {
   }
   async send(threadId,prompt) {
     if(this.stopped)throw new Error('Policy host stopped');
+    if(this.guardHoldFile)await this.waitForSpendGuard();
     const state=await this.observe(threadId);
     if(this.stopped)throw new Error('Policy host stopped');
     if (state.thread.status.type==='active') throw new Error('Refusing to steer an active policy turn');
@@ -121,9 +139,8 @@ class PolicyHost {
     if (snapshot.paused || ['ended','interrupted','recovery_required'].includes(snapshot.lifecycle)) return;
     for (const [id,actor] of this.actors) {
       const state=await this.observe(id),t=state.latestTurn;
-      const outputLimit=outputExhausted(t?.error) &&
-        (this.outputRecoveries.get(id)||0)<(this.launch.profile?.output_limit_retries||0);
-      if (state.thread.status.type!=='systemError' || t?.status!=='failed' || !(capacityFailure(t.error)||outputLimit)) continue;
+      const outputLimit=outputExhausted(t?.error) && this.canRecoverOutput(id);
+      if (state.thread.status.type!=='systemError' || t?.status!=='failed' || !(transientFailure(t.error)||outputLimit)) continue;
       const key=id+':'+t.id;
       if (!this.failures.has(key)) this.failures.set(key,Date.now());
       if (this.retries.has(key) || Date.now()-this.failures.get(key)<10000) continue;
@@ -132,21 +149,33 @@ class PolicyHost {
       const {stdout}=await execFileAsync(this.python,['-c',code,path.join(this.run,'private/state/runtime.sqlite'),actor],{cwd:this.cwd});
       if (JSON.parse(stdout)) continue;
       this.retries.add(key); // An unknown turn/start acknowledgement is never repeated.
+      let compactSucceeded=false;
       if(outputLimit) {
         this.outputRecoveries.set(id,(this.outputRecoveries.get(id)||0)+1);
         let timer;
         const compacted=new Promise((resolve,reject)=>{
           this.compactions.set(id,resolve);
-          timer=setTimeout(()=>reject(new Error('Output recovery compaction deadline exceeded')),180000);
+          let waited=0;
+          timer=setInterval(()=>{
+            if(this.stopped || fs.existsSync(path.join(this.run,'STOP')) || Date.now()-this.began>=this.wallLimit*1000)
+              return reject(new Error('Run stopped during compaction'));
+            if(!fs.existsSync(this.guardHoldFile))waited+=250;
+            if(waited>=180000)reject(new Error('Output recovery compaction deadline exceeded'));
+          },250);
         });
         try {
           await Promise.all([this.rpc.call('thread/compact/start',{threadId:id}),compacted]);
-        } finally {clearTimeout(timer);this.compactions.delete(id);}
+          compactSucceeded=true;
+        } catch(error) {
+          this.event({event:'output_recovery_compaction_unavailable',thread_id:id,error_type:error.name});
+          const current=await this.observe(id);
+          if(current.thread.status.type==='active')continue;
+        } finally {clearInterval(timer);this.compactions.delete(id);}
       }
       if(this.stopped || fs.existsSync(path.join(this.run,'STOP')) || Date.now()-this.began>=(this.wallLimit||86400)*1000)return;
-      const reason=outputLimit?'上一模型轮次因输出额度耗尽而中断，会话现已压缩。':'容量或速率限制导致上一模型轮次失败。';
+      const reason=outputLimit?'上一模型轮次因输出额度耗尽而中断。'+(compactSucceeded?'会话现已压缩。':''):'临时网络、容量或速率问题导致上一模型轮次失败。';
       await this.send(id,reason+'继续同一任务与已有工作笔记；先核对 pending/job 原编号及当前收件，不重放已提交动作，不重置世界，不延长期限。实验已经开始；获取必要的能力信息后继续，不要等待另一条 START。');
-      this.event({event:outputLimit?'output_limit_recovered':'capacity_retry',thread_id:id,failed_turn_id:t.id});
+      this.event({event:outputLimit?'output_limit_recovered':capacityFailure(t.error)?'capacity_retry':'transport_retry',thread_id:id,failed_turn_id:t.id});
     }
   }
   bootstrap(actor) {
@@ -189,6 +218,7 @@ CLI 传输说明：使用本会话的 robot 工具，op/data 与冻结 Skill 的
           '--call-id','bind-'+actor,'bind','--data',JSON.stringify({actor,thread_id:id})],{cwd:this.cwd});
         if (read(path.join(this.run,'private/inputs/harness.json')).startup_protocol !== 'direct_controller_v2')
           throw new Error('CLI host requires direct_controller_v2');
+        await this.waitForSpendGuard();
         const started=await this.admin('request-start');
         if (!started.started) throw new Error('Direct START was not confirmed');
         this.event({event:'direct_start',actor,thread_id:id});
@@ -197,7 +227,7 @@ CLI 传输说明：使用本会话的 robot 工具，op/data 与冻结 Skill 的
       const wrap=value=>({content:[{type:'text',text:JSON.stringify(value)}]});
       const tools={
         exec_command:async a=>{const r=await execAsync(a.cmd,{cwd:this.cwd,maxBuffer:16*1024*1024});return {output:r.stdout,exit_code:0};},
-        mcp__codex_app__wait_threads:async({targets})=>{await this.retryCapacity();return wrap({polls:await Promise.all(targets.map(t=>this.observe(t.threadId)))});},
+        mcp__codex_app__wait_threads:async({targets})=>{await this.waitForSpendGuard();await this.retryCapacity();return wrap({polls:await Promise.all(targets.map(t=>this.observe(t.threadId)))});},
         mcp__codex_app__send_message_to_thread:async p=>wrap(await this.send(p.threadId,p.prompt)),
         mcp__codex_app__set_thread_title:async p=>{await this.rpc.call('thread/name/set',{threadId:p.threadId,name:p.title});return wrap({threadId:p.threadId});},
         mcp__codex_app__fork_thread:async p=>{
@@ -213,6 +243,7 @@ CLI 传输说明：使用本会话的 robot 工具，op/data 与冻结 Skill 的
         }};
       return await runMetaDispatcher({runDir:this.run,python:this.python,cwd:this.cwd,tools,
         startWhenReady:true,observationSource:'codex.app-server',onEvent:e=>this.event(e),
+        holdRequested:()=>fs.existsSync(this.guardHoldFile),
         stopRequested:()=>this.stopped || Date.now()-this.began>=86400000 || fs.existsSync(path.join(this.run,'STOP'))});
     } finally {
       this.stopped=true;

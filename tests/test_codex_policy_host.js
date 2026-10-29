@@ -53,7 +53,7 @@ function fixture(t, onDispatch, {unsettled=false}={}) {
   const source = fs.readFileSync(path.join(__dirname, '../scripts/codex_policy_host.js'), 'utf8');
   vm.runInNewContext(source, {
     require:name => dependencies[name] || require(name), module,
-    console, process, Buffer, setTimeout, clearTimeout,
+    console, process, Buffer, setTimeout, clearTimeout,setInterval,clearInterval,
   }, {filename:'codex_policy_host.js'});
   const host = new module.exports.PolicyHost(run, run, 'fake-python');
   function emit(error, id='failed-turn') {
@@ -97,7 +97,7 @@ for (const [name, error] of [
 }
 
 test('capacity failures keep the existing wait classification without immediately stopping', async t => {
-  for (const message of ['429 Too Many Requests', 'server_overloaded']) {
+  for (const message of ['429 Too Many Requests', 'server_overloaded','stream disconnected: error sending request']) {
     const context = fixture(t, async () => {});
     await context.host.startServer();
     context.emit({message});
@@ -105,11 +105,42 @@ test('capacity failures keep the existing wait classification without immediatel
     assert.ok(context.host.failures.has('policy-thread:failed-turn'));
     const events = fs.readFileSync(path.join(context.run, 'private/outputs/codex-host.jsonl'), 'utf8')
       .trim().split('\n').map(line => JSON.parse(line));
-    assert.ok(events.some(event => event.event === 'capacity_wait'));
+    assert.ok(events.some(event => event.event === (message.startsWith('stream')?'transport_wait':'capacity_wait')));
     assert.equal(fs.existsSync(path.join(context.run, 'private/outputs/model-failure.json')), false);
     assert.equal(context.calls.filter(call => call.method === 'turn/start').length, 0);
     await context.host.rpc.close();
   }
+});
+
+test('temporary network failure continues the existing world without sealing it',async t=>{
+  let context;
+  context=fixture(t,async(options,emit)=>{
+    emit({message:'stream disconnected: error sending request'});
+    context.host.failures.set('policy-thread:failed-turn',Date.now()-11000);
+    await context.host.retryCapacity();
+    assert.equal(options.stopRequested(),false);
+    assert.equal(context.calls.filter(c=>c.method==='turn/start').length,2);
+    assert.equal(context.administration.includes('seal'),false);
+  });
+  await context.host.runTask();
+  assert.deepEqual(context.physicalCalls,['bind']);
+});
+
+test('continue-until-terminal profile does not terminate at the old output retry count',async t=>{
+  let context;
+  context=fixture(t,async(options,emit)=>{
+    for(let n=0;n<3;n++){
+      emit({message:'Response incomplete: max_output_tokens'},'limited-'+n);
+      context.host.failures.set('policy-thread:limited-'+n,Date.now()-11000);
+      assert.equal(options.stopRequested(),false);
+      await context.host.retryCapacity();
+    }
+    assert.equal(context.calls.filter(c=>c.method==='turn/start').length,4);
+    assert.equal(context.administration.includes('seal'),false);
+  });
+  context.host.launch.profile={recover_output_limits:true};
+  await context.host.runTask();
+  assert.deepEqual(context.physicalCalls,['bind']);
 });
 
 test('configured output recovery compacts and continues the same world twice, then seals', async t => {

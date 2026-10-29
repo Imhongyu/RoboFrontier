@@ -1,6 +1,6 @@
 // Loaded by Meta into functions.exec; definitions alone perform no I/O.
 // It has no task planner and never selects robot actions or delegation scopes.
-async function runMetaDispatcher({runDir, python, cwd, tools, onEvent = () => {}, stopRequested = () => false, maxCycles = Infinity, startWhenReady = false, observationSource = 'codex.wait_threads'}) {
+async function runMetaDispatcher({runDir, python, cwd, tools, onEvent = () => {}, stopRequested = () => false, holdRequested = () => false, maxCycles = Infinity, startWhenReady = false, observationSource = 'codex.wait_threads'}) {
   const quote = value => "'" + String(value).replaceAll("'", "'\\''") + "'";
   const owner = 'meta-' + Date.now() + '-' + Math.random().toString(16).slice(2);
   const cursors = new Map();
@@ -128,6 +128,11 @@ async function runMetaDispatcher({runDir, python, cwd, tools, onEvent = () => {}
   let cycle = 0;
   while (cycle++ < maxCycles && !stopRequested()) {
     const snapshot = await runtime('snapshot');
+    if (snapshot.paused && holdRequested() && snapshot.lifecycle==='running') {
+      onEvent({event:'dispatcher_held',lifecycle:snapshot.lifecycle});
+      await new Promise(resolve=>setTimeout(resolve,snapshot.config.poll_interval_s*1000));
+      continue;
+    }
     if (['ended','interrupted','recovery_required'].includes(snapshot.lifecycle) || snapshot.paused) {
       onEvent({event:'dispatcher_stopped',lifecycle:snapshot.lifecycle,paused:snapshot.paused});
       return {lifecycle:snapshot.lifecycle,paused:!!snapshot.paused,cycles:cycle-1};

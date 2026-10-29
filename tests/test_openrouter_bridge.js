@@ -168,3 +168,49 @@ test('incomplete streaming response is preserved and audited without content or 
   assert.equal(end.provider,'local-provider');assert.equal(end.output_tokens,32768);
   assert.equal(end.reasoning_tokens,32768);
 });
+
+test('temporary hold defers the original request and releasing it sends upstream exactly once', {timeout:5000}, async t => {
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'rf-bridge-hold-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const holdPath=path.join(directory,'HOLD');
+  fs.writeFileSync(holdPath,'temporary provider issue');
+  const requests=[];
+  const baseUrl=await upstream(t,async(req,res)=>{
+    requests.push(await readBody(req));
+    res.writeHead(200,{'content-type':'application/json'});
+    res.end('{"status":"completed"}');
+  });
+  const bridge=await createBridge(baseUrl,{holdPath});
+  t.after(()=>bridge.close());
+  const body={model:'local-test',input:'unchanged local fixture'};
+  const pending=fetch(bridge.url+'/responses',{method:'POST',body:JSON.stringify(body)})
+    .then(async response=>({status:response.status,body:await response.text()}),error=>({error}));
+  await new Promise(resolve=>setTimeout(resolve,100));
+  assert.equal(requests.length,0,'held requests must not reach the provider');
+  fs.unlinkSync(holdPath);
+  const result=await pending;
+  assert.equal(result.status,200);
+  assert.equal(result.body,'{"status":"completed"}');
+  assert.deepEqual(requests,[body]);
+});
+
+test('STOP cancels a held request without sending it upstream', {timeout:5000}, async t => {
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'rf-bridge-stop-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const holdPath=path.join(directory,'HOLD'),stopPath=path.join(directory,'STOP');
+  fs.writeFileSync(holdPath,'temporary provider issue');
+  let requests=0;
+  const baseUrl=await upstream(t,async(req,res)=>{
+    requests++;await readBody(req);res.end('{}');
+  });
+  const bridge=await createBridge(baseUrl,{holdPath,stopPath});
+  t.after(()=>bridge.close());
+  const pending=fetch(bridge.url+'/responses',{method:'POST',body:JSON.stringify({input:[]})})
+    .then(async response=>({status:response.status,body:await response.text()}),error=>({error}));
+  await new Promise(resolve=>setTimeout(resolve,100));
+  assert.equal(requests,0);
+  fs.writeFileSync(stopPath,'operator requested stop');
+  const result=await pending;
+  assert.ok(result.error || result.status>=400,'a stopped request must be cancelled or rejected');
+  assert.equal(requests,0,'STOP must not flush a held request to the provider');
+});

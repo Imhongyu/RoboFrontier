@@ -28,7 +28,7 @@ function normalizeRequest(body,{maxOutputTokens}={}) {
   return normalized;
 }
 
-async function createBridge(baseUrl,{maxOutputTokens,auditPath}={}) {
+async function createBridge(baseUrl,{maxOutputTokens,auditPath,holdPath,stopPath}={}) {
   let sequence=0;
   const audit=record=>{if(auditPath)fs.appendFileSync(auditPath,JSON.stringify({at:Date.now()/1000,...record})+'\n');};
   const server=http.createServer(async(request,response)=>{
@@ -39,6 +39,11 @@ async function createBridge(baseUrl,{maxOutputTokens,auditPath}={}) {
       const chunks=[];
       for await(const chunk of request) chunks.push(chunk);
       const body=normalizeRequest(JSON.parse(Buffer.concat(chunks).toString()),{maxOutputTokens});
+      while(holdPath && fs.existsSync(holdPath)) {
+        if(abort.signal.aborted || stopPath && fs.existsSync(stopPath))throw new Error('Request cancelled during spend guard hold');
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+      if(stopPath && fs.existsSync(stopPath))throw new Error('Run stopped before request');
       audit({event:'request',request_number:requestNumber,model:body.model,
         reasoning_effort:body.reasoning?.effort,max_output_tokens:body.max_output_tokens});
       const upstream=await fetch(baseUrl.replace(/\/$/,'')+request.url,{

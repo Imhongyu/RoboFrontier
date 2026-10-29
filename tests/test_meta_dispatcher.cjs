@@ -165,7 +165,27 @@ async function platformErrorDetails() {
   assert(failure.includes('Completed host turn cannot query'));
   assert(!failure.includes('secret-value')&&!failure.includes('other-secret')&&!failure.includes('sk-private_key'));
 }
+async function temporaryCapacityHold() {
+  let snapshots=0,plans=0;
+  const tools={exec_command:async({cmd})=>{
+    let value;
+    if(cmd.includes(' snapshot ')) {
+      snapshots++;
+      value={lifecycle:snapshots===3?'ended':'running',paused:snapshots===1,
+        config:{poll_interval_s:0},agents:{},delegations:[]};
+    } else if(cmd.includes(' plan ')){plans++;value={commands:[]};}
+    else throw Error('Unexpected operation during temporary hold');
+    return {exit_code:0,output:JSON.stringify(value)};
+  }};
+  const result=await runMetaDispatcher({runDir:'/fake',python:'/fake/python',cwd:'/fake',tools,
+    maxCycles:4,holdRequested:()=>snapshots===1});
+  assert.equal(snapshots,3,'temporary pause must leave the dispatcher alive until the task actually ends');
+  assert.equal(plans,1,'dispatching resumes only after the hold is released');
+  assert.equal(result.lifecycle,'ended');
+  assert.equal(result.paused,false);
+}
 (async()=>{
+ await temporaryCapacityHold();
  await scenario();await scenario({busy:true});await scenario({failSend:true});await scenario({wrongThread:true});
  await interrupted();await startup(false,true);await startup(true,false);await startup(true,true);
  await delegation();await delegation({failFork:true});await delegation({failBind:true});await delegation({abandoned:true});
@@ -173,5 +193,5 @@ async function platformErrorDetails() {
  await statusScenario('transient');await statusScenario('isolate');await statusScenario('persistent');await statusScenario('finished');
  await endedDelegateCallback();await endedDelegateCallback({failed:true});await platformErrorDetails();
  await delegation({label:true});await delegation({label:true,titleFailure:true});
- console.log('PASS: 23 dispatcher scenarios: fork lifecycle, first-result callback, failed-turn evidence, best-effort robot titles, error detail redaction, pinned settings, bounded status retries, visible pause, no finished-role polling');
+ console.log('PASS: 24 dispatcher scenarios: temporary hold, fork lifecycle, first-result callback, failed-turn evidence, best-effort robot titles, error detail redaction, pinned settings, bounded status retries, visible pause, no finished-role polling');
 })().catch(e=>{console.error(e);process.exit(1)});
