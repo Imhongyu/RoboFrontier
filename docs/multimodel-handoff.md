@@ -192,9 +192,9 @@ Level 1 最小四项为 Transport 4臂、Mosaic 4臂、Relay 8臂、Dial 4臂；
 当前 Harness 的上下文为272000，自动压缩阈值245000；各家 effort 等级不同，
 同一字符串不代表相同计算量，比较时保留这些配置。
 
-OpenRouter GLM 的本地配置 `configs/models-openrouter.json` 使用 `medium` 推理档和
-`max_output_tokens=32768`。该额度包含推理与可见输出，由桥接层在每次请求上执行；
-它不等于上下文容量，也不是整项任务的金额上限。修改配置后需重新 preflight，
+OpenRouter GLM 的本地配置 `configs/models-openrouter.json` 按用户要求使用 `high`
+推理档，不设置额外输出上限，供应商原生上限仍然有效。桥接层支持实验配置中的
+可选 `max_output_tokens`，仅在显式配置时执行。修改配置后需重新 preflight，
 已经封存或启动的实验配置不变。
 
 桥接层在 `private/outputs/provider-requests.jsonl` 记录请求额度、推理档、响应编号、

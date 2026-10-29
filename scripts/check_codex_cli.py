@@ -18,7 +18,7 @@ from robofrontier.run_setup import write_json
 from robofrontier.runtime_cli import fork_provenance
 
 
-def check(output, openrouter_compat=False):
+def check(output, openrouter_compat=False, *, effort='high', max_output_tokens=None):
     output=Path(output).absolute();output.mkdir(parents=True,exist_ok=True)
     requests=[]
     class Handler(BaseHTTPRequestHandler):
@@ -45,10 +45,10 @@ def check(output, openrouter_compat=False):
             self.wfile.flush()
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
     threading.Thread(target=server.serve_forever,daemon=True).start()
-    p=dict(model='offline-protocol',provider='openrouter' if openrouter_compat else 'offline_protocol',effort='medium' if openrouter_compat else 'high',vision=True,
+    p=dict(model='offline-protocol',provider='openrouter' if openrouter_compat else 'offline_protocol',effort=effort,vision=True,
         context_window=272000,auto_compact_token_limit=245000,
         base_url=f'http://127.0.0.1:{server.server_port}',env_key='ROBOFRONTIER_OFFLINE_STUB_TOKEN')
-    if openrouter_compat:p['max_output_tokens']=32768
+    if max_output_tokens is not None:p['max_output_tokens']=max_output_tokens
     write_json(output/'launch.json',launch_config(p,output))
     pixels=io.BytesIO();Image.new('RGB',(32,32),'red').save(pixels,format='PNG')
     write_json(output/'image.json',{'url':'data:image/png;base64,'+base64.b64encode(pixels.getvalue()).decode()})
@@ -82,7 +82,7 @@ for(const f of forks)await rpc.call('thread/archive',{threadId:f.id});await rpc.
         if result.returncode:raise RuntimeError(result.stderr[-3000:])
         native=json.loads((output/'native.json').read_text())
         proofs=[fork_provenance(native['parent'],f['id']) for f in native['forks']]
-        budget_ok=not openrouter_compat or all(r.get('max_output_tokens')==32768 and r.get('reasoning',{}).get('effort')=='medium' for r in requests)
+        budget_ok=not openrouter_compat or all(r.get('max_output_tokens')==max_output_tokens and r.get('reasoning',{}).get('effort')==effort for r in requests)
         report=dict(passed=native['tool_calls']==1 and len(requests)==2 and proofs[0]==proofs[1] and budget_ok,
             external_model_calls=0,local_stub_requests=len(requests),native=native,lineage=proofs,
             image_returned_to_model='input_image' in json.dumps(requests[-1]),
@@ -99,6 +99,8 @@ for(const f of forks)await rpc.call('thread/archive',{threadId:f.id});await rpc.
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--openrouter-compat',action='store_true')
+    parser.add_argument('--effort',default='high')
+    parser.add_argument('--max-output-tokens',type=int)
     args=parser.parse_args()
-    result=check(args.output,args.openrouter_compat);print(json.dumps(result,indent=2))
+    result=check(args.output,args.openrouter_compat,effort=args.effort,max_output_tokens=args.max_output_tokens);print(json.dumps(result,indent=2))
     raise SystemExit(0 if result['passed'] else 1)

@@ -7,8 +7,7 @@
     "glm-openrouter": {
       "model": "z-ai/glm-5.3-flash",
       "provider": "openrouter",
-      "effort": "medium",
-      "max_output_tokens": 32768,
+      "effort": "high",
       "vision": true,
       "context_capacity": 1048576,
       "base_url": "https://openrouter.ai/api/v1",
