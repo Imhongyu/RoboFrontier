@@ -28,7 +28,8 @@ async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
         {type:'inputImage',imageUrl:'data:image/png;base64,'+fs.readFileSync(path.join(folder,'colors-tool.png')).toString('base64')}]};
       return {success:valid,contentItems:[{type:'inputText',text:valid?'VISION_TOOL_OK':'Incorrect image colors or nested data'}]};
     }};
-  const rpc=await (Rpc.create?Rpc.create(launch.args,handlers):new Rpc(launch.args,handlers));
+  const rpc=await (Rpc.create?Rpc.create(launch.args,{...handlers,
+    maxOutputTokens:launch.profile?.max_output_tokens,auditPath:path.join(folder,'provider-requests.jsonl')}):new Rpc(launch.args,handlers));
   fs.closeSync(serverLog);
   let report={passed:false,model:launch.model,provider:launch.provider,effort:launch.effort,
     actual_provider_model_verified:false,context_window:launch.context_window,

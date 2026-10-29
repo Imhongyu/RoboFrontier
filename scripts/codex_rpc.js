@@ -14,7 +14,7 @@ class CodexRpc {
     }
     if(config.model_provider!=='"openrouter"') return new CodexRpc(args,options);
     const {createBridge}=require('./openrouter_bridge');
-    const bridge=await createBridge(JSON.parse(config['model_providers.openrouter.base_url']));
+    const bridge=await createBridge(JSON.parse(config['model_providers.openrouter.base_url']),options);
     const rpc=new CodexRpc([...args,'-c','model_providers.openrouter.base_url='+JSON.stringify(bridge.url)],options);
     rpc.bridge=bridge;
     return rpc;

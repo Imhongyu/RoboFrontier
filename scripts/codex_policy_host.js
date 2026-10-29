@@ -59,7 +59,10 @@ class PolicyHost {
   }
   async startServer() {
     const log=fs.openSync(path.join(this.run,'private/outputs/codex-server.log'),'a');
-    this.rpc=await CodexRpc.create(this.launch.args,{stderr:log,onRequest:(m,p)=>this.toolRequest(m,p),onEvent:m=>{
+    this.rpc=await CodexRpc.create(this.launch.args,{stderr:log,
+      maxOutputTokens:this.launch.profile?.max_output_tokens,
+      auditPath:path.join(this.run,'private/outputs/provider-requests.jsonl'),
+      onRequest:(m,p)=>this.toolRequest(m,p),onEvent:m=>{
       const p=m.params||{};
       if (m.method==='turn/completed') {
         this.turns.set(p.threadId,p.turn);
@@ -67,6 +70,14 @@ class PolicyHost {
           const key=p.threadId+':'+p.turn.id;
           if (!this.failures.has(key)) this.failures.set(key,Date.now());
           this.event({event:'capacity_wait',thread_id:p.threadId,turn_id:p.turn.id,retry_after_s:10});
+        } else if(p.turn.status==='failed') {
+          const outputLimit=/max_output_tokens/.test(p.turn.error?.message||'');
+          const failure={at:Date.now()/1000,thread_id:p.threadId,turn_id:p.turn.id,
+            model:this.launch.model,effort:this.launch.effort,reason:outputLimit?'output_limit':'model_error',
+            error:{message:outputLimit?'Model response reached max_output_tokens':'Model turn failed',
+              codexErrorInfo:p.turn.error?.codexErrorInfo}};
+          fs.writeFileSync(path.join(this.run,'private/outputs/model-failure.json'),JSON.stringify(failure,null,2)+'\n');
+          this.stopped=true;
         }
       }
       if (['turn/started','turn/completed','thread/status/changed','thread/tokenUsage/updated','error'].includes(m.method))
@@ -84,7 +95,9 @@ class PolicyHost {
     return {thread:{...result.thread,status:{type}},latestTurn:turn};
   }
   async send(threadId,prompt) {
+    if(this.stopped)throw new Error('Policy host stopped');
     const state=await this.observe(threadId);
+    if(this.stopped)throw new Error('Policy host stopped');
     if (state.thread.status.type==='active') throw new Error('Refusing to steer an active policy turn');
     const result=await this.rpc.call('turn/start',{threadId,model:this.launch.model,effort:this.launch.effort,
       input:[{type:'text',text:prompt}],turnTrigger:'robofrontier'});
@@ -134,6 +147,7 @@ CLI 传输说明：使用本会话的 robot 工具，op/data 与冻结 Skill 的
       }
       const roles=read(path.join(this.run,'public/inputs/roles.json')).roles;
       for (const [actor,info] of Object.entries(roles)) {
+        if(this.stopped)break;
         if (info.kind==='manager') continue;
         const result=await this.rpc.call('thread/start',{model:this.launch.model,modelProvider:this.launch.provider,
           cwd:this.run,approvalPolicy:'never',sandbox:'workspace-write',ephemeral:false,dynamicTools:[robotTool],

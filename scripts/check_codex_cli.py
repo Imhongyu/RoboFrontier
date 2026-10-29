@@ -45,9 +45,10 @@ def check(output, openrouter_compat=False):
             self.wfile.flush()
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
     threading.Thread(target=server.serve_forever,daemon=True).start()
-    p=dict(model='offline-protocol',provider='openrouter' if openrouter_compat else 'offline_protocol',effort='high',vision=True,
+    p=dict(model='offline-protocol',provider='openrouter' if openrouter_compat else 'offline_protocol',effort='medium' if openrouter_compat else 'high',vision=True,
         context_window=272000,auto_compact_token_limit=245000,
         base_url=f'http://127.0.0.1:{server.server_port}',env_key='ROBOFRONTIER_OFFLINE_STUB_TOKEN')
+    if openrouter_compat:p['max_output_tokens']=32768
     write_json(output/'launch.json',launch_config(p,output))
     pixels=io.BytesIO();Image.new('RGB',(32,32),'red').save(pixels,format='PNG')
     write_json(output/'image.json',{'url':'data:image/png;base64,'+base64.b64encode(pixels.getvalue()).decode()})
@@ -57,6 +58,7 @@ const out=process.argv[2],launch=JSON.parse(fs.readFileSync(out+'/launch.json'))
 process.env.ROBOFRONTIER_OFFLINE_STUB_TOKEN='local-stub-no-credential';
 (async()=>{let done,completed=new Promise(r=>done=r),calls=0;
 const rpc=await CodexRpc.create(launch.args,{stderr:fs.openSync(out+'/server.log','w'),
+maxOutputTokens:launch.profile?.max_output_tokens,auditPath:out+'/provider-requests.jsonl',
 onEvent:m=>{if(m.method==='turn/completed')done(m.params);},
 onRequest:async(m,p)=>{if(m!=='item/tool/call')throw new Error(m);calls++;
 return {success:true,contentItems:[{type:'inputText',text:'local tool result'},
@@ -80,10 +82,13 @@ for(const f of forks)await rpc.call('thread/archive',{threadId:f.id});await rpc.
         if result.returncode:raise RuntimeError(result.stderr[-3000:])
         native=json.loads((output/'native.json').read_text())
         proofs=[fork_provenance(native['parent'],f['id']) for f in native['forks']]
-        report=dict(passed=native['tool_calls']==1 and len(requests)==2 and proofs[0]==proofs[1],
+        budget_ok=not openrouter_compat or all(r.get('max_output_tokens')==32768 and r.get('reasoning',{}).get('effort')=='medium' for r in requests)
+        report=dict(passed=native['tool_calls']==1 and len(requests)==2 and proofs[0]==proofs[1] and budget_ok,
             external_model_calls=0,local_stub_requests=len(requests),native=native,lineage=proofs,
             image_returned_to_model='input_image' in json.dumps(requests[-1]),
             openrouter_compat=openrouter_compat,
+            output_budget_verified=budget_ok if openrouter_compat else None,
+            request_settings=[{k:r[k] for k in ('model','reasoning','max_output_tokens') if k in r} for r in requests],
             media_in_user_message=any(i.get('role')=='user' and any(p.get('type')=='input_image' for p in i.get('content',[]))
                 for i in requests[-1].get('input',[])),
             scope='Actual installed CLI, local Responses stub; not provider access or Desktop UI acceptance')

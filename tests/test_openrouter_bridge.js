@@ -1,6 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const {normalizeRequest, createBridge} = require('../scripts/openrouter_bridge');
 
 const image = {type:'input_image', image_url:'data:image/png;base64,AAECAwQFBgcICQ==', detail:'original'};
@@ -125,4 +128,43 @@ test('HTTP bridge preserves upstream error status and response bytes', async t =
   assert.equal(response.status, 429);
   assert.equal(response.headers.get('retry-after'), '30');
   assert.equal(await response.text(), errorBody);
+});
+
+test('configured output budget reaches upstream and a smaller request limit is retained', () => {
+  assert.equal(normalizeRequest({input:[]},{maxOutputTokens:32768}).max_output_tokens,32768);
+  assert.equal(normalizeRequest({input:[],max_output_tokens:8192},{maxOutputTokens:32768}).max_output_tokens,8192);
+  assert.equal(normalizeRequest({input:[],max_output_tokens:131072},{maxOutputTokens:32768}).max_output_tokens,32768);
+});
+
+test('incomplete streaming response is preserved and audited without content or credentials', async t => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rf-bridge-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const auditPath=path.join(dir,'requests.jsonl');
+  const terminal={type:'response.incomplete',response:{id:'response-local',model:'test-model',provider:'local-provider',
+    status:'incomplete',incomplete_details:{reason:'max_output_tokens'},
+    output:[{type:'reasoning',summary:[{text:'PRIVATE_REASONING'}]}],
+    usage:{input_tokens:20,output_tokens:32768,output_tokens_details:{reasoning_tokens:32768}}}};
+  const payload='event: response.reasoning.delta\ndata: {"delta":"PRIVATE_REASONING"}\n\n'+
+    'event: response.incomplete\ndata: '+JSON.stringify(terminal)+'\n\n';
+  let received;
+  const baseUrl=await upstream(t,async(req,res)=>{
+    received=await readBody(req);
+    res.writeHead(200,{'content-type':'text/event-stream'});
+    res.write(payload.slice(0,73));res.end(payload.slice(73));
+  });
+  const bridge=await createBridge(baseUrl,{maxOutputTokens:32768,auditPath});
+  t.after(()=>bridge.close());
+  const response=await fetch(bridge.url+'/responses',{method:'POST',headers:{authorization:'Bearer PRIVATE_KEY'},
+    body:JSON.stringify({model:'test-model',reasoning:{effort:'medium'},stream:true,input:'PRIVATE_PROMPT'})});
+  assert.equal(await response.text(),payload);
+  assert.equal(received.max_output_tokens,32768);
+  const audit=fs.readFileSync(auditPath,'utf8');
+  for(const secret of ['PRIVATE_KEY','PRIVATE_PROMPT','PRIVATE_REASONING'])assert.ok(!audit.includes(secret));
+  const records=audit.trim().split('\n').map(JSON.parse);
+  assert.equal(records[0].max_output_tokens,32768);
+  assert.equal(records[0].reasoning_effort,'medium');
+  const end=records.at(-1);
+  assert.equal(end.status,'incomplete');assert.equal(end.reason,'max_output_tokens');
+  assert.equal(end.provider,'local-provider');assert.equal(end.output_tokens,32768);
+  assert.equal(end.reasoning_tokens,32768);
 });
