@@ -6,7 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const {capacityFailure} = require('../scripts/codex_rpc');
 
-function fixture(t, onDispatch) {
+function fixture(t, onDispatch, {unsettled=false}={}) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'robofrontier-host-'));
   t.after(() => fs.rmSync(run, {recursive:true, force:true}));
   for (const directory of ['private/inputs', 'private/outputs', 'private/state/connections', 'public/inputs'])
@@ -29,6 +29,7 @@ function fixture(t, onDispatch) {
       if (method === 'thread/read') return {thread:{id:'policy-thread', status:{type:'idle'}}};
       if (method === 'thread/turns/list') return {data:[]};
       if (method === 'turn/start') return {turn:{id:'initial-turn', status:'inProgress'}};
+      if (method === 'thread/compact/start') handlers.onEvent({method:'thread/compacted',params:{threadId:params.threadId}});
       return {};
     },
   };
@@ -36,7 +37,7 @@ function fixture(t, onDispatch) {
     execFile:(command, args, options, callback) => {
       if (args.includes('robofrontier.runtime_cli')) administration.push(args[args.indexOf('--run-dir') + 2]);
       if (args.includes('robofrontier.pipeline_client')) physicalCalls.push(args[args.indexOf('--call-id') + 2]);
-      callback(null, args.includes('request-start') ? '{"started":true}' : '{}', '');
+      callback(null, args.includes('request-start') ? '{"started":true}' : args.includes('-c') ? JSON.stringify(unsettled) : '{}', '');
     },
     exec:() => {throw new Error('Unexpected shell command in fixture');},
     spawn:() => ({exitCode:null, on:() => {}}),
@@ -55,9 +56,9 @@ function fixture(t, onDispatch) {
     console, process, Buffer, setTimeout, clearTimeout,
   }, {filename:'codex_policy_host.js'});
   const host = new module.exports.PolicyHost(run, run, 'fake-python');
-  function emit(error) {
+  function emit(error, id='failed-turn') {
     handlers.onEvent({method:'turn/completed', params:{threadId:'policy-thread',
-      turn:{id:'failed-turn', status:'failed', error}}});
+      turn:{id, status:'failed', error}}});
   }
   return {host, run, calls, administration, physicalCalls, emit, closed:() => closed};
 }
@@ -109,4 +110,43 @@ test('capacity failures keep the existing wait classification without immediatel
     assert.equal(context.calls.filter(call => call.method === 'turn/start').length, 0);
     await context.host.rpc.close();
   }
+});
+
+test('configured output recovery compacts and continues the same world twice, then seals', async t => {
+  let context;
+  context = fixture(t, async (options, emit) => {
+    for(let attempt=1;attempt<=2;attempt++) {
+      emit({message:'Response incomplete: max_output_tokens'},'limited-'+attempt);
+      assert.equal(options.stopRequested(),false);
+      context.host.failures.set('policy-thread:limited-'+attempt,Date.now()-11000);
+      await context.host.retryCapacity();
+      await context.host.retryCapacity();
+      assert.equal(context.calls.filter(c=>c.method==='thread/compact/start').length,attempt);
+      assert.equal(context.calls.filter(c=>c.method==='turn/start').length,attempt+1);
+      assert.equal(context.closed(),false);
+      assert.equal(context.administration.includes('seal'),false);
+    }
+    emit({message:'Response incomplete: max_output_tokens'},'limited-3');
+    assert.equal(options.stopRequested(),true);
+  });
+  context.host.launch.profile={output_limit_retries:2};
+  await context.host.runTask();
+  assert.deepEqual(context.physicalCalls,['bind']);
+  assert.deepEqual(context.administration,['request-start','snapshot','snapshot','snapshot','snapshot','seal']);
+  assert.equal(context.calls.filter(c=>c.method==='thread/start').length,1);
+});
+
+test('output recovery does not start another turn while a physical result is unresolved', async t => {
+  let context;
+  context=fixture(t,async(options,emit)=>{
+    emit({message:'Response incomplete: max_output_tokens'});
+    context.host.failures.set('policy-thread:failed-turn',Date.now()-11000);
+    await context.host.retryCapacity();
+    assert.equal(options.stopRequested(),false);
+    assert.equal(context.calls.filter(c=>c.method==='thread/compact/start').length,0);
+    assert.equal(context.calls.filter(c=>c.method==='turn/start').length,1);
+  },{unsettled:true});
+  context.host.launch.profile={output_limit_retries:2};
+  await context.host.runTask();
+  assert.deepEqual(context.physicalCalls,['bind']);
 });

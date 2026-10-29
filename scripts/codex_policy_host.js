@@ -8,6 +8,8 @@ const {CodexRpc,capacityFailure} = require('./codex_rpc');
 const {runMetaDispatcher} = require('./meta_dispatcher');
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const read = file=>JSON.parse(fs.readFileSync(file,'utf8'));
+const outputExhausted = error=>/max_output_tokens/.test(error?.message||'') &&
+  !/\b400\b|value exceeds|invalid_request|unsupported/i.test(JSON.stringify(error));
 const robotTool = {type:'function',name:'robot',description:
   'Call your assigned RoboFrontier role API. Same operations/data as the frozen skill. Selected views return actual RGB images. Never manage sessions or use another role connection.',
   inputSchema:{type:'object',properties:{op:{type:'string'},data:{type:'object',additionalProperties:true,
@@ -20,6 +22,7 @@ class PolicyHost {
     this.launch=read(path.join(this.run,'private/inputs/codex.json'));
     this.wallLimit=read(path.join(this.run,'private/inputs/task.json')).run_protocol.total_wall_limit_s;
     this.actors=new Map(); this.turns=new Map(); this.failures=new Map(); this.retries=new Set();
+    this.outputRecoveries=new Map(); this.compactions=new Map();
     this.stopped=false; this.began=Date.now();
   }
   event(value) {
@@ -65,6 +68,8 @@ class PolicyHost {
       auditPath:path.join(this.run,'private/outputs/provider-requests.jsonl'),
       onRequest:(m,p)=>this.toolRequest(m,p),onEvent:m=>{
       const p=m.params||{};
+      if(m.method==='thread/compacted' || m.method==='item/completed' && p.item?.type==='contextCompaction')
+        this.compactions.get(p.threadId)?.();
       if (m.method==='turn/completed') {
         this.turns.set(p.threadId,p.turn);
         if (p.turn.status==='failed' && capacityFailure(p.turn.error)) {
@@ -73,12 +78,18 @@ class PolicyHost {
           this.event({event:'capacity_wait',thread_id:p.threadId,turn_id:p.turn.id,retry_after_s:10});
         } else if(p.turn.status==='failed') {
           const outputLimit=/max_output_tokens/.test(p.turn.error?.message||'');
+          if(outputExhausted(p.turn.error) && (this.outputRecoveries.get(p.threadId)||0)<(this.launch.profile?.output_limit_retries||0)) {
+            const key=p.threadId+':'+p.turn.id;
+            if(!this.failures.has(key))this.failures.set(key,Date.now());
+            this.event({event:'output_limit_wait',thread_id:p.threadId,turn_id:p.turn.id});
+          } else {
           const failure={at:Date.now()/1000,thread_id:p.threadId,turn_id:p.turn.id,
             model:this.launch.model,effort:this.launch.effort,reason:outputLimit?'output_limit':'model_error',
             error:{message:outputLimit?'Model response reached max_output_tokens':'Model turn failed',
               codexErrorInfo:p.turn.error?.codexErrorInfo}};
           fs.writeFileSync(path.join(this.run,'private/outputs/model-failure.json'),JSON.stringify(failure,null,2)+'\n');
           this.stopped=true;
+          }
         }
       }
       if (['turn/started','turn/completed','thread/status/changed','thread/tokenUsage/updated','error'].includes(m.method))
@@ -105,12 +116,14 @@ class PolicyHost {
     this.turns.set(threadId,result.turn); return {threadId};
   }
   async retryCapacity() {
-    if (this.stopped || Date.now()-this.began>=86400000) return;
+    if (this.stopped || Date.now()-this.began>=(this.wallLimit||86400)*1000 || fs.existsSync(path.join(this.run,'STOP'))) return;
     const snapshot=await this.admin('snapshot');
     if (snapshot.paused || ['ended','interrupted','recovery_required'].includes(snapshot.lifecycle)) return;
     for (const [id,actor] of this.actors) {
       const state=await this.observe(id),t=state.latestTurn;
-      if (state.thread.status.type!=='systemError' || t?.status!=='failed' || !capacityFailure(t.error)) continue;
+      const outputLimit=outputExhausted(t?.error) &&
+        (this.outputRecoveries.get(id)||0)<(this.launch.profile?.output_limit_retries||0);
+      if (state.thread.status.type!=='systemError' || t?.status!=='failed' || !(capacityFailure(t.error)||outputLimit)) continue;
       const key=id+':'+t.id;
       if (!this.failures.has(key)) this.failures.set(key,Date.now());
       if (this.retries.has(key) || Date.now()-this.failures.get(key)<10000) continue;
@@ -119,8 +132,21 @@ class PolicyHost {
       const {stdout}=await execFileAsync(this.python,['-c',code,path.join(this.run,'private/state/runtime.sqlite'),actor],{cwd:this.cwd});
       if (JSON.parse(stdout)) continue;
       this.retries.add(key); // An unknown turn/start acknowledgement is never repeated.
-      await this.send(id,'容量或速率限制导致上一模型轮次失败。继续同一任务与已有工作笔记；先核对 pending/job 原编号及当前收件，不重放已提交动作，不重置世界，不延长期限。实验已经开始；获取必要的能力信息后继续，不要等待另一条 START。');
-      this.event({event:'capacity_retry',thread_id:id,failed_turn_id:t.id});
+      if(outputLimit) {
+        this.outputRecoveries.set(id,(this.outputRecoveries.get(id)||0)+1);
+        let timer;
+        const compacted=new Promise((resolve,reject)=>{
+          this.compactions.set(id,resolve);
+          timer=setTimeout(()=>reject(new Error('Output recovery compaction deadline exceeded')),180000);
+        });
+        try {
+          await Promise.all([this.rpc.call('thread/compact/start',{threadId:id}),compacted]);
+        } finally {clearTimeout(timer);this.compactions.delete(id);}
+      }
+      if(this.stopped || fs.existsSync(path.join(this.run,'STOP')) || Date.now()-this.began>=(this.wallLimit||86400)*1000)return;
+      const reason=outputLimit?'上一模型轮次因输出额度耗尽而中断，会话现已压缩。':'容量或速率限制导致上一模型轮次失败。';
+      await this.send(id,reason+'继续同一任务与已有工作笔记；先核对 pending/job 原编号及当前收件，不重放已提交动作，不重置世界，不延长期限。实验已经开始；获取必要的能力信息后继续，不要等待另一条 START。');
+      this.event({event:outputLimit?'output_limit_recovered':'capacity_retry',thread_id:id,failed_turn_id:t.id});
     }
   }
   bootstrap(actor) {
