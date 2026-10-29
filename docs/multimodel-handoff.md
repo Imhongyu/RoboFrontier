@@ -23,7 +23,8 @@ agent，只要具备本机命令行和文件访问能力并遵守[调度 prompt]
 
 Git 提交记录当前分支的已暂存改动。worktree 是该分支的工作目录，`main` 是另一个
 分支；在这里 commit 不会自动提交到 `main`。交接这个分支无需先合并 main。
-GitHub 交接仓库为私有的 [changxuanfan/robofrontier](https://github.com/changxuanfan/robofrontier)。
+GitHub 交接仓库为 [changxuanfan/robofrontier](https://github.com/changxuanfan/robofrontier)。
+公开状态下任何人都可下载；设为私有时，接收者需要先获得仓库访问权限。
 仓库保留原 main 与本交接分支；后续在自己的分支开发、push，再通过 PR 合并。
 原机器已配置 origin；更新交接分支时：
 
@@ -31,8 +32,8 @@ GitHub 交接仓库为私有的 [changxuanfan/robofrontier](https://github.com/c
 git push -u origin codex/multimodel-handoff
 ```
 
-仓库所有者先在 GitHub Settings → Collaborators 邀请同事。同事接受邀请、获得写权限后，
-可以 clone、建立自己的分支并 push：
+需要同事 push 时，仓库所有者先在 GitHub Settings → Collaborators 邀请同事。
+同事接受邀请、获得写权限后，可以建立自己的分支并 push。公开仓库的 clone 本身不需要邀请：
 
 ```sh
 git clone --branch codex/multimodel-handoff https://github.com/changxuanfan/robofrontier.git roomscript2
@@ -42,7 +43,7 @@ git switch -c experiments/my-model
 git push -u origin experiments/my-model
 ```
 
-无需 GitHub 也可交接 `roomscript2.bundle` 和 `policy-assets.tar.gz`：
+无需 GitHub 也可交接 `roomscript2.bundle` 和 `policy-assets-rolling003-20261029.tar.gz`：
 
 ```sh
 git clone --branch codex/multimodel-handoff /path/to/roomscript2.bundle roomscript2
@@ -51,19 +52,19 @@ cd roomscript2
 
 bundle 是仓库历史快照，不是持续同步服务。日常协作用上述 GitHub 仓库即可；
 bundle 供离线交接或备份使用，后续更新可通过 GitHub 或新 bundle 传递。
-运行资产可从同仓库的私有 [handoff-20261028 Release](https://github.com/changxuanfan/robofrontier/releases/tag/handoff-20261028)
-下载 `policy-assets.tar.gz` 和 `policy-assets.tar.gz.sha256`。也可在已登录自己 GitHub
-账号的 `gh` CLI 中下载（需要本私有仓库访问权限）：
+运行资产可从同仓库的 [handoff-20261028 Release](https://github.com/changxuanfan/robofrontier/releases/tag/handoff-20261028)
+下载 `policy-assets-rolling003-20261029.tar.gz`。也可在已登录自己 GitHub
+账号的 `gh` CLI 中下载（仓库设为私有时需要访问权限）：
 
 ```sh
-gh release download handoff-20261028 --repo changxuanfan/robofrontier --pattern 'policy-assets.tar.gz*' --dir ../robofrontier-assets
+gh release download handoff-20261028 --repo changxuanfan/robofrontier --pattern 'policy-assets-rolling003-20261029.tar.gz' --dir ../robofrontier-assets
 ```
 
-在下载目录执行 `shasum -a 256 -c policy-assets.tar.gz.sha256`（Linux 可用
-`sha256sum -c policy-assets.tar.gz.sha256`），然后按下文恢复。
+使用 `setup-assets --archive` 时程序会根据仓库配置验证压缩包 SHA-256，
+并验证任务发布清单与每个文件，然后再恢复。
 资产包只包含当前36项任务需要的场景资产和 Panda 来源文件；不包含 `.env`、Codex
 认证、实验结果、已准备世界或 Dial 私有答案。机器人上游许可证随 Panda 资产保存。
-接收者核对随包提供的 SHA-256 后执行恢复命令；恢复也会检查发布清单和每个文件哈希，
+接收者使用下方 setup-assets 命令验证压缩包及发布清单；恢复也会检查每个文件哈希，
 拒绝覆盖内容不同的现有资产。
 
 ## 安装与环境变量
@@ -77,7 +78,7 @@ uv sync --locked --extra oracle
 # 安装指定版本的 CLI；已有合适版本可跳过
 npm install -g @openai/codex@0.164.0-alpha.11.1
 codex --version
-.venv/bin/python -m scripts.benchmark_handoff restore /path/to/policy-assets.tar.gz
+.venv/bin/python -m scripts.benchmark_handoff setup-assets --archive /path/to/policy-assets-rolling003-20261029.tar.gz
 .venv/bin/python -m scripts.benchmark_handoff init-env
 ```
 

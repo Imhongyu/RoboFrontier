@@ -14,6 +14,8 @@ function fixture(t, onDispatch) {
   const write = (name, value) => fs.writeFileSync(path.join(run, name), JSON.stringify(value));
   write('private/inputs/codex.json', {args:[], model:'test-model', provider:'test-provider', effort:'max'});
   write('private/inputs/manifest.json', {model_requested:'test-model', effort_requested:'max'});
+  write('private/inputs/task.json', {run_protocol:{total_wall_limit_s:86400}});
+  write('private/inputs/harness.json', {startup_protocol:'direct_controller_v2'});
   write('private/state/connections/Meta.json', {url:'http://local-test-only'});
   write('public/inputs/roles.json', {roles:{Meta:{kind:'manager'}, worker:{kind:'robot'}}});
   const calls = [], administration = [], physicalCalls = [];
@@ -34,7 +36,7 @@ function fixture(t, onDispatch) {
     execFile:(command, args, options, callback) => {
       if (args.includes('robofrontier.runtime_cli')) administration.push(args[args.indexOf('--run-dir') + 2]);
       if (args.includes('robofrontier.pipeline_client')) physicalCalls.push(args[args.indexOf('--call-id') + 2]);
-      callback(null, '{}', '');
+      callback(null, args.includes('request-start') ? '{"started":true}' : '{}', '');
     },
     exec:() => {throw new Error('Unexpected shell command in fixture');},
     spawn:() => ({exitCode:null, on:() => {}}),
@@ -42,6 +44,8 @@ function fixture(t, onDispatch) {
   const module = {exports:{}};
   const dependencies = {
     'node:child_process':childProcess,
+    'node:util':{promisify:fn=>(...args)=>new Promise((resolve,reject)=>
+      fn(...args,(error,stdout,stderr)=>error?reject(error):resolve({stdout,stderr})))},
     './codex_rpc':{capacityFailure, CodexRpc:{create:async (args, options) => {handlers = options; return rpc;}}},
     './meta_dispatcher':{runMetaDispatcher:async options => onDispatch(options, emit)},
   };
@@ -83,7 +87,7 @@ for (const [name, error] of [
       'Model response reached max_output_tokens' : 'Model turn failed');
     assert.ok(!JSON.stringify(summary).includes('SENSITIVE_RESPONSE_NOT_FOR_SUMMARY'));
     assert.ok(!JSON.stringify(summary).includes('SENSITIVE_PROMPT_NOT_FOR_SUMMARY'));
-    assert.deepEqual(context.administration, ['seal']);
+    assert.deepEqual(context.administration, ['request-start','seal']);
     assert.equal(context.closed(), true);
     assert.equal(context.calls.filter(call => call.method === 'turn/start').length, 1,
       'only the initial turn may start; permanent failures must not trigger a retry');
