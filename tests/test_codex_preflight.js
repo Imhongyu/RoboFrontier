@@ -1,13 +1,16 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {preflight}=require('../scripts/codex_preflight');
-function fakeRpc({badParent=false,badChild=false,badImage=false,badData=false,noFork=false,skipToolImage=false}={}) {
+function fakeRpc({badParent=false,badChild=false,badImage=false,badData=false,noFork=false,skipToolImage=false,schemaOnlyData=false}={}) {
   return class {
     constructor(args,handlers){this.handlers=handlers;}
     async initialize(){}
     async close(){}
     async call(method,p={}) {
-      if(method==='thread/start')return {thread:{id:'parent'}};
+      if(method==='thread/start'){
+        this.colorSchema=p.dynamicTools[0].inputSchema.properties.data?.properties?.colors;
+        return {thread:{id:'parent'}};
+      }
       if(noFork && ['thread/fork','thread/compact/start'].includes(method))throw new Error('Smoke must not fork/compact');
       if(method==='thread/fork')return {thread:{id:'child',forkedFromId:badParent?'other':'parent'}};
       if(method==='thread/compact/start') {
@@ -18,7 +21,7 @@ function fakeRpc({badParent=false,badChild=false,badImage=false,badData=false,no
         for(const [left,right] of child?[['blue','yellow']]:skipToolImage?[['red','blue']]:[['red','blue'],['blue','yellow']]) {
           await this.handlers.onRequest('item/tool/call',{tool:'protocol_check',threadId:p.threadId,
             arguments:JSON.stringify({left:badImage||child&&badChild?'green':left,right,
-              data:badData?{}:{note:'protocol-check',colors:{left,right}}})});
+              data:badData?{}:{note:'protocol-check',colors:schemaOnlyData&&this.colorSchema?.type!=='object'?[left,right]:{left,right}}})});
         }
         this.handlers.onEvent({method:'turn/completed',params:{threadId:p.threadId,turn:{status:'completed'}}});
         return {};
@@ -61,4 +64,7 @@ test('preflight rejects a provider that returns colors but loses the robot paylo
 test('preflight rejects a provider that stops before reading the tool-returned image',async()=>{
   const result=await run({skipToolImage:true},{smokeOnly:true});
   assert.equal(result.passed,false);
+});
+test('preflight declares nested colors as an object so schema-driven callers can complete the probe',async()=>{
+  const result=await run({schemaOnlyData:true});assert.equal(result.passed,true);
 });

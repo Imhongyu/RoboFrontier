@@ -1,7 +1,6 @@
 // Explicitly invoked paid connectivity test, separate from scored robot trials.
 const fs=require('node:fs'),path=require('node:path');
 const {CodexRpc}=require('./codex_rpc');
-const {robotTool}=require('./codex_policy_host');
 async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
   const launch=JSON.parse(fs.readFileSync(path.join(folder,'launch.json')));
   const waits=new Map();
@@ -26,7 +25,8 @@ async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
       if(valid&&stage===0)return {success:true,contentItems:[
         {type:'inputText',text:'Initial image check passed. Inspect the NEW tool-returned image and call protocol_check again with its left/right colors and the same nested data structure. Then reply VISION_TOOL_OK.'},
         {type:'inputImage',imageUrl:'data:image/png;base64,'+fs.readFileSync(path.join(folder,'colors-tool.png')).toString('base64')}]};
-      return {success:valid,contentItems:[{type:'inputText',text:valid?'VISION_TOOL_OK':'Incorrect image colors or nested data'}]};
+      return {success:valid,contentItems:[{type:'inputText',text:valid?'VISION_TOOL_OK':
+        'Incorrect image colors or nested data. data.colors must be an object with left and right fields, not an array; data.note must be protocol-check. Inspect the current image and retry protocol_check.'}]};
     }};
   const rpc=await (Rpc.create?Rpc.create(launch.args,{...handlers,
     maxOutputTokens:launch.profile?.max_output_tokens,auditPath:path.join(folder,'provider-requests.jsonl')}):new Rpc(launch.args,handlers));
@@ -47,12 +47,14 @@ async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
     const a=await rpc.call('thread/start',{cwd:folder,model:launch.model,modelProvider:launch.provider,
       approvalPolicy:'never',sandbox:'read-only',dynamicTools:[{type:'function',name:'protocol_check',
         description:'Submit the two dominant image colors from left to right.',inputSchema:{type:'object',
-        properties:{left:{type:'string'},right:{type:'string'},data:robotTool.inputSchema.properties.data},
+        properties:{left:{type:'string'},right:{type:'string'},data:{type:'object',
+          properties:{note:{type:'string'},colors:{type:'object',properties:{left:{type:'string'},right:{type:'string'}},
+            required:['left','right'],additionalProperties:false}},required:['note','colors'],additionalProperties:false}},
         required:['left','right','data']}}]});id=a.thread.id;
     await rpc.call('thread/name/set',{threadId:id,name:'API preflight · '+launch.model});
     const finished=nextTurn(id);
     await rpc.call('turn/start',{threadId:id,model:launch.model,effort:launch.effort,input:[
-      {type:'text',text:'Inspect the attached image. Call protocol_check with the dominant color in the left half and the right half, using lowercase English color names. Also include data with note "protocol-check" and colors containing the same left and right values, to check nested robot parameter transport. Then reply with the tool result. Do not use shell or other tools.'},
+      {type:'text',text:'Inspect the attached image. Call protocol_check with the dominant color in the left half and the right half, using lowercase English color names. Include data in this exact structure: {"note":"protocol-check","colors":{"left":"<left color>","right":"<right color>"}}. colors is an object, not an array. Then follow the tool instructions to inspect its new image. Do not use shell or other tools.'},
       {type:'localImage',path:path.join(folder,'colors.png')} ]});
     const turn=await deadline(finished,180000);
     if(turn.status!=='completed' || !tools.get(id))throw new Error('Parent image/tool turn failed: '+JSON.stringify(turn.error));
