@@ -37,10 +37,10 @@ test('capacity recovery resumes a started task without a READY barrier',async()=
     fs.writeFileSync(fakePython,'#!/bin/sh\nprintf "false\\n"\n',{mode:0o755});
     const prompts=[];
     const host={stopped:false,began:Date.now(),run:dir,cwd:dir,python:fakePython,
-      actors:new Map([['thread','Controller']]),failures:new Map([['thread:turn',Date.now()-11000]]),retries:new Set(),
+      actors:new Map([['thread','Controller']]),failures:new Map([['thread:turn',Date.now()-11000]]),retries:new Set(),pendingRecoveries:new Map(),
       admin:async()=>({paused:false,lifecycle:'running'}),
       observe:async()=>({thread:{status:{type:'systemError'}},latestTurn:{id:'turn',status:'failed',error:{message:'429 Too Many Requests'}}}),
-      send:async(id,prompt)=>prompts.push(prompt),event:()=>{}};
+      send:async(id,prompt,beforeStart)=>{beforeStart();prompts.push(prompt);},event:()=>{}};
     await PolicyHost.prototype.retryCapacity.call(host);
     assert.equal(prompts.length,1);
     assert.match(prompts[0],/实验已经开始/);

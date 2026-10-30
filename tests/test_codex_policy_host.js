@@ -6,7 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const {capacityFailure} = require('../scripts/codex_rpc');
 
-function fixture(t, onDispatch, {unsettled=false}={}) {
+function fixture(t, onDispatch, {unsettled=false,nativeCompaction=false,compactionSignal='thread/compacted',readStatuses=[]}={}) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'robofrontier-host-'));
   t.after(() => fs.rmSync(run, {recursive:true, force:true}));
   for (const directory of ['private/inputs', 'private/outputs', 'private/state/connections', 'public/inputs'])
@@ -20,16 +20,30 @@ function fixture(t, onDispatch, {unsettled=false}={}) {
   write('public/inputs/roles.json', {roles:{Meta:{kind:'manager'}, worker:{kind:'robot'}}});
   const calls = [], administration = [], physicalCalls = [];
   let handlers, closed = false;
+  const native={status:'idle',latestTurn:null},timers=[];
+  t.after(()=>timers.forEach(clearTimeout));
   const rpc = {
     initialize:async () => {},
     close:async () => {closed = true;},
     call:async (method, params) => {
       calls.push({method, params});
       if (method === 'thread/start') return {thread:{id:'policy-thread'}};
-      if (method === 'thread/read') return {thread:{id:'policy-thread', status:{type:'idle'}}};
-      if (method === 'thread/turns/list') return {data:[]};
+      if (method === 'thread/read') return {thread:{id:'policy-thread', status:{type:readStatuses.shift()||native.status}}};
+      if (method === 'thread/turns/list') return {data:native.latestTurn?[native.latestTurn]:[]};
       if (method === 'turn/start') return {turn:{id:'initial-turn', status:'inProgress'}};
-      if (method === 'thread/compact/start') handlers.onEvent({method:'thread/compacted',params:{threadId:params.threadId}});
+      if (method === 'thread/compact/start') {
+        if(nativeCompaction) {
+          native.status='active';
+          native.latestTurn={id:'compaction-turn',status:'inProgress'};
+        }
+        handlers.onEvent({method:compactionSignal,params:{threadId:params.threadId,
+          ...(compactionSignal==='item/completed'?{item:{type:'contextCompaction'}}:{})}});
+        if(nativeCompaction) timers.push(setTimeout(()=>{
+          native.status='idle';
+          native.latestTurn={id:'compaction-turn',status:'completed'};
+          handlers.onEvent({method:'turn/completed',params:{threadId:params.threadId,turn:native.latestTurn}});
+        },30));
+      }
       return {};
     },
   };
@@ -57,6 +71,7 @@ function fixture(t, onDispatch, {unsettled=false}={}) {
   }, {filename:'codex_policy_host.js'});
   const host = new module.exports.PolicyHost(run, run, 'fake-python');
   function emit(error, id='failed-turn') {
+    if(nativeCompaction)native.latestTurn={id,status:'failed',error};
     handlers.onEvent({method:'turn/completed', params:{threadId:'policy-thread',
       turn:{id, status:'failed', error}}});
   }
@@ -180,4 +195,75 @@ test('output recovery does not start another turn while a physical result is unr
   context.host.launch.profile={output_limit_retries:2};
   await context.host.runTask();
   assert.deepEqual(context.physicalCalls,['bind']);
+});
+
+for(const signal of ['thread/compacted','item/completed']) {
+  test(`output recovery survives ${signal} arriving before the native session becomes idle`,async t=>{
+    let context;
+    context=fixture(t,async(options,emit)=>{
+      emit({message:'Response incomplete: max_output_tokens'});
+      context.host.failures.set('policy-thread:failed-turn',Date.now()-11000);
+      // The dispatcher catches a busy-read error and polls again, as in the real host.
+      await context.host.retryCapacity().catch(()=>{});
+      await new Promise(resolve=>setTimeout(resolve,40));
+      await context.host.retryCapacity().catch(()=>{});
+      await context.host.retryCapacity().catch(()=>{});
+      const compacted=await context.host.observe('policy-thread');
+      assert.equal(compacted.thread.status.type,'idle');
+      assert.equal(context.calls.filter(call=>call.method==='turn/start').length,2,
+        'completion of the compaction turn must not lose the pending continuation');
+      assert.equal(context.calls.filter(call=>call.method==='thread/compact/start').length,1);
+      assert.ok(context.calls.filter(call=>call.method==='turn/start').every(call=>call.params.threadId==='policy-thread'));
+      assert.equal(options.stopRequested(),false);
+      assert.equal(context.closed(),false);
+      assert.equal(context.administration.includes('seal'),false);
+      assert.deepEqual(context.physicalCalls,['bind']);
+    },{nativeCompaction:true,compactionSignal:signal});
+    context.host.launch.profile={recover_output_limits:true};
+    await context.host.runTask();
+  });
+}
+
+test('a busy pre-send read leaves recovery eligible for a later idle poll',async t=>{
+  let context;
+  const readStatuses=[];
+  context=fixture(t,async(options,emit)=>{
+    emit({message:'stream disconnected: error sending request'});
+    context.host.failures.set('policy-thread:failed-turn',Date.now()-11000);
+    readStatuses.push('idle','active');
+    await context.host.retryCapacity().catch(()=>{});
+    await context.host.retryCapacity().catch(()=>{});
+    await context.host.retryCapacity().catch(()=>{});
+    assert.equal(context.calls.filter(call=>call.method==='turn/start').length,2,
+      'a rejected busy-state check must not consume the only continuation attempt');
+    assert.equal(options.stopRequested(),false);
+    assert.equal(context.administration.includes('seal'),false);
+    assert.deepEqual(context.physicalCalls,['bind']);
+  },{readStatuses});
+  await context.host.runTask();
+});
+
+test('an unknown continuation acknowledgement is recorded and never sent again',async t=>{
+  let context;
+  context=fixture(t,async(options,emit)=>{
+    emit({message:'stream disconnected: error sending request'});
+    context.host.failures.set('policy-thread:failed-turn',Date.now()-11000);
+    const call=context.host.rpc.call;
+    context.host.rpc.call=async(method,params)=>{
+      const result=await call(method,params);
+      if(method==='turn/start')throw new Error('Connection lost before acknowledgement');
+      return result;
+    };
+    await assert.rejects(context.host.retryCapacity(),/acknowledgement/);
+    await context.host.retryCapacity();
+    assert.equal(context.calls.filter(call=>call.method==='turn/start').length,2);
+    assert.equal(context.host.pendingRecoveries.size,0);
+    const events=fs.readFileSync(path.join(context.run,'private/outputs/codex-host.jsonl'),'utf8')
+      .trim().split('\n').map(line=>JSON.parse(line));
+    assert.equal(events.filter(event=>event.event==='recovery_start_unconfirmed').length,1);
+    assert.equal(events.filter(event=>event.event==='transport_retry').length,0);
+    assert.equal(options.stopRequested(),false);
+    assert.deepEqual(context.physicalCalls,['bind']);
+  });
+  await context.host.runTask();
 });

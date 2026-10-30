@@ -25,7 +25,7 @@ class PolicyHost {
     this.launch=read(path.join(this.run,'private/inputs/codex.json'));
     this.wallLimit=read(path.join(this.run,'private/inputs/task.json')).run_protocol.total_wall_limit_s;
     this.actors=new Map(); this.turns=new Map(); this.failures=new Map(); this.retries=new Set();
-    this.outputRecoveries=new Map(); this.compactions=new Map();
+    this.outputRecoveries=new Map(); this.compactions=new Map(); this.pendingRecoveries=new Map();
     this.guardHoldFile=path.resolve(this.run,'../..','GUARD_HOLD');
     this.stopped=false; this.began=Date.now();
   }
@@ -123,12 +123,16 @@ class PolicyHost {
     if (type==='idle' && turn?.status==='failed') type='systemError';
     return {thread:{...result.thread,status:{type}},latestTurn:turn};
   }
-  async send(threadId,prompt) {
+  async send(threadId,prompt,beforeStart) {
     if(this.stopped)throw new Error('Policy host stopped');
     if(this.guardHoldFile)await this.waitForSpendGuard();
     const state=await this.observe(threadId);
     if(this.stopped)throw new Error('Policy host stopped');
-    if (state.thread.status.type==='active') throw new Error('Refusing to steer an active policy turn');
+    if (state.thread.status.type==='active') {
+      const error=new Error('Refusing to steer an active policy turn');
+      error.code='POLICY_BUSY'; throw error;
+    }
+    beforeStart?.();
     const result=await this.rpc.call('turn/start',{threadId,model:this.launch.model,effort:this.launch.effort,
       input:[{type:'text',text:prompt}],turnTrigger:'robofrontier'});
     this.turns.set(threadId,result.turn); return {threadId};
@@ -139,18 +143,23 @@ class PolicyHost {
     if (snapshot.paused || ['ended','interrupted','recovery_required'].includes(snapshot.lifecycle)) return;
     for (const [id,actor] of this.actors) {
       const state=await this.observe(id),t=state.latestTurn;
-      const outputLimit=outputExhausted(t?.error) && this.canRecoverOutput(id);
-      if (state.thread.status.type!=='systemError' || t?.status!=='failed' || !(transientFailure(t.error)||outputLimit)) continue;
-      const key=id+':'+t.id;
-      if (!this.failures.has(key)) this.failures.set(key,Date.now());
-      if (this.retries.has(key) || Date.now()-this.failures.get(key)<10000) continue;
+      let recovery=this.pendingRecoveries.get(id);
+      if(!recovery) {
+        const outputLimit=outputExhausted(t?.error) && this.canRecoverOutput(id);
+        if (state.thread.status.type!=='systemError' || t?.status!=='failed' || !(transientFailure(t.error)||outputLimit)) continue;
+        const key=id+':'+t.id;
+        if (!this.failures.has(key)) this.failures.set(key,Date.now());
+        if (this.retries.has(key) || Date.now()-this.failures.get(key)<10000) continue;
+        recovery={key,failedTurnId:t.id,outputLimit,capacity:capacityFailure(t.error),compactionAttempted:false,compacted:false};
+        this.pendingRecoveries.set(id,recovery);
+      }
+      if(state.thread.status.type==='active' || this.retries.has(recovery.key))continue;
       // Physical uncertainty blocks retries; retrying a model never replays its tools.
       const code="from robofrontier.runtime_store import RuntimeStore;import sys,json;s=RuntimeStore(sys.argv[1]);a=sys.argv[2];print(json.dumps(any(v['status'] in ('pending','running','uncertain') for v in s.actions(a).values()) or any(True for r in s.db.execute(\"SELECT 1 FROM calls WHERE actor=? AND status='accepted' AND op IN ('move','gripper','action_batch','delegate')\",(a,)))));s.close()";
       const {stdout}=await execFileAsync(this.python,['-c',code,path.join(this.run,'private/state/runtime.sqlite'),actor],{cwd:this.cwd});
       if (JSON.parse(stdout)) continue;
-      this.retries.add(key); // An unknown turn/start acknowledgement is never repeated.
-      let compactSucceeded=false;
-      if(outputLimit) {
+      if(recovery.outputLimit && !recovery.compactionAttempted) {
+        recovery.compactionAttempted=true;
         this.outputRecoveries.set(id,(this.outputRecoveries.get(id)||0)+1);
         let timer;
         const compacted=new Promise((resolve,reject)=>{
@@ -165,7 +174,7 @@ class PolicyHost {
         });
         try {
           await Promise.all([this.rpc.call('thread/compact/start',{threadId:id}),compacted]);
-          compactSucceeded=true;
+          recovery.compacted=true;
         } catch(error) {
           this.event({event:'output_recovery_compaction_unavailable',thread_id:id,error_type:error.name});
           const current=await this.observe(id);
@@ -173,9 +182,19 @@ class PolicyHost {
         } finally {clearInterval(timer);this.compactions.delete(id);}
       }
       if(this.stopped || fs.existsSync(path.join(this.run,'STOP')) || Date.now()-this.began>=(this.wallLimit||86400)*1000)return;
-      const reason=outputLimit?'上一模型轮次因输出额度耗尽而中断。'+(compactSucceeded?'会话现已压缩。':''):'临时网络、容量或速率问题导致上一模型轮次失败。';
-      await this.send(id,reason+'继续同一任务与已有工作笔记；先核对 pending/job 原编号及当前收件，不重放已提交动作，不重置世界，不延长期限。实验已经开始；获取必要的能力信息后继续，不要等待另一条 START。');
-      this.event({event:outputLimit?'output_limit_recovered':capacityFailure(t.error)?'capacity_retry':'transport_retry',thread_id:id,failed_turn_id:t.id});
+      const reason=recovery.outputLimit?'上一模型轮次因输出额度耗尽而中断。'+(recovery.compacted?'会话现已压缩。':''):'临时网络、容量或速率问题导致上一模型轮次失败。';
+      try {
+        await this.send(id,reason+'继续同一任务与已有工作笔记；先核对 pending/job 原编号及当前收件，不重放已提交动作，不重置世界，不延长期限。实验已经开始；获取必要的能力信息后继续，不要等待另一条 START。只推理当前需要决定的问题；没有新证据时不要重复推演。信息足够时及时调用工具，缺少信息时使用允许的工具获取证据。',()=>{
+          // Mark only the actual request. An unknown turn/start acknowledgement is never repeated.
+          this.retries.add(recovery.key);
+          this.pendingRecoveries.delete(id);
+        });
+      } catch(error) {
+        if(error.code==='POLICY_BUSY')continue;
+        if(this.retries.has(recovery.key))this.event({event:'recovery_start_unconfirmed',thread_id:id,failed_turn_id:recovery.failedTurnId,error_type:error.name});
+        throw error;
+      }
+      this.event({event:recovery.outputLimit?'output_limit_recovered':recovery.capacity?'capacity_retry':'transport_retry',thread_id:id,failed_turn_id:recovery.failedTurnId});
     }
   }
   bootstrap(actor) {
