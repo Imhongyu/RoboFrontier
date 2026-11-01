@@ -1,265 +1,311 @@
-> 历史记录：本文保留当时过程，不作为当前操作指令。当前规则、默认值和入口见 [旋钮家族说明](../tasks/dial-best5.md)。
+> Historical record: this preserves the planning at the time, not current operating instructions. See the [Dial family guide](../tasks/dial-best5.md) for current rules, defaults and entries.
 
-# 旋钮任务：GPT 开跑前的一致性与多工位回放规划
+# Dial tasks: consistency and multi-workstation replay before GPT execution
 
-日期：2026-10-27。下文保留首次审查时的规划。用户随后授权开始家族内实施；
-当前交付边界与用法见 [旋钮家族说明](../tasks/dial-best5.md)。公共合并待办、
-正式 GPT 运行和全厂多桌 renderer 仍未实施。
+Date: 2026-10-27. This is the initial review plan. The user subsequently authorized
+family-local implementation; see the [Dial family guide](../tasks/dial-best5.md)
+for delivery boundaries and usage. Shared merge work, formal GPT execution and
+the full-factory multi-table renderer had not been implemented at this checkpoint.
 
-本文把用户所说的 worksheet 理解为各任务分支的 worktree。当前负责人只处理
-dial 家族九项任务；其他家族只读取分支接口以识别合并冲突，不替它们改规则或实现。
-本轮只新增本文，不改环境、prompt、Skill、harness 或代码，不准备/启动 GPT run，
-不重跑 Oracle，不做分支合并。
+The user's “worksheet” was interpreted as each task branch's worktree. This
+owner covered only the nine Dial tasks, reading other families' interfaces to
+identify conflicts without changing their rules or implementations. This round
+only added this plan: no environment, prompt, Skill, harness or code changes,
+run preparation/launch, Oracle rerun or branch merge.
 
-审查基线：dial `db15b32`，main `d3e5916`；同时读取了 mosaic `56f4658`、
-relay `16e8e16`、transport `90dd0c5` 的已提交文件接口。分支后续变化需重新核对。
+Review baseline: Dial `db15b32`, main `d3e5916`; committed interfaces were also
+read from Mosaic `56f4658`, Relay `16e8e16` and Transport `90dd0c5`. Later branch
+changes require another comparison. Current integration status is tracked in
+[unified main](../development/unified-main.md).
 
-## 1. 目标与边界
+## 1. Goals and boundaries
 
-GPT 正式运行前，应得到一份自洽的旋钮任务包：实际冻结环境、公开任务说明、
-任务专属指导、通用角色/工具说明、裁判与控制配置指向同一版本。Oracle 证明和
-工程经验保留为私有证据，不能把答案、特权状态或执行脚本作为 GPT 的额外输入。
+Before formal GPT execution, the frozen environment, public task, family guide,
+common role/tool instructions, evaluator and control configuration should refer
+to one coherent version. Oracle proofs and engineering experience remain private
+evidence. Answers, privileged state and execution scripts are not extra GPT inputs.
 
-每个家族分支维护自己的任务规则、配置、说明及适配器。通用 runtime、harness、
-角色 prompt、通用 Skill、录制/回放核心的修改只提交需求和验收标准，合并时由一个
-整合负责人实施一次。已有共享改动先登记，不在本轮回退历史实现，也不继续扩大。
+Each family owns its rules, configuration, documentation and adapters. Changes to
+shared runtime, harness, role prompts, Skills or recording/replay cores should
+be proposed with acceptance criteria and implemented once by the integration
+owner. Register existing shared changes without reverting or expanding them here.
 
-工厂展示使用各次已完成 Oracle 的记录作离线运动学回放。所有工位可以同时显示，
-但每个工位必须独立跳过自己的无效等待，再由统一渲染器生成画面。这不等于重新
-同时执行多套物理 Oracle，也不证明原试验在同一个物理世界中并行发生。
+The Factory display uses completed Oracle recordings for offline kinematic
+replay. All stations may appear together, but each independently skips its own
+unproductive waits before one renderer produces the frame. This neither reruns
+multiple physical Oracles concurrently nor proves that the original trials ran
+in one shared physical world.
 
-## 2. 本次确认的现状
+## 2. Facts confirmed in this review
 
-| 检查对象 | 已确认事实 | 后续处理 |
+| Area | Confirmed fact | Follow-up |
 | --- | --- | --- |
-| 九项 Oracle | 每项有通过证据；八项程序 Oracle，八盘 L3 为辅助 Oracle | 按 case 绑定原证据和冻结版本；不改称九项全自主或同一版本统一批次 |
-| 当前任务入口 | `configs/suites/dial-best5-r11.json` 是正确的九项 BEST5 配置 | 新的 dial 专用入口显式选择它 |
-| R11 任务正文 | 已包含 1..5、60 度刻度、BEST、READY、自动结算、红把手真实抓持及 L2/L3 悬空支撑 | 保留这些正确内容，审查结构化字段和运行时冻结副本 |
-| 环境事实 | 桌高 0.8m，白盘直径 0.3m；布局、支撑结构、计分板位置/比例按 case 不同 | 从每项冻结环境提取；不拿一个任务的坐标套九项 |
-| 元数据就绪状态 | catalog、task、validation 仍标 preview/generated、`oracle_verified=false` | 与新证据脱节；使用版本绑定的证据登记，不直接把历史文件全部改 true |
-| 现有 GPT 批次脚本 | `prepare_policy_minimum_batch.py` 仍选 R10、每家族每等级的最小规模，并使用历史 1200s probe 协议 | 不能作为本次九项 R11 正式入口直接运行 |
-| 正式运行门禁 | `suite/v2.py::validate_task` 只接受 preview 或显式 bounded probe；`World.start_trial` 拒绝 preview | 需要合并时设计正式 readiness 路径，不能靠伪装 probe 或绕过门禁 |
-| 角色 prompt / Skill | 通用职责、RGB/机器人反馈边界、持握和释放语义已有描述；没有 BEST5 专项章节 | 通用内容保留；新增家族说明，不在共享角色里堆旋钮特例 |
-| 公开投影 | `v2.public_task` 有 rules/mechanism/dials，但未输出结构化 completion、独立桌面几何/桌高等字段 | 补齐必要静态规格与规则；不等于公开所有 private 字段 |
-| 控制配置 | 九项选中试验的冻结 harness 与当前 `harness-frontier-v2-servo2.json` JSON 内容一致 | 不因桌高变化就猜测应改通用 harness |
-| 工作范围 | `World.tcp_command_bounds` 优先使用任务自己的 `workspace_world_m`，READY 公布实际 bounds | harness 内旧 fallback 不能直接当作这九项的实际范围；需要核对运行时解析结果 |
-| 单任务去静止 | 已有原始 60Hz 记录绑定的独立 edit，不是渲染后剪视频 | 可以复用这一层，但算法还不覆盖下述全部新要求 |
-| 当前工厂输出 | 九组逐项 simple/factory 回放已验证对应，各默认 10x/30fps | 一段只播放一个 case，其余工位为静态展示；不是九工位独立跳时的联合回放 |
-| 持续明显抖动 | 现算法超过位移/角度阈值就保留，不判断无任务进展的长期振荡 | **尚未满足**用户最新要求，需另加语义/阶段判断 |
-| 力信息 | shared motion 主体是 qpos 与外观事件；动作记录含指令和力设定，但无完整实测接触力序列 | 不能由 qpos 推断“实测机械力为零” |
+| Nine Oracles | Each has passing evidence; eight programmatic Oracles, assisted Oracle for eight-dial L3 | Bind each case to its original evidence/version; do not call all nine autonomous or one uniform-version batch |
+| Task entry | `configs/suites/dial-best5-r11.json` selects the correct nine BEST5 tasks | Select it explicitly in the new Dial entry |
+| R11 task prose | Already includes 1..5, 60-degree increments, BEST, READY, automatic settlement, real red-handle grasping and L2/L3 airborne support | Preserve these facts; review structured fields and frozen runtime copies |
+| Environment | Table height 0.8m, white-dial diameter 0.3m; layout, support and scoreboard placement/scale vary by case | Extract from each frozen environment; do not reuse one case's coordinates for all nine |
+| Readiness metadata | Catalog/task/validation still say preview/generated and `oracle_verified=false` | Register version-bound evidence instead of changing every historical file to true |
+| Existing GPT batch | `prepare_policy_minimum_batch.py` still selects R10, minimum scale per family/level, historical 1200s probe protocol | It cannot directly launch these nine formal R11 tasks |
+| Formal gate | `suite/v2.py::validate_task` accepts preview or explicit bounded probe; `World.start_trial` rejects preview | Design formal readiness during integration; do not disguise formal runs as probes or bypass gates |
+| Role prompts / Skills | Common responsibilities, RGB/robot-feedback boundaries and holding/release semantics exist; no BEST5 section | Retain common content and add family guidance rather than shared Dial exceptions |
+| Public projection | `v2.public_task` exposes rules/mechanism/dials, but lacks structured completion and independent table geometry/height | Add necessary static specifications/rules without exposing all private fields |
+| Control configuration | Frozen harnesses of the nine selected trials match current `harness-frontier-v2-servo2.json` as JSON | A table-height change alone does not justify a common harness change |
+| Workspace | `World.tcp_command_bounds` prefers task `workspace_world_m`; READY reports actual bounds | Verify runtime resolution; old harness fallback is not these cases' actual workspace |
+| Single-task idle removal | Independent edits already bind original 60Hz recordings, rather than cutting rendered videos | Reuse this layer; it does not cover every new requirement below |
+| Factory output | Nine per-case simple/factory pairs match, default 10x/30fps | One case plays while other stations are static; this is not independent nine-station time skipping |
+| Persistent visible jitter | Existing thresholds retain sufficient displacement/rotation without detecting prolonged no-progress oscillation | **Not yet sufficient** for the latest requirement; add semantic/phase evidence |
+| Force evidence | Shared motion mainly stores qpos/appearance; actions include commands/force settings, not complete measured contact forces | qpos cannot establish “measured mechanical force is zero” |
 
-核对来源：`scripts/build_best5_dials.py`、R11 各项 task/environment/public-task、
-`robofrontier/suite/{dial_feedback,evaluate,v2}.py`、`pipeline.py`、`run_setup.py`、
-`prompts/common.md`、`prompts/roles/adaptive-controller.md`、
-`.agents/skills/robot-collaboration/`、`motion_edit.py`、`factory_workstations.py`、
-`scripts/replay_motion_in_factory.py`。选中证据入口为
-`runs/oracle/dial-best5-recovery-20261026/batch-status.json`。
+Sources: `scripts/build_best5_dials.py`, R11 task/environment/public-task files,
+`robofrontier/suite/{dial_feedback,evaluate,v2}.py`, `pipeline.py`, `run_setup.py`,
+`prompts/common.md`, `prompts/roles/adaptive-controller.md`,
+`.agents/skills/robot-collaboration/`, `motion_edit.py`, `factory_workstations.py`,
+`scripts/replay_motion_in_factory.py`. Selected evidence starts at
+`runs/oracle/dial-best5-recovery-20261026/batch-status.json`.
 
-### 2.1 特别容易误用的旧规则
+### 2.1 Old rules prone to misuse
 
-`suite/v2.py` 的通用 dial builder 仍含 1/2/3 和四分之一圈、当前 CORRECT count 的
-旧规则。R11 专用 builder 已覆盖生成的九项正文，因此不能说当前 R11 正文全错；
-真正风险是后续重新生成、准备 run 或选错 catalog 时又读回旧版本。
+The generic Dial builder in `suite/v2.py` still contains old 1/2/3,
+quarter-turn and current CORRECT-count rules. The R11 builder overrides the nine
+generated task texts; those texts are not all wrong. The risk is reintroducing
+old rules during generation, run preparation or incorrect catalog selection.
 
-当前公开任务的文字已经说明 4 度、0.25s 等规则，结构化 completion 缺失不等于
-这些规则完全没告诉 GPT。需要做的是让公开说明、结构化参数和裁判有可检查的
-对应关系，而非再手抄一套可能漂移的规则。
+Public R11 prose already states the 4-degree and 0.25s rules. Missing structured
+completion does not mean GPT never received them. Establish checkable agreement
+between public prose, structured parameters and evaluator instead of copying
+another rule set that can drift.
 
-原 `run_setup` 会冻结当次 public task、角色 prompt、Skill 和源码，但不会自动把
-工程过程中新写的经验整理成 GPT 可读的家族说明；不能仅凭“会复制文件”就认定
-最新变化已全部同步。
+Original `run_setup` freezes the task, roles, Skills and source, but does not
+automatically turn recent engineering experience into a policy family guide.
+File copying alone does not establish that every recent change is synchronized.
 
-## 3. 家族任务包：先对齐事实，再写指导
+## 3. Family package: align facts before writing guidance
 
-建议在 dial 自有目录维护一份家族规格/说明与逐项证据索引；具体新路径暂定：
+Proposed family-owned specification and per-case evidence index:
 
-- `configs/task_families/dial/best5-r11.json`：九项 ID、catalog、源 hash、规格版本、
-  裁判版本、证据引用、程序/辅助标记、展示速度。保密密码只保留 evaluator 引用。
-- `docs/tasks/dial-best5.md`：面向人的任务与版本说明。
-- `prompts/tasks/dial-best5.md`：面向 policy 的家族说明，冻结进 run；本文不创建它。
-- dial 自有的检查/准备脚本与测试：只消费上述配置，不修改通用启动器来硬编码九项。
+- `configs/task_families/dial/best5-r11.json`: nine IDs, catalog, source hashes,
+  specification/evaluator versions, evidence references, programmatic/assisted
+  flags and display speed. Secret combinations retain evaluator references only.
+- `docs/tasks/dial-best5.md`: human-facing task/version documentation.
+- `prompts/tasks/dial-best5.md`: policy family guide frozen into runs; not created here.
+- Dial-owned check/preparation scripts/tests: consume this configuration instead
+  of hardcoding nine cases in a shared launcher.
 
-家族规格按九项逐一核对以下字段，不只挑一个代表任务：
+Check every case, rather than one representative:
 
-| 领域 | 必须一致的内容 |
+| Area | Required agreement |
 | --- | --- |
-| 身份 | case_id、4/6/8 盘、L1/L2/L3、实际机械臂数、scene revision、资产/环境逻辑 hash |
-| 静态几何 | 桌高、真实桌面轮廓与开孔、尺度、机器人基座与朝向、工作范围、相机标定、计分板位置 |
-| 机制 | 固定/自由模块、L3 偏心 crank、盘与把手尺寸、局部参考系、允许转动范围 |
-| 输入 | 1..5 可重复，0 无效；60 度一格；4/5 可用负角到达，±180 为同一格 3 |
-| 反馈 | BEST 为历史完整有效输入的最大值，不是当前命中数；READY 有灰/黄/绿及亮度语义 |
-| 结算 | 每盘在非零容差带内持续 0.25s，所有红把手真实抓持；运动中间配置也会自动结算 |
-| 支撑 | L2/L3 先建立另一机械臂的双指蓝把手支撑，整模块离所有外部支撑至少 20mm，保留实际资格时间和丢失规则 |
-| 成功 | 同一时刻一组完整正确输入；成功锁存与真实物理继续存在分别说明；过程违规不会因最终解锁被清除 |
-| 接口 | READY 的真实工具能力、单位、速度/力范围、失败/未知执行语义；grasp 推断不等于实测物体支撑 |
-| 观察 | RGB、机器人本体反馈与允许的静态规格；无隐藏密码、逐盘正确性、实时物体真值 |
+| Identity | case_id, 4/6/8 dials, L1/L2/L3, actual arm count, scene revision, asset/environment-logic hashes |
+| Static geometry | Table height, actual outline/openings, dimensions, robot bases/orientations, workspace, camera calibration, scoreboard location |
+| Mechanism | Fixed/free modules, L3 eccentric crank, dial/handle dimensions, local frames, allowed rotation |
+| Input | Repeated 1..5 allowed; 0 invalid; 60 degrees per increment; negative angles reach 4/5; ±180 denotes the same symbol 3 |
+| Feedback | BEST is the historical maximum over complete valid inputs, not current hits; READY has gray/yellow/green and brightness semantics |
+| Settlement | Every dial remains within a nonzero tolerance band for 0.25s, all red handles genuinely grasped; intermediate motion configurations can settle automatically |
+| Support | For L2/L3 another arm first establishes bilateral blue-handle support; entire module at least 20mm clear of external support; preserve qualification/loss timing |
+| Success | One simultaneous complete correct input; distinguish success latching from continuing physics; unlocking does not erase process violations |
+| Interface | READY capabilities, units, speed/force ranges, failed/unknown execution semantics; grasp inference is not measured object support |
+| Observation | RGB, robot proprioception and permitted static specifications; no secret combination, per-dial correctness or live object truth |
 
-`environment.tables` 可能只是桌面的包围描述；环形桌的孔洞不能用单个包围盒替代。
-应基于冻结的实际静态桌面几何制作明确的规格/示意图。静态桌面与机器人基座的
-公开规格，和公开实时/初始物体精确坐标是两回事：后者须按既定观察协议审查，
-不能通过“补齐几何”把 private 对象姿态全部导出。
+`environment.tables` may be only a bounding description. One box does not
+represent a ring table's hole. Derive specifications/diagrams from actual frozen
+static table geometry. Public table/base specifications differ from precise
+initial/live object coordinates; review the latter under the observation
+protocol instead of exporting every private pose under “complete geometry.”
 
-`nominal_robots` 是布局参考，不应被 prompt 自动升级为永久所有权或唯一合法分工。
-真正的红/蓝分离、支撑和接触前提按裁判规则执行。
+`nominal_robots` is a layout reference, not permanent ownership or the only legal
+division of work. Actual red/blue separation, support and contact prerequisites
+come from evaluator rules.
 
-### 3.1 允许进入家族指导的内容
+### 3.1 Permitted family guidance
 
-应说明：观察并绑定 BEST/READY 与实际盘面输入；保持已确定的设置而评估新的
-尝试；依据依赖与碰撞风险安排并行动作；蓝支撑与红操作的耦合；偏心把手需要
-组合平移/转动；失败后根据 RGB 和机器人反馈重新判断抓持、打开、撤退与重抓。
+Explain how to associate BEST/READY with visible inputs, preserve established
+settings while testing alternatives, schedule concurrency around dependencies
+and collisions, couple blue support with red operation, combine translation and
+rotation for eccentric handles, and reassess grasp/open/retreat/regrasp after
+failure using RGB and robot feedback.
 
-不要把 Oracle 的私有 IK 候选、按任务写死的世界坐标、最优尝试顺序、答案、
-实时 object truth、BEST 解码器或在线研究修复通道塞给 policy。可分享的通用
-工具语义/公开规则，与授权跨运行学习经验必须分开登记。不能为“更容易成功”
-默认导入原工程对话；本对话已经出现过密码，尤其不宜作为初始 policy 的继承历史。
+Do not give policies private Oracle IK candidates, case-hardcoded coordinates,
+optimal attempt sequences, answers, live object truth, BEST decoders or online
+engineering repair channels. Register general tool/public-rule guidance
+separately from authorized learning across runs. Do not inherit engineering
+chats by default to increase success; this original chat contained combinations
+and was particularly unsuitable as initial policy history.
 
-## 4. 就绪登记与未来 GPT 准备路径
+## 4. Readiness registration and future GPT preparation
 
-1. 固定九项证据索引：逐项引用选中 report、资产、裁判、控制和 Oracle 执行版本。
-   八盘 L3 保留 assisted 标志；物理控制指纹一致不等于 Oracle 源码版本完全相同。
-2. 逐项对照最终任务包。差异分为规则文字、公开静态规格、控制/裁判行为和资产四类。
-   不把旧 `return_dynamics_verified=false` 等单项 commissioning 字段一键升为 true；
-   一次完整成功不证明所有诊断能力都被验证。
-3. 先产出家族的 readiness 侧车文件，明确“哪份冻结输入有哪种证据”。不改历史
-   录制源 task/validation 的字节以避免破坏 hash 链。
-4. 通用 readiness 注册、验证与 public 投影扩展等需求进入第 5 节合并清单；合并后
-   才提供正式运行状态。不能把新正式实验包装成历史 bounded probe 来绕过门禁。
-5. 设计 dial 专用准备入口：显式读取 R11 九项及最终共享配置，先生成可审查的
-   输入清单，再创建新 run。它应能展示 GPT 最终会读到的完整任务/角色/Skill
-   文件和相机图，而非只检查源码中存在某个字段。
-6. 准备阶段不得启动物理或推理；本轮连准备 run 也不执行。后续从干净上下文启动
-   Controller；运行时合法 delegate 只继承该 policy 的允许上下文。
-7. GPT 的模型、topology、费用/运行预算属于新实验协议。旧脚本的 1200s 不能
-   悄悄成为新实验默认；也不能把之前 Oracle 的无限预算自动套给 GPT。开跑前需
-   单独确定并冻结。展示用 10x 不改变真实控制速度或物理时钟。
+1. Pin nine evidence entries to selected reports, assets, evaluator, control and
+   Oracle execution versions. Retain assisted eight-dial L3; identical physical
+   control fingerprints do not imply identical Oracle source versions.
+2. Compare each final package. Separate rule text, public static specifications,
+   control/evaluator behavior and assets. Do not promote old commissioning flags
+   such as `return_dynamics_verified=false` wholesale; a complete success does
+   not verify every diagnostic capability.
+3. Produce a family readiness sidecar identifying evidence for specific frozen
+   inputs. Preserve original task/validation bytes and hash chains.
+4. Put common readiness registration/validation/public-projection changes in
+   section 5's merge list. Formal status follows integration; do not disguise
+   new formal experiments as historical bounded probes.
+5. Design a Dial preparation entry explicitly reading nine R11 cases and final
+   shared configuration. Preview reviewable inputs before creating runs. Show
+   the complete task/roles/Skills/camera images GPT will receive, not merely
+   whether a source field exists.
+6. Preparation starts neither physics nor inference; even preparation was out
+   of scope in this original round. Later start a Controller with fresh context;
+   legal runtime delegates inherit only permitted policy context.
+7. Model, topology and cost/runtime budgets belong to the new protocol. Old
+   1200s settings must not silently become defaults, nor should the Oracle's
+   unlimited budget transfer automatically. Decide and freeze before launch.
+   Display speed 10x changes neither real control speed nor the physical clock.
 
-现有 `run_setup` 的输入/源码 hash 冻结及通用 Skill 可复用。若公共控制/裁判
-行为在合并中改变，重新做影响分析与相应小范围验证；若仅展示/文档改变，不因此
-要求九项 Oracle 全部重做。是否需要新物理证据由实际变更决定。
+Reuse input/source hashing and common Skills in `run_setup`. If integration
+changes shared control/evaluator behavior, analyze impact and run appropriate
+focused checks. Display/documentation-only changes do not automatically require
+all nine physical Oracles again; actual changes determine evidence needs.
 
-## 5. 多 worktree 的修改归属与合并清单
+## 5. Worktree ownership and shared merge list
 
-后续 dial 分支只新增/修改 `dial_*` 模块、dial 专属配置/说明/测试。下面这些通用
-位置本轮不动；每个需求保留“原因、提议接口、调用点、证据、验收、兼容要求”。
+Later family work should touch Dial modules, configuration, documentation and
+tests. Shared proposals retain reason, interface, call sites, evidence,
+acceptance and compatibility requirements; shared locations were out of scope.
 
-| 共享位置/功能 | 待合并后实施的事项 |
+| Shared area | Work proposed for integration |
 | --- | --- |
-| `suite/v2.py` 及通用 task 投影 | 正式 readiness 路径；公开静态规格/结构化规则的合适投影；旧/new dial 规则按版本分派 |
-| `run_setup.py` | 可选家族说明/配置的载入与冻结，不把家族经验硬塞通用 prompt；允许输入清单预览 |
-| `pipeline.py` / dispatcher | 只列正式 readiness、观察边界和恢复兼容需求；禁止在各分支重复改所有权、调度或工具语义 |
-| 公共角色 prompt / Skill | 只维护通用职责、工具、安全和证据语义；加入一次家族说明入口即可，具体内容归家族 |
-| harness | 保持同一物理能力配置；只有发现已验证的不一致才提出变更。任务几何使用 task/READY，不复制旧 fallback 常量 |
-| 录制与编辑核心 | 统一编辑协议、力/动作/进展证据来源、各家族判定 profile 与老文件兼容 |
-| factory / renderer | 多工位独立时间游标、批量 pose 更新后一次渲染、材质/工位变换与完成策略 |
-| 共享 Oracle 基类/恢复器 | 合并 dial 的已知执行收尾/辅助标记需求与 transport 等分支的修改，按行为整合，不覆盖整份文件 |
+| `suite/v2.py` / public task | Formal readiness; static specifications/structured rules; versioned old/new Dial rules |
+| `run_setup.py` | Optional family guide/configuration loading/freezing and input preview; no family experience hardcoded into common prompts |
+| `pipeline.py` / dispatcher | Formal readiness, observation boundaries and recovery compatibility only; no duplicated ownership/scheduling/tool semantics across branches |
+| Common roles / Skills | Common responsibilities, tools, safety and evidence semantics; one family-guide entry, with content owned by families |
+| Harness | Same physical capability; change only for verified discrepancies; task/READY geometry rather than copied fallback constants |
+| Recording/editing core | One edit protocol, force/action/progress evidence sources, family profiles and old-file compatibility |
+| Factory / renderer | Independent station cursors, batch pose updates before one render, materials/transforms and completion policy |
+| Oracle base / recovery | Integrate Dial finalization/assistance needs with Transport and others by behavior, without whole-file overwrite |
 
-### 5.1 已经存在的具体冲突
+### 5.1 Concrete existing conflicts
 
-相对 main 的已提交差异中，当前查到：
+Committed differences from main included:
 
-- dial/mosaic 都改了 `motion_edit.py`、`test_motion_edit.py`、
-  `render_frontier_oracle.py`、`replay_motion_in_factory.py`。
-- dial/relay 都改了 `motion_edit.py`、`test_motion_edit.py`、`factory_workstations.py`。
-- dial/transport 都改了 `suite/oracle.py`、`render_frontier_oracle.py`。
+- Dial/Mosaic both changed `motion_edit.py`, `test_motion_edit.py`,
+  `render_frontier_oracle.py`, `replay_motion_in_factory.py`.
+- Dial/Relay both changed `motion_edit.py`, `test_motion_edit.py`, `factory_workstations.py`.
+- Dial/Transport both changed `suite/oracle.py`, `render_frontier_oracle.py`.
 
-更关键的是三个 `motion_edit.py` 不是同一个接口：dial 暴露
-`IdleSettings/build_edit/EditedMotion`，mosaic 暴露 `build_timeline/MotionEdit`，
-relay 暴露 `keep_intervals/select_source_rows/retained_timeline/video_rows`。
-这属于协议整合问题，不能只做 Git 文本冲突消解。
+The three edit APIs differed: Dial exposed `IdleSettings/build_edit/EditedMotion`,
+Mosaic `build_timeline/MotionEdit`, Relay
+`keep_intervals/select_source_rows/retained_timeline/video_rows`. This requires
+protocol integration, beyond Git text-conflict resolution.
 
-建议顺序：各家族提交自己的规格/证据和共享需求 → 整合负责人确定唯一公共
-录制/编辑协议 → 以兼容适配器读已有三类产物 → 家族 profile 迁入各自 namespace
-→ 统一回放/启动入口 → 做跨家族最小兼容验证 → 再做新的正式运行准备。
-旧记录和 edit 文件保留原样，不要求为统一接口重新跑原 Oracle。
+Suggested order: family specifications/evidence/shared requirements → one shared
+recording/edit protocol → compatibility adapters for three existing products →
+family profiles in family namespaces → unified replay/launch → minimum
+cross-family checks → formal preparation. Preserve old recordings/edits;
+interface unification alone does not require original Oracles to be rerun.
 
-## 6. 多工位去静止回放：正确的调度模型
+## 6. Independent time skipping across workstations
 
-每个工位 i 有自己的原始记录、编辑清单、外观事件游标、工位变换和展示速度。
-定义它自己的映射 `source_i = map_i(presentation_time)`。全局输出的第 k 帧：
+Each station i owns its original recording, edit, appearance cursor, transform
+and display speed: `source_i = map_i(presentation_time)`. For output frame k:
 
 ```text
 global_time = k / 30
 for each workstation i:
-    从 i 的编辑时间线取得 source_frame_i / source_time_i
-    取得原始 qpos，消费 i 的原始时间内到期的外观事件
-    对 i 的完整工位应用固定 translation/yaw
-    更新 i 的可视对象
-全部工位更新完毕后，设置全局展示时钟，只渲染一次工厂画面
+    resolve source_frame_i / source_time_i from its own edit
+    read original qpos and consume appearance events due in its source time
+    apply fixed translation/yaw to the complete station
+    update its visible objects
+after all station updates, set the global display clock and render once
 ```
 
-例如 A 桌原始 10..30s 静止，B 桌原始 15..20s 静止：A 只跳自己的 20s，B
-只跳自己的 5s。两者此后的原始 source_time 自然不同。不能删全局视频的一段，
-也不能要求所有工位共享同一个源仿真时间。
+If A waits during original 10..30s and B during 15..20s, A skips its own 20s and
+B its own 5s. Their subsequent source times differ. Do not cut a global video
+interval or require every station to share one source simulation time.
 
-当前 `FactoryPlayback.apply` 每次把 `data.time` 设为该 case 的源时间。多工位
-版本须把各站源时间与全局展示时间分开，避免最后更新的桌子决定全场时钟。
-应尽量批量写各站 mocap/外观后再做一次 FK/render，而非每站重渲整座工厂。
+`FactoryPlayback.apply` sets `data.time` to each case's source time. Separate
+station source clocks from global display time so the last update does not
+control the factory clock. Batch mocap/appearance updates before one FK/render,
+rather than rendering the entire factory separately per station.
 
-全局逐帧索引应记录：全局 frame/time；各工位 case、源 run、循环序号、源 frame/time、
-edit hash、当前完成状态及 skip 原因。简单背景与工厂背景都消费同一编辑清单；
-相机、材质改变不重新分类。dial 维持默认 10x/30fps，其他家族保留其已确认配置。
-不重新执行动作、IK、接触或物理积分，不对跨过的片段做虚构插值。
+The frame index records global frame/time and each station's case, source run,
+loop number, source frame/time, edit hash, completion state and skip reason.
+Simple and Factory backgrounds consume the same edit; camera/material changes
+do not reclassify it. Dial keeps default 10x/30fps; other families retain their
+confirmed settings. No action, IK, contact or physics rerun, and no invented
+interpolation across skipped segments.
 
-### 6.1 “所有桌子都没有静止”还需要一个展示决定
+### 6.1 Completion requires a display decision
 
-不同任务时长不同，短任务做完后停在最终姿态，依然会静止。这和中途的无效等待
-不是同一问题。实施前需要选定：
+Short tasks finish earlier and remain at their final pose. That differs from
+unproductive mid-task waiting. Choose before implementation:
 
-- 审计回放：各站只播一次，完成后显示完成并保持最终状态；不能承诺每桌始终运动。
-- 连续展示：短站独立循环自己的有效片段，显式标注循环/回放重启，至少保留一次
-  完成状态；全局片长可取最长站首轮完成所需时间。循环拼接不能冒充真实物理连续执行。
+- Audit replay: play each station once, mark completion and hold the final state;
+  continuous movement at every station cannot be promised.
+- Continuous exhibition: independently loop short stations' effective segments,
+  explicitly mark replay restarts and show completion at least once. Global
+  duration may be the longest station's first completion. Loops do not represent
+  physically continuous execution.
 
-若目标是用户所说“所有桌子始终在干活”，建议连续展示模式，但尚未据此实施或
-擅自定义循环/片长。无论何种模式，源记录中的有效支撑和完成事件不能被抹掉。
+Continuous exhibition was recommended for “every table always working,” but
+loops/duration had not been implemented or decided unilaterally. Preserve valid
+support and completion events in either mode.
 
-## 7. 持续明显抖动的进一步处理
+## 7. Persistent visible oscillation
 
-现有幅度阈值法不足以满足本节。不能简单调大阈值，否则会误删慢速真动作、弹簧
-回位、掉落或必要的控制修正。新增家族分类器应输出 `active / idle / hold /
-settling / oscillating_without_progress / unknown` 等展示阶段，仍只改回放清单。
+Amplitude thresholds alone are insufficient. Increasing them can remove slow
+real movement, spring return, falls or necessary corrections. A family classifier
+should emit `active / idle / hold / settling / oscillating_without_progress /
+unknown` display phases, changing only replay edits.
 
-判断至少组合三组证据：
+Combine at least these evidence groups:
 
-1. **有效驱动变化**：动作开始/结束、TCP/关节目标与夹爪目标是否实际改变、执行
-   是否正在推进。重复发送同一个开合保持指令不自动算有进展；job 为空也不等于
-   没有持续持握力。动作持续时间内亦可有无效等待，不能按 action 区间全保留。
-2. **物体运动性质**：多秒窗口的中心/净位移、目标方向的真实趋势、振荡幅度与
-   周期是否只围绕同一状态反复。明显但长期无进展的振荡可删中段，保留起因、
-   必要上下文和最后实际结果；缓慢趋势不能当抖动。
-3. **任务事件**：新有效输入次数、BEST、READY、红/蓝支撑变化、脱落、失败、
-   重抓、违规、恢复和解锁。即使 BEST 没变，新输入也可能是有意义的尝试；不能
-   只保护颜色变化。事件附近保留必要帧，或显式记录被省略的等待及源时间跨度。
+1. **Effective command changes:** action starts/ends, actual TCP/joint/gripper
+   target changes and execution progress. Repeated identical hold commands do
+   not establish progress; an empty job does not establish absent holding force.
+   An action interval can contain unproductive waits and is not all protected.
+2. **Object motion:** windowed center/net displacement, genuine directional
+   trends and oscillation amplitude/period around the same state. Remove the
+   middle of prolonged no-progress oscillation while preserving cause, context
+   and actual outcome. Slow drift is not automatically jitter.
+3. **Task events:** new valid inputs, BEST, READY, red/blue support changes,
+   detachment, failures, regrasp, violations, recovery and unlock. An unchanged
+   BEST can accompany a meaningful new attempt; protect more than color changes.
+   Keep event context or explicitly record omitted wait/source spans.
 
-旧数据可结合 `motion/events.jsonl`、`trace.jsonl`、`actions.json`、`process.jsonl`
-以及已存在的恢复记录离线分析，不重跑物理。展示分类可读私有工程过程证据，
-但这些文件不能因此变成 GPT 的观察输入。对证据不足的区间标 unknown，交给
-明确的保守策略/人工复核；不把“算法觉得无意义”写成物理测量事实。
+Analyze old `motion/events.jsonl`, `trace.jsonl`, `actions.json`, `process.jsonl`
+and recovery records offline without physics. Private engineering evidence may
+inform display classification without becoming GPT observation input. Mark
+insufficient evidence unknown and apply an explicit conservative/manual policy;
+an algorithmic usefulness judgment is not a physical measurement.
 
-用户的“没有机械力”按“没有有效驱动或任务进展”理解。悬空蓝支撑即使不移动也
-可能一直施力，因此 `force == 0` 不是合理的必要条件。当前录制并非完整接触力
-记录；指令 `force_n` 也不是实测载荷。若以后必须以实测力/机械功为判据，需要
-另列通用只读遥测扩展及其采样/单位/来源，合并后再实现；旧数据不能补造力证据。
+“No mechanical force” was interpreted as no useful drive or task progress.
+Stationary airborne blue support may continuously exert force, so `force == 0`
+is not a valid required condition. Recordings lack complete contact-force
+telemetry, and commanded `force_n` is not measured load. A future measured-force/
+mechanical-work criterion needs a separate read-only telemetry proposal with
+sampling, units and sources; old data cannot supply invented force evidence.
 
-## 8. 后续实施顺序与验收
+## 8. Implementation order and acceptance
 
-| 阶段 | 本家族可交付内容 | 合并后的依赖 / 验收 |
+| Stage | Family deliverable | Integration dependency / acceptance |
 | --- | --- | --- |
-| A 事实登记 | 九项 case→规格→证据索引、差异表 | 不启动 GPT；保留全部原 hash 和 assisted 标志 |
-| B 家族说明 | dial 专属规则/静态几何说明、policy 家族指导、只读一致性检查 | 不改公共角色/Skill，不传密码/特权脚本 |
-| C 共享整合 | 本分支只提交通用改动需求与适配提议 | 一次统一 readiness、公开投影、载入入口、编辑协议及多站调度 |
-| D 脱离物理的验证 | 使用已有记录验证 dial 分类结果 | 两站静止区间错开、三种 edit 兼容、反馈不丢、每站独立跳时、无 `mj_step` |
-| E GPT 输入预览 | 逐项核查将冻结的 public task / 家族说明 / 角色 / Skill / READY 配置 | 新鲜上下文；正确 R11 九项；最终配置与证据的行为一致性已审查 |
-| F 新实验 | 只有输入包与运行协议确认后才准备并启动 | 先小规模连通性/观察验证，再按独立实验协议扩展九项；本轮不执行 |
+| A Facts | Nine case→specification→evidence entries and differences | No GPT launch; original hashes and assisted labels retained |
+| B Guidance | Dial rules/static geometry, policy guide, read-only checks | Common roles/Skills unchanged; no combinations/privileged scripts |
+| C Integration | Shared requirements and adapter proposals only | Unified readiness/projection/loading/edit protocol/station scheduling |
+| D Without physics | Classify existing Dial recordings | Staggered two-station idle intervals, three edit types, feedback preserved, independent clocks, no `mj_step` |
+| E Input preview | Inspect frozen public task/family guide/roles/Skills/READY per case | Fresh context, correct nine R11 cases, reviewed behavior agreement with evidence |
+| F New experiment | Prepare/launch only after package/protocol confirmation | Small connectivity/observation check, then expansion under a separate protocol; not executed here |
 
-分类器验收需包含：小幅高频抖动、大幅长期往复但无进展、极慢净位移、夹爪微量
-有效闭合、真实掉落、弹簧回位、必要接收/支撑等待、BEST 不变的新输入、READY
-变色、失败与恢复、未知执行、不同工位完成时间及循环重启。不能只检查片长变短。
+Classifier acceptance includes small fast jitter, large prolonged no-progress
+oscillation, very slow displacement, small effective finger closure, real falls,
+spring return, necessary receiving/support waits, new inputs without BEST change,
+READY changes, failure/recovery, unknown execution, unequal completion times and
+loop restarts. A shorter video alone is insufficient.
 
-最终验收分别记录：任务/规则一致性、policy 信息边界、原物理证据、编辑分类、
-工厂姿态/逐帧来源一致性。剪辑后的时间和多桌展示不能替代真实耗时或并行效率
-评测。是否允许连续展示循环、GPT 预算与正式实验设置，留待实施前确定。
+Record task/rule consistency, policy information boundaries, original physics
+evidence, edit classification and Factory pose/frame provenance separately.
+Edited time and multi-table display cannot replace real duration or concurrency
+measurements. Loop policy, GPT budgets and formal settings remained undecided.
 
-## 9. 本轮结束条件
+## 9. Original stopping point
 
-本文已写入已确认事实、明确缺口、分支归属、共享合并待办、独立跳时的调度模型，
-以及长期明显抖动的判定要求。结束于规划；不自动开始以上任何实现或 GPT 仿真。
+The original round ended with facts, gaps, branch ownership, shared merge work,
+independent-time scheduling and prolonged-oscillation requirements documented.
+It stopped at planning without automatically starting implementation or GPT
+simulation. This historical scope does not pause current authorized integration.

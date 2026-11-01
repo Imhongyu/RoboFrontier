@@ -1,260 +1,295 @@
-> 历史归档。当前规格与状态见 [Transport任务说明](../tasks/transport.md)；合并操作见 [交接](../plans/suite-v2/transport-merge-handoff.md)。本文保留当时的过程与证据。
+> Historical archive. See the [Transport task guide](../tasks/transport.md) for current specifications/status and [handoff](../plans/suite-v2/transport-merge-handoff.md) for integration. This preserves the original process and evidence.
 
-# 实施更新：本类R14任务包与源剪辑已完成
+# Implementation update: family R14 package and source edits completed
 
-用户后续已授权实施并明确GPT物理桌孔减半。P0本类来源／物理选择、P1专属任务包、P2源原生剪辑已实施并核对；共享C1—C5、多桌绘图及正式GPT仍留合并。完成后的持续展示策略尚未选择，当前接口保持终态。
-当前事实见[Transport任务说明](../tasks/transport.md)和[合并交接](../plans/suite-v2/transport-merge-handoff.md)。下文保留最初规划快照，不代表所有待办仍未实施。
+The user subsequently authorized implementation and half-size holes for GPT
+physics. Family P0 source/physics selection, P1 package and P2 source-native edits
+were implemented and checked. Shared C1—C5, multi-table drawing and formal GPT
+execution remained integration work. Continuous post-completion display was
+undecided; the interface held final state. See the [Transport task guide](../tasks/transport.md)
+and [merge handoff](../plans/suite-v2/transport-merge-handoff.md). The original
+planning snapshot below does not mean every listed item remained unimplemented.
 
-# Transport：GPT 前任务对齐、worktree 边界与多桌工厂回放计划
+# Transport: pre-GPT alignment, worktree ownership and multi-table Factory replay
 
-日期：2026-10-27。状态：**只读核对与规划；本文待办尚未实施。**
+Date: 2026-10-27. Original status: **read-only review and planning; proposed work
+had not yet been implemented.**
 
-用户所说 worksheet 在这里按各任务的 Git worktree 理解。本分支负责 Transport
-四／八／十二臂 × L1／L2／L3 九项。其他家族由各自负责人核定；本次只读其接口和
-计划，不修改其文件，不接管其试验。没有创建 GPT run、启动推理／仿真、重跑 Oracle、
-渲染新视频或合并分支。已有实现和完成证据继续保留。
+“Worksheet” meant each task's Git worktree. This branch owned nine Transport
+cases: four/eight/twelve arms × L1/L2/L3. Other families retained their owners;
+this review read their interfaces/plans without editing files or taking over
+experiments. No GPT run, inference/simulation, Oracle rerun, new video render or
+branch merge was started. Existing implementations/evidence were preserved.
 
-当前工作树基线 `90dd0c5`，main `d3e5916`，包含上一轮尚未提交的媒体处理改动。
-外部 worktree 在本次读取期间仍有修改，因此以下跨分支发现是接口快照，不是最终合并签收。
+Baseline `90dd0c5`, main `d3e5916`, including previously uncommitted media changes.
+Other worktrees changed during review; cross-branch findings are interface
+snapshots, not final integration acceptance.
 
-## 1. 结论与完成边界
+## 1. Conclusions and completion boundary
 
-Transport 原物理目标已经完成：九次独立完整运行通过，216/216，三项冻结程序、
-六项工程辅助恢复。视频、去静止源索引和单桌工厂映射也已有交付。
+Original Transport physics goals were complete: nine independent full passes,
+216/216, three frozen programs and six engineering-assisted recoveries. Videos,
+idle-removed source indexes and single-table Factory mapping were delivered.
 
-这不能直接推出两个结论：
+This does not establish:
 
-1. GPT 已经收到一套与最终 Oracle 完全一致的说明／环境／控制／裁判；当前元数据和正式入口仍有缺口。
-2. 已完成所有工位各自跳过等待、在同一工厂画面同时回放；当前验证仍是单工位。
+1. GPT received final-Oracle-consistent instructions/environment/control/scoring;
+   metadata and formal launch still had gaps.
+2. Independent wait skipping and simultaneous replay of every workstation in one
+   Factory frame; existing validation was single-station.
 
-后续目标是形成每类任务自洽、版本明确的公开任务包；共享机制由合并负责人统一接入。
-工厂展示读取既有轨迹，不重新计算动作、IK 或接触物理。每张桌子独立压缩自己的等待，
-桌内所有机械臂和物体保持原先同步；全部桌子状态更新后再绘制一张工厂画面。
+Build coherent versioned family public packages, with shared integration once.
+Factory reads existing trajectories without recomputing actions, IK or contacts.
+Each table compresses its own waits; its arms/objects remain synchronized. Update
+all tables before drawing one frame.
 
-## 2. 只读核对结果
+## 2. Read-only findings
 
-| 对象 | 已核实事实 | 下一阶段处理 |
+| Area | Verified fact | Next stage |
 | --- | --- | --- |
-| 九项证据 | 独立全任务通过，三项程序／六项辅助；每项保留真实失败与原始计时 | 建逐项证据索引，不改称九项全自主或单一执行器版本 |
-| 场景入口 | Transport 专属清单选择 R13 九项；当前生成文件与选中成功源的场景 SHA 一致 | 明确选择该家族清单，不从总清单或“最新目录”猜版本 |
-| 环境／规则 | R13 白板、目标间距、订单图形、任意手递／桌面中转等已进入本类规则和 mechanism | 保留正确内容，补完整的一致性核对和家族说明 |
-| 完成状态元数据 | 九项 task 仍为 `environment_preview_only`、`oracle_verified=false`；catalog 仍写无 Oracle | 版本绑定的证据登记；保留历史冻结件，不把旧文件全部改 true |
-| 文档入口 | `docs/frontier-v2-environments.md`、R13 初始说明和 worktree 初始说明仍有“未完整运行”旧状态 | 区分历史说明与当前入口，链接当前证据和任务规格 |
-| 公开投影 | `v2.public_task` 已有 rules/mechanism/orders/arms，但没有独立桌面几何、桌高、结构化 completion 或 workspace 字段 | 补必要静态规格／成功条件；实际运行范围以 READY 为准，不导出私有实时物体真值 |
-| 工作范围 | `World.tcp_command_bounds` 优先取任务 `workspace_world_m`，否则才用旧 harness fallback | 核对实际解析结果；不能看到 fallback 的旧桌高就直接改整个 harness |
-| 控制／裁判 | 九项控制指纹均为 `ac85b406…3479`，环境逻辑指纹均为 `cd615e0b…135b`；九份 effective harness 与当前 servo2 JSON 内容相同，手指 servo 为 `pd1000-v1` | 保存一致的基线；新合并版本重新记录指纹和兼容证据 |
-| 正式 GPT 门禁 | `validate_task` 只接收 preview／显式 bounded probe，`World.start_trial` 拒绝 preview | 合并阶段实现正式就绪路径，不伪装 probe 或绕过检查 |
-| 旧 GPT 批次 | `prepare_policy_minimum_batch.py` 固定选择 R10、每类每级最小规模和 1200s probe | 不能直接用它启动当前九项；准备新的家族任务包，公共启动接线留合并 |
-| prompt／Skill | 通用角色、工具能力、观察边界和并行／交接原则已有说明；没有 Transport 独立冻结说明的加载点 | 新增家族资料，公共加载点只实现一次 |
-| 中央桌孔 | 半孔只在独立渲染模型生效；原物理 R13、碰撞场景和 GPT 入口仍是原开孔 | 单独决定 GPT 物理版本；不将渲染默认冒充物理默认 |
-| 去静止数据 | 九项已有 60Hz 源状态 keep/index 映射、SHA 和默认关联；重新渲染可直接跳源状态 | 保留并适配，不要求每换背景重做运动识别或先渲染全长视频 |
-| 多桌工厂 | `replay_motion_in_factory.py` 一次读一个 recording；`FactoryPlayback.apply` 每次还会设置共享 `data.time` 为该桌源时间 | 联合播放器尚缺；需要每桌时钟与全局展示时钟分离 |
-| 广义抖动 | 已去除已审核的孤立反复晃动；当前大幅 rattle 补充针对 free body、臂静止约≥8s、有界包络，仍有振幅及趋势限制 | 不能保证任意大幅／任意被动关节长期振荡均已去掉；新增任务语义与区间审查 |
+| Evidence | Nine independent full passes, three programmatic/six assisted; actual failures/timing retained | Per-case evidence index; no claim of nine autonomous cases or one executor version |
+| Scene entry | Family catalog selects nine R13 cases; generated scenes match selected successful sources | Select family catalog explicitly, not guessed global/latest versions |
+| Rules/environment | R13 boards, target spacing, order graphics and arbitrary handoff/table buffering already in rules/mechanism | Preserve correct content; complete checks/guide |
+| Readiness | Tasks still `environment_preview_only`, `oracle_verified=false`; catalog says no Oracle | Version-bound sidecars, preserving frozen files rather than mass true edits |
+| Documentation | `docs/frontier-v2-environments.md`, initial R13/worktree docs still say incomplete | Mark history and link current evidence/specification |
+| Public projection | `v2.public_task` has rules/mechanism/orders/arms, lacks independent table geometry/height, structured completion/workspace | Add necessary static specs/success conditions; READY is actual command range; no private live truth |
+| Workspace | `World.tcp_command_bounds` prefers task `workspace_world_m`, otherwise old harness fallback | Verify actual resolution rather than changing common harness based on fallback height |
+| Control/scoring | All control fingerprints `ac85b406…3479`, environment logic `cd615e0b…135b`; effective harnesses match servo2 JSON, finger servo `pd1000-v1` | Preserve baseline; record new integration fingerprints/compatibility |
+| Formal gate | `validate_task` accepts preview/explicit bounded probes; `World.start_trial` rejects preview | Integrate formal readiness without disguised probes/bypass |
+| Old GPT batch | `prepare_policy_minimum_batch.py` fixes R10, minimum family/level scale and 1200s probe | New family package; common launch wiring during integration |
+| Prompt/Skill | Common roles, tools, observation and concurrency/handoffs exist; no Transport guide loading point | Family materials plus one shared loading hook |
+| Center hole | Half-hole only in render model; original physical R13/collision/GPT entry unchanged | Decide GPT physics separately; render default is not physical default |
+| Idle data | Nine 60Hz source keep/index maps, hashes/default references; rerenders skip source states directly | Preserve/adapt without repeated detection per background or full render first |
+| Multi-table | `replay_motion_in_factory.py` reads one recording; `FactoryPlayback.apply` writes shared `data.time` from that source | Add independent source/global display clocks |
+| General jitter | Reviewed isolated rattle removed; added large-rattle check covers free bodies, arms still about ≥8s, bounded envelope with amplitude/trend limits | Does not cover arbitrary amplitude/passive-joint oscillation; add semantics/review |
 
-九项 Oracle 的精确事实以持久批次的 `COMPLETION.md`、每项完整 `report.json` 和
-`motion/source` 为准，不能只从旧 catalog 的状态文字判断完成与否。
+Use persistent `COMPLETION.md`, complete per-case `report.json` and motion/source,
+not stale catalog status, to establish the nine trials' exact outcomes.
 
-## 3. Transport 任务包要核对什么
+## 3. Family package consistency
 
-每项都核对，不用四臂 L1 代替其余八项。用同一份家族规格生成公开说明并做差异检查，
-避免维护数份手写尺寸／规则。拟新增的路径仅是方案，本轮不创建这些实现文件：
+Check every case rather than substituting four-arm L1 for the other eight.
+Generate public documentation from one family specification with differences,
+not several handwritten rule/dimension copies. Original proposed paths:
 
-- `configs/task_families/transport/r13-qualified.json`：九项来源、版本、证据、控制配置、物理／展示变体。
-- `docs/tasks/transport.md`：人的任务说明和当前状态。
-- `prompts/tasks/transport.md`：GPT 可用的家族指导，后续冻结为 run 的家族参考。
-- Transport 专属检查／打包脚本及测试：生成包和检查报告，不启动 GPT，不修改公共启动器。
+- `configs/task_families/transport/r13-qualified.json`: nine sources/versions,
+  evidence, controls and physics/display variants.
+- `docs/tasks/transport.md`: human task/status guide.
+- `prompts/tasks/transport.md`: allowed GPT guidance, later frozen as reference.
+- Dedicated package/check scripts and tests: no GPT launch or common launcher edits.
 
-| 领域 | 应对齐的事实 |
+| Area | Facts to align |
 | --- | --- |
-| 身份／数量 | 4/8/12 臂、12/24/36 件、三等级、case ID、场景／规则／裁判／控制版本 |
-| 桌面／布局 | 桌高0.8m，外边长1.938/2.720/3.536m；四臂实心，八／十二臂中央孔；基座、朝向、目标板位置和真实工作范围；不能用环桌包围盒代替可支撑桌面 |
-| 白板／目标 | R13 白板143×396mm，相邻目标中心120mm，84mm颜色／形状标识，间隔36mm；白板与支撑相对R10外移50mm；按各冻结场景取位置 |
-| 物品／订单 | 60mm方块或直径／高度60mm圆柱；来源身份和颜色／形状按订单区分；来源ID不是固定机器人所有权 |
-| 插接 | 双片2.5×12×24mm、中心距24mm；真实盲槽4.5×15mm、深26mm；板厚32mm；区分中央桌孔和插接盲槽 |
-| 等级 | L1最终目标稳定释放；L2固定板双片真实插入、落座、释放；L3相同插口位于被动z/roll/pitch弹簧板，目标参考系随板运动 |
-| 支撑／协作 | 可直接空中交接、稳定桌面暂存或等待；没有指定中转框、固定路径、固定配对；先确认接收支撑再放手，允许独立工作并行 |
-| 判分 | 来源身份、物体姿态、完整占位／双片入槽、板与物体稳定、无夹爪接触、连续稳定1s和过程合规需逐条对应现有裁判；84mm标识不代表84mm接受范围 |
-| 动作／观察 | READY 实际能力与范围；笛卡尔／关节目标、夹爪行程／力设定、已知失败／未知执行区别；RGB和本体反馈，不把推断抓持当实际物体支撑 |
-| 恢复／效率 | 从可观察现场恢复；减少不必要的落桌重抓和交接，权衡总动作与并行时长；没有通用 rewind／恢复求解器快照能力 |
+| Identity/count | 4/8/12 arms, 12/24/36 objects, three levels, case ID, scene/rule/evaluator/control versions |
+| Table/layout | Height 0.8m, outer side 1.938/2.720/3.536m; solid four-arm table, center holes for eight/twelve; bases/yaws/boards/workspace; ring bounding box is not support surface |
+| Board/targets | R13 board 143×396mm, target spacing 120mm, color/shape marks 84mm, gaps 36mm; board/support 50mm outward from R10; use frozen positions |
+| Objects/orders | 60mm cubes or cylinders of diameter/height 60mm; source identity/color/shape per order; source IDs are not exclusive robot ownership |
+| Insertion | Two tabs 2.5×12×24mm, spacing 24mm; real blind slots 4.5×15mm, depth 26mm, board thickness 32mm; distinguish slots from center table hole |
+| Levels | L1 stable released placement; L2 real bilateral insertion/seating/release on fixed board; L3 same sockets on passive z/roll/pitch spring board with moving local target frame |
+| Cooperation | Direct airborne handoff, stable table buffering or waiting; no fixed buffer box/route/pair; establish receiving support before release; parallel independent work |
+| Scoring | Source identity/pose/full occupancy/two tabs, board/object stability, no gripper contact, continuous 1s and process compliance map to evaluator; 84mm mark is not an 84mm acceptance area |
+| Actions/observation | READY tools/bounds; Cartesian/joint targets, aperture/force, known failure versus unknown execution; RGB/proprioception, not grasp inference as support truth |
+| Recovery/efficiency | Recover from observed state; weigh avoidable table regrasp/handoffs against parallel duration; no universal rewind/solver-snapshot resume |
 
-裁判细节来自 `suite/evaluate.py::sample_goals` 和
-`evaluate_v2.py::placement_candidates`。L1 检查完整物体占位，L2/L3在当前板局部系检查
-两片的真实包络、深度和落座；不能只把“放在白板上”或“标识变大”写成通过条件。
-正式公开的容差应从这一契约投影并测试，不另写一套更宽标准。
+Details: `suite/evaluate.py::sample_goals` and
+`evaluate_v2.py::placement_candidates`. L1 checks full occupancy; L2/L3 check real
+tab envelopes, depth/seating in current board coordinates. “On the board” or a
+larger mark does not mean pass. Project/test tolerances from this contract
+without inventing broader standards.
 
-### 3.1 哪些经验可以给 GPT
+### 3.1 Permitted GPT guidance
 
-可以提供任务规则、允许公开的静态尺寸／标定、参考系、接收支撑后释放、抓取—重定向—
-接收—插入的连续可行性、依据当前观测重分配和并行规划等方法性指导。
+Allow rules, public dimensions/calibration, frames, support-before-release,
+continuous feasibility through grasp/reorientation/receiving/insertion, and
+observation-based reassignment/concurrency. Exclude private candidate graphs,
+grasps, object poses, QP results, shortest routes, recovery inboxes, support/
+contact truth and traces. Oracle measured 20mm lift/contact checks are not extra
+policy feedback or a fixed answer recipe. GPT can plan its own lift and judge
+through permitted RGB/proprioception.
 
-Oracle 私有候选图、抓点、实际物体姿态、QP结果、逐件最短路线、恢复收件箱、
-私有支撑／接触真值和完整轨迹不进入 policy 包。Oracle 的20mm实测抬升／接触检查
-不能直接变成 GPT 新增特权反馈或固定答案流程。GPT 可做自己的抬升动作并通过允许的
-RGB／本体反馈判断结果；具体动作与顺序由它规划。
+`check_motion` is bounded-horizon inter-robot geometry screening, default 2cm,
+with an unmodifiable request threshold and no held-object/table truth. Its
+conservative rejection does not prove physical impossibility; the Oracle's
+private loaded-scene screen must not be disguised as a policy tool. Propose any
+new common capability separately.
 
-现有 `check_motion` 是有限时域的机器人间几何筛查，默认2cm，不能修改请求阈值，
-不含被抓物体／桌面真值。它与 Oracle 的私有全场载荷筛查覆盖不同；前者保守拒绝
-不等于物理不可行，后者不能偷偷包装成 policy 工具。若需增加通用能力，单列共享提案。
+## 4. Separate half-hole physics from display
 
-## 4. 半孔规格必须先分清物理和展示
+Existing display default: eight-arm hole 0.952→0.476m, twelve-arm 1.666→0.833m,
+half in both dimensions; outer dimensions, height, legs, robots/objects unchanged.
+Original physics and passing evidence were unchanged. Geometric checks covered
+1,998,263 saved states over six holed scenes without new contact. This is pose
+compatibility, not full execution in the new physics scene.
 
-已有观看版默认：八臂中央孔0.952→0.476m，十二臂1.666→0.833m，长宽各减半；
-外尺寸、高度、腿、机器人和物体不变。原物理模型和通过证据没有改。
-六项有孔场景共1,998,263保存状态已做新增桌面体积几何检查，无新增接触；
-这是轨迹姿态相容证据，不是新物理场景的完整执行结果。
+Before GPT, register separately:
 
-GPT 开始前登记以下选择，不能混在一个“默认”字段里：
+- Same-physics comparison: original frozen R13 physics; half-hole is display-only.
+- Approved half-hole GPT physics: new family scene/variant, actual collision
+  geometry, environment/task/public specs/previews/hashes, existing control and
+  scoring contract. Check initial/source compatibility, then affected physical
+  grasp/handoff/insertion behavior. Complete new-environment claims need complete
+  corresponding physics evidence; do not relabel old PASS.
 
-- 若要求与原 Oracle 做同物理条件比较：物理仍用原冻结R13，半孔作为明确的展示变体。
-- 若最终批准的 GPT 物理规格也要求半孔：新增 Transport 专属场景版本／variant，更新
-  真实碰撞几何、环境／任务／公开规格／预览和 SHA；控制和判分保持既定契约。
-  先检查初态与源轨迹兼容，再按实际差异安排受影响的抓取／交接／插入物理验证。
-  如需宣称该新物理环境完整通过，须另有对应完整物理证据；不能改名继承旧PASS。
+This original round did not select physics for the user, alter successful sources
+or restart old worlds. Later authorization is recorded above.
 
-本轮不替用户默选物理版本，不改现有成功源，不重启任何旧世界。
+## 5. Ownership
 
-## 5. 分支修改归属
-
-| 后续本分支可独立准备 | 本分支只写需求，合并统一实施 |
+| Family-local preparation | Shared integration requirements only |
 | --- | --- |
-| Transport环境／family catalog、任务专属规则和说明、家族参考／prompt、专属校验模块与测试、证据登记 | 总catalog装配、公共task投影／校验／加载、正式readiness路径 |
-| Transport几何变体及其版本证据；本类抖动分类／选择结果与适配要求 | 通用harness、`pipeline`、控制器、`run_setup`、工具协议／生命周期 |
-| 本类公开资料与Oracle私有资料的边界检查 | 通用角色prompt、`prompts/common.md`、通用Skill根入口 |
-| 本类逐项保留区间和源状态对应 | 公共录制／编辑格式、统一FactoryPlayback、全局多桌播放器和展示时钟 |
+| Environments/catalog/rules/docs/reference/prompt/checks/tests/evidence | Global catalog, public projection/validation/loading, formal readiness |
+| Geometry variants/evidence, jitter labels/selections/adapters | Harness, `pipeline`, control, `run_setup`, tools/lifecycle |
+| Public/private Oracle boundary checks | Common roles, `prompts/common.md`, Skill root |
+| Per-case retained windows/source mappings | Recording/edit protocol, unified FactoryPlayback, multi-table/display clock |
 
-已有共享改动继续保留和登记，不为了“只改本类”在本轮回滚历史实现。
-下一阶段新增修改按上述归属执行；不要让四个owner分别改一份公共启动器／Skill根文件。
+Register/preserve existing shared changes rather than reverting history to claim
+family-only work. Future work follows ownership; four owners should not each
+change a shared launcher/Skill root.
 
-### 5.1 已发现的合并风险
+### 5.1 Merge risks
 
-- Transport、Dial 均涉及 `suite/oracle.py`；Transport、Dial、Mosaic 均涉及
-  `scripts/render_frontier_oracle.py`，另有工厂重放入口和录制文件的交叉修改。
-- Dial、Mosaic 的 `robofrontier/motion_edit.py` 实现不同；Transport 使用
-  `motion_timeline.py`，但这些数据都可能叫 `robofrontier.motion-edit.v1`，字段和语义并不相同。
-- Relay 的旧计划记录了同名共享模块，当前工作树已经在迁往 `relay_motion_edit.py`，
-  有删除／重命名和未提交改动。合并时必须重采实际文件和owner交接，不能只读HEAD或旧计划。
-- 总builder、公开投影、裁判和控制指纹也有语义冲突风险；Git自动合并成功不等于一致。
+- Transport/Dial both touch `suite/oracle.py`; Transport/Dial/Mosaic touch
+  `scripts/render_frontier_oracle.py`, plus intersecting replay/recording changes.
+- Dial/Mosaic differ in `robofrontier/motion_edit.py`; Transport uses
+  `motion_timeline.py`. All may claim `robofrontier.motion-edit.v1` despite
+  different fields/semantics.
+- Relay was migrating shared code to `relay_motion_edit.py`, including deletes,
+  renames and uncommitted work. Recollect actual files/handoffs rather than only
+  HEAD or old plans.
+- Global builder/projection/scoring/control fingerprints can conflict semantically
+  even after a clean Git merge.
 
-所有owner先交付：family清单、逐case证据、专属补丁、共享路径差异、旧格式说明、
-未提交／未追踪文件和测试结果。指定一个整合负责人分块合并公共实现，保留来源和版本；
-不采用整个公共文件的ours/theirs选边，不在本分支批量cherry-pick其他家族。
+Owners should provide catalogs, per-case evidence, local patches, shared diffs,
+old-format notes, uncommitted/untracked files and test results. One integrator
+merges by behavior with provenance/version retention, without whole-file
+ours/theirs or bulk cherry-picks of other families here.
 
-## 6. 合并后共享待办
+## 6. Shared work proposed for integration
 
-编号与其他家族已提出的C1—C5需求对齐；以下全部是计划。
+C1—C5 align with other family proposals; all were plans at this checkpoint.
 
-| 编号 | 统一工作 | 验收标准 |
+| ID | Work | Acceptance |
 | --- | --- | --- |
-| C1 | 家族任务包公开投影、冻结和加载 | 实际run public输入含正确本类参考；common／roles／Skill只提供通用指针；其他家族不会覆盖；公开包无Oracle私有数据 |
-| C2 | 正式readiness与证据绑定 | scene／规则／裁判／控制／任务包分别有版本和证据；新正式入口合法加载，preview／错误源仍拒绝；不借历史probe授权启动 |
-| C3 | 统一源索引编辑协议与旧格式适配 | 明确producer和格式版本、时间单位／时钟、区间开闭、原帧号／时间、源hash、保留／删除原因与采样精度；不能只按同名v1字符串互认 |
-| C4 | 多桌独立时间轴、整体刚体映射、一次工厂绘制 | 同一帧各桌可对应不同原始秒；各桌独立跳等待，桌内完全同步；事件跨cut正确；完成策略显式；每帧映射可追溯 |
-| C5 | 公共运行／观测／并发／录制回归与正式批次参数 | 各family同一共享运行基线，真实READY／异常语义一致；模型、effort、拓扑、预算明确，不继承旧1200s probe或Oracle时限；只做展示的快放不改变真实效率统计 |
+| C1 | Public projection/freezing/loading | Actual run receives correct family reference; common roles/Skill supply general pointers; no other-family overwrite/private Oracle data |
+| C2 | Formal readiness/evidence binding | Separate scene/rule/evaluator/control/package evidence; legal formal loading, rejection of preview/wrong sources; no historical-probe authorization reuse |
+| C3 | Source-index edit protocol/adapters | Producer/version, units/clocks, interval endpoints, source frames/times/hashes, keep/drop reasons and precision; same v1 label is insufficient |
+| C4 | Independent tables, rigid mapping, one render | Different source seconds in one frame, table-local sync/wait removal, correct cut events, explicit completion and frame provenance |
+| C5 | Runtime/observation/concurrency/recording regression and formal batch settings | Common baseline/READY/error semantics, explicit model/effort/topology/budget; no inherited 1200s probe/Oracle limit; display speed does not change efficiency |
 
-文件级指纹可能因公共接线改变而变化。记录新旧指纹和兼容审查／测试，不能捏造旧hash，
-也不能让不同规则或控制配置静默继承旧资格。确认不能兼容的实际变化再安排对应验证。
+Shared wiring can change file fingerprints. Record old/new hashes and reviewed
+compatibility/tests, without fabricating old hashes or silently inheriting
+qualification across changed rules/controls. Validate actual incompatible changes.
 
-## 7. 上次去静止交付：有数据，但联合播放仍缺一层
+## 7. Previous idle-removal delivery
 
-已完成的 Transport 内容：
+- Full 60Hz sources preserved; nine JSON+NPZ edits/default trial references.
+- 2,131,885 source states; 1,143,461 retained, 988,424 removed; about 7.6MB new NPZ.
+- Direct retained-source rerendering, without first rendering the entire Factory;
+  color events restored by source time.
+- Reviewed idle/isolated rattle removed; any useful arm/finger/object motion
+  protects the complete synchronized table.
+- Single-table rigid mapping/half-hole checks; 288 sampled states across nine
+  cases match source FK after additional translation/yaw.
+- 18 front/rear simple videos, 20x/30fps; full Factory/multi-table video
+  batch remained ungenerated.
 
-- 60Hz完整源记录保留；九项有JSON+NPZ去静止时间轴和trial旁默认引用。
-- 合计2,131,885源状态，当前保留1,143,461、去除988,424；新增NPZ约7.6MB。
-- 重新渲染直接读取保留源状态，不需先渲染完整工厂视频再剪；颜色事件按源时间恢复。
-- 静止及已审核的孤立反复晃动已过滤，任意同桌有效机器人／夹爪／物体运动保留全桌。
-- 单桌刚体映射和半孔几何已验证；九项共288个抽样状态额外平移／旋转后与源FK一致。
-- 九项简单背景正反面18部为20x／30fps；完整工厂视频和多桌联合视频尚未批量生成。
+The timeline conservatively expands source-state cells represented by reviewed
+video samples back to 60Hz. Cuts still depend on original review sampling/margins,
+not independent decisions on every source frame. Current classification uses old
+manifests/videos; future recordings need direct source selection without an
+existing-video prerequisite. Preserve checked selections across background changes.
 
-边界：当前时间轴把既有审核视频帧代表的源状态单元保守展开到60Hz，因此映射虽然
-覆盖源状态，切点精度仍受原审核采样和边界余量影响，并非每一源帧都重新独立决定。
-当前分类脚本还依赖旧manifest／视频作审核；未来新记录需要能直接从源轨迹生成选择，
-不把“已有视频”作为输入前提。保留已验证结果，不为换背景重复识别。
+## 8. Multi-table clocks and frames
 
-## 8. 多桌同时回放的时钟与帧生成
+For global video time T, table i has effective e_i, source s_i, keep indexes and
+speed v_i. Compute `e_i = v_i * T`, then `source_i(e_i)` independently. Transport
+uses 20x/30fps; other families use approved defaults unless integration explicitly
+changes them.
 
-设全局视频时间为T，每桌i有自己的有效时间e_i、源时间s_i、保留索引表和倍率v_i。
-每一帧先算 `e_i = v_i * T`，再查该桌的 `source_i(e_i)`，不要求不同桌的s_i相同。
-Transport当前20x／30fps；其他家族用各自owner批准的展示配置，统一倍率需在合并配置中明确。
+If A waits at 10..30s and B at 15..20s, A skips 20s and B 5s. One Factory frame
+may represent A at 40s, B at 25s. Removing A's wait does not remove B's actions.
 
-例如A桌原始10..30s等待，B桌原始15..20s等待：A只跳自己的20s，B只跳自己的5s。
-同一工厂帧可以是A的原始40s、B的原始25s。删除A的等待不删除B的动作。
+**Motion OR applies within one table.** No factory-wide mask or independently
+cut arms, which would destroy support, handoffs and coupled mechanisms.
 
-**有效动作的OR范围是同一工作台。** 不把整个工厂做一张统一mask，也不把同桌每只
-机械臂分开剪；后者会破坏双臂支撑、交接和机构耦合。
+For every output frame:
 
-每个全局输出帧：
+1. Resolve each table's source frame without interpolation across cuts or physics.
+2. Restore appearance/score events through s_i, including events inside skips.
+3. FK with exact frozen model; rigidly translate/yaw table, bases, arms, objects,
+   mechanisms and targets together. Background/material/camera changes do not
+   trigger reclassification.
+4. Write all mocap/appearance, update global FK/camera and render once. Shared
+   data.time is display time; retain each s_i separately.
+5. Record global frame/time → case/source run/frame/time/effective time/edit hash/
+   interval/completion, plus loop number if applicable.
 
-1. 各桌查自己的有效时钟和源帧，不跨cut插值，不推进物理。
-2. 更新该桌截至s_i的外观／计分显示等事件；被跳过等待内的事件也要折叠到正确状态。
-3. 使用该桌精确冻结模型做FK，再对桌子、基座、机械臂、物体／机构／目标施加共同
-   的平移和竖轴旋转；背景、材质、相机变化不触发重新分类。
-4. 写入全部桌子的mocap／外观，最后统一工厂FK／相机更新并只绘制一次。共享data.time
-   表示全局展示时钟；每桌s_i单独保存，不能由最后更新的桌子覆盖全场时钟。
-5. 写逐帧追溯表：global frame/time → 每桌case／源run／源帧／源时间／有效时间／
-   edit hash／区间／完成状态（若循环则循环编号）。
+Compose the Factory from exact source versions, not old v6 stations with changed
+joints/geometry. Absolute relocation/material changes preserve relative geometry;
+independent robot relocation, arbitrary objects or scaling are not qualified.
 
-工厂模型必须由各桌准确源版本组合。不能把旧v6工作台、不同关节／几何布局和新版
-记录直接套在一起。只改变绝对位置／材质时保持相对尺寸与布局；独立搬动单个机器人、
-任意重排物体或改变尺寸，不属于已验证的同一套动作迁移。
+### 8.1 Completion is different from waiting
 
-### 8.1 完成后的静止不是中途等待
+A single audit replay can hold exact final states, mark completion and end when
+the longest finishes; it cannot promise continuous motion at every table.
 
-各任务长度不同。一次审计回放可在短任务完成后保持精确终态并显示“完成”，
-整段到最长任务完成为止；此模式不能承诺每张桌子始终在运动。
+Continuous exhibition would need explicit independently labeled loops, one shown
+completion and loop IDs. Restart is a display transition, not continuous physics.
+The original round did not choose loops or conceal restarts, discard final states
+or slow shorter tasks to create an illusion of constant work.
 
-若希望工厂里每桌一直干活，增加**明确标识的独立循环展示模式**，保留一次完成状态，
-每桌按自己的有效片段重播并记录循环编号。循环回到初态是展示切换，不能说成连续物理动作。
-本轮不替用户默选循环，也不通过拉慢短任务、丢掉真实终态或隐藏重启来制造持续动作。
+## 9. General no-progress jitter
 
-## 9. 广义无意义抖动的补齐计划
+Interpret “no mechanical force” as no useful execution/progress, not measured zero
+contact force. Existing qpos/action/appearance lacks full measured force series;
+static grasping exerts force. Do not add hidden GPT sensors for offline editing.
 
-用户的“没有机械力”按“没有有效机械臂执行／任务进展”核对，不字面推断接触力为零。
-现有qpos／动作／外观记录没有完整实测接触力序列；静态夹持本身也有力。
-不为了离线分类给GPT增加隐藏传感器。
+Label whole-table source intervals once:
 
-按整桌区间分四类，标签在源记录上做一次：
-
-| 区间 | 展示处理 |
+| Interval | Display treatment |
 | --- | --- |
-| 任意真实有效臂／夹爪操作、定向物体运动、持续有效转动 | 保留同桌完整同步状态，不因某只臂静止而删 |
-| 真实松爪下落／落地、滑落／掉落、失撑、恢复、机构／完成状态变化 | 保留过程与关键边界；不能为画面顺滑把失败藏掉 |
-| 无有效臂操作、无阶段／目标／接触事实推进，仅长期有界往返、接近原状态 | 作为等待删除，即使摆幅明显；不能“只要有位移”就保留，也不能“有action ID／力设定”就全程保护 |
-| 不确定或短暂过渡 | 使用源日志和代表性画面复核后再定，不用放宽振幅阈值一刀切 |
+| Useful arm/finger operation, directed object movement, useful rotation | Preserve complete table synchronization |
+| Real release/fall/landing/slip/lost support/recovery/mechanism/completion change | Preserve process/boundaries; do not hide failure for smoothness |
+| No useful operation/phase/goal/contact progress, prolonged bounded back-and-forth near one state | Remove as waiting even with visible amplitude; displacement/action ID/force setting alone does not protect it |
+| Uncertain/brief transition | Review logs/representative images, without one broad amplitude threshold |
 
-算法检查短／长窗口、净位移与累计路径、反向次数／周期、稳定包络、持续时间，结合
-真实执行结果和任务阶段。覆盖free body、被动铰链／弹簧板及伺服往返抖动，不能只处理圆柱。
-测试几秒边界、明显摆幅、相同摆动旁另一机械臂有动作、无臂但真实掉落、慢速运输等反例。
+Combine short/long windows, net displacement/path length, reversals/period,
+envelope/duration, actual results and phase. Cover free bodies, passive hinges/
+spring boards and servo oscillation, not cylinders only. Include duration
+boundaries, visible amplitude, another active arm, genuine falls without arm
+motion and slow transport.
 
-当前Transport已有16/64s趋势和≥8s rattle检查，但有6cm／π等包络上限，且free body
-补充不等于全部被动关节语义检测。先找当前未覆盖的代表区间；新增分类保存在
-Transport专属层，公共消费协议留C3。必要时从原60Hz重新生成本类标签，**不重跑物理**。
-代表画面只作离线一次审核，不要求先生成全长视频，更不要求换材质后重新识别。
+Transport already had 16/64s trend and ≥8s rattle checks, but 6cm/π envelope caps;
+free-body checks do not cover every passive joint. Find uncovered examples, keep
+new labels family-local and shared consumption in C3. Relabel original 60Hz if
+needed, **without physics reruns**. Representative images are one-time review,
+not a full-video prerequisite or repeated detection after material changes.
 
-规定的稳定／支撑资格计时仍依据原始时钟。展示可以压缩静态等待，但要保留关键事件、
-实际源时间和完成状态；不能用剪短后的时长重新判分或声称真实执行因此更快。
+Qualification/stability durations use original time. Display may compress waits
+while preserving events/source times/completion; do not rescore edited time or
+claim actual execution became faster.
 
-## 10. 实施顺序与完成条件
+## 10. Implementation order and completion
 
-| 阶段 | 后续工作 | 完成条件 |
+| Stage | Work | Acceptance |
 | --- | --- | --- |
-| P0 | 各owner交最终case／源／证据／本地改动；确定Transport物理孔规格及完成后展示模式 | 版本表无“猜最新”；原物理与展示变体分开；未决项有明确记录 |
-| P1 | Transport专属规格、说明、公开投影草案、family参考和静态校验 | 九项逐字段对齐；板／孔／订单／姿态／稳定条件一致；无私有配方进入公开包 |
-| P2 | 本类源原生抖动标签与选择记录／适配说明 | 静止和长期明显无进展振荡可删；有效协作／掉落／恢复保留；不依赖全长已渲染视频 |
-| P3 | 合并负责人统一C1—C3和必要公共运行接线 | 同名旧格式被正确适配或拒绝；实际冻结公开包正确；正式门禁与源／规则／控制证据一致 |
-| P4 | 实现C4：先两桌错位等待／不同长度，再Transport九桌，再各家族／全工厂 | 同帧源时间可以不同；一次画面含多桌真实运动；桌内同步；事件／终态／循环策略正确；20x30fps配置和源映射可追溯 |
-| P5 | C5与最终准备检查 | 共享回归、观测边界、物理变体所需验证、正式模型／预算／拓扑确认；只生成可审查准备包，待用户明确开跑再启动GPT |
+| P0 | Final owner sources/evidence/local changes; Transport hole/completion choices | No guessed latest; physical/display versions separate; unresolved choices recorded |
+| P1 | Family specs/docs/public draft/reference/checks | Nine cases align in boards/slots/orders/poses/stability; no private recipes |
+| P2 | Source-native jitter labels/selections/adapters | Remove idle/long visible no-progress oscillation; preserve cooperation/falls/recovery; no full-render prerequisite |
+| P3 | Shared C1—C3 and needed runtime wiring | Adapt/reject old formats correctly, correct frozen inputs, formal gates bound to source/rules/controls |
+| P4 | C4: staggered two tables, then nine Transport, then all families | Different source times, synchronized tables, correct events/end/loop policy, traceable 20x30fps |
+| P5 | C5/final preparation | Shared/observation/variant checks and explicit model/budget/topology; reviewable prepared package, GPT only after user launch authorization |
 
-性能要求：按输出需要读取源状态，缓存chunk与joint/body映射，批量做FK／刚体变换；
-避免每帧为每桌重建全量JSON、反复解压同一NPZ或重复绘制整厂。阈值和标签算法版本化。
-正确性先用两桌短样例验证，不先批量跑36桌长视频。
+Read required states, cache chunks/joint/body maps, batch FK/transforms; avoid
+per-frame full JSON rebuilds, repeated NPZ decompression or per-table full-factory
+renders. Version thresholds/labels. Start with two short examples, not 36 long
+videos. Planning completion meant recorded differences, ownership, work,
+acceptance and gaps, not implemented readiness/playback.
 
-本计划阶段的结束条件：差异、归属、待办、验收与尚未完成的能力均有明确记录；
-不把计划写完宣称为GPT已就绪或多桌播放器已实现。
-
-## 11. 证据与后续交接入口
+## 11. Evidence and handoff entries
 
 - Historical local artifact (not distributed): `runs/oracle/transport-continuation-20261026/COMPLETION.md`
 - Historical local artifact (not distributed): `runs/oracle/transport-continuation-20261026/20X_VIDEO_HANDOFF.md`
 - Historical local artifact (not distributed): `runs/oracle/transport-continuation-20261026/motion-timelines/README.md`
-- [Transport初始worktree边界](transport-worktree-oracle.md)与[执行历史](transport-continuation.md)；其中历史“未完成”文字不能代替最新完成索引。
-- 其他owner只读参考：[Dial规划](dial-gpt-preparation-plan-20261027.md)、[Relay规划](relay-gpt-readiness-and-factory-parallel-plan-20261027.md)。这些文档及其未提交代码可能继续变化，合并前重新采集。
+- [Original worktree scope](transport-worktree-oracle.md) and [execution history](transport-continuation.md); historical incompleteness does not override latest evidence.
+- Other owners' read-only references: [Dial plan](dial-gpt-preparation-plan-20261027.md), [Relay plan](relay-gpt-readiness-and-factory-parallel-plan-20261027.md). Recollect changing docs/uncommitted code before integration.

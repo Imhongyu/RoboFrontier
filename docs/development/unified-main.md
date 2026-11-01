@@ -48,11 +48,11 @@ these fields from Git history or the repository owner.
 
 As of 2026-11-02, the Oracle repair regression group passes on macOS and Linux
 (391 checks each). Full macOS discovery passed 1,501 checks before addition of
-the fixture installer. An independent Linux-local clone of `4f9cd85`, supplied
+the fixture installer. An independent Linux-local clone of `9bba6fe`, supplied
 only the explicitly pinned optional historical fixtures and an existing
-dependency image, passed 1,512 checks: zero failures/errors and 26 conditional
+dependency image, passed 1,522 checks: zero failures/errors and 17 conditional
 skips. All JavaScript/dispatcher and portable-link checks passed. Subsequent
-palette/task/report display translations have separate text-invariance checks;
+documentation translations have separate numerical/link preservation checks;
 the Linux receipt is not relabeled as a full run of those later commits.
 
 The optional historical fixture installer and separate local bundle now support
@@ -1886,3 +1886,29 @@ qualify complete task observations, the unified policy launcher, node-local
 SQLite/stage-out, provider execution, 36-task capacity or Factory video.
 The probe used `/tmp`, but did not certify its filesystem type. No other user's
 job was modified and no model/provider or video render was launched.
+
+## Independent Linux discovery v5 passed
+
+A new Git-bundle clone of `9bba6fe` on a separate Docker-local volume installed
+all 45,141 pinned v4 historical fixtures in 13.236 seconds. Full discovery passed
+1,522 Python checks with zero failures/errors and 17 conditional skips. All
+JavaScript/dispatcher and documentation-link checks passed. Both actual Mosaic
+packages passed separately with physical stepping prohibited, preserving
+`policy_launch_ready=false`. The native idle-mail correction is included.
+
+The stopped container's results were copied only after exit 0 to
+`linux-isolated-results-v5`. The earlier v4 failure remains unchanged. This uses
+the existing dependency image and independently cloned source, not a final-source
+image rebuild. Endpoints are synthetic; no real provider inference occurred.
+
+## English family readiness and replay-planning archives
+
+The dated Dial, Mosaic, Transport and Relay readiness/replay plans now use
+English. Original rules, geometric values, assistance labels, implementation
+checkpoints and independent-clock/hold-final requirements remain. Old planning
+restrictions are explicitly historical rather than current instructions.
+Numerical-token inventories, original links and URLs were checked against
+preserved source in `english-final-family-planning-verification.json`.
+No Oracle, model call, replay generator or video render was started by these
+documentation changes. Two historical prose documents and two original-evidence
+path references remain in the English migration.
