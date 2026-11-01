@@ -11,6 +11,8 @@ import os
 from pathlib import Path
 import platform
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -123,9 +125,10 @@ def card(record):
 </article>'''
 
 
-def page(data):
+def page(data, *, template=None):
     family_links = ''.join(f'<a class="family-card" href="#cases" data-family-filter="{name}"><img src="{next(c for c in data["cases"] if c["family"] == name)["views"]["global"]}" width="896" height="560" alt="{TITLES[name]} initial scene"><span><strong>{TITLES[name]}</strong><small>{DESCRIPTIONS[name]}</small></span></a>' for name in FAMILIES)
-    template = (ROOT/'web/task-atlas/index.html').read_text()
+    if template is None:
+        template = (ROOT/'web/task-atlas/index.html').read_text()
     for key, value in {'FAMILY_CARDS': family_links,
                        'CASE_CARDS': '\n'.join(card(c) for c in data['cases']),
                        'RELEASE_SHA': data['release_sha256']}.items():
@@ -167,10 +170,32 @@ def build(output):
 
 def verify(output):
     """Verify delivered files and current public inputs without opening OpenGL."""
+    return _verify(output, {name:(ROOT/name).read_bytes() for name in SOURCE_FILES})
+
+
+def _verify_capture(manifest):
+    """Bind refreshed presentation to unchanged original capture evidence."""
+    capture=manifest['capture']
+    original=capture['manifest']
+    if (not re.fullmatch(r'[0-9a-f]{40}',capture['source_commit']) or
+        original['schema']!='robofrontier.task-atlas-manifest.v1' or
+        hashlib.sha256(encoded(original)).hexdigest()!=capture['manifest_sha256']):
+        raise ValueError('Atlas capture provenance differs')
+    for field in ('release_sha256','cases','renderer','model_calls','physics_steps','image_profile'):
+        if manifest[field]!=original[field]:
+            raise ValueError('Atlas capture metadata changed: '+field)
+    if set(original['sources'])!=set(SOURCE_FILES) or set(original['files'])!=set(manifest['files']):
+        raise ValueError('Atlas capture inventory differs')
+    for name,checksum in original['files'].items():
+        if name not in ('index.html','style.css','atlas.js') and manifest['files'][name]!=checksum:
+            raise ValueError('Atlas captured payload changed: '+name)
+
+
+def _verify(output, sources):
     from PIL import Image
     output = Path(output)
     manifest = json.loads((output/'atlas-manifest.json').read_text())
-    if manifest['schema'] != 'robofrontier.task-atlas-manifest.v1':
+    if manifest['schema'] not in ('robofrontier.task-atlas-manifest.v1','robofrontier.task-atlas-manifest.v2'):
         raise ValueError('Unknown task atlas schema')
     data = json.loads((output/'tasks.json').read_text())
     if data != current_data():
@@ -180,7 +205,7 @@ def verify(output):
     if set(manifest['sources']) != set(SOURCE_FILES):
         raise ValueError('Atlas source inventory differs')
     for name, checksum in manifest['sources'].items():
-        if digest(ROOT/name) != checksum:
+        if hashlib.sha256(sources[name]).hexdigest() != checksum:
             raise ValueError('Atlas generator changed: '+name)
     payload_names = {'index.html', 'style.css', 'atlas.js', 'tasks.json', '.nojekyll'}
     for record in data['cases']:
@@ -201,10 +226,12 @@ def verify(output):
             english(text)
             if re.search(r'/Users/|/home/|file://|code_symbols|private/inputs|oracle_solution', text):
                 raise ValueError('Atlas contains local/private data: '+name)
-    if (output/'index.html').read_text() != page(data):
+    if manifest['schema']=='robofrontier.task-atlas-manifest.v2':
+        _verify_capture(manifest)
+    if (output/'index.html').read_text() != page(data,template=sources['web/task-atlas/index.html'].decode()):
         raise ValueError('Atlas page differs from current public contracts/templates')
     for name in ('style.css', 'atlas.js'):
-        if (output/name).read_bytes() != (ROOT/'web/task-atlas'/name).read_bytes():
+        if (output/name).read_bytes() != sources['web/task-atlas/'+name]:
             raise ValueError('Atlas browser source differs: '+name)
     for record in data['cases']:
         if json.loads((output/'tasks'/(record['id']+'.json')).read_text()) != record:
@@ -229,6 +256,53 @@ def verify(output):
             'bytes': sum(p.stat().st_size for p in output.rglob('*') if p.is_file())}
 
 
+def refresh(source, output, source_revision):
+    """Regenerate presentation from a committed publication; never render.
+
+    All inputs/contracts and captured image bytes must still match the original
+    publication. The supplied commit checks the incoming manifest and
+    generator/template identities against local Git history before any write.
+    """
+    source,output=Path(source),Path(output)
+    if output.exists():
+        raise ValueError('Choose a new atlas output; existing atlases are never overwritten')
+    if output.resolve().is_relative_to(source.resolve()):
+        raise ValueError('Place refreshed output outside the source atlas')
+    if not isinstance(source_revision,str) or not re.fullmatch(r'[0-9a-f]{40}',source_revision):
+        raise ValueError('Supply the full immutable source commit ID')
+    def committed(name):
+        try:
+            return subprocess.check_output(['git','show',source_revision+':'+name],cwd=ROOT,stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as exc:
+            raise ValueError('Source commit/publication unavailable; fetch its history first') from exc
+    original_bytes=(source/'atlas-manifest.json').read_bytes()
+    if original_bytes!=committed('docs/task-atlas/atlas-manifest.json'):
+        raise ValueError('Atlas does not match the committed publication')
+    sources={name:committed(name) for name in SOURCE_FILES}
+    _verify(source,sources)
+    original=json.loads(original_bytes)
+    if original['schema']=='robofrontier.task-atlas-manifest.v1':
+        if encoded(original)!=original_bytes:
+            raise ValueError('Original capture manifest must use canonical encoding')
+        capture={'source_commit':source_revision,'manifest_sha256':digest(source/'atlas-manifest.json'),
+                 'manifest':original}
+    else:
+        capture=original['capture']
+    output.mkdir(parents=True)
+    for name in original['files']:
+        target=output/name;target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(source/name,target)
+    data=json.loads((source/'tasks.json').read_text())
+    (output/'index.html').write_text(page(data))
+    for name in ('style.css','atlas.js'):
+        (output/name).write_bytes((ROOT/'web/task-atlas'/name).read_bytes())
+    manifest={**original,'schema':'robofrontier.task-atlas-manifest.v2','capture':capture,
+        'sources':{name:digest(ROOT/name) for name in SOURCE_FILES},
+        'files':{name:digest(output/name) for name in original['files']}}
+    (output/'atlas-manifest.json').write_bytes(encoded(manifest))
+    return verify(output)
+
+
 def archive(output, target):
     target = Path(target)
     if target.resolve().is_relative_to(Path(output).resolve()):
@@ -250,10 +324,12 @@ def archive(output, target):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('build', 'verify', 'zip'))
+    parser.add_argument('command', choices=('build', 'refresh', 'verify', 'zip'))
     parser.add_argument('--output', type=Path, default=ROOT/'docs/task-atlas')
     parser.add_argument('--render', choices=('native', 'nvidia', 'cpu'), default='nvidia')
     parser.add_argument('--zip', type=Path)
+    parser.add_argument('--source',type=Path,default=ROOT/'docs/task-atlas',help='Committed publication to reuse for refresh')
+    parser.add_argument('--source-revision',help='Full commit ID of the source publication; required for refresh')
     args = parser.parse_args()
     if args.command == 'build':
         from robofrontier.configuration import rendering_environment
@@ -264,6 +340,10 @@ def main():
                 os.environ.pop(key, None)
         os.environ['ROBOFRONTIER_ATLAS_DEVICE'] = args.render
         result = build(args.output)
+    elif args.command == 'refresh':
+        if not args.source_revision:
+            parser.error('refresh requires --source-revision with the full source commit ID')
+        result=refresh(args.source,args.output,args.source_revision)
     elif args.command == 'verify':
         result = verify(args.output)
     else:

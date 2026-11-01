@@ -39,13 +39,55 @@ required to browse it. Validate an extracted package with:
 Verification needs the matching source checkout, because it compares against
 its released contracts. Browsing the package needs only a browser. Editing the
 release or generator makes the old artifact stale; do not update manifest hashes
-to conceal that mismatch. Regenerate from validated inputs instead.
+to conceal that mismatch. Rebuild scenes when inputs change, or use the verified
+presentation-only refresh below when all public contracts and captures still match.
 
 The primary artifact is `docs/task-atlas/`; `web/task-atlas/` contains its editable
 HTML/CSS/JavaScript sources. `tasks.json` collects all public records, `tasks/`
 provides individual records, and `atlas-manifest.json` binds each delivered file
 to the release and generator. Generated runtime recordings, credentials and local
 machine paths do not belong in this directory.
+
+## Update page text without rendering again
+
+`refresh` regenerates HTML/CSS/JavaScript while copying all 72 original JPEGs
+and public task records byte for byte. It creates no MuJoCo model or RGB context,
+steps no physics and invokes no model. It requires a new output directory and
+the full commit ID of the source publication. That commit must contain the exact
+incoming `docs/task-atlas/atlas-manifest.json` and its generator/templates.
+The existing contracts, complete file inventory, JPEG decoding and hashes must
+pass before any output is created. A changed/rehashed image or task contract
+cannot be relabeled as an unchanged original capture.
+
+Before editing presentation sources, record the publication commit. After editing
+`web/task-atlas/`, use that full ID, for example:
+
+```sh
+# Save this ID before editing the presentation sources.
+ATLAS_SOURCE_REVISION=$(git rev-parse HEAD)
+
+# After editing, choose a fresh output directory.
+.venv/bin/python -m scripts.build_task_atlas refresh \
+  --source docs/task-atlas --source-revision "$ATLAS_SOURCE_REVISION" \
+  --output outputs/task-atlas/text-update
+.venv/bin/python -m scripts.build_task_atlas verify \
+  --output outputs/task-atlas/text-update
+```
+
+Creation requires the source commit in local Git history; fetch it first if using
+a shallow clone. The refreshed v2 manifest separately retains the original v1
+capture manifest, its SHA-256 and source commit. It binds the new presentation to
+current sources while preserving original renderer, release, image profile and
+capture identities. Verification checks that retained image/task hashes still
+match the original capture. It does not need the historical Git objects or a
+renderer; it does still need the matching current source checkout and contracts.
+Existing v1 artifacts remain supported by their matching source.
+
+Review the new page before replacing the tracked publication. Refresh never
+overwrites or adds files inside the source publication, and never changes its
+scene fingerprint or qualification. Later refreshes retain the first capture
+proof rather than recursively duplicating presentation history. Changed release,
+public contracts or image bytes require a separate rebuild/review.
 
 ## Regenerate from the current release
 

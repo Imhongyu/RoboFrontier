@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -11,6 +12,75 @@ from scripts import build_task_atlas as atlas
 
 
 class TaskAtlasTests(unittest.TestCase):
+    # This committed publication contains the original 72 verified captures.
+    capture_revision = '5c33ea3f14a3e833535e9f88f4db00a10a888267'
+
+    def original_publication(self, output):
+        """Restore only public files, independently of the current publication."""
+        names=subprocess.check_output(['git','ls-tree','-r','--name-only',
+            self.capture_revision,'--','docs/task-atlas'],cwd=atlas.ROOT,text=True).splitlines()
+        for name in names:
+            destination=output/Path(name).relative_to('docs/task-atlas')
+            destination.parent.mkdir(parents=True,exist_ok=True)
+            destination.write_bytes(subprocess.check_output(['git','show',
+                self.capture_revision+':'+name],cwd=atlas.ROOT))
+
+    def test_refresh_uses_committed_capture_without_physics_or_rendering(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source=Path(temporary)/'old';self.original_publication(source)
+            original={p.relative_to(source).as_posix():atlas.digest(p)
+                for p in source.rglob('*') if p.is_file()}
+            output=Path(temporary)/'new'
+            with (patch.object(atlas,'render_case',side_effect=AssertionError('No rendering')),
+                  patch('mujoco.MjModel',side_effect=AssertionError('No world'))):
+                result=atlas.refresh(source,output,self.capture_revision)
+            self.assertTrue(result['verified'])
+            self.assertEqual(result['images'],72)
+            for name,checksum in original.items():
+                self.assertEqual(atlas.digest(source/name),checksum)
+                if name.startswith(('images/','tasks/')) or name=='tasks.json':
+                    self.assertEqual(atlas.digest(output/name),checksum)
+            manifest=json.loads((output/'atlas-manifest.json').read_text())
+            self.assertEqual(manifest['capture']['source_commit'],self.capture_revision)
+            self.assertEqual(manifest['capture']['manifest_sha256'],original['atlas-manifest.json'])
+            self.assertIn('all four topologies',(output/'index.html').read_text())
+
+    def test_refresh_rejects_rehashed_images_and_unknown_source_before_writing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source=Path(temporary)/'old';self.original_publication(source)
+            image=next((source/'images').glob('*.jpg'));image.write_bytes(b'Changed')
+            manifest=json.loads((source/'atlas-manifest.json').read_text())
+            manifest['files'][image.relative_to(source).as_posix()]=atlas.digest(image)
+            (source/'atlas-manifest.json').write_bytes(atlas.encoded(manifest))
+            output=Path(temporary)/'new'
+            with self.assertRaisesRegex(ValueError,'committed publication'):
+                atlas.refresh(source,output,self.capture_revision)
+            self.assertFalse(output.exists())
+            with self.assertRaisesRegex(ValueError,'commit'):
+                atlas.refresh(source,output,'HEAD')
+            self.assertFalse(output.exists())
+
+    def test_refreshed_capture_cannot_be_rehashed_to_hide_changed_images(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source=Path(temporary)/'old';self.original_publication(source)
+            output=Path(temporary)/'new'
+            atlas.refresh(source,output,self.capture_revision)
+            image=next((output/'images').glob('*.jpg'));image.write_bytes(b'Changed')
+            manifest=json.loads((output/'atlas-manifest.json').read_text())
+            manifest['files'][image.relative_to(output).as_posix()]=atlas.digest(image)
+            (output/'atlas-manifest.json').write_bytes(atlas.encoded(manifest))
+            with self.assertRaisesRegex(ValueError,'captured payload changed'):
+                atlas.verify(output)
+
+    def test_refresh_does_not_overwrite_or_contaminate_original_publication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source=Path(temporary)/'old';self.original_publication(source)
+            with self.assertRaisesRegex(ValueError,'never overwritten'):
+                atlas.refresh(source,source,self.capture_revision)
+            with self.assertRaisesRegex(ValueError,'outside the source'):
+                atlas.refresh(source,source/'new',self.capture_revision)
+            self.assertFalse((source/'new').exists())
+
     def test_contracts_cover_current_release_and_terminal_overlays_without_secrets(self):
         with patch('mujoco.mj_step', side_effect=AssertionError('No physics')):
             data = atlas.current_data()

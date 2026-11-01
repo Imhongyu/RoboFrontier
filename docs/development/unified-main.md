@@ -1285,3 +1285,44 @@ repository, not a claim that the remaining history, scripts and asset UI are don
 No model calls, new scene renders, release physics edits or asset-pin changes
 were made for this work. The original Factory video remains the published media;
 its deferred replacement was not restarted.
+
+## Atlas presentation refresh with preserved capture evidence
+
+The static atlas now describes all four native Claude engineering entries while
+keeping scored qualification closed. No scene rendering was used to update it.
+The new `build_task_atlas refresh` command accepts an existing publication, a new
+output path and its full source commit. Before writing, it compares the exact
+incoming manifest and original generator/templates with immutable Git objects,
+then validates every existing payload, JPEG and current public contract.
+
+A refreshed v2 manifest binds the new browser presentation to current sources and
+retains the first v1 capture manifest, its SHA-256 and source commit. Its images,
+per-case JSON, aggregate task JSON, release, backend and capture metadata must
+remain identical. Verification and ZIP delivery do not need historical Git
+objects or an OpenGL context; creating a refresh does need the source history.
+The Pages validation checkout now fetches that history for regression fixtures.
+There is no Pages deployment or automatic publication change.
+
+All 72 original JPEGs and 37 task JSON records remained byte-identical. The
+original publication was verified at commit
+`5c33ea3f14a3e833535e9f88f4db00a10a888267` before template edits. Only its HTML and
+manifest changed in the tracked artifact. Total artifact size changed from
+4,367,839 to 4,381,495 bytes, retaining the original capture proof. The offline
+ZIP is 2,999,909 bytes, SHA-256
+`89e7b3c6a7b28871befd034e6d7ce14054ebf77d61efd9109083189722d452ae`.
+
+All 12 atlas tests passed on Mac (7.057 s) and Linux (6.779 s), including actual
+committed-publication refresh, explicit no-model/no-renderer guards, original
+input retention, overwrite/nesting rejection, tampered/rehashed image rejection,
+private-field exclusion, current contracts and deterministic ZIP restoration.
+Linux used read-only current source and only the Git objects/refs/HEAD required
+for the immutable publication fixture; it copied no credentials and made no
+network calls. The normal current-source artifact verifier also passed.
+
+Evidence is under `runs/engineering/main-integration-task-atlas-20261101/`:
+`atlas-refresh-before.log` records the missing-interface reproduction;
+`atlas-refresh-regression-mac.log`, `atlas-refresh-regression-linux.log`,
+`atlas-refresh-publication-verification.json`, and
+`task-atlas-refreshed-offline.zip` record the completed checks and delivery.
+This is presentation/provenance acceptance, not new task physics or provider
+qualification. The complete Factory render remains user-deferred.
