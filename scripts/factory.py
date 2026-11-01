@@ -32,7 +32,12 @@ def export_animation(args):
     if not math.isfinite(args.duration) or args.duration<=0:
         raise ValueError('Positive finite video duration required')
     output=Path(args.output);output.mkdir(parents=True,exist_ok=False)
-    timeline=FactoryTimeline(args.scene,read(ROOT/RELEASE),args.families)
+    release_path=Path(getattr(args,'release',None) or ROOT/RELEASE)
+    release=read(release_path)
+    if getattr(args,'levels',None):
+        for family in release['families'].values():
+            family['oracle']=[spec for spec in family['oracle'] if (spec['level'] if 'level' in spec else read(ROOT/spec['directory']/'task.json')['level']) in args.levels]
+    timeline=FactoryTimeline(args.scene,release,args.families)
     try:
         play=timeline.play;model,data=play.model,play.data
         names=play.manifest['workstation_names']
@@ -43,7 +48,15 @@ def export_animation(args):
             for target in names[track.spec['id']]['geom_names'].values()}),dtype=np.int32)
         plan=shots(play.manifest)
         preset=next((c for c in play.manifest['cameras'] if c['id']==args.camera),None)
-        if args.camera=='desk-front':
+        if getattr(args,'desk_cameras',None):
+            if args.camera not in ('desk-front','desk-side') or not getattr(args,'station',None):
+                raise ValueError('Desk camera file requires desk-front/desk-side and a station')
+            camera_id=args.station+'--'+args.camera.removeprefix('desk-')
+            matches=[c for c in read(args.desk_cameras) if c['id']==camera_id]
+            if len(matches)!=1:raise ValueError(f'Expected exactly one desk camera {camera_id}')
+            if not any(t.spec['id']==args.station for t in timeline.tracks):raise ValueError('Station is outside selected task families')
+            preset=matches[0]
+        elif args.camera=='desk-front':
             if not getattr(args,'station',None):raise ValueError('desk-front requires --station CASE_ID')
             track=next((t for t in timeline.tracks if t.spec['id']==args.station),None)
             if track is None:raise ValueError('Station is outside selected task families')
@@ -72,7 +85,7 @@ def export_animation(args):
                 if index%300==0:print('pose',index,'/',count,flush=True)
         result=dict(schema='robofrontier.factory-animation.v1',source_scene_sha256=digest(args.scene),
             fps=timeline.fps,frames=frames,loop=True,stations=len(timeline.tracks),
-            release_sha256=digest(ROOT/RELEASE),source_trace_sha256=digest(output/'frames.jsonl'),
+            release_sha256=digest(release_path),source_trace_sha256=digest(output/'frames.jsonl'),
             appearance_geom_ids=appearance_ids,
             camera_motion=dict(mode=args.camera,orbit_degrees=getattr(args,'orbit_degrees',60.) if args.camera=='orbit' else None,duration_s=args.duration),
             physics_steps=0,scope='Source FK and appearance; no task dynamics or commands')
@@ -81,17 +94,30 @@ def export_animation(args):
     finally:timeline.close()
 
 
-def build(output):
+def build(output,release_path=None):
     from robofrontier.factory_scene import build_factory
     from robofrontier.factory_workstations import compose
     output=Path(output)
     shell=output.parent/(output.name+'-shell')
     if output.exists() or shell.exists():raise FileExistsError('Choose a new factory output')
+    from robofrontier.factory_bundle import resolved_release
+    data_root=ROOT/'runs/factory-data/r14'
+    if release_path is None:
+        if not (data_root/'bundle.json').exists():
+            raise ValueError('Run python -m scripts.factory_server setup first, or provide --release')
+        release=resolved_release(data_root)
+    else:
+        release_path=Path(release_path)
+        release=resolved_release(release_path.parent) if (release_path.parent/'bundle.json').exists() else read(release_path)
+    specs=[spec for family in release['families'].values() for spec in family['oracle']]
+    overrides={spec['id']:ROOT/spec['directory'] for spec in specs}
+    catalog=output.parent/(output.name+'-catalog.json')
+    write_json(catalog,dict(cases=[dict(read(source/'workstation.json')['case'],directory=str(source)) for source in overrides.values()]))
     scene,_=build_factory(output=shell)
-    result=compose(scene,ROOT/'configs/suites/frontier-current-oracle.json',output)
+    result=compose(scene,catalog,output,source_overrides=overrides)
     manifest=read(output/'manifest.json')
     write_json(output/'camera-shots.json',shots(manifest))
-    write_json(ROOT/'outputs/robo-factory/current.json',dict(scene=str(result),purpose='oracle',release=RELEASE))
+    write_json(ROOT/'outputs/robo-factory/current.json',dict(scene=str(result),purpose='recorded-presentation',release=str(release_path or data_root/'release.json')))
     return result
 
 
@@ -121,32 +147,38 @@ def render_offline(args):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     commands=parser.add_subparsers(dest='command',required=True)
-    builder=commands.add_parser('build');builder.add_argument('--output',type=Path,default=SCENE.parent)
+    builder=commands.add_parser('build');builder.add_argument('--output',type=Path,default=SCENE.parent);builder.add_argument('--release',type=Path)
     video=commands.add_parser('video')
     video.add_argument('--scene',type=Path,default=SCENE);video.add_argument('--output',type=Path,required=True)
+    video.add_argument('--release',type=Path,help='Explicit resolved presentation release')
     video.add_argument('--duration',type=float,required=True);video.add_argument('--camera',default='tour')
     video.add_argument('--station',help='Task case ID for the fixed desk-front camera')
+    video.add_argument('--desk-cameras',type=Path,help='JSON file containing fitted per-station cameras')
     video.add_argument('--orbit-degrees',type=float,default=60.,help='Partial orbit angle; independent of Oracle replay speed')
     video.add_argument('--renderer',choices=['cycles'],default='cycles')
     video.add_argument('--profile',choices=['fast','reference'],default='fast')
-    video.add_argument('--samples',type=int);video.add_argument('--device',choices=['METAL','CPU'],default='METAL')
+    video.add_argument('--samples',type=int);video.add_argument('--device',choices=['METAL','OPTIX','CUDA','CPU'],default='METAL')
     video.add_argument('--denoise',action=argparse.BooleanOptionalAction,default=True)
     video.add_argument('--noise-threshold',type=float,default=.1,help='Cycles adaptive stopping threshold')
     video.add_argument('--min-samples',type=int,default=4,help='Cycles minimum adaptive samples')
-    video.add_argument('--keep-frames',action='store_true',help='Retain all PNGs after video validation; default retains three stills')
+    video.add_argument('--keep-frames',action='store_true',help='Retain all PNGs after video validation; default removes PNGs after validation')
     video.add_argument('--save-blend',action='store_true')
     video.add_argument('--blender',help='Blender executable; auto-detected on macOS')
     video.add_argument('--width',type=int,default=1280);video.add_argument('--height',type=int,default=720)
     video.add_argument('--families',nargs='+',choices=['transport','mosaic','relay','dial'])
+    video.add_argument('--levels',nargs='+',type=int,choices=[1,2,3])
     poses=commands.add_parser('poses',help='Export common playback for offline Cycles animation')
     poses.add_argument('--scene',type=Path,default=SCENE);poses.add_argument('--output',type=Path,required=True)
+    poses.add_argument('--release',type=Path,help='Explicit isolated presentation release')
     poses.add_argument('--duration',type=float,required=True);poses.add_argument('--camera',default='tour')
     poses.add_argument('--station',help='Task case ID for the fixed desk-front camera')
+    poses.add_argument('--desk-cameras',type=Path,help='JSON file containing fitted per-station cameras')
     poses.add_argument('--orbit-degrees',type=float,default=60.)
     poses.add_argument('--families',nargs='+',choices=['transport','mosaic','relay','dial'])
+    poses.add_argument('--levels',nargs='+',type=int,choices=[1,2,3])
     viewer=commands.add_parser('view');viewer.add_argument('--scene',type=Path,default=SCENE)
     args=parser.parse_args()
-    if args.command=='build':print(build(args.output))
+    if args.command=='build':print(build(args.output,args.release))
     elif args.command=='video':print(json.dumps(render_offline(args),indent=2))
     elif args.command=='poses':print(json.dumps(export_animation(args),indent=2))
     else:

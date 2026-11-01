@@ -1,5 +1,9 @@
 # RoboFrontier
 
+服务器离线工厂渲染从 [Factory Linux / Slurm 交接](docs/factory-server.md) 开始。
+`scripts.factory_server` 自动准备独立的 R14 工厂数据，生成渲染计划并提交 GPU 作业；
+不调用模型。它与下述真实 benchmark 的数据库存储限制分别验收。
+
 ## 任务时限、结束与录像
 
 标准任务默认从 START 起最多 24 小时。完成后可提前结束；未完成时应继续恢复，
@@ -35,10 +39,12 @@ RoboFrontier 用 MuJoCo 多机械臂任务研究 GPT 的分工、规划与协作
 - [Coordinator／Worker／Controller Skill](.agents/skills/robot-collaboration/SKILL.md)
 - [Harness 验收范围](docs/harness-v2-verification.md)
 - [工厂展示与渲染](docs/robo-factory.md)
+- [服务器工厂：数据下载、Slurm、重试和结果目录](docs/factory-server.md)
 
-四个Oracle分支已合并。当前用途与版本统一由`configs/task_families/current.json`
-选择：GPT使用Transport R14、Mosaic R14、Relay最终Goal规则和Dial R11 BEST5；
-Oracle工厂展示使用各录制自己的冻结来源。旧`frontier-v2.json`保留历史生成兼容。
+四个Oracle分支已合并。GPT任务版本由`configs/task_families/current.json`
+选择：Transport R14、Mosaic R14、Relay最终Goal规则和Dial R11 BEST5。
+服务器工厂展示由独立的`configs/factory-assets.json`选择数据发布，Mosaic默认R14；
+各录制保留自己的冻结来源和资格标记。旧`frontier-v2.json`保留历史生成兼容。
 
 36桌工厂采用独立源剪辑、独立循环、各自倍速与30fps。新GPT使用全新公开上下文，
 不继承Oracle答案。当前已加入CLI多模型宿主；本轮没有启动正式模型试验。四个已合并旧任务worktree已清理，当前开发worktree与main保留。
@@ -62,7 +68,8 @@ uv run --extra oracle python -m scripts.check_harness
 .venv/bin/python -m scripts.tasks list
 .venv/bin/python -m scripts.tasks check --purpose gpt
 .venv/bin/python -m scripts.benchmark prepare --models astra --cases transport-a04-d1 --output runs/policy/my-new-batch
-.venv/bin/python -m scripts.factory video --renderer cycles --camera orbit --duration 8 --output outputs/robo-factory/my-gpu-demo
+.venv/bin/python -m scripts.factory_server setup
+.venv/bin/python -m scripts.factory_server prepare --output runs/factory/my-preview --families transport --levels 1 --duration-s 1
 ```
 
 准备命令仅冻结输入。并行准备与真实启动见GPT说明；更多入口见

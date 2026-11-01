@@ -15,7 +15,7 @@ class FrameRetentionChecks(unittest.TestCase):
                 prune_frames(d, dict(animation=dict(full_decode_passed=False)))
             self.assertEqual(p.read_bytes(), b'original')
 
-    def test_only_verified_sequence_is_pruned_and_three_stills_survive(self):
+    def test_only_verified_sequence_is_pruned(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d)
             (p / 'factory.mp4').write_bytes(b'validated-video')
@@ -24,10 +24,9 @@ class FrameRetentionChecks(unittest.TestCase):
                 (p / f'frame-{i:06d}.png').write_bytes(bytes([i]))
             r = dict(animation=dict(full_decode_passed=True,frames=5),views=[{} for _ in range(5)])
             result = prune_frames(p,r)
-            self.assertEqual(result['removed_frames'],2)
-            self.assertEqual(result['reclaimed_bytes'],2)
-            self.assertEqual(sorted(x.name for x in (p/'stills').iterdir()),
-                ['frame-000000.png','frame-000002.png','frame-000004.png'])
+            self.assertEqual(result['removed_frames'],5)
+            self.assertEqual(result['reclaimed_bytes'],5)
+            self.assertFalse((p/'stills').exists())
             self.assertFalse(list(p.glob('frame-*.png')))
             self.assertEqual((p/'important.png').read_bytes(),b'not-a-frame')
             self.assertEqual(json.loads((p/'report.json').read_text())['frame_storage']['status'],'complete')

@@ -81,8 +81,8 @@ Adaptive Sampling与GPU降噪开启。
 Cycles启用GPU降噪，CPU用于源FK、文件与场景更新。`--save-blend`可保存可检查场景。
 需安装Blender和ffmpeg；macOS自动发现Blender，也可传`--blender`指定程序。
 输出包含asset、poses、逐帧源映射、PNG、MP4、日志与report；完整解码并校验视频帧数/30fps。
-动画PNG默认为临时文件：MP4完整解码与帧数校验通过后，保留`stills/`内首、中、末三张，
-清理其余PNG；失败时不清理。`--keep-frames`显式保留全序列，`--no-encode`抽样比较也保留全序列。
+动画PNG默认为临时文件：MP4完整解码与帧数校验通过后清理全部动画PNG；失败时不清理。
+`--keep-frames`显式保留全序列，`--no-encode`抽样比较也保留全序列。
 保留PNG到编码完成可以避免JPEG中间帧带来的额外有损压缩，长久保存以MP4与源姿态为主。
 清理数量、回收字节数及仍保留的帧路径写入`report.json`的`frame_storage`与`views[].retained_file`。
 30fps是影片播放帧率，生成每帧耗时另行统计。
@@ -97,7 +97,7 @@ Cycles启用GPU降噪，CPU用于源FK、文件与场景更新。`--save-blend`�
 `poses`也支持相同的`--camera desk-front --station CASE_ID`组合。
 2026-10-28的Transport A04-D1测试为连续10帧，默认64/0.10/4，1080p，
 预热后9帧平均3.444秒/帧（0.290帧/秒），首帧含准备10.337秒，P95 3.647秒。
-该测试包含PNG写盘，编码另计；视频验证后仅保留三张无损检查图。
+该测试包含PNG写盘，编码另计；历史测试保留三张检查图，当前默认在验证后清理全部动画PNG。
 36个源`global`镜头均确认存在，本轮实际画面/FK验证覆盖A04-D1，尚未逐桌检查遮挡。
 图像、视频与验证回执由`current.json.presentation.desk_front_preview`索引；
 记录在`runs/engineering/factory-desk-front-10frames-20261028/`。

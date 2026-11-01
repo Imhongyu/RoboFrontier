@@ -17,7 +17,7 @@ def prune_frames(output, report):
     files = [output / f'frame-{i:06d}.png' for i in range(count)]
     if any(p.is_symlink() or not p.is_file() for p in files):
         raise ValueError('Complete regular PNG sequence required before cleanup')
-    keep = {0, count // 2, count - 1}
+    keep = set()
     stills = output / 'stills'
     if stills.exists():
         raise FileExistsError('Preserve existing stills; choose a fresh output')
@@ -26,7 +26,8 @@ def prune_frames(output, report):
         removed_frames=count-len(keep), reclaimed_bytes=removed_bytes)
     manifest = output / 'report.json'
     manifest.write_text(json.dumps(report, indent=2) + '\n')
-    stills.mkdir()
+    if keep:
+        stills.mkdir()
     for i, p in enumerate(files):
         if i in keep:
             target = stills / p.name

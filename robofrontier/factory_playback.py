@@ -32,9 +32,32 @@ class StationTrack:
         self.edit = json.loads(self.edit_path.read_text())
         self.reader = MotionReader(spec['recording'])
         self.source = Workstation(spec['directory'])
-        if (self.reader.meta['case_id'] != spec['id'] or self.edit['case_id'] != spec['id']
-                or self.reader.meta['source_scene_sha256'] != self.source.manifest['scene_sha256']
-                or self.edit['source_scene_sha256'] != self.source.manifest['scene_sha256']):
+        recorded_id = spec.get('recorded_case_id', spec['id'])
+        recorded_scene = self.reader.meta['source_scene_sha256']
+        if (self.reader.meta['case_id'] != recorded_id or self.edit['case_id'] != recorded_id
+                or self.edit['source_scene_sha256'] != recorded_scene):
+            raise ValueError('Station source/edit identity differs')
+        if recorded_id != spec['id']:
+            # A derived L3 is a visual presentation of the physically identical
+            # L2 stream, not a separate L3 execution or success certificate.
+            from .suite.mosaic_equivalence import check
+            source_dir = self.reader.path / 'source'
+            proof = check(source_dir, spec['directory'])
+            if (not proof['equivalent_for_command_candidate'] or
+                    proof['case_ids'] != [recorded_id, spec['id']] or
+                    proof['source_scene_sha256'] != [recorded_scene, self.source.manifest['scene_sha256']]):
+                raise ValueError('Derived Mosaic physical equivalence differs')
+            import mujoco
+            original=mujoco.MjModel.from_xml_path(str(source_dir/'scene.xml'))
+            target=self.source.model
+            original_names={original.geom(i).name for i in range(original.ngeom)}
+            target_names={target.geom(i).name for i in range(target.ngeom)}
+            removed=original_names-target_names
+            if (target_names-original_names or not removed or
+                    any(not n.startswith(('printed_row_', 'printed_column_')) for n in removed) or
+                    any(original.geom_contype[original.geom(n).id] or original.geom_conaffinity[original.geom(n).id] for n in removed)):
+                raise ValueError('Derived Mosaic differs beyond nonphysical grid lines')
+        elif recorded_scene != self.source.manifest['scene_sha256']:
             raise ValueError('Station source/edit identity differs')
         self._poses = None
         if self.edit.get('schema')=='robofrontier.station-edit.v2':
@@ -59,6 +82,8 @@ class StationTrack:
         if not len(self.indices):raise ValueError('Empty station track')
         self.frame_count = len(self.indices)
         self.initial_rgba = np.asarray(self.reader.meta['initial_rgba'])
+        registry=json.loads((self.reader.path/'source/workstation.json').read_text())
+        self.initial_appearance={g['id']:self.initial_rgba[g['source_index']] for g in registry['geometries']}
         self._event_list = [e for e in self.reader.events() if e['event']=='rgba']
         self._global_frame = -1
         self._reset()
@@ -107,7 +132,7 @@ class StationTrack:
         self._cycle, self._global_frame = cycle, global_frame
         wanted = int(self.indices[local])
         if self._poses is None:
-            if local != self._local_frame+1:
+            if local != self._local_frame and local != self._local_frame+1:
                 self._frames.close()
                 self._frames = self.reader.selected_frames(np.unique(self.indices[local:]))
                 self._source_index = -1
@@ -145,13 +170,13 @@ class FactoryTimeline:
                 self.tracks.append(track)
         if not self.tracks:raise ValueError('Select at least one station')
 
-    def at(self, frame):
+    def at(self, frame, station_start_frames=None):
         rows = []
         for track in self.tracks:
-            sample = track.at(frame)
+            local_clock = max(0, frame - (station_start_frames or {}).get(track.spec['id'], 0))
+            sample = track.at(local_clock)
             if sample['appearance_reset']:
-                self.play.appearance(track.spec['id'],
-                    {g['id']:track.initial_rgba[g['source_index']] for g in track.source.manifest['geometries']})
+                self.play.appearance(track.spec['id'], track.initial_appearance)
             self.play.appearance(track.spec['id'], sample['rgba'])
             self.play.apply_arrays(track.spec['id'],track.source,sample['qpos'],
                                    sample['source_time_s'],commit=False)

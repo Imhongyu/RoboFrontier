@@ -7,6 +7,7 @@ from copy import deepcopy
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 import shutil
 import xml.etree.ElementTree as ET
@@ -18,6 +19,23 @@ from .robot_control import matrix_quat,quat_matrix
 from .workstation import Workstation
 from .run_setup import write_json
 from .factory_labels import place_label, region_title
+
+
+def colour_compatible_signature(source):
+    """Strict scene identity apart from visual RGBA; hash all local assets too."""
+    path = Path(source.path)
+    tree = ET.parse(path/'scene.xml')
+    for geom in tree.iter('geom'):
+        if source.manifest['case']['family']=='mosaic' and re.fullmatch(r'[A-Z]_stock[0-9]+_geom', geom.get('name', '')):
+            geom.attrib.pop('rgba', None)
+    h = hashlib.sha256(ET.tostring(tree.getroot(), encoding='utf-8'))
+    assets = path/'assets'
+    if assets.exists():
+        for item in sorted(assets.rglob('*')):
+            if item.is_symlink(): raise ValueError('Symlinked scene asset not supported')
+            if item.is_file():
+                h.update(str(item.relative_to(path)).encode()); h.update(hashlib.sha256(item.read_bytes()).digest())
+    return h.hexdigest()
 
 
 def vec(values):return ' '.join(repr(float(x)) for x in np.asarray(values).ravel())
@@ -188,7 +206,7 @@ def compose(shell,catalog_path,output,table_opening_scale=None,source_overrides=
                 if entry['id'].startswith('table_') and 'leg' not in entry['id']:
                     if root.find("asset/material[@name='factory_bench_wood']") is not None:kwargs['material']='factory_bench_wood'
                 ET.SubElement(body,'geom',**kwargs);geommap[entry['id']]=kwargs['name']
-        mapping[place['case_id']]=dict(body_names=bodymap,geom_names=geommap,source_scene_sha256=source.manifest['scene_sha256'])
+        mapping[place['case_id']]=dict(body_names=bodymap,geom_names=geommap,source_scene_sha256=source.manifest['scene_sha256'], colour_compatible_sha256=colour_compatible_signature(source))
     # Area names stay centered on their upper edge. Furniture placement must
     # reserve this space; never shift a title to work around a supply cart.
     for region in shell_manifest['regions']:
@@ -223,6 +241,13 @@ class FactoryPlayback:
         self.model=model if model is not None else mujoco.MjModel.from_xml_path(str(self.path));self.data=data if data is not None else mujoco.MjData(self.model)
         if self.model.nv or self.model.nu:raise ValueError('Presentation must contain no task dynamics')
         self.sources={};self.presentations={};self._recorded_maps={}
+    def _check_source(self, case_id, source):
+        entry=self.manifest['workstation_names'][case_id]
+        if entry['source_scene_sha256']==source.manifest['scene_sha256']: return
+        expected=entry.get('colour_compatible_sha256')
+        if not expected or colour_compatible_signature(source)!=expected:
+            raise ValueError('Replay source revision differs from factory workstation')
+
     def configure_workstation(self,case_id,source,table_opening_scale=.5,translation_m=None,yaw_rad=None):
         """Configure a visual-only instance; source recordings stay immutable.
 
@@ -233,7 +258,7 @@ class FactoryPlayback:
         if case_id in self.presentations:raise ValueError('Workstation presentation is already configured')
         if not 0<float(table_opening_scale)<=1:raise ValueError('Opening scale must be in (0,1]')
         entry=self.manifest['workstation_names'][case_id]
-        if entry['source_scene_sha256']!=source.manifest['scene_sha256']:raise ValueError('Presentation source revision differs from factory')
+        self._check_source(case_id, source)
         place=next(p for p in self.manifest['placements'] if p['case_id']==case_id)
         shift=np.asarray(place['translation_m'] if translation_m is None else translation_m,dtype=float)
         yaw=float(place['yaw_rad'] if yaw_rad is None else yaw_rad)
@@ -264,8 +289,7 @@ class FactoryPlayback:
         stay local; one common rigid transform moves bodies and the workstation.
         """
         entry=self.manifest['workstation_names'][case_id]
-        if source.manifest['scene_sha256']!=entry['source_scene_sha256']:
-            raise ValueError('Replay source revision differs from factory workstation')
+        self._check_source(case_id, source)
         key=(case_id,id(source.model))
         if key not in self._recorded_maps:
             place=next(p for p in self.manifest['placements'] if p['case_id']==case_id)
@@ -309,7 +333,7 @@ class FactoryPlayback:
         mujoco.mj_kinematics(self.model,self.data);mujoco.mj_camlight(self.model,self.data)
     def apply(self,case_id,source,qpos,time_s):
         entry=self.manifest['workstation_names'][case_id]
-        if source.manifest['scene_sha256']!=entry['source_scene_sha256']:raise ValueError('Replay source revision differs from factory workstation')
+        self._check_source(case_id, source)
         place=next(p for p in self.manifest['placements'] if p['case_id']==case_id)
         frame=source.frame(qpos,time_s,place['translation_m'],place['yaw_rad'])
         for name,target in entry['body_names'].items():

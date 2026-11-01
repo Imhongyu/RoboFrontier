@@ -8,11 +8,20 @@ import numpy as np
 from robofrontier.task_families import ROOT,RELEASE,read
 from robofrontier.factory_playback import StationTrack,FactoryTimeline,current_scene
 from robofrontier.factory_cameras import shots,camera_at
+from robofrontier.factory_bundle import resolved_release,read as read_bundle
+
+
+def portable_data(test):
+    folder=ROOT/'runs/factory-data/r14'
+    if not (folder/'bundle.json').is_file():test.skipTest('Install factory data with scripts.factory_server setup')
+    release=resolved_release(folder)
+    scene=folder/read_bundle(folder/'bundle.json')['scene']
+    return release,scene
 
 
 class FactoryTimelineTests(unittest.TestCase):
     def test_each_producer_rewinds_exact_states_and_resets_appearance(self):
-        release=read(ROOT/RELEASE)
+        release,_=portable_data(self)
         with patch('mujoco.mj_step',side_effect=AssertionError('No replay physics')):
             for family in release['families'].values():
                 track=StationTrack(family['oracle'][0],family['speedup'])
@@ -34,9 +43,8 @@ class FactoryTimelineTests(unittest.TestCase):
                 finally:track.close()
 
     def test_two_different_clocks_commit_one_global_frame(self):
-        scene=current_scene()
-        if not scene.exists():self.skipTest('Generated current factory not present')
-        release=deepcopy(read(ROOT/RELEASE))
+        release,scene=portable_data(self)
+        release=deepcopy(release)
         release['families']={n:f for n,f in release['families'].items()if n in ('dial','transport')}
         for f in release['families'].values():f['oracle']=f['oracle'][:1]
         timeline=FactoryTimeline(scene,release)
@@ -51,6 +59,18 @@ class FactoryTimelineTests(unittest.TestCase):
                 self.assertTrue(all(r['cycle']>=1 for r in row['stations']))
                 self.assertNotEqual(row['stations'][0]['source_time_s'],row['stations'][1]['source_time_s'])
         finally:timeline.close()
+
+    def test_repeated_frame_preserves_cursor_and_appearance(self):
+        release,_=portable_data(self)
+        for family in release['families'].values():
+            track=StationTrack(family['oracle'][0],family['speedup'])
+            try:
+                for frame in (0,1,track.frame_count-1):
+                    first=track.at(frame);again=track.at(frame)
+                    np.testing.assert_array_equal(first['qpos'],again['qpos'])
+                    self.assertEqual(first['source_time_s'],again['source_time_s'])
+                    self.assertEqual(first['rgba'],again['rgba'])
+            finally:track.close()
 
     def test_camera_tour_keeps_task_order_and_has_independent_time(self):
         manifest=dict(placements=[dict(family='mosaic',case_id='mosaic-a04-6x12-d2',planning_bounds_xy_m=[0,0,4,4]),

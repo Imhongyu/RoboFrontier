@@ -23,6 +23,7 @@ from mathutils import Matrix,Vector
 
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from factory_blender_materials import resolve as resolve_material, robot_role, task_role, ROBOT_BODY
+from factory_mesh_rotation import asset_frame_rotation
 
 SCRIPT_SHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
@@ -32,7 +33,8 @@ def main():
     parser.add_argument('--asset',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--views',nargs='+',help='Named cameras; defaults to all desk cameras or the two interior views')
     parser.add_argument('--width',type=int,default=1280);parser.add_argument('--height',type=int,default=800)
-    parser.add_argument('--exposure',type=float);parser.add_argument('--samples',type=int,default=64);parser.add_argument('--device',choices=['METAL','CPU'],default='METAL')
+    parser.add_argument('--exposure',type=float);parser.add_argument('--samples',type=int,default=64);parser.add_argument('--device',choices=['METAL','OPTIX','CUDA','CPU'],default='METAL')
+    parser.add_argument('--require-single-gpu',action='store_true',help='Fail unless exactly one allocated GPU is visible to Cycles')
     parser.add_argument('--engine',choices=['cycles'],default='cycles',help='Factory offline rendering uses Cycles')
     parser.add_argument('--profile',choices=['reference','fast'],default='reference')
     parser.add_argument('--benchmark-frames',type=int,default=1)
@@ -47,7 +49,7 @@ def main():
     parser.add_argument('--frame-indices',nargs='+',type=int,help='Render selected source frames for matched-state quality benchmarks')
     parser.add_argument('--encode',action=argparse.BooleanOptionalAction,default=True)
     parser.add_argument('--keep-frames',action=argparse.BooleanOptionalAction,default=False,
-        help='Keep all animation PNGs; otherwise retain three stills after video verification')
+        help='Keep all animation PNGs; otherwise remove PNGs after video verification')
     parser.add_argument('--metalrt',choices=['AUTO','ON','OFF'],default='AUTO')
     parser.add_argument('--noise-threshold',type=float,default=.1,help='Cycles adaptive threshold override; geometry and lighting stay fixed')
     parser.add_argument('--min-samples',type=int,default=4,help='Minimum samples before adaptive stopping; zero uses the Cycles automatic value')
@@ -104,12 +106,18 @@ def main():
     if args.min_samples is not None:scene.cycles.adaptive_min_samples=args.min_samples
     prefs=bpy.context.preferences.addons['cycles'].preferences
     scene.cycles.denoising_use_gpu=True
-    if args.device=='METAL':
-        prefs.compute_device_type='METAL';prefs.metalrt=args.metalrt;prefs.get_devices()
-        for device in prefs.devices:device.use=device.type=='METAL'
-        if not any(d.use for d in prefs.devices):raise RuntimeError('Requested Metal GPU is unavailable')
+    if args.device in ('METAL','OPTIX','CUDA'):
+        prefs.compute_device_type=args.device
+        if args.device=='METAL':prefs.metalrt=args.metalrt
+        prefs.get_devices()
+        for device in prefs.devices:device.use=device.type==args.device
+        enabled=[d for d in prefs.devices if d.use]
+        if not enabled:raise RuntimeError(f'Requested {args.device} GPU is unavailable')
+        if args.require_single_gpu and len(enabled)!=1:raise RuntimeError(f'Expected exactly one allocated GPU, found {len(enabled)}')
         scene.cycles.device='GPU'
-    else:scene.cycles.device='CPU';scene.render.threads_mode='AUTO'
+    else:
+        if args.require_single_gpu:raise ValueError('A GPU backend is required')
+        scene.cycles.device='CPU';scene.render.threads_mode='AUTO'
     images={};textures={x['id']:x for x in metadata['textures']}
     def image(tid,noncolor=False):
         key=(tid,noncolor)
@@ -384,7 +392,7 @@ def main():
         scope='Offline visual rendering; no physics/Isaac dynamics conversion',views=[])
     report.update(setup_wall_s=time.monotonic()-started,cpu_threads='AUTO',cpu_logical_cores=os.cpu_count(),
         lighting=lighting,material_audit=material_audit,
-        acceleration=dict(metalrt=prefs.metalrt,persistent_data=scene.render.use_persistent_data,
+        acceleration=dict(metalrt=getattr(prefs,'metalrt',None),persistent_data=scene.render.use_persistent_data,
             adaptive_sampling=scene.cycles.use_adaptive_sampling,max_samples=scene.cycles.samples,min_samples=scene.cycles.adaptive_min_samples,
             light_tree=scene.cycles.use_light_tree,noise_threshold=scene.cycles.adaptive_threshold,
             png_compression=args.png_compression,enabled_devices=[dict(name=d.name,type=d.type)for d in prefs.devices if d.use]),
@@ -476,9 +484,16 @@ def main():
                     last_rgba[gid]=color
                 if grouped and grouped.get('instances'):grouped['instances'].flush()
                 if grouped and grouped.get('instances') and ordinal in (0,len(selected)//2,len(selected)-1):
-                    override={int(gid):(p,r)for gid,p,r in zip(ids,positions,rotations)}
+                    body_rotations={int(bid):rotation for bid,rotation in zip(bids,br)}
+                    override={};canonical_mesh_flips=[]
+                    for gid,position,rotation in zip(ids,positions,rotations):
+                        gid=int(gid);spec=specs[gid]
+                        rotation,adjusted=asset_frame_rotation(spec['kind'],body_rotations[spec['body_id']],spec['local_rotation'],rotation)
+                        override[gid]=(position,rotation)
+                        if adjusted:canonical_mesh_flips.append(gid)
                     audit_metadata=dict(metadata,geoms=[dict(g,position=override[g['id']][0],rotation=override[g['id']][1])if g['id']in override else g for g in metadata['geoms']])
                     audit=grouped['instances'].audit(audit_metadata)
+                    audit['canonical_mesh_flips']=canonical_mesh_flips
                     if audit['position_error']>1e-5 or audit['rotation_error']>1e-6:raise ValueError(('Animated instance FK differs',index,audit))
                     report.setdefault('animation_transform_audits',[]).append(dict(frame=index,**audit))
             update_s=time.monotonic()-frame_started
