@@ -26,6 +26,21 @@ Run commands from a clean committed checkout installed with uv sync --locked.
 robofrontier container build
 ~~~
 
+Nested help is handled locally before configuration, Docker, credentials or
+runtime directories are accessed. This also works with Docker unavailable:
+
+~~~bash
+robofrontier container build --help
+robofrontier container prepare --help
+robofrontier container preflight --help
+robofrontier container auth --help
+~~~
+
+`container build` accepts no extra arguments. Misspelled options and missing
+required native-command arguments are rejected before any Docker work. Auth
+help describes the allowed wrapper actions; actual login options are forwarded
+to the selected native CLI.
+
 The wrapper supplies git archive HEAD as the build context, excluding ignored
 .env, authentication, outputs and run data. The image is tagged with that source
 revision. An existing custom image with another revision is rejected. Commit

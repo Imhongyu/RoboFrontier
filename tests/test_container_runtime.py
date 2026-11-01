@@ -22,6 +22,51 @@ class ContainerRuntimeTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.config = load_configuration(overrides={'render': {'device': 'cpu'}})
 
+    def test_nested_build_help_never_contacts_docker(self):
+        from robofrontier.cli import main
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), patch.object(runtime.subprocess, 'run',
+                side_effect=AssertionError('help attempted Docker execution')):
+            with self.assertRaises(SystemExit) as raised:
+                main(['container', 'build', '--help'])
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn('usage:', output.getvalue())
+        self.assertIn('build', output.getvalue())
+
+    def test_nested_help_is_available_without_configuration_or_docker(self):
+        from robofrontier.cli import main
+        for arguments in (['build', '-h'], ['plan', '--help'], ['prepare', '--help'],
+                          ['preflight', '--help'], ['run', '--help'],
+                          ['auth', '--help'], ['auth', 'codex', 'login', '--help']):
+            with self.subTest(arguments=arguments), contextlib.redirect_stdout(io.StringIO()), \
+                    patch('robofrontier.cli.load_configuration', side_effect=AssertionError('read config')), \
+                    patch.object(runtime.subprocess, 'run', side_effect=AssertionError('contacted Docker')):
+                with self.assertRaises(SystemExit) as raised:
+                    main(['--config', str(self.root/'missing.toml'), 'container', *arguments])
+                self.assertEqual(raised.exception.code, 0)
+
+    def test_invalid_nested_syntax_fails_before_configuration_or_docker(self):
+        from robofrontier.cli import main
+        for arguments in (['build', '--mistyped'], ['build', 'unexpected'],
+                          ['prepare', '--outpt', 'runs/new'], ['run'], ['auth', 'shell']):
+            with self.subTest(arguments=arguments), contextlib.redirect_stderr(io.StringIO()), \
+                    patch('robofrontier.cli.load_configuration', side_effect=AssertionError('read config')), \
+                    patch.object(runtime.subprocess, 'run', side_effect=AssertionError('contacted Docker')):
+                with self.assertRaises(SystemExit) as raised:
+                    main(['container', *arguments])
+                self.assertEqual(raised.exception.code, 2)
+
+    def test_direct_wrapper_help_and_invalid_build_skip_docker(self):
+        for arguments, code in ((['build', '--help'], 0), (['prepare', '--help'], 0),
+                                (['build', '--mistyped'], 2)):
+            with self.subTest(arguments=arguments), contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(io.StringIO()), \
+                    patch.object(runtime.subprocess, 'run', side_effect=AssertionError('contacted Docker')):
+                with self.assertRaises(SystemExit) as raised:
+                    runtime.execute(arguments, self.config, root=self.root)
+                self.assertEqual(raised.exception.code, code)
+        self.assertEqual(list(self.root.iterdir()), [])
+
     def test_public_configuration_roundtrips_without_environment_expansion(self):
         self.assertEqual(tomllib.loads(runtime._toml(self.config)), self.config)
 

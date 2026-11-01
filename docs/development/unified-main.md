@@ -1124,3 +1124,35 @@ provider access, or make a new paid preflight. Local Markdown links resolve;
 
 Remaining English migration: 90 files / 91,957 Han
 characters, recorded in `english-inventory-after-claude-plan.json`.
+
+## Container help must not execute work
+
+While building the current committed delivery image, the command
+`container build --help` unexpectedly performed the build. The resulting image
+`robofrontier:aad3cf2691ce` is a successful source-frozen build of
+`aad3cf2691cef90f41512b28b515deae1fb660c7`, image ID
+`sha256:462afc173c44b0eb51ce1e61a92ec0913853fe24a8337442e06a6e1759085629`.
+It restored all 3,467 policy asset files against the pinned archive/release;
+no model calls occurred. This image predates the help fix described below.
+
+A deterministic regression reproduced the bug in 0.025 seconds: nested help
+reached the Docker subprocess boundary. Differential probes showed that top-level
+container help stayed local while nested build help and unknown build flags
+were forwarded. Root cause: REMAINDER parsing passed those tokens unchanged,
+and the wrapper's parse_known_args settings extraction ignored them before
+unconditional build dispatch. The existing native argument-parser construction
+is now reusable; nested native commands are validated with that same parser.
+Build accepts no arguments, and auth has local wrapper help plus early action
+validation. Both the CLI boundary and direct Python wrapper validate before
+Docker operations; the CLI does so before configuration loading. Authentication
+options still reach their native CLI unchanged, and no policy protocol changes.
+
+The regression now covers build/native/auth help, nonexistent config with help,
+misspelled options, missing arguments and direct wrapper invocation without
+Docker execution. The actual installed CLI also returned only help for a missing
+config path. The combined container/configuration suite passed 26 tests on
+macOS (5.588 seconds) and Linux aarch64 (12.249 seconds). Linux used the
+aad3cf image's dependencies with current source mounted read-only, no network,
+and tmpfs test fixtures; this is not yet a new-source image build. Before/after
+logs, differential receipt and actual help output use the `container-help-`
+prefix under the engineering evidence root.

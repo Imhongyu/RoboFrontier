@@ -21,6 +21,42 @@ COMMANDS = {'bootstrap', 'config', 'plan', 'prepare', 'doctor', 'preflight', 'ru
             'stop', 'collect', 'archive', 'extract'}
 
 
+def _auth_arguments(arguments):
+    native = arguments[1:]
+    valid = (native[:2] in (['codex', 'login'], ['codex', 'logout']) or
+             native == ['claude', 'setup-token'])
+    if not valid:
+        raise ValueError('Supported auth actions: codex login/logout or claude setup-token')
+    return native
+
+
+def validate_arguments(arguments):
+    """Resolve native syntax/help before any Docker, configuration or auth work."""
+    arguments = list(arguments or ['plan'])
+    action = arguments[0]
+    if action not in COMMANDS | {'build', 'auth'}:
+        raise ValueError('Unsupported container command')
+    if '--config' in arguments or '--result-file' in arguments:
+        raise ValueError('Pass the host --config before container; result-file is managed by the wrapper')
+    if action == 'build':
+        parser = argparse.ArgumentParser(prog='robofrontier container build',
+            description='Build the committed source image. This command accepts no options.')
+        parser.parse_args(arguments[1:])
+    elif action == 'auth':
+        if any(value in ('-h', '--help') for value in arguments[1:]):
+            parser = argparse.ArgumentParser(prog='robofrontier container auth',
+                description='Authenticate native Codex or Claude in persistent private state.',
+                epilog='Supported actions: codex login [options], codex logout [options], '
+                       'or claude setup-token. Native login options are forwarded unchanged.')
+            parser.print_help()
+            parser.exit()
+        _auth_arguments(arguments)
+    else:
+        from .cli import argument_parser
+        argument_parser(prog='robofrontier container').parse_args(arguments)
+    return arguments
+
+
 def _digest(path):
     with Path(path).open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
@@ -165,11 +201,7 @@ def _command(arguments, config, image, volumes, name, settings_file, environment
             raise ValueError('NVIDIA Docker execution requires Linux; prepare CPU-rendered tasks for macOS Docker')
         command.extend(['--gpus', 'all', '--env', 'NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility'])
     if arguments[0] == 'auth':
-        native = arguments[1:]
-        valid = (native[:2] in (['codex', 'login'], ['codex', 'logout']) or
-                 native == ['claude', 'setup-token'])
-        if not valid:
-            raise ValueError('Supported auth actions: codex login/logout or claude setup-token')
+        native = _auth_arguments(arguments)
         if sys.stdin.isatty():
             command.extend(['--interactive', '--tty'])
         else:
@@ -230,11 +262,7 @@ def execute(arguments, config, *, root=ROOT):
     restarted. Only stopped ZIP evidence is exported to the host.
     """
     from scripts.benchmark import load_env
-    arguments = list(arguments or ['plan'])
-    if arguments[0] not in COMMANDS | {'build', 'auth'}:
-        raise ValueError('Unsupported container command')
-    if '--config' in arguments or '--result-file' in arguments:
-        raise ValueError('Pass the host --config before container; result-file is managed by the wrapper')
+    arguments = validate_arguments(arguments)
     if shutil.which('docker') is None:
         raise ValueError('Docker CLI is not installed')
     daemon = subprocess.run(['docker', 'version', '--format', '{{.Server.Version}}'],

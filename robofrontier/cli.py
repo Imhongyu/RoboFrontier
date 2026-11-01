@@ -221,8 +221,8 @@ def archive_collection(collection, output):
         return pack(directory, output)
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+def argument_parser(*, prog=None):
+    parser = argparse.ArgumentParser(prog=prog, description=__doc__)
     parser.add_argument('--config', type=Path, help='Partial TOML overriding repository defaults')
     parser.add_argument('--result-file', type=Path, help='Write the terminal command result as atomic JSON')
     sub = parser.add_subparsers(dest='command', required=True)
@@ -271,6 +271,11 @@ def main(argv=None):
     add_arguments(sub)
     from .oracle_workflow import add_arguments as oracle_arguments
     oracle_arguments(sub)
+    return parser
+
+
+def main(argv=None):
+    parser = argument_parser()
     args = parser.parse_args(argv)
     def emit(value):
         if args.result_file:
@@ -295,8 +300,10 @@ def main(argv=None):
             emit(report)
             return 0
         if args.command == 'container':
-            from .container_runtime import execute
-            report = execute(args.arguments, load_configuration(args.config))
+            from .container_runtime import execute, validate_arguments
+            # Resolve help and invalid syntax before configuration, Docker or auth.
+            arguments = validate_arguments(args.arguments)
+            report = execute(arguments, load_configuration(args.config))
             emit(report)
             return report['exit_code']
         if args.command == 'demo':
