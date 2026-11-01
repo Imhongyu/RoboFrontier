@@ -1666,3 +1666,14 @@ Slurm was discoverable after loading the site's `slurm/slurm/23.02.6` module.
 Read-only queries reported debug and llm partitions with GPU resources; several
 SSH attempts failed before a later successful query. No allocation, provider
 trial or unified stage-out qualification is claimed by this discovery receipt.
+
+## English historical suite previews and policy-batch report
+
+The early Frontier v2 preview, five-valid-setting Dial preview and historical
+minimum-scale policy-batch report now emit English. Preview text retains static
+initial-state and non-qualification caveats. The policy report explicitly labels
+its original 20-minute budget and process-compliance requirement as historical,
+rather than changing the current 24-hour/terminal-outcome protocol. Numeric tokens
+and non-text Python ASTs are identical; no previews, models or worlds were run.
+The comparison is in `english-preview-batch-verification.json`. Remaining tracked
+English migration: 23 files / 60,692 Han characters.
