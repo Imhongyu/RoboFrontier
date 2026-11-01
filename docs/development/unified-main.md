@@ -1548,3 +1548,14 @@ reads sequentially and resolves hardlinks only to already verified staged files.
 Independent Linux full-discovery and actual large-bundle installation results
 are still pending at this commit. This local bundle does not add a public
 historical-fixture download or change the ordinary policy bootstrap.
+
+## English early communication pilots and slip diagnosis
+
+The early shared-world trial, two-session mailbox pilot and 2026-10-19 slip
+diagnosis now have English archival text. The desktop driver's controlled role,
+actual idle versus self-report, original permission limitations, protocol-only
+scope and separation of offline truth-assisted diagnosis from model results are
+retained. Obsolete commands are labeled historical. All numeric tokens and
+source URLs match the originals, and local links resolve; the comparison is
+`english-pilot-verification.json` in the Oracle engineering evidence directory.
+The English migration remains open, with 39 tracked files / 67,326 Han characters.

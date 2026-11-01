@@ -1,73 +1,108 @@
-# 滑落的失败后诊断
+# Post-failure slip diagnosis
 
-2026-10-19。本次使用仿真真值和接触力进行离线诊断，不属于此前 RGB 策略操作，也不改变此前三次失败的结果。诊断阶段未修改正式配置、原录像或窗口参数。用户随后要求启用 NoSlip 并录制成功视频，已另建配置验证，见 `noslip-validation-20261019.md`。
+2026-10-19. This offline diagnosis used simulation ground truth and contact
+forces. It was separate from the earlier RGB policy actions and did not change
+the three previous failures. The formal configuration, original recordings and
+window settings were unchanged during diagnosis. The user subsequently requested
+NoSlip and a successful recording; that separately versioned validation is in
+`noslip-validation-20261019.md`.
 
-## 复现与判定
+## Reproduction and outcome
 
-从 `runs/20261019-220952-187535/trace.jsonl` 恢复第三次闭合后的积分状态和关节参考（sim time 425.03 s），使用同一个 `Simulation.control()` 重放随后三个上升动作。
+The third post-close integration state and joint references were restored from
+`runs/20261019-220952-187535/trace.jsonl` (sim time 425.03 s). The same
+`Simulation.control()` replayed the following three lift actions.
 
 ```sh
 uv run python scripts/diagnose_slip.py --case baseline
 ```
 
-该命令连续两次得到相同结果：方块抬起后失去双指接触、夹爪闭合至近零开口，方块返回桌面；以断言失败退出。这是预期的失败复现信号。
+Two consecutive invocations reproduced the same result: after lift, the block
+lost bilateral finger contact, the gripper closed to nearly zero aperture and
+the block returned to the table. The assertion failure was the expected failure
+reproduction signal.
 
-删除模型思考间隔、连续执行相同三个上升动作后，短期仍能持有；追加 30 s 保持则滑落。因此等待时长是重要因素，旧的只保持约 4.6 s 的参考测试不足以验证本轮交互所需的长期保持能力。
+Removing model-thinking pauses and executing the same three lifts consecutively
+retained the block briefly; an additional 30 s hold caused a drop. Waiting time
+therefore mattered. The older reference test held for only about 4.6 s and could
+not establish the long-duration retention needed by this interaction.
 
-最小时间模式复现：
+Minimal timing reproduction:
 
 ```sh
 uv run python scripts/diagnose_slip.py --case baseline --compact --hold-seconds 30
 ```
 
-## 单因素诊断
+## One-factor comparisons
 
-各行都恢复同一已闭合状态、使用相同动作，单独改变一项。以下为 compact 模式，末尾保持 30 s：
+Each row restored the same post-close state and used the same actions, changing
+only one factor. These compact-mode comparisons ended with a 30 s hold:
 
-| 诊断配置 | 最终是否掉落 | 最终方块抬升 |
+| Diagnostic configuration | Final drop? | Final block lift |
 | --- | --- | --- |
-| 原配置 | 是 | 约 0 cm |
-| 仅滑动摩擦系数 ×3 | 是 | 回到桌面 |
-| 仅夹爪位置刚度 ×4（目标映射同比例调整） | 是 | 约 0 cm |
-| 仅抗扭摩擦参数 ×5 | 未完全掉落，但持续下滑 | 3.91 cm |
-| 仅 `noslip_iterations=10` | 否 | 6.90 cm |
+| Original | Yes | About 0 cm |
+| Sliding friction coefficient only ×3 | Yes | Back on table |
+| Gripper position stiffness only ×4, with proportional target remapping | Yes | About 0 cm |
+| Torsional friction parameter only ×5 | No complete drop, but continued downward slip | 3.91 cm |
+| `noslip_iterations=10` only | No | 6.90 cm |
 
-再保留原动作之间的真实等待间隔，且末尾额外保持 30 s，`noslip_iterations=10` 仍未滑落，最终抬升 6.89 cm。原配置在相同等待模式下掉落。该结果支持“软接触的缓慢滑移是此复现案例的关键环境因素”，不证明所有姿态、所有抓取位置都已可靠。
+With the original real waiting intervals retained and an additional terminal
+30 s hold, `noslip_iterations=10` still retained the block, at a final lift of
+6.89 cm. The original configuration dropped it with the same waits. This supports
+slow soft-contact slip as a key environmental factor in this reproduced case;
+it does not establish reliability for every pose or grasp location.
 
 ```sh
 uv run python scripts/diagnose_slip.py --case noslip_10 --hold-seconds 30
 ```
 
-MuJoCo 官方明确说明，软接触正则化不保证完全静止的粘着状态；NoSlip 是针对摩擦维度的后处理，可抑制这种漂移，但并非零滑移保证，也不能当作真机标定结果。[官方 Modeling：Solver settings](https://mujoco.readthedocs.io/en/stable/modeling.html#solver-settings)
+The contemporary interpretation of the [MuJoCo Modeling solver documentation](https://mujoco.readthedocs.io/en/stable/modeling.html#solver-settings)
+was that soft-contact regularization does not guarantee perfectly stationary
+sticking. NoSlip postprocesses friction dimensions and can reduce drift, but
+is neither a zero-slip guarantee nor real-robot calibration evidence.
 
-## 夹爪是否持续用力
+## Continued gripper effort
 
-是持续保持关闭位置参考，不是发送一次脉冲后关电，也不是恒定力控制。
+The controller continuously retained a closed position reference. It did not
+send a single pulse and turn off, and it did not command constant force.
 
-- `gripper_goal=0` 在 close 后持续保持。
-- `data.ctrl[7]` 从当前值平滑降至 0，后续所有移动/等待周期继续写入 0；只有 open 才改为 255。
-- 第三次闭合后的初始有效滑动摩擦为 1.0，测得双指法向接触力总和分别约 0.999 N 和 0.998 N。
-- tendon actuator 力约 -1.996 N。上游 tendon 两侧传动系数各 0.5；`forcerange=-100..100` 是限幅，不是每指始终施加 100 N。
-- 夹爪控制值 0 表示关闭参考，不能理解为 0 N。失去物体后夹缝接近零、位置误差消失，执行器力也自然接近零。
-- 位置刚度四倍的诊断中，初始接触力升至约每指 3.9 N，但最终仍掉落，说明单纯加大闭合力没有解决此案例。
+- `gripper_goal=0` persisted after close.
+- `data.ctrl[7]` ramped from its current value to 0. Every later movement/wait cycle continued writing 0; only open changed it to 255.
+- After the third close, initial effective sliding friction was 1.0. The measured normal contact-force sums for the two fingers were about 0.999 N and 0.998 N.
+- Tendon actuator force was about -1.996 N. The upstream tendon transmission coefficient was 0.5 on each side; `forcerange=-100..100` was a limit, not a continuous 100 N per finger.
+- Gripper control 0 meant a closed reference, not 0 N. Once the object was lost, the aperture and position error approached zero, and actuator force naturally did too.
+- Quadrupling position stiffness raised initial contact force to about 3.9 N per finger, but the block still fell. Greater closing force alone did not resolve this case.
 
-## IK 与实际 MuJoCo 输出
+## IK and actual MuJoCo output
 
-本轮始终使用末端模式：策略只发 XYZ 增量和持续时间，入口转为与键盘相同的方向/速度请求。
+The entire trial used end-effector mode. The policy sent only XYZ increments
+and durations, translated at entry into the same direction/speed requests as
+the keyboard controls.
 
-每 10 ms，控制器更新 TCP 小目标，以当前附近的七关节参考为初值做阻尼最小二乘 IK；IK 返回七个关节位置目标。经过速度、加速度和位置限制后：
+Every 10 ms, the controller advanced a small TCP target and ran damped
+least-squares IK initialized from the nearby seven-joint reference. IK returned
+seven target joint positions. After velocity, acceleration and position limits:
 
 ```python
-data.ctrl[:7] = q_ref       # 七个关节的位置参考，rad
-data.ctrl[7] = gripper_ref # 夹爪关闭=0，打开=255
+data.ctrl[:7] = q_ref       # Seven joint-position references, rad
+data.ctrl[7] = gripper_ref # Gripper closed=0, open=255
 for _ in range(5):
-    mujoco.mj_step(model, data) # 每步 2 ms
+    mujoco.mj_step(model, data) # Each step is 2 ms
 ```
 
-七个目标在同一控制周期一起更新。上游位置执行器依据各关节误差和速度生成力矩，由 MuJoCo 积分出实际运动。没有在运行中把 `qpos` 改成 IK 答案，也没有逐个关节先后执行的调度。
+All seven targets updated in one control cycle. Upstream position actuators
+produced torque from joint errors and velocities; MuJoCo integrated the actual
+motion. Execution did not overwrite `qpos` with the IK answer or schedule joints
+one after another.
 
-## 范围与后续
+## Scope and follow-up
 
-诊断产物位于 `runs/slip-diagnosis/`。脚本是针对这一段录制状态的复现工具，不是通用 benchmark。保留了原配置失败信号和每个单因素对照。
+Artifacts are in `runs/slip-diagnosis/`. The script reproduces this recorded state
+segment, rather than a general benchmark. Original failure signals and each
+one-factor comparison were retained.
 
-本次诊断仅记录结论，未在原配置中增加摩擦或夹持力。后续 NoSlip 配置已单独版本化并完成长时间保持及一个新布局的 RGB 操作验证，详情见上述独立记录。仍需多位置、多姿态检验；不能把这里的离线真值回放成功算作模型成功。
+This diagnosis recorded findings without increasing friction or grasp force in
+the original configuration. The subsequent NoSlip configuration was independently
+versioned and passed a long hold plus RGB operation in one new layout, as
+recorded separately above. More locations and poses still require testing.
+Offline ground-truth replay success must not be counted as model success.
