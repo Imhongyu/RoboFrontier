@@ -7,6 +7,13 @@ editable files. The checked-in project starts at
 It targets the pinned 36-station R14 Factory bundle. The font and its SIL Open
 Font License are already in the repository; rendering does not download a font.
 
+The [original full Factory movie](https://github.com/changxuanfan/RoboFrontier/releases/tag/factory-tour-media-20261102)
+is published unchanged (1080p, 30 fps, 210.5 seconds), with checksums and a
+historical-media receipt. At the user's request, the new full Cycles render is
+deferred and that existing movie is used for presentation. The editable English
+project remains available. The published original is not a new current-source
+render seal or model-performance claim.
+
 Read the [Factory installation guide](factory.md) first. Offline video uses
 Blender Cycles, ffmpeg and ffprobe with libass and libx264. It is independent of
 policy image size, model credentials and benchmark task timing.

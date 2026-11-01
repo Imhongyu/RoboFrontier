@@ -18,6 +18,18 @@ Claude topologies have engineering entries. The complete historical test suite
 is not passing. Model profiles are configuration choices, not universal provider
 compatibility certificates.
 
+## Factory tour
+
+[![Original Factory tour, 1080p](docs/media/factory-tour-original.jpg)](https://github.com/changxuanfan/RoboFrontier/releases/tag/factory-tour-media-20261102)
+
+[Watch or download the original full video](https://github.com/changxuanfan/RoboFrontier/releases/download/factory-tour-media-20261102/robofrontier-factory-tour-original.mp4)
+(210.5 seconds, 1920 × 1080, 30 fps). The original MP4 is unchanged;
+[media identity](docs/media/factory-tour-original.json) and
+[release checksums](https://github.com/changxuanfan/RoboFrontier/releases/download/factory-tour-media-20261102/SHA256SUMS)
+are available. This historical offline presentation is not a new current-scene
+render or evidence of model/task success. A new full render is deferred at the
+user's request; the editable English project remains available.
+
 ## Start here
 
 | Goal | Guide |
@@ -268,8 +280,9 @@ recovery, evidence and the distinction between commissioning and full success.
 All four families have passed current compressed-motion Factory import and
 all-frame replay checks, with small CPU video previews. The editable
 [full-length English video project](docs/factory-editorial.md) is tracked and has
-passed CPU preview and media round trips. A complete newly rendered current-source
-movie and new full physical Oracle qualification remain open gates. The tracked
+passed CPU/Metal preview and media round trips. The original full movie is
+published above; a new current-source full render is deferred. New full physical
+Oracle qualification remains open. The tracked
 [English task atlas](docs/task-atlas/index.html) includes current
 public task contracts and 72 regenerated initial views; its [guide](docs/task-atlas.md)
 provides verification and offline ZIP commands. Existing Oracle intervention records and historical source identities must

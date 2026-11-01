@@ -1,41 +1,125 @@
-# 当前 Harness 验收范围（格式 v3）
+# Offline harness acceptance scope, document format v3
 
-下列 check_harness 命令只做离线工程验收：假会话/服务、机器人运动学与几何检查，以及真实无窗口 MuJoCo 单臂接触回归。后者会积分物理并执行仿真抓放，但不新建模型会话、打开窗口或录像。三臂九方块的独立物理参考、资源搜索与交互改造记录见 工程验收（历史产物已退役：`../runs/autonomous-loop-engineering-20261020/report.md`）；物理参考不是模型表现证据。保留的历史证据与清理范围见[目录说明](repository-layout.md)。
+This describes check coverage, not a claim that the whole current repository has
+a passing acceptance report. The harness checker exercises fake sessions/services,
+robot kinematics/geometry, and real headless MuJoCo single-arm contact regressions.
+The latter step physics and perform simulated grasps without new language-model
+sessions, GUI windows or video recording. Historical three-arm/nine-cube physical
+references, resource searches and interactive changes were recorded at the retired
+`runs/autonomous-loop-engineering-20261020/report.md`; they are engineering evidence,
+not model-performance evidence. See [repository layout](repository-layout.md) for
+retained history and cleanup boundaries.
 
 ```sh
 uv run python scripts/check_harness.py --report runs/engineering-check.json
 ```
 
-可选 `--skill-validator PATH --skill-python PYTHON` 检查 Skill 格式，外部验证器不是运行时依赖。格式通过不证明协调能力提升。
+The default command discovers the whole Python test suite and runs additional
+JavaScript, syntax and documentation checks. Missing ignored historical scenes
+can cause real failures; do not report those as a passing current release gate.
+For the explicit non-physics contract subset, `--protocol-only` installs guards
+that forbid MuJoCo model creation and stepping. That subset is not equivalent
+to full contact, rendering or provider qualification.
 
-## 验收内容
+Optional `--skill-validator PATH --skill-python PYTHON` checks skill formatting.
+The external validator is not a runtime dependency. Valid formatting does not
+prove better coordination.
 
-- 新目录固定输入、动态状态、输出分开；准备命令不启动世界/模型，旧目录不覆盖、不迁移。
-- 消息持久化、明确收件人、交付批次及回执；重复调用不重复执行动作；树状/Peer 通信权限。
-- 真实会话状态与自报工作状态分开；忙时不续轮、空闲合并唤醒、期限自选、通知去重与未知结果留待核实。
-- 同臂互斥、异臂可并发接受假动作；执行结果未知时保留 uncertain。
-- 运输/共享拼图两类任务在四种拓扑下的 READY 边界、位姿/关节/连续夹爪准入、停止权限和路由；详细机器人几何按臂或静态文件引用获取。
-- 慢速动作采用与请求一致的有界执行期限；HTTP 分片沿用原编号。真实无窗口检查覆盖超过旧 15 秒期限的开合/旋转，以及超时停止后夹爪参考保持；停止无法确认时保留 uncertain 和控制权占用。
-- centralized 模式仅一个任务会话，robot 选择权限、跨臂并发、同臂互斥、完成图像归属与未知动作恢复；单 Agent 不被人为串行化。
-- adaptive 首个结果在父角色事件等待、工具返回或 idle 续轮时交付，不等其他分身；原生轮次停止未交回时定向去重通知，保留控制权；补交收尾后可新建分身复用同一机械臂，旧会话不能执行新任务。
-- Controller 按需读取自己分身的紧凑状态/所选笔记；分身间无直接业务通信。正常委派执行后 return_task，原生停轮不自动交回。明确保存的 waiting/available 期限可在范围有效且执行允许时恢复一次；旧邮件或继承的 continuing 状态不自动恢复异常停轮，新的父消息可请求明确收尾/继续。
-- 失败分身仅在新鲜 failed 终态、已解决物理请求及新的父定向消息同时满足时续接；缺失/非失败终态、accepted/running/uncertain 动作和发送前状态变化均阻止，恢复再次失败不循环重发。
-- 调度成功观测/投递时间持久化，缺测清除 idle 信任，脱敏错误保留原因；当前 research 宿主持续有效仍是运行条件，不是独立后台服务验收。
-- 客户端同角色的阻塞调用不持有全程文件锁；已决定动作段默认逐步检查邮件，也可由 Agent 选择有限段末边界；失败、暂停、系统事件、未决执行和中间图像仍返回。
-- roleStep 在普通本地/原生只读操作返回后附带有界事件，保留原输出/错误，空收件不刷屏，收件失败不重放操作，不生成机器人动作；裸原生工具并无全局注入保证。
-- 最终与中断评估证据只写 private/outputs；中断即使几何已满足也不标记任务成功；采样窗不可用于隐式物理恢复，策略返回不含物体真值。
-- 动作完成按显式相机选择捕获，也可仅返回机器人状态；异步查询保留原捕获时刻，同编号重试不重复执行。
-- 单臂偏位接触后手指能恢复打开、正常夹持/放置仍成立、执行器打不开时如实失败；保留原摩擦、夹持执行器参数及 NoSlip10。
-- 活动任务的 idle yield 要求 Agent 自选复查期限；READY/暂停/结束豁免，管理暂停释放等待并在结果中明确标记。
-- 所有任务角色在工具边界合并收件；事件等待前后竞态、无关收件、超时/续等、结束返回和READY门；可选异步动作期间通信、终态缓存及执行器丢失。
-- 笔记保存时间与执行器状态独立；旧笔记不被动作启动伪装成新笔记；长等待沿用编号/原期限，暂停立即返回；选定结果/图片同次交付不隐式增加观察或动作。
-- 工作笔记、消息和期限可重新读数据库；重启物理服务被拒绝，不能隐式重置或自动重放。
-- 无逐秒世界检查点、无逐秒完整日志重写；结束/关闭导出，完整性检查低频且有启动和结束检查。
-- 输入与冻结源码变更可检测；公开坐标开关有效，新增观测不被当作固定输入篡改。
-- 固定调度 JS 使用假平台适配器验证 START 门、通知内容和发送异常；UI 脚本静态解析。
+## Covered contracts and intended checks
 
-## 未验证
+- Separate immutable inputs, dynamic state and outputs. Preparation starts no
+  world/model; existing directories are neither overwritten nor migrated.
+- Persist explicit recipients, delivery batches and acknowledgments. Duplicate
+  requests do not execute actions twice; tree/peer communication authority holds.
+- Separate native observed session state from self-reported work state. Do not
+  continue busy sessions; merge idle wakes, honor chosen recheck deadlines,
+  deduplicate notifications and retain unknown outcomes for review.
+- Exclude concurrent ownership of one arm while allowing fake actions on distinct
+  arms to be accepted concurrently. Unknown execution remains uncertain.
+- Check transport/shared-mosaic authority, pose/joint/continuous-gripper admission,
+  stop permissions and routing across four topologies. READY-boundary tests cover
+  compatibility protocols; **new runs directly START in all four topologies**,
+  and READY only queries capability. Read detailed robot geometry per arm or
+  through authorized static-file references.
+- Give slow actions execution deadlines matching their bounded requests; HTTP
+  polling retains the original ID. Real headless checks cover opening/rotation
+  beyond the old 15-second limit and holding jaw references after timeout-stop.
+  Unconfirmed stopping retains uncertainty and ownership.
+- Single/centralized has one policy session, robot-selection authority,
+  cross-arm concurrency, same-arm exclusion, completion-image ownership and
+  unknown-action recovery. A single agent is not artificially serialized.
+- Adaptive delivers a first delegate result during parent event wait, tool
+  return or idle continuation without waiting for all delegates. A native turn
+  ending without handback produces a directed, deduplicated notice and retains
+  authority. After proper cleanup/return, a new delegate may reuse that arm;
+  the old session cannot execute the new assignment.
+- Controllers may read compact delegate state and selected notes through
+  authorized interfaces. Delegates do not directly exchange business messages.
+  Normal completion requires return_task; native turn end does not return control.
+  An explicitly saved waiting/available deadline can authorize one continuation
+  while scope/execution permit it. Old mail or inherited continuing state does
+  not automatically revive an abnormal turn; a fresh parent message may request
+  explicit cleanup or continuation.
+- A failed delegate resumes only with a fresh failed native terminal state,
+  resolved physical requests and a new directed parent message. Missing/nonfailed
+  terminal evidence, accepted/running/uncertain actions or state changing before
+  send block recovery. Repeated recovery failure does not loop indefinitely.
+- Persist successful observation/delivery times. Missing observations revoke idle
+  trust; sanitized errors retain causes. Historical research-host continuity was
+  a runtime prerequisite, not proof of an independent background service.
+- Same-role blocking client calls do not hold a file lock for their entire
+  duration. Committed action segments check mail by default at step boundaries;
+  policies can choose finite segment-end boundaries. Failure, pause, system
+  events, pending execution and intermediate images still return.
+- roleStep appends bounded events after ordinary local/native read-only operations,
+  preserving original output/errors. Empty mail stays quiet; receive failure
+  neither replays the operation nor creates robot actions. Bare native tools
+  have no universal event-injection guarantee.
+- Final/interrupted evaluation is private under `private/outputs`. Interrupted
+  geometry satisfying a goal is not scored as successful task termination.
+  Evaluation sampling does not restore physics; policy returns contain no
+  private object truth. Terminal completion and process events are separate;
+  see [current scoring/start semantics](direct-start-terminal-scoring.md).
+- Capture completion images only for explicit camera selections, or return robot
+  state alone. Asynchronous queries retain capture time; retrying one ID does
+  not execute the action again.
+- After offset single-arm contact, fingers can reopen and normal grasp/placement
+  still work; an actuator that cannot open reports failure honestly. Those
+  regressions retain their original friction, gripper parameters and NoSlip 10,
+  and do not qualify every new contact candidate.
+- Idle yield in an active task requires an agent-selected recheck deadline.
+  Legacy READY waits, paused and ended states are exempt. Management pause
+  releases waits and is explicit in results; READY is no new-start barrier.
+- Merge mail at every task-role tool boundary. Exercise before/after-wait races,
+  unrelated mail, timeout/continued waits, terminal returns, legacy READY gates,
+  optional communication during asynchronous actions, terminal caching and
+  executor loss.
+- Note timestamps are independent of executor state. Starting an action does
+  not make an old note new. Long waits preserve their ID/original deadline;
+  pause returns immediately. Selected results/images in the same delivery do
+  not silently add observations or actions.
+- Work notes, mail and deadlines can be reread from SQLite. Restarting the
+  physical service is rejected; there is no implicit reset or automatic replay.
+- Do not write per-second complete world checkpoints or rewrite complete logs
+  every second. Export on termination/close, with infrequent integrity checks
+  plus startup and final checks.
+- Detect input/frozen-source edits and honor the public-coordinate switch.
+  New observations are not misclassified as immutable-input tampering.
+- Test fixed JavaScript scheduling with fake platform adapters, including legacy
+  START gates, notification contents and send failures. Parse UI scripts
+  statically; parsing alone is not visual/browser acceptance.
 
-离线测试不能证明真实桌面会话的新工作循环、跨机器安装或模型协调效率提升。物理参考单独证明当前布局与执行器可完成及并行，但没有一般多臂轨迹认证。共享用户文件仍不是安全沙箱；原生检查/发送不是原子操作。完整物理重启恢复是主动移除的能力，不属于待通过的测试。
+## Limits of this evidence
 
-目录和维护规则见 [架构说明](architecture.md)，操作见 [Meta runbook](meta-runbook.md)。
+Offline checks do not establish new real Desktop session loops, cross-machine
+installation or improved model coordination. A separate physical reference can
+show its tested layout/executor completing selected work with overlap; it is
+not general multi-arm swept-trajectory certification. Shared user files are
+not a security sandbox. Native state inspection followed by sending is not an
+atomic operation. Full physical crash/restart recovery is intentionally absent,
+not an unpassed feature to enable later without changing the protocol.
+
+Consult the [integration ledger](development/unified-main.md) for actual test
+results, missing assets and native-engine qualification; this catalog is not a
+substitute. Architecture and operating instructions are in
+[architecture.md](architecture.md) and the [Meta runbook](meta-runbook.md).

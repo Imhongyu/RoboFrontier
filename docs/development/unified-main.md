@@ -1156,3 +1156,79 @@ aad3cf image's dependencies with current source mounted read-only, no network,
 and tmpfs test fixtures; this is not yet a new-source image build. Before/after
 logs, differential receipt and actual help output use the `container-help-`
 prefix under the engineering evidence root.
+
+## Current-source Docker and Linux preparation acceptance
+
+The committed help fix was built using the production git-archive wrapper as
+`robofrontier:8b47962499c1`, source
+`8b47962499c169921f890dd931566a925882ba1f`, image ID
+`sha256:bc87fe3e1e63fdbe9d527a1d02e84e9d18672f100dc19078d06111afd7d4261d`.
+Unlike a dependency image with host code mounted, the subsequent Linux checks
+ran the code contained in this image. All eight fresh combinations of engine
+and topology prepared/verified all 36 cases: another 288 preparations, with
+no model calls, no simulation and no public Han-text findings. Source identity,
+per-case release projection, role allocation, 24-hour START clocks, JPEG settings
+and defaults passed. The arm64 container exited zero without OOM. Its verified
+receipt and state were copied after it stopped; the disposable model-free
+preparation container was then removed. Existing benchmark containers and real
+session evidence were not touched. No x86/NVIDIA/provider qualification is
+implied. The additional CLI consumer suite passed 33 tests on macOS (10.210 s)
+and 33 inside the new image (4.231 s), covering evidence ZIP, Factory/editorial,
+portable benchmark and diagnostics. The initial Mac invocation lacked the tests
+fixture import path; its two import errors are retained, followed by the
+correct PYTHONPATH invocation and passing results.
+
+## Factory Metal preview and user-deferred full render
+
+A fresh complete check verified all 123,198 files of the pinned 36-station R14
+Factory bundle and identified Blender 5.1.2 / Apple M5 Pro, 16-core Metal GPU.
+The actual unified 1920×1080, 64-sample, three-frame Metal preview completed
+with the checked-in English project, full raw/captioned decode and complete
+sealing. The inspection JPEG was viewed: opening title and subtitles are legible.
+Cycles took 28.442 seconds including setup/encoding; warm frames averaged
+6.673 seconds. That opening-view measurement is not a reliable whole-tour ETA.
+
+The full 6,315-frame plan was prepared and launched at lower CPU priority.
+The user then explicitly requested stopping new rendering and publishing the
+original movie instead. Only the verified owner of that exact plan received
+SIGTERM; it stopped its child, retained the attempt and exited 2. The attempt
+is interrupted with signal 15, no running receipt and no complete seal. It is
+not counted as a completed new movie. New full rendering is now deferred by
+user instruction, while the overall integration continues.
+
+The original full movie was rehashed, fully decoded and published unchanged at
+[Original Factory tour](https://github.com/changxuanfan/RoboFrontier/releases/tag/factory-tour-media-20261102).
+It is 134,315,571 bytes, 1920×1080, 30 fps, 6,315 frames / 210.5 seconds; SHA-256
+`9c83e1d0ad17c3f6d4a7ed4b7d806322160f5d61d1e58e2471f0d3b300b86f96`.
+The release includes the original MP4, extracted JPEG poster, media receipt and
+checksums. All four GitHub asset digests/sizes were checked against local files.
+The media release does not replace the latest Factory data release or change
+asset locks. It is explicitly historical and does not establish current-scene
+equivalence, model success or physics qualification. README has a linked poster;
+its integration-branch edit has not been merged into main. Evidence prefixes are
+`factory-metal-`, `factory-editorial-metal1080p-`,
+`factory-editorial-current-full-` and `factory-video-`.
+
+## English engineering notes and remaining checker findings
+
+The MuJoCo/Panda interface notes, harness-coverage guide and communication
+research notes are now English. The interface review retains all 16 source
+URLs, seven numeric joint-range rows and six section numbers, and distinguishes
+interactive reset advice from prohibited policy-world restart. The harness guide
+labels coverage rather than claiming a green release and distinguishes legacy
+READY tests from current direct START. The communication review retains all five
+paper links and explicitly labels protocol suggestions as hypotheses. These are
+local translations, not fresh upstream/vendor research. Source comparisons and
+local Markdown links passed; no motion, asset fingerprint or policy protocol was
+changed.
+
+A broader protocol-only checker ran with MuJoCo entrypoints explicitly blocked.
+It is **not green**: 187 Python tests had two errors, and link checking found one
+retired historical output link. Zero assertion failures were reported; details
+remain in `protocol-acceptance-after-container-help.json/.log` for diagnosis.
+Its dispatcher scenario count is still a hardcoded historical 23, while the
+actual JavaScript suite reports 24; do not treat that metadata as a fresh count.
+No failures are hidden or waived by the narrower passing CLI suites.
+
+Remaining English migration: 87 files / 87,491 Han
+characters (`english-inventory-after-engineering-notes.json`).
