@@ -52,7 +52,10 @@ individual SHA-256 checksums. The archive checksum is
 The manifest checksum, supplied independently of its contents, is
 `909e9a42b2c4048bb9d5affc58fdc3930c449394b8efb1f83e854ae98ff9ba06`.
 
-Given a copy of this separately supplied bundle, install it into a checkout:
+Download the [optional archive](https://github.com/changxuanfan/RoboFrontier/releases/download/development-fixtures-20261102/legacy-test-fixtures-v4.tar.gz)
+and [manifest](https://github.com/changxuanfan/RoboFrontier/releases/download/development-fixtures-20261102/legacy-test-fixtures-v4.json)
+from the separate development-fixture prerelease. Verify against the independent
+pins above, then install them into a checkout:
 
 ```sh
 python3 scripts/install_historical_fixtures.py \
@@ -87,9 +90,9 @@ this development archive. This bundle is a test dependency set, not a full
 export of every historical experiment.
 
 This is an explicit optional development bundle, not an automatic download in
-the ordinary policy bootstrap. Public distribution of this separate bundle
-remains a delivery gate. Do not claim that the policy download alone reproduces
-full historical discovery in a fresh clone.
+the ordinary policy bootstrap. The separate release does not change that
+bootstrap. The policy download alone does not reproduce full historical
+discovery in a fresh clone.
 
 ## Filesystems and platform scope
 

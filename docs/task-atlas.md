@@ -8,6 +8,12 @@ server. Camera buttons switch between top and front views. On a phone the task
 cards become one column. There are no external fonts, analytics or JavaScript
 libraries.
 
+For browsing from GitHub, [download the verified offline atlas ZIP](https://github.com/changxuanfan/RoboFrontier/releases/download/development-fixtures-20261102/robofrontier-task-atlas-20261102.zip),
+unzip it and open `index.html`. This avoids GitHub's source-code view of HTML.
+The download contains the same tracked page, public records and original images;
+it requires no account, local server, API call or simulator. The separate large
+historical test-fixture archive on that release is optional for developers.
+
 These are engineering initial-state renders, not successful task demonstrations.
 Qualification labels preserve the release's source claims; rendering does not
 upgrade them. Mosaic uses the current R14 source. Neither Oracle solutions nor a

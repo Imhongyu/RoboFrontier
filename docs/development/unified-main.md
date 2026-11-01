@@ -42,22 +42,25 @@ these fields from Git history or the repository owner.
 - [ ] Publish English-only current content, task atlas, editable full video project, detailed README and documentation.
 - [ ] Exercise CPU, native macOS, NVIDIA/EGL and Slurm paths where hardware is available; record unavailable checks explicitly.
 - [x] Run offline suites and clean-checkout checks; record any remaining paid/hardware qualification separately.
-- [ ] Review the integrated branch before publishing or merging it into main.
+- [x] Review the engineering integration before publishing or merging it into main; retain the separate qualification gates below.
 
 ## Latest scoped acceptance snapshot
 
 As of 2026-11-02, the Oracle repair regression group passes on macOS and Linux
-(391 checks each). Full macOS discovery passed 1,501 checks before addition of
-the fixture installer. An independent Linux-local clone of `9bba6fe`, supplied
-only the explicitly pinned optional historical fixtures and an existing
-dependency image, passed 1,522 checks: zero failures/errors and 17 conditional
-skips. All JavaScript/dispatcher and portable-link checks passed. Subsequent
-documentation translations have separate numerical/link preservation checks;
-the Linux receipt is not relabeled as a full run of those later commits.
+(391 checks each). Full discovery at `a595709` passes on both platforms: 1,534
+checks each, zero failures/errors and 17 conditional skips. Linux used an
+independent bundle clone, pinned historical fixtures and a newly built image
+containing that source. All JavaScript/dispatcher and portable-link checks pass.
+All 17 conditional Mac checks were exercised separately with their explicit
+switches/original data. The eight native Claude/physical-world checks also pass
+on Linux with explicit CPU preparation and launcher settings. No real provider
+inference or formal scored Claude execution is implied.
 
 The optional historical fixture installer and separate local bundle now support
-independent installation. Public bundle distribution, final current-source image,
-remaining English migration, final review and main publication are still open.
+independent installation. Tracked source/content and filenames are English; frozen
+ignored evidence keeps its original bytes/names. The separate development-fixture
+release supplies the optional full-discovery inputs. Final publication checks
+and main integration remain separate from the passing engineering receipts.
 Real-provider/subscription lifecycle, 36-task capacity, complete task observations
 and the unified Slurm execution/stage-out path remain distinct qualification
 gates. A bounded real Slurm/H800 allocation passed NVIDIA EGL and a minimal-scene
@@ -1997,3 +2000,71 @@ temporary build-context cache. Original experiments and the recent passing v5/
 failed v4 volumes remain. See `retired-development-volumes-20261102` and
 `atlas-index-metadata-refresh-verification.json`. A final image/discovery of the
 atlas correction is still required.
+
+## Final engineering acceptance at a595709
+
+Both complete discoveries pass 1,534 checks, with zero failures/errors and 17
+conditional skips. The independent Linux checkout installed all 45,141 pinned
+fixtures in 20.409 seconds after recovering from a staging-only disk exhaustion;
+the failed attempt had not started tests. It used newly built image
+`robofrontier:a595709fb4c5`, image ID
+`sha256:037ac4f98a813c7f155b9f6c9094672cfaa7deba616c31c1849f997ceb22b9ee`.
+This is arm64 Linux CPU/Mesa, not x86 or a full NVIDIA benchmark.
+
+All 17 default Mac skips have separate passing assertions: eight opt-in native
+Claude/real-physics checks, five Factory replay checks, three original Transport
+source-edit checks and the original Dial published-schedule check. The physical
+group passed eight checks on each platform, including real image transport,
+four overlapping worlds, actual robot action, native mailbox continuation and
+signal/finish sealing. Linux's driver supplies explicit CPU renderer/preparation
+and launcher environment; assertions, native CLIs and physical owners are real.
+Model endpoints are scripted loopback services. Synthetic billing uncertainty
+retains needs_review evidence, without false task or provider qualification.
+
+Original replay checks use read-only closed data and temporary managed links/
+scene selection, prohibit `mj_step` and render no new video. They do not claim
+every optional recording was relocated into the development bundle. The original
+Factory movie remains published and the user's deferred full rerender remains
+deferred. All 6,569 tracked paths and text files have no Han characters; the 602
+binary files were not treated as text. Archived ignored evidence is unchanged.
+
+The new image also prepared 32 fresh packets covering both engines/four modes/
+four minimum-arm families. After an output-directory error in the receipt driver,
+all existing packets were verified without regenerating them: frozen inventories,
+actual release projections, role allocation, 24-hour limits and observation
+settings match. Earlier 288-case preparation evidence remains separately scoped.
+There were no model calls or simulation starts in preparation.
+
+Raw failures and passing reports remain separate under the engineering root.
+`final-engineering-acceptance-a595709.json`, `final-conditional-check-coverage.json`,
+`linux-isolated-results-v7`, native physics logs and original-replay receipts
+identify tested source and precise data/configuration scope.
+
+## Final integration review and remaining qualification
+
+The review comparison is pinned main `c8b4137` to the engineering integration.
+Source inspection and regression evidence cover explicit launch/spend boundaries,
+frozen input identities, independent scoring versus process history, original
+call-ID fencing, stopped-writer archival, credential exclusion, native session
+isolation, historical source compatibility and public projection allowlists.
+The historical-index metadata change has both whole-release and unchanged-field
+proofs; physical assets, old reports and capture bytes were not repinned casually.
+The complete diff passes whitespace checks. No blocking engineering-code finding
+remains from this review. This is not real-provider or research qualification.
+
+Real-provider/API and subscription refresh, 36-task execution capacity, full
+unified Slurm policy execution/stage-out, physical-candidate promotion and Claude
+formal scoring remain explicitly gated. The H800 allocation qualifies only the
+recorded EGL/minimal-JPEG scope. No paid preflight or full video rerender is
+silently authorized by these passing tests. Copyright/full author/publication
+metadata remain pending as the user requested.
+
+## Delivery artifacts
+
+The `development-fixtures-20261102` prerelease separates optional historical test
+dependencies from ordinary policy bootstrap. Its original v4 archive/manifest
+retain their independently pinned hashes and all historical qualification labels.
+The same release supplies a small verified offline task-atlas ZIP: unzip/open
+the page without GitHub's HTML source view, a local server or model access.
+Only allowlisted public atlas files enter that ZIP. Main integration/publication
+must verify these release assets; no existing release attachment is overwritten.
