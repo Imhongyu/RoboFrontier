@@ -9,6 +9,21 @@ from robofrontier.source_compatibility import RECEIPT, historical_digest, normal
 
 
 class HistoricalCompatibilityTests(unittest.TestCase):
+    def test_preview_caption_receipt_rejects_geometry_and_unreviewed_text_changes(self):
+        item=next(row for row in read(ROOT/RECEIPT)['files'] if row['path']=='scripts/preview_mosaic_local_colors.py')
+        source=(ROOT/item['path']).read_text()
+        tree=ast.parse(source)
+        tree.body.append(ast.parse('UNREVIEWED_DRAW_COORDINATE=1000').body[0])
+        self.assertNotEqual(normalized_digest(ast.unparse(tree),item['rule']),item['unaffected_ast_sha256'])
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary)
+            for relative in (RECEIPT,item['path']):
+                target=root/relative;target.parent.mkdir(parents=True,exist_ok=True)
+                shutil.copyfile(ROOT/relative,target)
+            with (root/item['path']).open('a') as output:output.write('\n# unreviewed caption\n')
+            with self.assertRaisesRegex(ValueError,'Unreviewed'):
+                historical_digest(root,item['path'],'mosaic')
+
     def test_harness_selection_normalization_keeps_control_and_timing_in_the_digest(self):
         item=next(row for row in read(ROOT/RECEIPT)['files'] if row['path']=='robofrontier/task_config.py')
         tree=ast.parse((ROOT/item['path']).read_text())

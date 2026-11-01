@@ -77,6 +77,24 @@ def normalized_digest(source, rule):
                 raise ValueError('Harness selection differs from reviewed configuration checks')
             if index==0:method.body[matches[0]]=original
             else:method.body.pop(matches[0])
+    elif rule == 'mosaic_public_projection':
+        # This authenticates only the old review artifact's public projection.
+        # Validator improvements and current scoring are explicitly not equated.
+        names={'_public_boundary','project_public','_check_target','_target_image'}
+        functions=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name in names]
+        guards=[node for node in tree.body if isinstance(node,ast.Assign) and
+                any(isinstance(target,ast.Name) and target.id=='FORBIDDEN_PUBLIC_KEYS' for target in node.targets)]
+        if len(functions)!=4 or len(guards)!=1:
+            raise ValueError('Mosaic public projection structure differs')
+        tree.body=[node for node in tree.body if node in functions or node in guards]
+    elif rule == 'mosaic_preview_display_text':
+        # The receipt also pins the complete reviewed current bytes. Only this
+        # display generator admits its caption translation; no controller does.
+        class DisplayText(ast.NodeTransformer):
+            def visit_Constant(self,node):
+                if isinstance(node.value,str):node.value='TEXT'
+                return node
+        tree=DisplayText().visit(tree)
     else:
         raise ValueError('Unknown compatibility rule')
     return hashlib.sha256(ast.dump(tree).encode()).hexdigest()

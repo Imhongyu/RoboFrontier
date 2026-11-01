@@ -30,12 +30,25 @@
       "path": "robofrontier/task_config.py",
       "rule": "exclude_policy_harness_selection",
       "families": [
-        "dial"
+        "dial",
+        "mosaic"
       ],
       "historical_sha256": "88d0cd4d24cc298015c0f119b5d565b70451394cd73654b02e9bafd32d8380af",
       "integrated_sha256": "3865f83a82a1ffa39af14ed2dc929de64d6e75248516dc7a2c82b0c7522c9c98",
       "unaffected_ast_sha256": "dd926c6b8cb16c3dfe4cee59495907fea98e55c4585c5e6983a5181b7f35c9fa",
       "review": "Only the exact reviewed Controller/Coordinator label acceptance and engine/direct-START selection checks in load_harness are normalized. All remaining AST nodes match the pinned baseline, including action limits, controller settings and execution timing. This is historical control-source compatibility, not equal physics, policy observations or current-task qualification."
+    },
+    {
+      "path": "scripts/preview_mosaic_local_colors.py",
+      "historical_sha256": "f948219fa54c48d5b2046a41f7ac9c67819abf76305ff793ac71c3a4d13cedd8",
+      "integrated_sha256": "9c096aaf2203657baa5ae34038cbc2570133407f2b2a4460c46f50aafd9d8cfc",
+      "rule": "mosaic_preview_display_text",
+      "unaffected_ast_sha256": "051ac40f50af3cd481024c53065bddece989cc03418e349d1b5d362fef22ce1f",
+      "families": [
+        "mosaic"
+      ],
+      "scope": "Reviewed English captions only; draw geometry, inputs and runtime behavior unchanged",
+      "source_commit": "c4b49d0811e1e29df806292e698347f9046d987e"
     }
   ]
 }

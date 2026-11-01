@@ -46,6 +46,36 @@ def _pinned(path, expected):
         raise ValueError('Pinned source differs: '+str(path))
 
 
+def _same_harness(frozen, current):
+    """Accept the exact role rename without admitting control/limit changes."""
+    expected = deepcopy(frozen)
+    if expected.get('coordinator') == 'Coordinator' and current.get('coordinator') == 'Controller':
+        expected['coordinator'] = 'Controller'
+    return expected == current
+
+
+def _verify_recorded_evaluator(trial, sources, report, task):
+    """Authenticate historical scoring without equating it to current scoring."""
+    from .provenance import environment_logic_manifest
+    for name,sha in sources.items():
+        _pinned(Path(trial)/'executor-source'/name,sha)
+        if report['environment_logic_provenance']['sources'].get(name)!=sha:
+            raise ValueError('Recorded evaluator differs: '+name)
+    if environment_logic_manifest(sources,task)['sha256']!=report['environment_logic_sha256']:
+        raise ValueError('Frozen evaluator manifest differs: '+str(trial))
+
+
+def _verify_builder(recorded, root):
+    if recorded==checksum(__file__):
+        return
+    from ..source_compatibility import normalized_digest
+    receipt=read(Path(root)/'configs/task_families/mosaic/builder-compatibility.json')
+    for item in receipt['historical_builders']:
+        if recorded==item['source_sha256'] and normalized_digest(Path(__file__).read_bytes(),item['projection_rule'])==item['projection_ast_sha256']:
+            return
+    raise ValueError('Review builder changed')
+
+
 def _public_boundary(value):
     if isinstance(value, dict):
         for key, child in value.items():
@@ -131,18 +161,22 @@ def verify_registry(root=ROOT, registry_path=None, verify_recorded_chunks=False)
     if len(registry['cases'])!=9 or {c['case_id'] for c in registry['cases']}!=expected:
         raise ValueError('Registry must bind the nine unique Mosaic R13 cases')
     _pinned(local(root,registry['catalog']),registry['catalog_sha256'])
-    _pinned(local(root,registry['harness']),registry['harness_sha256'])
     from ..source_compatibility import historical_digest
-    for name,sha in registry['evaluator_sources'].items():
-        if historical_digest(root, name, 'mosaic') != sha:
-            raise ValueError('Pinned evaluator differs: '+name)
     from ..task_config import physical_control_fingerprint
-    harness=read(local(root,registry['harness']))
-    physical=physical_control_fingerprint({f'robofrontier/{n}':historical_digest(root, f'robofrontier/{n}', 'mosaic') for n in CONTROL_FILES},harness)
+    current_harness=read(local(root,registry['harness']))
+    control={f'robofrontier/{n}':historical_digest(root, f'robofrontier/{n}', 'mosaic') for n in CONTROL_FILES}
     catalog={c['id']:c for c in read(local(root,registry['catalog']))['cases']}
     verified=[]
     for entry in registry['cases']:
         ident=entry['case_id'];directory=local(root,entry['environment']);evidence=entry['oracle'];trial=local(root,evidence['trial']);frozen=trial/'motion/source'
+        frozen_harness=trial/'executor-source/inputs/harness.json'
+        _pinned(frozen_harness,registry['harness_sha256'])
+        harness=read(frozen_harness)
+        if not _same_harness(harness,current_harness):
+            raise ValueError('Current harness differs from qualified Oracle: '+ident)
+        for name,sha in control.items():
+            _pinned(trial/'executor-source'/name,sha)
+        physical=physical_control_fingerprint(control,harness)
         if catalog[ident]['directory']!=entry['environment'] or catalog[ident]['scene_revision']!=13:
             raise ValueError('Wrong catalogue revision: '+ident)
         for name,sha in entry['source_files'].items():_pinned(directory/name,sha)
@@ -167,11 +201,10 @@ def verify_registry(root=ROOT, registry_path=None, verify_recorded_chunks=False)
                 or report['executor_sha256']!=evidence['executor_sha256']
                 or report['environment_logic_sha256']!=evidence['environment_logic_sha256']):
             raise ValueError('Oracle provenance flags differ: '+ident)
-        for name,sha in registry['evaluator_sources'].items():
-            _pinned(trial/'executor-source'/name,sha)
-            if report['environment_logic_provenance']['sources'][name]!=sha:
-                raise ValueError('Recorded evaluator differs: '+ident)
         task=read(directory/'task.json');environment=read(directory/'environment.json');workstation=read(directory/'workstation.json');public=read(directory/'public-task.json')
+        # Terminal scoring intentionally changed. Authenticate the old result
+        # with its frozen evaluator rather than claiming current equivalence.
+        _verify_recorded_evaluator(trial,registry['evaluator_sources'],report,task)
         if (task['id']!=ident or task['family']!='mosaic' or task['scale']['scene_revision']!=13
                 or len(task['arms'])!=entry['arms'] or task['level']!=entry['level']
                 or task['grid']['rows']!=entry['rows'] or task['grid']['columns']!=entry['columns']):
@@ -229,7 +262,7 @@ def check(output,root=ROOT,registry_path=None):
     manifest=read(output/'engineering/package-manifest.json')
     if manifest.get('policy_launch_ready') is not False or manifest.get('cases')!=9:
         raise ValueError('Review package cannot activate policy execution')
-    if manifest['builder_sha256']!=checksum(__file__):raise ValueError('Review builder changed')
+    _verify_builder(manifest['builder_sha256'],root)
     if manifest['registry_sha256']!=checksum(registry_path or root/REGISTRY) or read(output/'engineering/registry.json')!=registry:
         raise ValueError('Review registry changed')
     if (output/'public').is_symlink() or any(p.is_symlink() for p in (output/'public').rglob('*')):

@@ -11,7 +11,45 @@ import xml.etree.ElementTree as ET
 
 from robofrontier.suite.mosaic_local_colors import (geometry_signature,validate_plan,COVERAGE)
 from robofrontier.suite.mosaic_policy_package import (ROOT,read,write,checksum,verify_registry,
-    project_public,_public_boundary,_check_target)
+    project_public,_public_boundary,_check_target,_pinned)
+
+
+def _design_file(reference, root=ROOT):
+    """Relocate only registered legacy design files; never follow their old home."""
+    root=Path(root)
+    value=PurePosixPath(reference)
+    if '..' in value.parts or '\\' in str(reference):
+        raise ValueError('Invalid historical design reference')
+    if value.is_absolute():
+        for anchor in (PurePosixPath(str(root.absolute())),PurePosixPath(str(root.resolve())),
+                       PurePosixPath('/Users/fanchangxuan/Repos/roomscript2')):
+            try:
+                value=value.relative_to(anchor)
+                break
+            except ValueError:
+                continue
+        else:
+            raise ValueError('Unrecognized historical design root')
+    prefix=PurePosixPath('runs/engineering/mosaic-local-colours-r14-20261027')
+    allowed={f'a{n:02d}-{kind}.json' for n in (4,6,8) for kind in ('plan','extra-geometry')}
+    if value.parent!=prefix or value.name not in allowed:
+        raise ValueError('Unregistered historical design file')
+    target=root.joinpath(*value.parts)
+    if not target.resolve().is_relative_to((root/str(prefix)).resolve()):
+        raise ValueError('Historical design reference escapes local evidence')
+    return target
+
+
+def _coverage_report(case_id, plan, source, root=ROOT):
+    root,source=Path(root),Path(source)
+    matches=[item for item in plan['source_cases'] if item['id']==case_id]
+    if len(matches)!=1 or matches[0]['directory']!=str(source.relative_to(root)):
+        raise ValueError('Coverage source does not match the frozen design')
+    item=matches[0]
+    _pinned(source/'scene.xml',item['scene_sha256'])
+    report=root/COVERAGE/case_id/'report.json'
+    _pinned(report,item['coverage_sha256'])
+    return read(report)
 
 
 def check_gpt(engineering,package):
@@ -27,7 +65,7 @@ def check_gpt(engineering,package):
     assert checksum(ROOT/registry['catalog'])==registry['catalog_sha256']
     assert checksum(ROOT/registry['baseline_oracle_registry'])==registry['baseline_oracle_registry_sha256']
     assert read(package/'engineering/registry.json')==registry
-    for file,sha in registry['design_evidence'].items():assert checksum(file)==sha
+    for file,sha in registry['design_evidence'].items():assert checksum(_design_file(file))==sha
     catalog=read(ROOT/registry['catalog'])['cases'];assert len(catalog)==9 and len({c['id'] for c in catalog})==9
     plans={n:read(engineering/f'a{n:02d}-plan.json') for n in (4,6,8)}
     rows=[]
@@ -53,9 +91,9 @@ def check_gpt(engineering,package):
             assert after['color']==pairing['colour']
             expected=[int(task['grid']['palette'][after['color']][i:i+2],16)/255 for i in (1,3,5)]
             assert after['rgb']==expected
-        report=read(ROOT/COVERAGE/case['id']/'report.json')
-        extra=read(plan['extra_geometry_file']) if plan['extra_geometry_sha256'] else {'checks':{}}
-        if plan['extra_geometry_sha256']:assert checksum(plan['extra_geometry_file'])==plan['extra_geometry_sha256']
+        report=_coverage_report(case['id'],plan,source)
+        extra=read(_design_file(plan['extra_geometry_file'])) if plan['extra_geometry_sha256'] else {'checks':{}}
+        if plan['extra_geometry_sha256']:assert checksum(_design_file(plan['extra_geometry_file']))==plan['extra_geometry_sha256']
         for pair in plan['assignments']:
             if not pair['local']:continue
             pickup=next(r for r in report['sources'] if r['id']==pair['object_id'])
@@ -84,8 +122,9 @@ def check_gpt(engineering,package):
     manifest=read(package/'engineering/package-manifest.json')
     assert manifest['policy_launch_ready'] is False
     assert checksum(ROOT/'configs/task_families/mosaic/r14.json')==manifest['registry_sha256']
-    for file,sha in manifest['builder_sources'].items():assert checksum(ROOT/file)==sha
-    for file,sha in manifest['plan_files'].items():assert checksum(file)==sha
+    from ..source_compatibility import historical_digest
+    for file,sha in manifest['builder_sources'].items():assert historical_digest(ROOT,file,'mosaic')==sha
+    for file,sha in manifest['plan_files'].items():assert checksum(_design_file(file))==sha
     actual={str(p.relative_to(package/'public')):checksum(p) for p in (package/'public').rglob('*') if p.is_file()}
     assert not any(p.is_symlink() for p in (package/'public').rglob('*'))
     assert actual==manifest['public_files'] and len(actual)==20

@@ -1763,3 +1763,54 @@ original URLs and local links were checked in
 `english-dial-recovery-handoff-verification.json`; no source, private code or
 original report was edited. Remaining English migration: nine tracked files /
 36,659 Han characters.
+
+## Restored Mosaic review gates and explicit historical provenance
+
+Reviewing the 26 full-discovery skips found available original Mosaic packages
+and design files in the preserved primary checkout. Independent copies restored
+211 missing closed-report/control/evaluator/package files, then 391 protected
+media/metadata and coverage certificates. Every supplied source/asset/certificate
+pin was checked; originals stayed untouched. Eight package tests and the actual
+color-plan test no longer need to skip locally.
+
+The actual registry check first failed on the canonical harness's Coordinator
+→ Controller label change. It now authenticates every original frozen harness,
+admits only that exact parsed-label change and rejects altered control limits.
+Each trial's five frozen control files also matches the narrowly reviewed shared
+control identity. The task_config receipt adds Mosaic only because its archived
+bytes equal the same already-reviewed historical source; control/timing AST
+checks remain unchanged. Historical evaluation is authenticated against each
+record's frozen evaluator bytes, report provenance and aggregate digest. It is
+not normalized into a claim that current terminal scoring is the old scorer.
+
+The unchanged old review package also correctly exposed its old builder hash.
+Pinned commit `c63652e` contains exactly builder `aad77b43...`; its public
+projection functions and forbidden-field guard have the identical AST today.
+Only that static projection is admitted for the known old builder. Unknown
+builders and altered public guards fail. The R14 preview caption change has a
+separate exact-current-byte/non-text-AST receipt from immutable `c4b49d0`; no
+control source receives a blanket string exemption.
+
+Private design references are relocated only from the known legacy root to six
+registered local filenames, preserving original JSON bytes/hashes and rejecting
+traversal/external symlinks. A new test caught macOS's /var versus /private/var
+root aliases; both local spellings now map to the same confined evidence store.
+Coverage reports are checked against the design's original scene and certificate
+hashes, not just confirmed booleans. Old failure logs remain retained.
+
+All 34 focused package/provenance/source checks passed. Protocol-only checks
+passed 248 Python tests and all 28 dispatcher scenarios, with physical creation/
+stepping blocked and no skips. Both actual R13/R14 packages passed with physical
+stepping prohibited: nine cases each, all 496 protected files unchanged and
+policy_launch_ready=false. No new Oracle or model trial occurred.
+
+A separate read-only check authenticated every original Mosaic motion chunk:
+72,141 chunks / 8,656,459 frames across nine registered recordings, in 24.747
+seconds. This used managed links to closed primary-checkout data, not a claim
+that all raw chunks were independently relocated into the development bundle.
+The v3 development bundle predates these additional Mosaic fixtures; updated
+bundle/fresh-checkout and complete-discovery checks remain to be delivered.
+Receipts and all prior failures remain under the Oracle engineering evidence
+root, including `mosaic-review-validation.json`, `mosaic-original-motion-checks.json`
+and `protocol-after-mosaic-mac.json`. Existing raw reports, media and fingerprints
+were not rewritten; formal readiness and assistance labels remain unchanged.
