@@ -192,6 +192,7 @@ def run(batch, *, engineering=False):
     if config['evidence']['auto_collect']:
         output = ROOT/'runs/exports'/(Path(batch).name+'-'+hashlib.sha256(str(Path(batch).resolve()).encode()).hexdigest()[:8])
         result['collection'] = str(collect(batch, output))
+        result['collection_complete'] = json.loads((output/'collection.json').read_text())['complete']
         if config['evidence']['auto_archive']:
             result['archive'] = str(archive_collection(output, output.with_suffix('.zip')))
     return result
@@ -220,7 +221,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, help='Partial TOML overriding repository defaults')
     sub = parser.add_subparsers(dest='command', required=True)
-    for name in ('config', 'plan', 'prepare', 'preflight'):
+    for name in ('config', 'plan', 'prepare', 'preflight', 'slurm-submit'):
         p = sub.add_parser(name)
         p.add_argument('--engine', choices=('codex', 'claude'))
         p.add_argument('--profile')
@@ -234,6 +235,10 @@ def main(argv=None):
         p.add_argument('--families', nargs='+', choices=('transport', 'mosaic', 'relay', 'dial'))
         if name == 'prepare':
             p.add_argument('--output', type=Path, required=True)
+        elif name == 'slurm-submit':
+            p.add_argument('--output', type=Path, required=True)
+            p.add_argument('--queue', action='store_true', help='Submit to sbatch; otherwise only freeze a submission')
+            p.add_argument('--engineering', action='store_true', help='Authorize an unqualified Claude engineering draft')
         elif name == 'preflight':
             p.add_argument('--confirm-spend', action='store_true')
             p.add_argument('--smoke-only', action='store_true')
@@ -265,7 +270,7 @@ def main(argv=None):
             from scripts.benchmark_handoff import setup_assets
             _print(setup_assets())
             return 0
-        if args.command in ('config', 'plan', 'prepare', 'preflight'):
+        if args.command in ('config', 'plan', 'prepare', 'preflight', 'slurm-submit'):
             overrides = {}
             for section, fields in (('policy', ('engine', 'profile', 'effort', 'topology')),
                                     ('batch', ('parallel',)),
@@ -285,6 +290,11 @@ def main(argv=None):
                                    smoke_only=args.smoke_only, max_budget_usd=args.max_budget_usd)
                 _print(report)
                 return 0 if report.get('passed') else 2
+            elif args.command == 'slurm-submit':
+                from scripts.benchmark import load_env
+                from .slurm_job import submit
+                load_env(ROOT/'.env')
+                _print(submit(config, args.output, queue=args.queue, engineering=args.engineering))
             else:
                 _print({'batch': str(prepare(args.output, config)), 'model_calls': 0})
         elif args.command == 'run':

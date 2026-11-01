@@ -29,6 +29,10 @@ single-arm application remains available as `robofrontier-demo` or
 a standalone wheel containing the required catalogs and assets is not yet a
 qualified distribution format.
 
+For queue execution, use the frozen, node-local [Slurm submission flow](slurm.md).
+It has a separate `[slurm]` section in the same TOML and does not copy active
+SQLite databases to shared storage. Real-cluster acceptance remains pending.
+
 ## Defaults and precedence
 
 The repository's `robofrontier.toml` contains the defaults. A partial user TOML

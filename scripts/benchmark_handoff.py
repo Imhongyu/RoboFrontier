@@ -121,26 +121,17 @@ def restore_assets(archive_path, root=ROOT):
     return dict(restored=len(pending),reused=reused,release_sha256=digest(root/RELEASE))
 
 
-def setup_assets(root=ROOT, archive_path=None):
-    """Fetch the pinned R14 archive or restore an explicitly supplied local copy."""
+def ensure_asset_archive(root=ROOT, archive_path=None):
+    """Return a verified pinned archive, including for offline compute-node staging."""
     root = Path(root).resolve()
     config = read(root/'configs/policy-assets.json')
     if digest(root/RELEASE) != config['release_sha256']:
         raise ValueError('Task release does not match pinned R14 asset package')
-    expected = scene_assets(root)
-    try:
-        if digest(root/'vendor/panda/SOURCE.json') != config['panda_source_sha256']:
-            raise ValueError('Existing Panda source manifest does not match the pinned release')
-        expected.update(panda_assets(root))
-        if all((root/name).is_file() and digest(root/name) == checksum for name, checksum in expected.items()):
-            return {'status': 'already_complete', 'files': len(expected)}
-    except (FileNotFoundError, KeyError):
-        pass
     if archive_path is not None:
-        archive_path = Path(archive_path)
+        archive_path = Path(archive_path).resolve()
         if digest(archive_path) != config['archive_sha256']:
             raise ValueError('Asset archive SHA-256 mismatch')
-        return {'status': 'restored', **restore_assets(archive_path, root)}
+        return archive_path
     cache = root/'runs/asset-cache'
     cache.mkdir(parents=True, exist_ok=True)
     archive_path = cache/(config['archive_sha256']+'.tar.gz')
@@ -158,6 +149,25 @@ def setup_assets(root=ROOT, archive_path=None):
                 partial.unlink(missing_ok=True)
     if digest(archive_path) != config['archive_sha256']:
         raise ValueError('Cached asset archive SHA-256 mismatch; remove the corrupt cache file and retry')
+    return archive_path
+
+
+def setup_assets(root=ROOT, archive_path=None):
+    """Fetch the pinned R14 archive or restore an explicitly supplied local copy."""
+    root = Path(root).resolve()
+    config = read(root/'configs/policy-assets.json')
+    if digest(root/RELEASE) != config['release_sha256']:
+        raise ValueError('Task release does not match pinned R14 asset package')
+    expected = scene_assets(root)
+    try:
+        if digest(root/'vendor/panda/SOURCE.json') != config['panda_source_sha256']:
+            raise ValueError('Existing Panda source manifest does not match the pinned release')
+        expected.update(panda_assets(root))
+        if all((root/name).is_file() and digest(root/name) == checksum for name, checksum in expected.items()):
+            return {'status': 'already_complete', 'files': len(expected)}
+    except (FileNotFoundError, KeyError):
+        pass
+    archive_path = ensure_asset_archive(root, archive_path)
     return {'status': 'restored', 'archive': str(archive_path), **restore_assets(archive_path, root)}
 
 

@@ -1,0 +1,201 @@
+import fcntl
+import io
+import json
+import os
+from pathlib import Path
+import subprocess
+import tarfile
+import tempfile
+import unittest
+import zipfile
+from unittest.mock import patch
+
+from robofrontier.configuration import load_configuration
+from robofrontier import slurm_job as slurm
+
+
+class SlurmJobTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.repo = self.root/'repo'
+        self.repo.mkdir()
+        (self.repo/'robofrontier').mkdir()
+        (self.repo/'robofrontier/__init__.py').write_text('"""Frozen fixture."""\n')
+        subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
+        subprocess.run(['git', 'add', '.'], cwd=self.repo, check=True)
+        subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                        'commit', '-qm', 'fixture'], cwd=self.repo, check=True)
+        receipt = self.repo/'runs/engineering/model-compatibility/luna/report.json'
+        receipt.parent.mkdir(parents=True)
+        receipt.write_text(json.dumps({'passed': True}))
+        self.asset = self.root/'assets.tar.gz'
+        self.asset.write_bytes(b'fixture verified only by hash; no simulator is launched')
+        self.config = load_configuration()
+        self.submission = self.root/'submission'
+        self.local = self.root/'scratch/job'
+        self.local.parent.mkdir()
+
+    def prepare(self):
+        with patch('scripts.benchmark_handoff.ensure_asset_archive', return_value=self.asset):
+            return slurm.submit(self.config, self.submission, root=self.repo)
+
+    def stage(self):
+        self.prepare()
+        with patch.object(slurm.platform, 'system', return_value='Linux'), \
+                patch.object(slurm, '_local_storage', return_value='xfs'), \
+                patch.dict(os.environ, {'SLURM_JOB_ID': '123'}):
+            return slurm.stage(self.submission, self.local)
+
+    def test_submission_freezes_source_without_credentials_or_model_calls(self):
+        (self.repo/'.env').write_text('SECRET=must-not-travel\n')
+        (self.repo/'auth.json').write_text('untracked login must not travel')
+        report = self.prepare()
+        self.assertFalse(report['queued'])
+        self.assertEqual(report['model_calls_during_preparation'], 0)
+        manifest, config = slurm._verify_submission(self.submission)
+        self.assertEqual(config, self.config)
+        with tarfile.open(self.submission/'source.tar') as archive:
+            self.assertNotIn('.env', archive.getnames())
+            self.assertNotIn('auth.json', archive.getnames())
+        self.assertIn('launcher/robofrontier/__init__.py', manifest['sha256'])
+        script = (self.submission/'job.sbatch').read_text()
+        self.assertLess(script.index('srun '), script.index('stage-out '))
+        self.assertIn('cd "$submission/launcher"', script)
+        self.assertIn('--wait=120', script)
+        subprocess.run(['bash', '-n', str(self.submission/'job.sbatch')], check=True)
+
+    def test_dirty_tracked_source_is_rejected_before_snapshot(self):
+        (self.repo/'robofrontier/__init__.py').write_text('changed')
+        with patch('scripts.benchmark_handoff.ensure_asset_archive') as assets:
+            with self.assertRaisesRegex(ValueError, 'Commit tracked changes'):
+                slurm.submit(self.config, self.submission, root=self.repo)
+            assets.assert_not_called()
+        self.assertFalse(self.submission.exists())
+
+    def test_changed_frozen_payload_is_rejected_before_node_creation(self):
+        self.prepare()
+        (self.submission/'policy-assets.tar.gz').write_bytes(b'corrupt')
+        with self.assertRaisesRegex(ValueError, 'submission changed'):
+            slurm.stage(self.submission, self.local)
+        self.assertFalse(self.local.exists())
+
+    def test_stage_uses_node_local_cache_and_does_not_copy_login_state(self):
+        report = self.stage()
+        self.assertEqual(report['status'], 'staged')
+        source = self.local/'source'
+        self.assertTrue((source/'robofrontier/__init__.py').is_file())
+        cache = source/'runs/asset-cache'/(slurm.checksum(self.asset)+'.tar.gz')
+        self.assertEqual(cache.read_bytes(), self.asset.read_bytes())
+        self.assertFalse((source/'.env').exists())
+        self.assertFalse((source/'.codex').exists())
+        self.assertTrue((source/'runs/engineering/model-compatibility/luna/report.json').is_file())
+        with patch.object(slurm.platform, 'system', return_value='Linux'), \
+                patch.dict(os.environ, {'SLURM_JOB_ID': '123'}):
+            with self.assertRaisesRegex(ValueError, 'never restart'):
+                slurm.stage(self.submission, self.local)
+
+    def test_network_or_unknown_scratch_is_rejected(self):
+        for kind in ('lustre', 'nfs', 'UNKNOWN'):
+            with self.subTest(kind=kind), patch.object(slurm.subprocess, 'check_output', return_value=kind):
+                with self.assertRaisesRegex(ValueError, 'Node-local scratch'):
+                    slurm._local_storage(self.root)
+
+    def test_live_world_lock_blocks_stage_out_before_copying(self):
+        self.stage()
+        lock_path = self.local/'source/runs/policy/batch/luna/case/private/state/world.lock'
+        lock_path.parent.mkdir(parents=True)
+        with lock_path.open('a+') as owner:
+            fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with self.assertRaisesRegex(ValueError, 'Writer still live'):
+                slurm.stage_out(self.local, self.submission, 0)
+        self.assertFalse((self.submission/'results').exists())
+
+    def test_failed_collection_returns_stopped_raw_motion_and_sessions_without_auth(self):
+        self.stage()
+        source = self.local/'source'
+        files = {
+            'runs/policy/batch/luna/case/private/state/runtime.sqlite': b'stopped SQLite fixture',
+            'runs/policy/batch/luna/case/private/outputs/motion/frames.bin': b'exact motion',
+            'runs/state-assets/abc': b'frozen asset',
+            '.robofrontier/codex/task/sessions/session.jsonl': b'exact native session\n',
+            '.robofrontier/codex/task/auth.json': b'PRIVATE AUTH',
+            '.robofrontier/codex/task/state.sqlite': b'private CLI runtime state',
+            'runs/policy/batch/haiku/case/private/claude-config/.credentials.json': b'PRIVATE CLAUDE AUTH',
+            'runs/policy/batch/haiku/case/private/claude-config/projects/project/session.jsonl': b'Claude session',
+        }
+        for relative, content in files.items():
+            path = source/relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+        report = slurm.stage_out(self.local, self.submission, 1)
+        self.assertTrue(report['raw_fallback'])
+        self.assertEqual(report['status'], 'needs_review')
+        output = self.submission/'results'
+        self.assertEqual((output/'native-sessions/task/sessions/session.jsonl').read_bytes(), b'exact native session\n')
+        self.assertFalse(any(p.name == 'auth.json' for p in output.rglob('*')))
+        self.assertFalse(any(p.name == 'state.sqlite' for p in output.rglob('*')))
+        self.assertFalse(any(p.name == '.credentials.json' for p in output.rglob('*')))
+        self.assertTrue(any(p.name == 'session.jsonl' and 'claude-config' in str(p) for p in output.rglob('*')))
+        for name, expected in report['sha256'].items():
+            self.assertEqual(slurm.checksum(output/name), expected)
+        self.assertTrue((source/'.robofrontier/codex/task/auth.json').exists())
+        with self.assertRaisesRegex(ValueError, 'destination exists'):
+            slurm.stage_out(self.local, self.submission, 1)
+
+    def test_successful_collection_returns_only_one_evidence_zip(self):
+        self.stage()
+        archive = self.local/'source/runs/exports/collected.zip'
+        archive.parent.mkdir(parents=True)
+        with zipfile.ZipFile(archive, 'w') as output:
+            output.writestr('manifest.json', '{}')
+        (self.local/'execution-result.json').write_text(json.dumps({
+            'archive': str(archive), 'status': 'closed', 'collection_complete': True}))
+        report = slurm.stage_out(self.local, self.submission, 0)
+        self.assertFalse(report['raw_fallback'])
+        self.assertEqual(report['status'], 'collected')
+        self.assertEqual((self.submission/'results/evidence.zip').read_bytes(), archive.read_bytes())
+        self.assertFalse((self.submission/'results/native-sessions').exists())
+
+    def test_stop_and_snapshot_use_json_without_opening_databases(self):
+        self.stage()
+        batch = self.local/'source/runs/policy/batch'
+        run = batch/'luna/case'
+        run.mkdir(parents=True)
+        (batch/'batch.json').write_text(json.dumps({'status': 'running', 'jobs': [
+            {'run_directory': str(run)}]}))
+        with patch('sqlite3.connect', side_effect=AssertionError('must not open SQLite')):
+            slurm.request_stop(self.local)
+            status = slurm.snapshot(self.local, self.submission)
+        self.assertTrue((run/'STOP').exists())
+        self.assertEqual(status['status'], 'running')
+
+    def test_queue_options_keep_task_and_allocation_clocks_distinct(self):
+        command = slurm.queue_command(self.config['slurm'], self.submission)
+        self.assertIn('--time=1500', command)
+        self.assertIn('--signal=B:USR1@600', command)
+        self.assertIn('--gpus=1', command)
+        self.assertEqual(self.config['batch']['task_wall_limit_s'], 86400)
+
+    def test_source_archive_link_or_path_escape_is_rejected_before_extraction(self):
+        archive = self.root/'bad.tar'
+        for name, link in (('../outside', False), ('safe-link', True)):
+            with tarfile.open(archive, 'w') as output:
+                entry = tarfile.TarInfo(name)
+                if link:
+                    entry.type = tarfile.SYMTYPE
+                    entry.linkname = '/etc/passwd'
+                    output.addfile(entry)
+                else:
+                    entry.size = 1
+                    output.addfile(entry, io.BytesIO(b'x'))
+            target = self.root/'extract'
+            with self.assertRaisesRegex(ValueError, 'Unsafe source'):
+                slurm._extract_source(archive, target)
+            self.assertFalse(target.exists())
+
+
+if __name__ == '__main__':
+    unittest.main()
+

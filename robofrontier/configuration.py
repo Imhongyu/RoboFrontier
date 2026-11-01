@@ -20,6 +20,9 @@ SCHEMA = {
     'render': {'device': str, 'observation_profile': str, 'record_realtime_video': bool},
     'runtime': {'codex_home_scope': str, 'codex_home': str},
     'evidence': {'auto_collect': bool, 'auto_archive': bool, 'archive_format': str, 'delete_sources': bool},
+    'slurm': {'partition': str, 'account': str, 'qos': str, 'gpus': int,
+              'cpus_per_task': int, 'memory_gib': int, 'time_limit_s': int,
+              'stop_warning_s': int, 'scratch_root': str},
 }
 
 
@@ -106,6 +109,15 @@ def validate_configuration(config):
         raise ValueError('evidence.auto_archive requires evidence.auto_collect')
     if config['evidence']['delete_sources']:
         raise ValueError('Automatic source deletion is not supported; verify restored evidence before explicit cleanup')
+    slurm = config['slurm']
+    for field in ('gpus', 'cpus_per_task', 'memory_gib', 'time_limit_s', 'stop_warning_s'):
+        if slurm[field] < (0 if field == 'gpus' else 1):
+            raise ValueError('Invalid slurm.' + field)
+    if not 120 <= slurm['stop_warning_s'] < slurm['time_limit_s']:
+        raise ValueError('slurm.stop_warning_s must be at least 120 and less than time_limit_s')
+    for field in ('partition', 'account', 'qos'):
+        if slurm[field] and not fullmatch(r'[A-Za-z0-9_.-]+', slurm[field]):
+            raise ValueError('Invalid slurm.' + field)
 
 
 def rendering_environment(device, system, base):

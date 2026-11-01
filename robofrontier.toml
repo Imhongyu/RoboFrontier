@@ -33,3 +33,14 @@ auto_collect = true
 auto_archive = true
 archive_format = "zip"
 delete_sources = false               # Destructive cleanup is not part of automatic collection
+
+[slurm]
+partition = ""                       # Site-specific: use the cluster default when empty
+account = ""
+qos = ""
+gpus = 1                             # Set to 0 with render.device = "cpu"
+cpus_per_task = 36
+memory_gib = 128                      # A resource request, not a measured capacity guarantee
+time_limit_s = 90000                  # Allocation lifetime, separate from the task clock
+stop_warning_s = 600                 # Stop and collect before allocation expiry
+scratch_root = ""                    # Empty requires the node's SLURM_TMPDIR

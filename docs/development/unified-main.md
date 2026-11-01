@@ -93,8 +93,9 @@ an explicit qualification gap; credentials are never cloned automatically.
 The native CLI wrapper can plan, bootstrap assets, prepare Codex runs or Claude
 engineering drafts, explicitly preflight providers, run, read atomic status,
 request stop, collect, ZIP, extract and restore evidence. Claude permanent-worker
-modes and formal scored execution remain closed. Factory/Oracle/Slurm commands
-have not yet been folded into this configuration schema.
+modes and formal scored execution remain closed. Factory/Oracle commands
+have not yet been folded into this configuration schema. Slurm staging now has
+its own settings and entry, with real-cluster qualification still outstanding.
 
 Six real Codex 0.165.0 app-servers were initialized in independent cold homes and
 then launched at a 0.3-second interval. All acknowledged initialization and exited
@@ -119,4 +120,28 @@ software context when NVIDIA is requested and record the actual GL vendor,
 renderer and version. The GPU validation still needs real Linux NVIDIA hardware.
 The old synthetic ready-capability and Factory fixtures were brought up to date
 without reducing their physics/FK assertions. Full historical-asset coverage,
-Slurm staging, English migration and product UI/video gates remain outstanding.
+real Slurm hardware acceptance, English migration and product UI/video gates
+remain outstanding.
+
+## Slurm staging implementation
+
+The new `slurm-submit` command freezes committed source, the staging launcher,
+resolved public settings, pinned assets and the explicit provider receipt before
+queue submission. Compute-node staging requires a verified local filesystem.
+Runtime, task Codex homes and temporary files remain node-local. A separate
+`srun` step contains all execution descendants; the batch shell returns evidence
+only after that step exits and owner/supervisor locks are available.
+
+Only atomic supervisor JSON is monitored. Normal stage-out returns one verified
+evidence ZIP with payload SHA-256 hashes. A failed collection returns stopped raw
+motion/session evidence for review, excluding CLI authentication/config stores.
+No source is automatically deleted and no uncertain action is replayed. Node
+failure/SIGKILL can still prevent stage-out; this is not checkpoint/resume.
+
+The retired Luna sbatch entry now gives migration instructions instead of
+placing active databases in shared storage or making implicit paid preflight
+calls. `docs/slurm.md` documents commands, resource requests, assumptions, stop,
+stage-out, credentials and recovery limits. The focused staging/collection/
+configuration regression group passed 56 tests with no model calls. This does
+not validate a site's Slurm process tracker, actual node storage, 36-task memory
+capacity, NVIDIA EGL or its cluster network.
