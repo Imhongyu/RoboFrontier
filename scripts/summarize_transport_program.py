@@ -52,33 +52,33 @@ def summarize(directory):
                      'attempts': attempts, 'accepted_attempt': accepted[-1] if accepted else None})
     (directory/'index.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2)+'\n')
     (directory/'media-verification.json').write_text(json.dumps(media, indent=2)+'\n')
-    lines = ['# 无 GPT 程序参考：离散最优与接触仿真', '',
-             '使用 OR-Tools CP-SAT 求解固定最短路线、单位抓／放阶段下的最少轮数，十个规模均证明 OPTIMAL，并通过独立资源 replay 检查。此证明不涵盖路线替换、连续运动时间或真实机器人全局最优。', '',
-             '物理执行由确定性程序调用机器人 IK 和位置执行器。程序读取物体真值，使用释放前校正、连续夹爪位置、运动试算及必要的错峰，属于工程可行性参考，不能直接当作与 RGB Agent 同观测／同接口的性能基线。',
-             '场景、物料与物理参数没有修改，场景 SHA 和任务内容逐项核对。所有失败尝试保留，成功只依据整场稳定目标验收。', '',
-             '| 臂数 | 串行单位阶段 | 离散最优轮数 | 物理验收 | 实际物理分组 |',
+    lines = ['# Program reference without GPT: discrete optimum and contact simulation', '',
+             'OR-Tools CP-SAT minimized rounds for fixed shortest routes and unit grasp/place phases. All ten scales proved OPTIMAL and passed independent resource replay. This proof excludes alternative routes, continuous motion time and real-robot global optimality.', '',
+             'A deterministic program called robot IK and position actuators. It read object ground truth and used pre-release corrections, continuous gripper positions, motion probes and necessary staggering. This is an engineering feasibility reference, without the same observations/interface as an RGB agent performance baseline.',
+             'Scene, materials and physics were unchanged; scene SHA and task contents were checked individually. All failed attempts remain retained. Success requires whole-task stable-goal acceptance.', '',
+             '| Arms | Serial unit phases | Discrete-optimal rounds | Physical acceptance | Actual physical groups |',
              '| ---: | ---: | ---: | --- | ---: |']
     for row in rows:
         accepted = row['accepted_attempt']
-        status = f"通过 {accepted['evaluation']['matched_goals']}/{3*row['arms']}" if accepted else '未取得整场通过记录'
+        status = f"Passed {accepted['evaluation']['matched_goals']}/{3*row['arms']}" if accepted else 'No whole-task pass recorded'
         groups = accepted['physical_batches'] if accepted else '—'
         lines.append(f"| {row['arms']} | {row['serial_unit_phases']} | {row['optimal_unit_rounds_fixed_routes']} | {status} | {groups} |")
-    lines += ['', '实际物理分组会因几何冲突错开而多于离散轮数；每个单位阶段还需多个移动／夹爪段，不能与工具调用次数或 MuJoCo 积分步混为一谈。真实耗时未证明最优，仿真时间与程序墙钟时间分开记录。', '',
-              '## 已通过的视频', '']
+    lines += ['', 'Geometry conflicts require staggering, so physical groups may exceed discrete rounds. Each unit phase also needs multiple move/gripper segments; these are not tool-call or MuJoCo integration-step counts. Actual duration is not proved optimal. Simulation and program wall time are recorded separately.', '',
+              '## Videos of accepted attempts', '']
     for item in media:
         if item['acceptance_passed']:
             duration = float(item['metadata']['format']['duration'])
-            lines.append(f"- [{item['path']}]({item['path']})，{duration:.1f} 秒。")
-    lines += ['', 'reference-* 为执行时采样录像；replay-* 为已验收物理轨迹的离线渲染，逐帧选取真实保存的 qpos，不插值编造物体运动。各文件名和画面注明倍速；20 fps 输出，按仿真时间而非推理墙钟计时。', '',
-              '## 未通过记录', '']
+            lines.append(f"- [{item['path']}]({item['path']}), {duration:.1f} s.")
+    lines += ['', 'reference-* files were sampled during execution; replay-* files are offline renders of accepted physical trajectories, selecting actual saved qpos per frame without invented/interpolated object motion. Filenames and frames identify speedup. Output is 20 fps, timed by simulation rather than inference wall time.', '',
+              '## Unpassed attempts', '']
     for row in rows:
         for attempt in row['attempts']:
             if not attempt['passed']:
-                lines.append(f"- {attempt['path']}：{attempt['error'] or '未通过／中断'}。")
-    lines += ['', '球体组的已观察问题包括持物掉落和释放后漂移；即使某次全部运输执行结束，也必须满足全体目标稳定一秒才能算通过。failure-replay 文件始终标注失败，不混入成功视频。参考程序自身尚未通过的任务，当前不能用于将失败归因于模型智能，应先处理物理执行问题。', '',
-              '## 复现', '',
-              '求解器依赖单独安装在本运行 solver-deps 内，版本见 solver-packages.json；没有加入项目默认依赖。执行器源码每次保存在 attempt/executor-source.py，最终源码另在 final-source；初版源码在 frozen-source。', '',
-              '从仓库根目录运行 scripts.solve_transport_program、scripts.render_transport_program、scripts.render_transport_replay 的 --help 查看参数。新尝试使用新的 attempt 编号，不能覆写旧记录。', '']
+                lines.append(f"- {attempt['path']}: {attempt['error'] or 'Unpassed / interrupted'}.")
+    lines += ['', 'Observed sphere-group issues include held-object drops and post-release drift. Finishing all transport actions is insufficient: all goals must remain stable for one second. failure-replay files always retain failure labels and stay separate from success videos. Tasks the reference program itself has not passed cannot support attributing failure to model intelligence; resolve physical execution first.', '',
+              '## Reproduction', '',
+              'Solver dependencies were installed separately in solver-deps for this run, with versions in solver-packages.json; they are not project defaults. Each attempt retains attempt/executor-source.py, final code is in final-source and initial code in frozen-source.', '',
+              'From the repository root, use --help with scripts.solve_transport_program, scripts.render_transport_program and scripts.render_transport_replay. New attempts require new attempt IDs and must not overwrite old records.', '']
     (directory/'report.md').write_text('\n'.join(lines))
     print(json.dumps({'discrete_optimal_proofs': sum(r['optimality_proven'] for r in rows),
                       'accepted_arm_counts': [r['arms'] for r in rows if r['accepted_attempt']],

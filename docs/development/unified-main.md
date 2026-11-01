@@ -1615,3 +1615,15 @@ future generation/preparation reads the translated source text and its new raw
 hash. Original/translated hashes are in `english-pattern-task-verification.json`.
 Existing inventory/schedule and petal-symmetry/round-crank checks pass (three
 checks). The remaining tracked inventory is 29 files / 63,012 Han characters.
+
+## English historical report output
+
+The original trial exporter, Mosaic local-color preview and deterministic
+Transport program summary now produce English text. Their original limitations
+remain explicit: a single pilot does not compare architectures; sampled geometry
+does not qualify parallel paths; truth-assisted program execution is not an RGB
+policy baseline; unpassed physical references cannot attribute failure to model
+intelligence. All three Python files parse and retain identical non-text ASTs.
+No exporter, renderer or simulation was run. The source comparison is retained
+in `english-legacy-report-verification.json`. English migration remains open at
+26 tracked files / 61,812 Han characters.

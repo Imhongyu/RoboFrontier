@@ -66,15 +66,15 @@ if video.exists() and merged:
     select='+'.join(f'between(t,{lo:.3f},{hi:.3f})' for lo,hi in merged)
     filt=d/'private/action-only.filter';filt.write_text("select='"+select+"',setpts=N/15/TB")
     subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(video),'-filter_script:v',str(filt),'-an','-c:v','libx264','-preset','veryfast','-crf','22',str(d/'actions-only.mp4')],check=True)
-rows=['# Meta + 三个 Worker：真实 MuJoCo 试点','',f"六槽结果：{evaluation['all_goals_met']}。实验墙钟 {report['wall_seconds']:.1f} 秒，仿真推进 {report['simulation_seconds']:.1f} 秒。",'',
-      '统一使用 gpt-6-luna / xhigh；实际逐轮验证见 private/model-verification.json。公开初始坐标；后续 RGB + 机器人状态。', '',
-      f"动作 {len(jobs)} 次，消息 {len(s['messages'])} 条，最大同时执行 {peak} 台机械臂。",'',
-      '## 验收','']
-rows += [f"- {'PASS' if ok else 'FAIL'}：{key}" for key,ok in checks.items()]
-rows += ['','## 关键协作过程','',
-         'B 最初报告撤离，但 TCP 仍在棋盘块正上方。A 根据允许的机器人状态指出冲突并等待；Meta 要求 B 抬高并回到本区，A 核对后再接取。相关消息 m18–m31。没有由 research 会话提供修正方案。', '',
-         '## 录像质量','',f"编码错误：{s['video']['error']}；丢帧 {s['video']['dropped_frames']} 帧。原片并非逐帧无损墙钟记录，动作片段按事件时间裁切，丢帧会带来约秒级边界偏差。",'','## 文件','', '- global-realtime.mp4：完整原速录像。','- actions-only.mp4：保留任一机械臂工具动作执行区间，移除主要无动作等待，播放速度仍为原速。','- report.json：机器可读验收与统计。','- private/events.jsonl：原始工具、消息和时间线。','- private/driver.jsonl：真实会话状态与唤醒。','',
-         '## 范围','',report['scope'],'',
-         '槽位评估仅检查属性、中心位置与高度；最终释放/撤离需结合图像和工具记录核对。单次试验不能推断总体成功率或架构优劣。']
+rows=['# Meta + three Workers: historical real MuJoCo pilot','',f"Six-slot result: {evaluation['all_goals_met']}; experiment wall time {report['wall_seconds']:.1f} s; simulation advance {report['simulation_seconds']:.1f} s.",'',
+      'All used gpt-6-luna / xhigh; actual per-turn verification is in private/model-verification.json. Initial coordinates were public; subsequent observations were RGB + robot state.', '',
+      f"Actions {len(jobs)}; messages {len(s['messages'])}; peak concurrently executing {peak} arms.",'',
+      '## Verification','']
+rows += [f"- {'PASS' if ok else 'FAIL'}: {key}" for key,ok in checks.items()]
+rows += ['','## Key coordination sequence','',
+         'B initially reported withdrawal, but its TCP remained directly above the board blocks. A identified the conflict from permitted robot state and waited. Meta asked B to lift and return to its region; A checked before receiving. See messages m18–m31. The research session supplied no correction plan.', '',
+         '## Recording quality','',f"Encoder error: {s['video']['error']}; dropped frames {s['video']['dropped_frames']} frames. The original is not a lossless frame-by-frame wall-clock record. Action segments use event-time cuts; dropped frames can shift boundaries by roughly seconds.",'','## Files','', '- global-realtime.mp4: complete original-speed recording.','- actions-only.mp4: intervals with any executing arm-tool action, removing mostly action-free waits and retaining original playback speed.','- report.json: machine-readable verification and statistics.','- private/events.jsonl: original tools, messages and timeline.','- private/driver.jsonl: actual session state and wakeups.','',
+         '## Scope','',report['scope'],'',
+         'Slot evaluation checks only attributes, center position and height. Final release/withdrawal needs image and tool-log review. One trial cannot establish overall success rate or architecture superiority.']
 (d/'report.md').write_text('\n'.join(rows)+'\n')
 print(json.dumps(report,ensure_ascii=False,indent=2))
