@@ -1,56 +1,60 @@
-# 36 场景工程进度与继续入口
+# Historical 36-scene engineering progress and continuation entry
 
-状态：进行中，尚未完成全部 Oracle 验收。用户授权完成环境与物理 Oracle；**没有启动 GPT / Codex 策略会话**。不要把预览、编译或端点 IK 当作完整任务通过。
+This is the original first-suite progress snapshot, not current unified-main
+acceptance. See the [current ledger](../../development/unified-main.md) for later
+results. At this stage, complete Oracle acceptance was still in progress.
+The user authorized environment/physical Oracle work; **no GPT / Codex policy
+sessions had started**. Previews, compilation and endpoint IK were not full-task passes.
 
-## 范围与目录
+## Scope and directories
 
-- 规格：`plan.md`、`matrix.json`；36 行当前索引：`configs/suites/frontier-v1.json`。
-- 4 系列各 3 机制 × 3 配对规模：物流 4/8/12 臂；空中接力 8/12/16 臂；拼图 4 臂 7×7、6 臂 7×14、8 臂 7×21；旋钮 4/6/8 盘，固定版 N 臂、浮空版 2N 臂。
-- 当前环境目录必须由 `suite.scenes.case_directory(case)` 取；旧版本保留在同级 `-vN` 目录。不能覆盖已有物理成功见证的资产。
-- 生成器：`robofrontier/suite/scenes.py`；规则/公开投影：`tasks.py`；私有过程验收：`evaluate.py`。
-- 共享受限动作：`robot_control.PandaArm`；私有参考：`suite/oracle.py` 与 placement / relay / dial_oracle。参考读取真值，执行只用真实类型的机器人驱动命令。
-- 入口脚本：`build_frontier_suite.py`、`revise_frontier_scene.py`、`verify_frontier_suite.py`、`check_frontier_layouts.py`、`preview_frontier_suite.py`、`frontier_suite_gallery.py`、`render_frontier_oracle.py`。
-- 见证只追加在 `runs/oracle/frontier-v1/<case>/seed-<seed>/attempt-*`。最终需每项完整见证和同一冻结版本 seeds 0/1/2；目前没有全部达到。
+- Specification: `plan.md`, `matrix.json`; 36-row index: `configs/suites/frontier-v1.json`.
+- 4 families × 3 mechanisms × 3 paired scales: Transport 4/8/12 arms; Relay 8/12/16; Mosaic 4 arms 7×7, 6 arms 7×14, 8 arms 7×21; Dial 4/6/8 dials, fixed N arms and floating 2N arms.
+- Resolve scene directories through `suite.scenes.case_directory(case)`; retain old versions in sibling `-vN` directories. Do not overwrite assets with successful physical witnesses.
+- Generator: `robofrontier/suite/scenes.py`; rules/public projection: `tasks.py`; private process evaluation: `evaluate.py`.
+- Shared restricted actions: `robot_control.PandaArm`; private references: `suite/oracle.py` and placement / relay / dial_oracle. References read truth but execute actual robot-driver command types only.
+- Scripts: `build_frontier_suite.py`, `revise_frontier_scene.py`, `verify_frontier_suite.py`, `check_frontier_layouts.py`, `preview_frontier_suite.py`, `frontier_suite_gallery.py`, `render_frontier_oracle.py`.
+- Append witnesses only under `runs/oracle/frontier-v1/<case>/seed-<seed>/attempt-*`. The intended final gate was complete witnesses and seeds 0/1/2 under one frozen version for every case; this was not yet achieved.
 
-## 已落实的关键修正
+## Key corrections already implemented at that stage
 
-- 所有 36 项曾通过初态、静置和端点检查。最近旋钮和环形接力有新 revision，最终仍需重新检查这些版本。
-- 关节目标共享进度、加速度比例和速度前馈；笛卡尔模式也使用共同缩放，限制参考超前及积分，修复可达的垂直下降却横扫方块的问题。数值反例见 `cartesian-retimed-reference-001.log`。
-- IK 现在只含本机械臂的 7 关节链，不含环境物体。4 个系列、旋转基座的 FK 与 Jacobian 对完整模型一致到 1e-12。单独 FK 微测约快 5.7 倍，不代表整场仿真同样加速。
-- 抓取驱动采用“限速接近 → 编码器宽度稳定 → 建立请求抓力 → 保持”。70 N 上限、实际质量、摩擦和被动阻尼未增加；**未采用早期 20 kg 传动惯量反事实**。
-- 夹爪位置动作也按两指各自位置窗口判稳定；失败/停止保持实际开口，不继续旧目标。运动预检复制模型与夹爪历史，不得更改真实驱动状态。
-- 最后完整回归曾 299 项通过；近期驱动和验收修正后专项 14、30、38 项通过。最新全量日志需检查，不能用旧计数代替。
-- 执行动作重叠与实际关节运动重叠分开记录；保持单独统计。旧报告的 `motion_overlap_sim_s` 曾按 active jobs 计算，不能用于真实并行率比较。
-- 资产指纹包含 XML、引用的 mesh/texture、任务与环境合同；程序源码单独快照/hash。索引事务合并，迟到旧结果不得覆盖新结果。旧单 XML hash 的报告只是开发证据。
-- 生成器材质依赖顺序已固定。固定四盘旧 v2 曾因无序资源排序被重写，已从冻结报告逐字节恢复原 XML 和合同，再创建新版本。
+- All 36 cases had passed initialization, settling and endpoint checks. New Dial/ring-Relay revisions still needed rechecking.
+- Joint targets shared progress, acceleration scaling and velocity feedforward. Cartesian motion also used common scaling, limiting reference lead/integration. This fixed reachable vertical descent sweeping sideways through blocks; see `cartesian-retimed-reference-001.log`.
+- IK contained only the arm's 7-joint chain, excluding objects. FK/Jacobians for all 4 families and rotated bases matched complete models to 1e-12. Isolated FK was about 5.7 times faster, without establishing equal full-simulation speedup.
+- Grasp drive followed speed-limited approach → encoder-width stability → requested force establishment → hold. The 70 N cap, actual mass, friction and passive damping were not increased. **The earlier 20 kg transmission-inertia counterfactual was not adopted.**
+- Position-gripper actions also checked each finger's position window. Failure/stop retained actual aperture instead of continuing old targets. Motion prechecks copied model/gripper history without mutating live drive state.
+- The last complete regression had passed 299 tests; later focused drive/evaluation groups passed 14, 30 and 38. Latest full logs still needed inspection; old counts could not replace them.
+- Executing-action overlap and actual joint-motion overlap were distinct, with holding recorded separately. Old `motion_overlap_sim_s` used active jobs and could not compare real parallelism.
+- Asset identity included XML, referenced meshes/textures and task/environment contracts, with program sources independently snapshotted/hashed. Transactional index merging prevented late old results overwriting newer outcomes. XML-only old reports were development evidence.
+- Generator material dependency ordering was fixed. An unordered resource sort had rewritten the old fixed-four-dial v2; original XML/contracts were restored byte-exactly from the frozen report before creating a new revision.
 
-## 当前场景与规则
+## Scenes and rules at that stage
 
-- 物流 v2：供料及中转为四角承托，双插柱在四分之一转向时不碰实心支架。固定孔/弹性板共享几何；弹性板允许 z 压缩、roll/pitch，有阻尼和限位。
-- 拼图：40 mm 立方体、51 mm 节距，孔净宽 50 mm、墙 1 mm、深 1/3 块；其余两档仅有线/无线。库存仍在桌面，80 mm 晶格，先预留中转空间。
-- 拼图参考已考虑：供料并非某臂独占、真实可达时跳过中转、未来目标姿态、24 个等价立方体朝向、直接关节路径先于强制高平面。保持/撤离使用任务表面法向，不能错误使用旋转后的 cube 局部 Z。
-- 最近新增按已知手部几何计算邻块上方释放净空；物流槽间距足够，先完全打开再撤离，避免将已入孔的物体拖偏。这些最新改动仍需完整复测。
-- 接力 8/12 臂已恢复先前证明过的法向木条布局。16 臂 v3 为切向木条、面对面组横向间距 1 m、纵向错位 0.30 m。参考允许始终两抓握有效的分阶段交接，并探索接收顺序与间距；仍未完整走完环线。
-- 接力支撑只计木条上的有效抓握，不能用抓砝码/绳绕过；完整悬挂物均验离桌。末端完成需真正脱离所有机器人接触。
-- 旋钮最新：固定 4/6/8 盘目录 revision 为 4/3/3；浮空齿轮为 4/4/4，浮空摇柄为 5/4/4。全部恢复 2 ms 步长；当前夹爪驱动不靠改变惯量保持物体。
-- **旋钮反馈规则 v2**：同一非零刻度、角差不超过 4°、连续保持 0.25 s；小幅带内振动允许。角速度仅诊断，移除了超出用户要求的速度门槛。新规则需新见证，旧失败不改判。
-- 解码器只使用自己设定的输入与当前可见总分，不再读取未观测到的历史评分。半圈允许正/反方向，参考瞄准 ±179.5°；所有已保持的输入都持续复查，不只调整发生变化的盘。
+- Transport v2 used four-corner supply/transfer support; paired pegs did not hit solid supports during quarter turns. Fixed holes/spring boards shared geometry; spring boards permitted Z compression and roll/pitch with damping/limits.
+- Mosaic used 40 mm cubes, 51 mm pitch, 50 mm clear pockets, 1 mm walls and depth 1/3 block. Other levels had printed/no grid. Supplies stayed on the table at 80 mm pitch, reserving transfer space first.
+- Mosaic references considered nonexclusive supplies, direct reachable transfers, later goal orientation, 24 equivalent cube orientations and direct joint paths before forced high planes. Hold/withdrawal used the task-surface normal, not a rotated cube's local Z.
+- New neighbor-clearance calculations used known hand geometry. Transport slots allowed full opening before withdrawal to avoid dragging seated objects. These newest changes still needed complete rechecks.
+- Relay 8/12-arm scenes restored previously demonstrated normal beam layouts. The 16-arm v3 used tangential beams, facing-pair lateral spacing 1 m and longitudinal offset 0.30 m. References allowed staged handoff with two valid grasps throughout, exploring receiver order/spacing; the full ring remained incomplete.
+- Relay support counted only valid beam grasps, not grabbing weights/ropes. The full suspended assembly had to clear the table. Final completion required actual separation from all robot contacts.
+- Latest Dial revisions: fixed 4/6/8 dials at 4/3/3; floating gears at 4/4/4; floating cranks at 5/4/4. All restored 2 ms steps. Gripper holding did not rely on altered inertia.
+- **Dial feedback v2:** retain the same nonzero mark within 4° for 0.25 s, allowing small within-band vibration. Angular velocity was diagnostic only; an extra unrequested speed gate was removed. New rules required new witnesses, without relabeling old failures.
+- The decoder used only its own inputs and currently visible total score, without unobserved historical scores. Half-turns could use either direction, targeting ±179.5°. All held inputs were continuously rechecked, not only changed dials.
 
-## 已有正向开发证据与未解决项
+## Positive development evidence and unresolved items
 
-- 孔槽拼图 4 臂曾完整 49/49（seed0 attempt027）。平面两档目前曾到 40/49，末段因接近/撤爪姿态失败；较大拼图仍有路径与供料接近问题。
-- 物流旧/当前开发版本已有 4/8 臂各档、12 臂基础/弹性板完整成功。12 臂基础最新为 attempt003；固定双孔仍有个别释放后偏位。不能跨版本挪 PASS。
-- 接力已有 8 臂三档、12 臂基础/短环/绳索完整开发见证。16 臂推进到第二次交接，但发送臂退出路径受阻，未通过。
-- 新规则旋钮已有固定 4/6/8 盘及浮空齿轮 4 盘等成功。4 盘浮空摇柄独立反事实完整成功，尚需规范目录当前见证；6/8 盘浮空仍在复测。
-- `calibrate_dial_stiffness.py` 都是独立反事实，`passed` 始终 false；`mechanical_passed` / 完整目标等为单独字段，**不自动提升清单状态**。可测 timestep、驱动、dense-contact、full-task、retention。
-- 保持测试要区分“仍离地”和“仍合格抓蓝柄”。`floating-current-driver-retention-001` 虽离地 60 s，但 H 开口到 80 mm，不能宣称有效夹持通过；有补充说明。新测试单列 qualified blue grasp 指标，正在试更深入的真实抓点。
+- The 4-arm pocket Mosaic had completed 49/49 at seed0 attempt027. Both flat levels had reached 40/49 before final approach/withdrawal-pose failure. Larger patterns still had path/supply-access issues.
+- Old/current development Transport versions had complete passes for all levels at 4/8 arms and base/spring-board at 12 arms. The latest 12-arm base was attempt003; fixed paired holes still had occasional post-release shifts. PASS could not move across versions.
+- Relay had complete development witnesses for all three 8-arm levels and 12-arm base/short-ring/rope. The 16-arm run reached its second handoff but failed sender exit.
+- New-rule Dial had successes for fixed 4/6/8 and floating-gear 4 dials. A 4-dial floating-crank independent counterfactual completed, but still needed a canonical current witness. Floating 6/8 remained under recheck.
+- `calibrate_dial_stiffness.py` ran independent counterfactuals with `passed` always false. `mechanical_passed`/complete goals were separate fields and **did not automatically promote the catalog**. Modes covered timestep, drive, dense-contact, full-task and retention.
+- Retention had to distinguish airborne from qualified blue-handle grasp. `floating-current-driver-retention-001` stayed airborne for 60 s but H aperture reached 80 mm, without a valid grasp pass; an addendum recorded this. New tests separately measured qualified blue grasp while exploring deeper actual grasp points.
 
-## 运行与收尾
+## Historical execution and closeout plan
 
-- 首先查进程和各日志，已有进程使用启动时导入的程序，不受后续编辑热更新。主要批次：`dial-rule-v2-witnesses-001`、`dial-continuous-input-hold-001`；最近还有几何/手部释放与环线批次。以实际进程、报告为准。
-- 旧 `dial-frozen-three-seeds-001` 已停止并保留 partial NPZ，停止记录在 `dial-old-driver-stop.json`，不是当前执行器验证。
-- 参考批次现支持 `--jobs`、`--record-hz 4/15`、父进程 SIGINT/SIGTERM 协作停止，保存进行中的世界并跳过未开始任务。`cooperative-stop-smoke-001` 已验证。旧未设置 worker 信号的批次可能错误打印最终 stop summary，逐试次报告才是依据，见 `pool-cleanup-correction.json`。
-- 最终录制使用 `--record-hz 15`，视频从实际物理状态重渲染，标明采样率、倍速；不是重新模拟成功。同步正反片需完整解码检查。8 臂短环接力已有正反可读视频在对应 attempt002/video。
-- 画廊位于 `docs/generated/frontier-suite/index.html`；本地服务 `http://127.0.0.1:56718/`。新 revision 预览和状态还需刷新，不能把旧图误当最新版本。
-- 全部通过前不能宣布 36 项完成。最后仍需：当前版本全部完整见证、三种种子、参数/真实接触审计、最新四种拓扑 freeze/load、公开投影、正反视频及 36 行准确状态表。
-- 未来 GPT 必须创建全新 Controller 会话，只读公开角色材料。**不得 fork 当前 research 会话作为策略端**：本会话已读私有 Oracle 状态与控制经验。Adaptive 分身应 fork 干净的策略 Controller。正式私有码重新生成并按比较实例复用，不使用 Oracle 固定随机流；协议隔离不是 OS 文件系统隔离。
+- Inspect real processes/logs first: running processes used code imported at launch, without hot updates. Main batches were `dial-rule-v2-witnesses-001` and `dial-continuous-input-hold-001`, with newer geometry/hand-release/ring batches. Actual processes/reports were authoritative.
+- `dial-frozen-three-seeds-001` had stopped, retaining partial NPZ and `dial-old-driver-stop.json`; it did not validate the current executor.
+- Reference batches supported `--jobs`, `--record-hz 4/15` and cooperative parent SIGINT/SIGTERM, saving in-flight worlds and skipping unstarted cases. `cooperative-stop-smoke-001` checked this. Older batches without worker signal setup could print misleading final stop summaries; individual reports were authoritative. See `pool-cleanup-correction.json`.
+- Final recording used `--record-hz 15`, rerendering actual saved states with sample-rate/speed captions, not re-simulating success. Synchronized front/rear outputs needed complete decoding. The 8-arm short-ring Relay had readable views under attempt002/video.
+- Gallery: `docs/generated/frontier-suite/index.html`; historical local service: `http://127.0.0.1:56718/`. New revisions still needed updated previews/status; old images were not latest-version evidence.
+- Do not declare 36-case completion before all pass. Remaining gates were complete current-version witnesses, three seeds, parameter/actual-contact audits, latest four-topology freeze/load, public projections, front/rear videos and an accurate 36-row status table.
+- Future GPT needed a fresh Controller reading public role materials only. **Do not fork the research session into a policy:** it had read private Oracle state/control experience. Adaptive delegates should fork a clean policy Controller. Regenerate formal private codes and pair them across comparison instances, without Oracle's fixed random stream. Protocol isolation was not OS filesystem isolation.

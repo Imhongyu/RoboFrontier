@@ -1738,3 +1738,16 @@ global-optimality claims. All numeric tokens, URLs and local links match; the
 receipt is `english-transport-planning-verification.json`. No recorded input,
 physics, source snapshot or trial was changed. Remaining English migration:
 12 tracked files / 44,195 Han characters.
+
+## English prototype plan and first-suite progress snapshot
+
+The original keyboard-prototype plan and first-suite engineering snapshot now
+use English. They explicitly describe their historical implementation stage,
+keeping proposed takeover/step/reset behavior separate from the current unified
+policy contract and old development counts separate from current acceptance.
+Every numerical token and original URL remains, with local links resolving.
+Private Oracle experience, fresh-policy contexts, counterfactuals, qualified
+holding versus airborne retention and no cross-version PASS transfer remain
+explicit. No old run or source snapshot was rewritten. Verification is in
+`english-initial-suite-verification.json`. Remaining migration is 10 tracked
+files / 39,322 Han characters.
