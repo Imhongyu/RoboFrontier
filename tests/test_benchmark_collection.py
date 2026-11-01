@@ -20,6 +20,23 @@ def write(path, value):
 
 
 class BenchmarkCollectionTests(unittest.TestCase):
+    def test_task_home_takes_precedence_over_legacy_batch_home(self):
+        from robofrontier.run_metrics import native_codex_sessions
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);batch,run,sessions=self.make_batch(root)
+            task_sessions=root/'isolated/sessions/2026'
+            task_sessions.mkdir(parents=True)
+            for path in sessions.glob('*.jsonl'):
+                (task_sessions/path.name).write_bytes(path.read_bytes())
+                path.write_text('{"wrong_home":true}\n')
+            write(run/'codex-home.json', {'codex_home':str(root/'isolated')})
+            self.assertEqual(native_codex_sessions(run,'parent'),[(task_sessions/'parent.jsonl').resolve()])
+            report=collect_batch(batch,root/'export')
+            self.assertTrue(report['complete'])
+            for role in report['jobs'][0]['roles']:
+                self.assertEqual((root/'export'/role['session']).read_bytes(),
+                                 (task_sessions/(role['thread_id']+'.jsonl')).read_bytes())
+
     def make_batch(self, root, engine='codex', kind='controller', status='closed'):
         batch = root/'source'
         run = batch/'model/demo'

@@ -12,6 +12,7 @@ import numpy as np
 from robofrontier.motion_check import RobotGeometry, prepare_check, robot_state
 from robofrontier.pipeline import Arm, World
 from robofrontier.task_config import ROOT, load_harness
+from robofrontier.observation_image import observation_profile
 
 
 def robot_fixture(separation=.65,arm_count=2,base_offset=0.):
@@ -44,6 +45,7 @@ def robot_fixture(separation=.65,arm_count=2,base_offset=0.):
     ET.SubElement(obj,'geom',type='sphere',size='.03',mass='.1')
     model=mujoco.MjModel.from_xml_string(ET.tostring(root,encoding='unicode'))
     w=World.__new__(World);w.model=model;w.data=mujoco.MjData(model)
+    w.observation_image=observation_profile(load_harness())
     w.arms={n:Arm(model,w.data,n,y) for n,y in stations.items()}
     mujoco.mj_kinematics(model,w.data)
     return w

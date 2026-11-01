@@ -169,8 +169,11 @@ ${startupProtocol==='ready_barrier_v1' ? '先阅读公开任务和自己的角�
       this.owner=spawn(this.python,['-m','robofrontier.pipeline','--run-dir',this.run,'--hidden'],
         {cwd:this.cwd,stdio:['ignore',ownerLog,ownerLog]}); fs.closeSync(ownerLog);
       this.owner.on('error',error=>{this.ownerError=error;});
-      for (let n=0;;n++) {
-        if (this.ownerError || this.owner.exitCode!==null || n>=120) throw new Error('Physical owner failed to publish its connection');
+      const startupTimeout=read(path.join(this.run,'private/inputs/harness.json')).startup_timeout_s ?? 120;
+      if (!Number.isFinite(startupTimeout) || startupTimeout<=0) throw new Error('Invalid owner startup timeout');
+      const ownerDeadline=performance.now()+startupTimeout*1000;
+      for (;;) {
+        if (this.ownerError || this.owner.exitCode!==null || performance.now()>=ownerDeadline) throw new Error('Physical owner failed to publish its connection');
         if (read(path.join(this.run,'private/state/connections/Meta.json')).url) break;
         await sleep(1000);
       }

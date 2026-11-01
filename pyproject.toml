@@ -1,7 +1,7 @@
 [project]
-name = "robofrontier-mini"
+name = "robofrontier"
 version = "0.1.0"
-description = "Keyboard-controlled Panda picking in MuJoCo"
+description = "Benchmarking how LLM agents organize, communicate, and collaborate in a multi-robot world"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "mujoco>=3.3,<4",
@@ -12,7 +12,11 @@ dependencies = [
 ]
 
 [project.scripts]
-robofrontier = "robofrontier.app:main"
+robofrontier = "robofrontier.cli:main"
+robofrontier-demo = "robofrontier.app:main"
+
+[project.urls]
+Repository = "https://github.com/changxuanfan/RoboFrontier"
 
 [project.optional-dependencies]
 oracle = ["greenlet==3.2.4"]

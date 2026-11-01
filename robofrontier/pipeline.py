@@ -453,8 +453,12 @@ class Service(RuntimeService):
         observer=secrets.token_urlsafe(24)
         Handler=self.http_handler(observer)
         try:
-            if self.hidden and os.environ.get('MUJOCO_GL','').lower()=='osmesa':
-                from mujoco.osmesa import GLContext
+            backend=os.environ.get('MUJOCO_GL','').lower()
+            if self.hidden and backend in ('osmesa','egl'):
+                if backend=='egl':
+                    from mujoco.egl import GLContext
+                else:
+                    from mujoco.osmesa import GLContext
                 self.offscreen_context=GLContext(1280,800)
                 self.offscreen_context.make_current()
             else:
@@ -463,6 +467,8 @@ class Service(RuntimeService):
                 self.window=glfw.create_window(1280,800,'RoboFrontier — Shared World',None,None)
                 if not self.window:raise RuntimeError('GLFW window creation failed')
                 glfw.make_context_current(self.window);glfw.swap_interval(1)
+            from .render_backend import current_backend
+            atomic_json(self.directory/'private/outputs/render-backend.json',current_backend(self.config.get('render_device')))
             self.context=mujoco.MjrContext(self.world.model,mujoco.mjtFontScale.mjFONTSCALE_150)
             self.scene=mujoco.MjvScene(self.world.model,maxgeom=5000);self.options=mujoco.MjvOption();self.options.geomgroup[3]=0
             self.cam=mujoco.MjvCamera();self.cam.type=mujoco.mjtCamera.mjCAMERA_FIXED

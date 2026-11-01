@@ -18,6 +18,7 @@ vendor/
 !/.env.example
 /.codex-luna/
 /.codex-tools/
+/.robofrontier/
 !/.env.claude.example
 # Large environment assets/previews are materialized per worktree.
 /configs/environments/**/assets/

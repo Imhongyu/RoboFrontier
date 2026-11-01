@@ -66,7 +66,8 @@ def plan(names, families=None, cases=None, level=None, min_arms=False, parallel=
 
 
 
-def prepare_draft(output, names, families=None, cases=None, level=None, min_arms=False, catalog=CATALOG, topology='adaptive', record_video=False):
+def prepare_draft(output, names, families=None, cases=None, level=None, min_arms=False, catalog=CATALOG, topology='adaptive', record_video=False,
+                  *, wall_limit_s=86400, observation_image_profile=None, startup_timeout_s=None, render_device=None):
     """Freeze unqualified drafts for the explicit engineering runner only."""
     from robofrontier.task_families import prepare, policy_task
     from robofrontier.suite.dial_feedback import alphabet
@@ -101,11 +102,14 @@ def prepare_draft(output, names, families=None, cases=None, level=None, min_arms
     for name, p in profiles.items():
         cfg = read(ROOT / 'configs/harnesses/policy.json')
         cfg.update(engine='claude', topology=topology, model=p['model'], effort=p['effort'], observation_renderer='classic', record_realtime_video=record_video)
+        if observation_image_profile is not None:cfg['observation_image_profile']=observation_image_profile
+        if startup_timeout_s is not None:cfg['startup_timeout_s']=startup_timeout_s
+        if render_device is not None:cfg['render_device']=render_device
         cfg_path = output / 'profiles' / name / 'harness.json'
         write_json(cfg_path, cfg)
         for case in selected:
             run = output / name / case
-            prepare(case, run, cfg_path, puzzles.get(case))
+            prepare(case, run, cfg_path, puzzles.get(case),wall_limit_s=wall_limit_s)
             inputs = run / 'private/inputs'
             launch = inputs / 'claude.json'
             write_json(launch, {'schema': 'robofrontier.claude-launch-draft.v1', 'profile': p,

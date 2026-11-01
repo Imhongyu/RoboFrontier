@@ -105,7 +105,7 @@ class MotionEditTests(unittest.TestCase):
         case = json.loads((root/'configs/suites/dial-best5-r11.json').read_text())['cases'][0]
         source = Workstation(root/case['directory'])
         place = dict(case_id=case['id'],family='dial',source_directory=str(source.path),
-            translation_m=[0.,0.,0.],yaw_rad=0.,scale=1.,planning_bounds_xy_m=[-3.,-3.,3.,3.])
+            translation_m=[0.,0.,0.],yaw_rad=0.,scale=1.,planning_bounds_xy_m=[-3.,-3.,3.,3.],table_bounds_xy_m=[-3.,-3.,3.,3.])
         with tempfile.TemporaryDirectory() as td, patch('mujoco.mj_step',side_effect=AssertionError('No replay dynamics')):
             folder = Path(td)
             (folder/'assets').mkdir()

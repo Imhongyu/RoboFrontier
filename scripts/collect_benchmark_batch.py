@@ -169,7 +169,7 @@ def collect_batch(batch_path, output, *, codex_home=None):
     if not isinstance(jobs, list) or not jobs:
         raise ValueError('Batch has no jobs')
     marker = batch_path/'codex-home.json'
-    home = Path(codex_home).resolve() if codex_home else Path(load(marker)['codex_home']).resolve() if marker.exists() else Path(os.environ.get('CODEX_HOME', Path.home()/'.codex')).resolve()
+    batch_home = Path(codex_home).resolve() if codex_home else Path(load(marker)['codex_home']).resolve() if marker.exists() else Path(os.environ.get('CODEX_HOME', Path.home()/'.codex')).resolve()
     state_jobs = {(j.get('profile'), j.get('case_id')): j for j in state.get('jobs', [])}
     seen = set()
     runs = []
@@ -204,6 +204,8 @@ def collect_batch(batch_path, output, *, codex_home=None):
                 hashes[rel.as_posix()] = copy_stable(path, temporary/rel)
             rows = []
             for job, run, status in runs:
+                run_marker=run/'codex-home.json'
+                home=Path(load(run_marker)['codex_home']).resolve() if not codex_home and run_marker.is_file() else batch_home
                 issues, roles, snapshot_sessions = [], [], []
                 db = temporary/'batch'/run.relative_to(batch_path)/'private/state/runtime.sqlite'
                 agents, meta = [], {}

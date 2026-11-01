@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 import shlex
+from robofrontier.launch_schedule import LaunchSchedule
 
 from robofrontier.task_families import ROOT, RELEASE, read, prepare
 from robofrontier.run_setup import write_json, verify_inputs
@@ -74,7 +75,7 @@ def launch_config(p, folder):
     # Local Codex model catalog teaches the CLI that this exact model accepts
     # images. No global provider/auth/default settings are modified.
     cache_path=Path(os.environ.get('CODEX_HOME',Path.home()/'.codex'))/'models_cache.json'
-    cached = read(cache_path).get('models', []) if cache_path.is_file() else []
+    cached = read(cache_path).get('models', []) if p.get('use_cached_model_metadata',True) and cache_path.is_file() else []
     # Preserve exact OpenAI model metadata if available; the checked-in generic
     # template also permits an empty CODEX_HOME on a new server.
     model=deepcopy(next((m for m in cached if m.get('slug')==p['model']),
@@ -122,7 +123,7 @@ def select_cases(families=None, cases=None, level=None, min_arms=False):
     return selected
 
 
-def prepare_batch(output, names, families=None, cases=None, config=None, level=None, min_arms=False, wall_limit_s=86400):
+def prepare_batch(output, names, families=None, cases=None, config=None, level=None, min_arms=False, wall_limit_s=86400, *, harness_overrides=None):
     if not names or len(set(names))!=len(names):raise ValueError('Choose distinct model profiles')
     profiles={n:profile(n,config) for n in names}
     selected=[row['case_id'] for row in select_cases(families,cases,level,min_arms)]
@@ -148,7 +149,11 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
         config_dir=output/'profiles'/name;config_dir.mkdir(parents=True)
         harness=read(ROOT/'configs/harnesses/policy.json')
         harness.update(model=p['model'],effort=p['effort'],observation_renderer='classic',record_realtime_video=False)
-        if p.get('benchmark_topology') in ('hierarchical', 'peer'):
+        if harness_overrides:
+            allowed={'topology','startup_protocol','observation_image_profile','record_realtime_video','startup_timeout_s','render_device'}
+            if set(harness_overrides)-allowed:raise ValueError('Unsupported harness overrides')
+            harness.update(harness_overrides)
+        if not harness_overrides and p.get('benchmark_topology') in ('hierarchical', 'peer'):
             harness.update(topology=p['benchmark_topology'], startup_protocol='ready_barrier_v1')
         harness_path=config_dir/'harness.json';write_json(harness_path,harness)
         for case in selected:
@@ -168,9 +173,10 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
     return output/'batch.json'
 
 
-def initialize_codex_home(launch, folder, timeout_s=90):
+def initialize_codex_home(launch, folder, timeout_s=90, *, env=None):
     """Serialize the real app-server handshake for processes sharing CODEX_HOME."""
-    home=Path(os.environ.get('CODEX_HOME', Path.home()/'.codex')).expanduser().resolve()
+    environment=os.environ if env is None else env
+    home=Path(environment.get('CODEX_HOME', Path.home()/'.codex')).expanduser().resolve()
     home.mkdir(parents=True, exist_ok=True)
     deadline=time.monotonic()+timeout_s
     with (home/'robofrontier-init.lock').open('a+') as lock:
@@ -186,7 +192,7 @@ def initialize_codex_home(launch, folder, timeout_s=90):
         if remaining<=0:raise TimeoutError('Timed out before Codex initialization')
         with (folder/'codex-initialize.log').open('a') as log:
             subprocess.run(['node',str(ROOT/'scripts/codex_initialize.js'),*launch['args']],
-                           cwd=ROOT,stdout=log,stderr=log,check=True,timeout=remaining)
+                           cwd=ROOT,stdout=log,stderr=log,check=True,timeout=remaining,env=env)
 
 
 def memory_snapshot():
@@ -224,6 +230,11 @@ def run_batch(folder, parallel):
 
 
 def _run_batch_locked(folder, parallel, batch):
+    execution=batch.get('execution',{})
+    schedule=LaunchSchedule(execution.get('startup_interval_s',.3))
+    scope=execution.get('codex_home_scope','shared')
+    if scope not in ('task','shared'):raise ValueError('Unknown Codex home scope')
+    environments={}
     for job in batch['jobs']:
         run=Path(job['run_directory']);launch=read(run/'private/inputs/codex.json')
         if verify_inputs(run):raise ValueError('Prepared code/inputs changed; prepare a new batch')
@@ -239,11 +250,32 @@ def _run_batch_locked(folder, parallel, batch):
         version=subprocess.check_output(['codex','--version'],text=True).strip()
         if checked.get('catalog_sha256')!=catalog_sha or checked.get('codex_version')!=version:
             raise ValueError('Model catalog or Codex CLI changed; rerun preflight')
+        env=dict(os.environ)
+        if execution.get('codex_home'):env['CODEX_HOME']=execution['codex_home']
+        if scope=='task':
+            if launch['profile'].get('provider')=='openai':
+                raise ValueError('Native subscription auth with isolated homes needs qualification; use explicit shared home or an API profile')
+            import hashlib
+            key=hashlib.sha256(str(run).encode()).hexdigest()[:20]
+            base=Path(execution.get('codex_home') or ROOT/'.robofrontier/codex')
+            env['CODEX_HOME']=str((base/key).resolve())
+        home=Path(env.get('CODEX_HOME',Path.home()/'.codex')).expanduser().resolve()
+        if home.is_relative_to(folder):
+            raise ValueError('Keep credential/configuration directories outside collected batch evidence')
+        home.mkdir(parents=True,exist_ok=True,mode=0o700)
+        env['CODEX_HOME']=str(home)
+        environments[str(run)]=env
+        write_json(run/'codex-home.json',{'schema':'robofrontier.codex-home.v1','codex_home':str(home),'scope':scope})
         # Validate configuration without inference before starting any task.
         subprocess.run(['codex','app-server',*launch['args'],'--print-startup-config'],
-                       check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+                       check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,env=env)
     # Handshake is local and occurs before any task process or model turn.
-    initialize_codex_home(launch, folder)
+    initialized=set()
+    for job in batch['jobs']:
+        run=Path(job['run_directory']);env=environments[str(run)]
+        if env['CODEX_HOME'] not in initialized:
+            initialize_codex_home(read(run/'private/inputs/codex.json'),run/'private/outputs',env=env)
+            initialized.add(env['CODEX_HOME'])
     resources=memory_snapshot()
     batch['resource_snapshot']=resources
     print('Resource snapshot (not a concurrency guarantee): '+json.dumps(resources),file=sys.stderr)
@@ -254,8 +286,11 @@ def _run_batch_locked(folder, parallel, batch):
         run=Path(job['run_directory'])
         if (run/'STOP').exists():return None
         with (run/'private/outputs/supervisor.log').open('a') as log:
-            proc=subprocess.Popen(['node',str(ROOT/'scripts/codex_policy_host.js'),str(run),str(ROOT),sys.executable],
-                                  cwd=ROOT,stdout=log,stderr=log)
+            proc=schedule.launch(lambda:subprocess.Popen(
+                ['node',str(ROOT/'scripts/codex_policy_host.js'),str(run),str(ROOT),sys.executable],
+                cwd=ROOT,stdout=log,stderr=log,env=environments[str(run)]),
+                stopped=lambda:(run/'STOP').exists() or (folder/'STOP').exists())
+            if proc is None:return None
             write_json(run/'private/state/host-process.json',dict(pid=proc.pid,started_at=time.time()))
             return proc.wait()
     with ThreadPoolExecutor(max_workers=parallel) as pool:

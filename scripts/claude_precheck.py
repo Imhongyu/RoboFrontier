@@ -136,10 +136,10 @@ def judge(name, record, requests_before, requests_after, expected_session=None, 
             'cost_usd': summary.get('total_cost_usd'), 'usage': summary.get('usage')}
 
 
-def run_precheck(name, output, budget, base_env, binary='claude', check_fork=False):
+def run_precheck(name, output, budget, base_env, binary='claude', check_fork=False, *, catalog=None):
     if isinstance(budget,bool) or not isinstance(budget,(int,float)) or not math.isfinite(budget) or budget<=0:
         raise ValueError('Budget must be positive and finite')
-    prof = profile(name)
+    prof = profile(name, catalog) if catalog is not None else profile(name)
     output.mkdir(parents=True, exist_ok=False)
     run, mcp, server = setup_run(output, base_env)
     receipt = {'schema': 'robofrontier.claude-precheck.v1', 'profile': name, 'requested_model': prof['model'],

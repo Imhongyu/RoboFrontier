@@ -33,7 +33,7 @@ class BatchTests(unittest.TestCase):
 
     def run_case(self, runner, parallel=2):
         return run_batch(self.root, self.env, parallel=parallel, turn_budget_usd=.2, total_budget_usd=1, wall_limit_s=5,
-                         runner=runner, verifier=lambda _: [])
+                         runner=runner, verifier=lambda _: [], startup_interval_s=0)
 
     def test_parallel_limit_all_jobs_and_single_use(self):
         guard = threading.Lock(); counts = {'active':0, 'maximum':0, 'total':0}

@@ -101,7 +101,11 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
                             'turn_budget_usd': turn_budget_usd, 'task_budget_usd': total_budget_usd,
                             'wall_limit_s': wall_limit_s, 'startup_timeout_s': startup_timeout_s})
         # Do not pass model credentials to the physical owner.
-        owner_env = {k: v for k, v in base_env.items() if k in ('PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR', 'DISPLAY', 'MUJOCO_GL', 'PYTHONPATH', 'DYLD_LIBRARY_PATH')}
+        owner_env = {k: v for k, v in base_env.items() if k in (
+            'PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR', 'DISPLAY', 'MUJOCO_GL',
+            'PYOPENGL_PLATFORM', 'LIBGL_ALWAYS_SOFTWARE', 'GALLIUM_DRIVER',
+            'CUDA_VISIBLE_DEVICES', 'MUJOCO_EGL_DEVICE_ID',
+            'PYTHONPATH', 'DYLD_LIBRARY_PATH', 'LD_LIBRARY_PATH')}
         with (run / 'private/outputs/owner.log').open('a') as log:
             owner = owner_factory([sys.executable, '-m', 'robofrontier.pipeline', '--run-dir', str(run), '--hidden'],
                                   cwd=ROOT, env=owner_env, stdin=subprocess.DEVNULL, stdout=log, stderr=log,

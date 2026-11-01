@@ -1,0 +1,321 @@
+"""Command-line entry point shared by native policy engines and evidence tools."""
+import argparse
+from contextlib import contextmanager
+import hashlib
+import json
+import os
+from pathlib import Path
+import platform
+import subprocess
+import sys
+import tempfile
+
+from .configuration import ROOT, TOPOLOGIES, load_configuration, rendering_environment
+
+
+def _print(value):
+    print(json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False))
+
+
+def _catalog(config):
+    policy = config['policy']
+    name = 'claude-models.json' if policy['engine'] == 'claude' else 'models.json'
+    catalog = json.loads((ROOT/'configs'/name).read_text())
+    if policy['profile'] not in catalog['profiles']:
+        raise ValueError('Unknown ' + policy['engine'] + ' profile: ' + policy['profile'])
+    catalog['profiles'][policy['profile']]['effort'] = policy['effort']
+    if policy['engine'] == 'codex':
+        # New portable batches and their preflight use the same checked-in
+        # template, independent of another Desktop session's mutable cache.
+        catalog['profiles'][policy['profile']]['use_cached_model_metadata'] = False
+    return catalog
+
+
+@contextmanager
+def _catalog_file(config):
+    with tempfile.TemporaryDirectory(prefix='robofrontier-catalog-') as temporary:
+        path = Path(temporary)/'models.json'
+        path.write_text(json.dumps(_catalog(config)))
+        yield path
+
+
+def plan(config):
+    from scripts.benchmark import select_cases
+    selection = config['selection']
+    selected = select_cases(selection['families'] or None, selection['cases'] or None,
+                            selection['level'] or None, selection['min_arms'])
+    policy = config['policy']
+    model = _catalog(config)['profiles'][policy['profile']]['model']
+    return {'schema': 'robofrontier.plan.v1', 'model_calls': 0, 'simulator_started': False,
+            'engine': policy['engine'], 'model': model, 'effort': policy['effort'],
+            'topology': policy['topology'], 'parallel': config['batch']['parallel'],
+            'startup_interval_s': config['batch']['startup_interval_s'],
+            'task_wall_limit_s': config['batch']['task_wall_limit_s'],
+            'task_count': len(selected), 'jobs': selected,
+            'qualification': 'Claude engineering only' if policy['engine'] == 'claude'
+                else 'Requires a matching live provider compatibility receipt'}
+
+
+def prepare(output, config):
+    from scripts.benchmark import prepare_batch
+    from scripts.benchmark_handoff import setup_assets
+    from scripts.benchmark import load_env
+    from .run_setup import write_json
+    policy, selection = config['policy'], config['selection']
+    load_env(ROOT/'.env')
+    plan(config)  # Reject invalid model and selection before any installation.
+    output = Path(output).resolve()
+    if output.exists():
+        raise ValueError('Choose a new output directory; prepared runs are never overwritten')
+    if policy['engine'] == 'claude' and policy['topology'] not in ('single', 'adaptive'):
+        raise ValueError('Claude permanent-worker modes are not qualified; use single or adaptive engineering drafts')
+    setup_assets()
+    topology = TOPOLOGIES[policy['topology']]
+    harness = {'topology': topology,
+               'startup_protocol': 'direct_controller_v2' if topology in ('centralized', 'adaptive') else 'ready_barrier_v1',
+               'observation_image_profile': config['render']['observation_profile'],
+               'startup_timeout_s': config['batch']['startup_timeout_s'],
+               'render_device': config['render']['device'],
+               'record_realtime_video': config['render']['record_realtime_video']}
+    with _catalog_file(config) as catalog:
+        if policy['engine'] == 'claude':
+            from scripts.claude_benchmark import prepare_draft
+            result = prepare_draft(output, [policy['profile']], families=selection['families'] or None,
+                                   cases=selection['cases'] or None, catalog=catalog,
+                                   level=selection['level'] or None, min_arms=selection['min_arms'],
+                                   topology=topology, record_video=config['render']['record_realtime_video'],
+                                   wall_limit_s=config['batch']['task_wall_limit_s'],
+                                   observation_image_profile=config['render']['observation_profile'],
+                                   startup_timeout_s=config['batch']['startup_timeout_s'],
+                                   render_device=config['render']['device'])
+        else:
+            result = prepare_batch(output, [policy['profile']], families=selection['families'] or None,
+                                   cases=selection['cases'] or None, config=catalog,
+                                   level=selection['level'] or None, min_arms=selection['min_arms'],
+                                   wall_limit_s=config['batch']['task_wall_limit_s'], harness_overrides=harness)
+    batch = json.loads(result.read_text())
+    batch['execution'] = {**config['runtime'], 'startup_interval_s': config['batch']['startup_interval_s']}
+    batch['effective_configuration_sha256'] = hashlib.sha256(
+        json.dumps(config, sort_keys=True, allow_nan=False).encode()).hexdigest()
+    write_json(output/'effective-config.json', config)
+    # Include the effective settings in each run's immutable input inventory.
+    for job in batch['jobs']:
+        run = Path(job['run_directory'])
+        frozen = run/'private/inputs/effective-config.json'
+        write_json(frozen, config)
+        manifest_path = run/'private/inputs/manifest.json'
+        manifest = json.loads(manifest_path.read_text())
+        manifest['input_sha256'][str(frozen.relative_to(run))] = hashlib.sha256(frozen.read_bytes()).hexdigest()
+        write_json(manifest_path, manifest)
+    write_json(result, batch)
+    return result
+
+
+def preflight(config, *, confirm_spend=False, smoke_only=False, max_budget_usd=None):
+    """Explicit paid connectivity check; preparation and planning never call it."""
+    from scripts.benchmark import load_env
+    load_env(ROOT/'.env')
+    policy = config['policy']
+    if not confirm_spend:
+        return {'status': 'not_run', 'model_calls': 0,
+                'reason': 'Add --confirm-spend to authorize real provider calls',
+                'engine': policy['engine'], 'profile': policy['profile']}
+    with _catalog_file(config) as catalog:
+        if policy['engine'] == 'claude':
+            if max_budget_usd is None:
+                raise ValueError('Claude preflight requires an explicit --max-budget-usd estimate')
+            from scripts.claude_precheck import run_precheck
+            import uuid
+            output = ROOT/'runs/engineering/claude-precheck'/uuid.uuid4().hex
+            return run_precheck(policy['profile'], output, max_budget_usd, dict(os.environ),
+                                check_fork=not smoke_only, catalog=catalog)
+        from scripts.benchmark import profile, launch_config, initialize_codex_home
+        selected = profile(policy['profile'], catalog)
+        key = selected.get('env_key')
+        if key and not os.environ.get(key):
+            raise ValueError('Missing credential environment variable: ' + key)
+        env = dict(os.environ)
+        if config['runtime']['codex_home_scope'] == 'task':
+            if selected['provider'] == 'openai':
+                raise ValueError('Native subscription preflight requires explicit shared authentication configuration')
+            fingerprint = hashlib.sha256(json.dumps(selected, sort_keys=True).encode()).hexdigest()[:20]
+            home = ROOT/'.robofrontier/preflight'/fingerprint
+        else:
+            home = Path(config['runtime']['codex_home'] or env.get('CODEX_HOME', Path.home()/'.codex')).expanduser().resolve()
+        home.mkdir(parents=True, exist_ok=True, mode=0o700)
+        env['CODEX_HOME'] = str(home)
+        folder = ROOT/'runs/engineering'/('model-smoke' if smoke_only else 'model-compatibility')/policy['profile']
+        folder.mkdir(parents=True, exist_ok=True)
+        initialize_codex_home(launch_config(selected, folder), folder, env=env)
+        command = [sys.executable, '-m', 'scripts.benchmark', 'preflight', '--models', policy['profile'],
+                   '--model-config', str(catalog)]
+        if smoke_only:
+            command.append('--smoke-only')
+        subprocess.run(command, cwd=ROOT, env=env, check=True)
+        return json.loads((folder/'report.json').read_text())
+
+
+def _frozen_configuration(batch):
+    # New CLI runs never reinterpret a prepared batch using a changed local TOML.
+    path = Path(batch)/'effective-config.json'
+    config = json.loads(path.read_text())
+    from .configuration import validate_configuration
+    validate_configuration(config)
+    document = json.loads((Path(batch)/'batch.json').read_text())
+    expected = hashlib.sha256(json.dumps(config, sort_keys=True, allow_nan=False).encode()).hexdigest()
+    if document.get('effective_configuration_sha256') != expected:
+        raise ValueError('Effective batch configuration changed; prepare a new batch')
+    execution = {**config['runtime'], 'startup_interval_s': config['batch']['startup_interval_s']}
+    if document.get('execution') != execution:
+        raise ValueError('Batch launch settings differ from its frozen configuration')
+    return config
+
+
+def run(batch, *, engineering=False):
+    config = _frozen_configuration(batch)
+    if config['policy']['engine'] == 'claude' and not engineering:
+        raise ValueError('Claude runs remain unqualified; explicitly select run --engineering')
+    environment = rendering_environment(config['render']['device'], platform.system(), os.environ)
+    os.environ.clear()
+    os.environ.update(environment)
+    if config['policy']['engine'] == 'claude':
+        from .claude.engineering_batch import run_batch
+        state = run_batch(batch, dict(os.environ), parallel=config['batch']['parallel'],
+                          startup_interval_s=config['batch']['startup_interval_s'],
+                          startup_timeout_s=config['batch']['startup_timeout_s'],
+                          wall_limit_s=config['batch']['task_wall_limit_s'])
+    else:
+        from scripts.benchmark import run_batch
+        run_batch(batch, config['batch']['parallel'])
+        state = json.loads((Path(batch)/'batch.json').read_text())
+    result = {'batch': str(Path(batch).resolve()), 'status': state['status']}
+    if config['evidence']['auto_collect']:
+        output = ROOT/'runs/exports'/(Path(batch).name+'-'+hashlib.sha256(str(Path(batch).resolve()).encode()).hexdigest()[:8])
+        result['collection'] = str(collect(batch, output))
+        if config['evidence']['auto_archive']:
+            result['archive'] = str(archive_collection(output, output.with_suffix('.zip')))
+    return result
+
+
+def collect(batch, output):
+    from scripts.collect_benchmark_batch import collect_batch
+    collect_batch(Path(batch), Path(output))
+    return Path(output).resolve()
+
+
+def archive_collection(collection, output):
+    from scripts.archive_policy_batch import create
+    from .evidence_zip import pack
+    output = Path(output).resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='.rf-archive-', dir=output.parent) as temporary:
+        directory = Path(temporary)/'archive'
+        # Preserve reviewed/incomplete evidence too; its manifest keeps every
+        # issue and does not certify physical actions, task success or scores.
+        create(Path(collection), directory, allow_incomplete=True)
+        return pack(directory, output)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--config', type=Path, help='Partial TOML overriding repository defaults')
+    sub = parser.add_subparsers(dest='command', required=True)
+    for name in ('config', 'plan', 'prepare', 'preflight'):
+        p = sub.add_parser(name)
+        p.add_argument('--engine', choices=('codex', 'claude'))
+        p.add_argument('--profile')
+        p.add_argument('--effort', choices=('minimal', 'low', 'medium', 'high', 'xhigh', 'max'))
+        p.add_argument('--topology', choices=TOPOLOGIES)
+        p.add_argument('--parallel', type=int)
+        p.add_argument('--render', choices=('nvidia', 'cpu', 'native'))
+        p.add_argument('--level', type=int, choices=(1, 2, 3))
+        p.add_argument('--min-arms', action='store_true', default=None)
+        p.add_argument('--cases', nargs='+')
+        p.add_argument('--families', nargs='+', choices=('transport', 'mosaic', 'relay', 'dial'))
+        if name == 'prepare':
+            p.add_argument('--output', type=Path, required=True)
+        elif name == 'preflight':
+            p.add_argument('--confirm-spend', action='store_true')
+            p.add_argument('--smoke-only', action='store_true')
+            p.add_argument('--max-budget-usd', type=float)
+    sub.add_parser('bootstrap', help='Restore and verify pinned policy assets; never calls a model')
+    for name in ('run', 'status', 'stop'):
+        p = sub.add_parser(name)
+        p.add_argument('batch', type=Path)
+        if name == 'run':
+            p.add_argument('--engineering', action='store_true', help='Explicitly run an unqualified Claude engineering draft')
+    p = sub.add_parser('collect', help='Collect stopped native sessions, motion and evidence')
+    p.add_argument('batch', type=Path)
+    p.add_argument('--output', type=Path, required=True)
+    p = sub.add_parser('archive', help='Package a stopped collection as a verified ZIP')
+    p.add_argument('collection', type=Path)
+    p.add_argument('--output', type=Path, required=True)
+    p = sub.add_parser('extract', help='Verify and extract an evidence ZIP archive')
+    p.add_argument('archive', type=Path)
+    p.add_argument('--output', type=Path, required=True)
+    p = sub.add_parser('demo', help='Legacy interactive single-arm application')
+    p.add_argument('arguments', nargs=argparse.REMAINDER)
+    args = parser.parse_args(argv)
+    try:
+        if args.command == 'demo':
+            from .app import main as demo
+            sys.argv = [sys.argv[0], *args.arguments]
+            return demo()
+        if args.command == 'bootstrap':
+            from scripts.benchmark_handoff import setup_assets
+            _print(setup_assets())
+            return 0
+        if args.command in ('config', 'plan', 'prepare', 'preflight'):
+            overrides = {}
+            for section, fields in (('policy', ('engine', 'profile', 'effort', 'topology')),
+                                    ('batch', ('parallel',)),
+                                    ('selection', ('level', 'min_arms', 'cases', 'families'))):
+                updates = {field: getattr(args, field) for field in fields if getattr(args, field) is not None}
+                if updates:
+                    overrides[section] = updates
+            if args.render:
+                overrides['render'] = {'device': args.render}
+            config = load_configuration(args.config, overrides)
+            if args.command == 'config':
+                _print(config)
+            elif args.command == 'plan':
+                _print(plan(config))
+            elif args.command == 'preflight':
+                report = preflight(config, confirm_spend=args.confirm_spend,
+                                   smoke_only=args.smoke_only, max_budget_usd=args.max_budget_usd)
+                _print(report)
+                return 0 if report.get('passed') else 2
+            else:
+                _print({'batch': str(prepare(args.output, config)), 'model_calls': 0})
+        elif args.command == 'run':
+            from scripts.benchmark import load_env
+            load_env(ROOT/'.env')
+            _print(run(args.batch, engineering=args.engineering))
+        elif args.command == 'status':
+            # Read the supervisor's atomic snapshot, never open a writer's SQLite.
+            snapshot = args.batch/'engineering-status.json'
+            _print(json.loads((snapshot if snapshot.is_file() else args.batch/'batch.json').read_text()))
+        elif args.command == 'stop':
+            batch = json.loads((args.batch/'batch.json').read_text())
+            folder = args.batch.resolve()
+            paths = [Path(job['run_directory']).resolve() for job in batch['jobs']]
+            if any(not path.is_relative_to(folder) or path == folder for path in paths):
+                raise ValueError('Invalid run directory in batch')
+            (folder/'STOP').touch()
+            for path in paths:
+                (path/'STOP').touch()
+            _print({'stop_requested': True, 'note': 'Inspect status and final sealing outcome'})
+        elif args.command == 'collect':
+            _print({'collection': str(collect(args.batch, args.output))})
+        elif args.command == 'archive':
+            _print({'archive': str(archive_collection(args.collection, args.output))})
+        elif args.command == 'extract':
+            from .evidence_zip import unpack
+            _print(unpack(args.archive, args.output))
+        return 0
+    except (ValueError, OSError, KeyError) as error:
+        parser.exit(2, 'robofrontier: ' + str(error) + '\n')
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -30,9 +30,9 @@ these fields from Git history or the repository owner.
 
 - [x] Preserve refs and uncommitted source work outside the integration worktree.
 - [x] Fast-forward Codex and Factory server without duplicating their shared history.
-- [ ] Integrate Luna, multi-topology and Claude with targeted regression checks.
+- [x] Integrate Luna, multi-topology and Claude with targeted regression checks.
 - [ ] Provide one validated TOML configuration and CLI; resolve defaults once and freeze the effective configuration per run.
-- [ ] Launch hosts through one scheduler with a default 0.3-second interval.
+- [x] Launch initial task hosts through one scheduler with a default 0.3-second interval.
 - [ ] Isolate task runtime state, verify Codex initialization/authentication, and stage Slurm SQLite state on node-local storage.
 - [ ] Preserve shared START, scoring, safe call-ID and stop semantics across native engines.
 - [ ] Keep R14 as the Mosaic default; validate recommended physical candidates before publishing changed assets.
@@ -79,3 +79,44 @@ green; verify the claimed equivalence first, or withdraw that claim.
 The targeted engine/role/protocol checks are separate from this legacy inventory.
 No live model calls were made by these checks. Claude's scored-run qualification
 remains closed until its native lifecycle has passed the required real checks.
+
+## Configuration and launch implementation
+
+The first unified CLI stage is implemented in `robofrontier.cli`, with validated
+`robofrontier.toml` settings and immutable per-run effective configuration.
+`docs/unified-cli.md` documents actual supported options and pending interfaces.
+The API path creates one home per task, serially initializes every home, then
+launches hosts through one 0.3-second gate. Collection resolves per-task markers
+while preserving legacy batch-home behavior. Native subscription refresh remains
+an explicit qualification gap; credentials are never cloned automatically.
+
+The native CLI wrapper can plan, bootstrap assets, prepare Codex runs or Claude
+engineering drafts, explicitly preflight providers, run, read atomic status,
+request stop, collect, ZIP, extract and restore evidence. Claude permanent-worker
+modes and formal scored execution remain closed. Factory/Oracle/Slurm commands
+have not yet been folded into this configuration schema.
+
+Six real Codex 0.165.0 app-servers were initialized in independent cold homes and
+then launched at a 0.3-second interval. All acknowledged initialization and exited
+cleanly; no model turn or robot world was started. This verifies local startup,
+not subscription refresh, 36-task resource capacity or provider execution. Raw
+local evidence is under `runs/engineering/main-integration-codex-offline-20261101`.
+
+The new command independently prepared four minimum-arm Level 1 cases with zero
+model calls. All current 36-case asset hashes also passed inspection. The existing
+asset lock is unchanged; recommended physics candidates still need final gates.
+
+The source compatibility receipt was reviewed rather than blindly rehashed:
+the exact observation-profile initialization and reported camera-size changes
+are normalized alongside the service wrapper, and every remaining pipeline AST
+node matches the original unaffected digest. The unaffected non-Relay evaluator
+AST also matches its original digest. This establishes the limited historical
+source claim, not equivalent policy observations, current scoring or new physics.
+
+The completed configuration-stage regression group passed 123 tests. Thirteen
+Codex host/transport Node tests also passed. Renderer checks reject a Mesa
+software context when NVIDIA is requested and record the actual GL vendor,
+renderer and version. The GPU validation still needs real Linux NVIDIA hardware.
+The old synthetic ready-capability and Factory fixtures were brought up to date
+without reducing their physics/FK assertions. Full historical-asset coverage,
+Slurm staging, English migration and product UI/video gates remain outstanding.

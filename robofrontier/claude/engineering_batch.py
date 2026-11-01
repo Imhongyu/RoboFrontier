@@ -9,6 +9,7 @@ import time
 from robofrontier.claude.engineering_run import _positive, run_engineering
 from robofrontier.claude.runner import build_env
 from robofrontier.run_setup import verify_inputs, write_json
+from robofrontier.launch_schedule import LaunchSchedule
 
 ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z')
 
@@ -99,7 +100,8 @@ def stop_batch(folder):
 
 
 def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_usd=None, wall_limit_s=86400,
-              startup_timeout_s=120, runner=run_engineering, verifier=verify_inputs, stop_requested=lambda: False):
+              startup_timeout_s=120, runner=run_engineering, verifier=verify_inputs, stop_requested=lambda: False,
+              startup_interval_s=.3):
     """Run drafts once. Caller explicitly authorizes potential paid model calls."""
     folder = Path(folder).resolve()
     if type(parallel) is not int or not 1 <= parallel <= 36: raise ValueError('Parallel must be 1..36')
@@ -108,6 +110,7 @@ def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_
     _positive(wall_limit_s, 'wall limit', 86400)
     _positive(startup_timeout_s, 'startup timeout', 86400)
     jobs = _jobs(folder)
+    schedule = LaunchSchedule(startup_interval_s)
     with (folder / 'engineering-supervisor.lock').open('a+') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         claim = folder / 'engineering-claim.json'
@@ -142,12 +145,20 @@ def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_
                         (folder / 'STOP').touch()
                         for job in jobs: (Path(job['run_directory']) / 'STOP').touch()
                         break
-                    index = next_job; next_job += 1
+                    index = next_job
+                    future = schedule.launch(lambda: pool.submit(
+                        runner, jobs[index]['run_directory'], base_env,
+                        turn_budget_usd=turn_budget_usd, total_budget_usd=total_budget_usd,
+                        wall_limit_s=wall_limit_s, startup_timeout_s=startup_timeout_s),
+                        stopped=lambda:(folder/'STOP').exists() or stop_requested())
+                    if future is None:
+                        stopping = True
+                        (folder / 'STOP').touch()
+                        for job in jobs: (Path(job['run_directory']) / 'STOP').touch()
+                        break
+                    next_job += 1
                     state['jobs'][index]['status'] = 'starting'
                     write_json(state_path, state)
-                    future = pool.submit(runner, jobs[index]['run_directory'], base_env,
-                                         turn_budget_usd=turn_budget_usd, total_budget_usd=total_budget_usd,
-                                         wall_limit_s=wall_limit_s, startup_timeout_s=startup_timeout_s)
                     pending[future] = index
                 if stopping and next_job < len(jobs):
                     for index in range(next_job, len(jobs)): state['jobs'][index]['status'] = 'stopped_before_start'
