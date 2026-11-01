@@ -1,219 +1,211 @@
-# Relay worktree合并前整理方案
+# Historical Relay worktree pre-merge cleanup plan
 
-2026-10-27。**本轮仅只读盘点与规划；未删除、移动、改写运行文件或共享数据。**
-新增本文件，并将上一份回放计划对齐为“每桌读取自己的倍速”。未改执行文件。上一轮方案见
-[relay-gpt-readiness-and-factory-parallel-plan-20261027.md](relay-gpt-readiness-and-factory-parallel-plan-20261027.md)。
+2026-10-27. **This round only inventoried and planned; it deleted, moved or
+rewrote no runtime/shared data.** It added this document and aligned the previous
+playback plan to each table's own speed, without changing executables. Previous
+plan: [relay-gpt-readiness-and-factory-parallel-plan-20261027.md](relay-gpt-readiness-and-factory-parallel-plan-20261027.md).
+Later implementation is recorded in the [acceptance ledger](../development/unified-main.md).
 
-## 1. 整理目标
+## 1. Cleanup objective
 
-保留现有`robofrontier/`、`scripts/`、`configs/`、`prompts/`、`.agents/`、
-`tests/`、`assets/`、`docs/`、`runs/`、`outputs/`结构。
-使主session合并时能明确：Relay的最终任务是什么、默认从哪里启动、
-九项完成证据在哪里、哪些共享代码需要统一集成，以及什么仍未完成。
+Retain `robofrontier/`, `scripts/`, `configs/`, `prompts/`, `.agents/`, `tests/`,
+`assets/`, `docs/`, `runs/` and `outputs/`. Make the final Relay task, default
+entry, nine-case evidence, shared merge changes and unfinished work clear to
+the receiving main session.
 
-“最终默认只留一份”指一份权威定义和一个当前默认入口，
-不把8／12／16臂、L1／L2／L3这九种必要输入错误合并成同一几何。
-不把历史证据改写成最终规则，也不把当前仍未接好的功能说成已经完成。
+One final default meant one authoritative definition/current entry, not merging
+necessary 8/12/16-arm × L1/L2/L3 inputs into one geometry. Do not rewrite history
+as final rules or claim unfinished integration is complete.
 
-用户提供的未来主session任务是交接背景：当前不执行合并／移除worktree、
-公共harness重构、工厂美化／镜头Demo、墙字修改或Codex上下文设置。
+The user's future main-session task was handoff context. This round did not
+merge/remove worktrees, refactor the shared harness, enrich/film the Factory,
+change wall lettering or adjust Codex context settings.
 
-## 2. 本轮检查范围与盘点
+## 2. Inspection scope and inventory
 
-已检查当前分支相对main的文件／提交差异、目录链接、当前任务及公开投影、
-Relay构建／规划／恢复／启动／复核／渲染代码、主要引用和回归测试职责、
-关键实验executor的依赖链接、媒体与轨迹包目录。
-当前session JSONL按行遍历了用户消息，结合交接文档核对最终要求；
-没有把“读过相关模块与入口”夸大为逐行审查了整个项目或其他三个会话。
+Inspection covered branch/main file/commit differences, directory links,
+task/public projections, Relay build/planning/recovery/launch/review/render code,
+references/test responsibilities, key executor dependency links and media/motion
+packages. The session JSONL's user messages were traversed line by line and
+cross-checked with handoffs. Reading relevant modules/entries was not represented
+as line-by-line review of the entire project or other three sessions.
 
-盘点时当前分支HEAD为`16e8e16`；main基线为`d3e5916`。
-此前GPT规划文档尚未提交，必须保留。
+Branch HEAD was `16e8e16`, main baseline `d3e5916`. The preceding GPT plan was
+uncommitted and had to remain preserved.
 
-| 内容 | 只读盘点结果 | 意义 |
+| Content | Read-only inventory | Implication |
 | --- | --- | --- |
-| Git跟踪文件 | 5773个 | 其中大量是历史环境，不是本分支新加的临时文件 |
-| `configs/`跟踪内容 | 4434文件，约526MiB | 不应在Relay分支顺手清掉其他类别或公共基线 |
-| Relay命名历史环境 | 153目录，约180.8MiB跟踪文件 | 当前默认仅九项，但旧版仍有构建／测试／复现引用 |
-| R16六场景／R17六场景 | 各约10.2MiB跟踪内容 | 不是可直接删除的一组重复文件，语义与依赖不同 |
-| R16/R17相同跟踪内容 | 本次识别24文件，约3.8MiB逻辑字节 | 可能已经共享inode／COW，不能据逻辑大小承诺磁盘节省 |
-| 本地Python缓存 | 88个pyc，约1.8MiB | 可重建且不参与合并，属于低风险删除候选 |
-| 长交接说明 | `relay-continuation.md`约52KB；compact checkpoint约35KB | 最终入口需收敛，不应再让后来者在多轮“最新”中找真实状态 |
+| Git-tracked files | 5773 | Many were historical environments, not new temporary branch files |
+| Tracked `configs/` | 4434 files, about 526MiB | Relay cleanup must not remove other families/shared baseline |
+| Relay-named historical environments | 153 directories, about 180.8MiB tracked | Only nine defaults, but old versions still supported builds/tests/reproduction |
+| Six R16 / six R17 scenes | About 10.2MiB tracked each | Not interchangeable duplicates; dependencies/semantics differed |
+| Identical tracked R16/R17 content | 24 files, about 3.8MiB logical | Could already share inodes/COW; logical size was not promised disk savings |
+| Local Python caches | 88 pyc, about 1.8MiB | Reproducible, unmerged, low-risk removal candidates |
+| Long handoffs | `relay-continuation.md` about 52KB; compact checkpoint about 35KB | A concise final entry should replace searching successive latest updates |
 
-逻辑文件大小不是实际可回收磁盘量；assets在Git外，APFS／硬链接也影响占用。
+Logical size was not reclaimable storage. Ignored assets, APFS and hardlinks
+also affected usage.
 
-## 3. 首先保护的内容
+## 3. Protect first
 
-### 3.1 共享目录不能按本分支垃圾删除
+### 3.1 Shared directories are not branch garbage
 
-本worktree的`runs/`、`outputs/`、`.venv/`、`vendor/`、`docs/generated/`
-均链接到主仓库共享目录。清理时不递归跟随这些链接；不使用全局`git clean -fdx`。
-环境中的未跟踪`assets/`也可能是独立物化且必须保留的资源，不等于可重建缓存。
+`runs/`, `outputs/`, `.venv/`, `vendor/` and `docs/generated/` linked to primary
+shared directories. Cleanup must not follow them recursively or use global
+`git clean -fdx`. Untracked scene `assets/` may be independently materialized
+required resources, not reproducible caches.
 
-### 3.2 Oracle证据保护范围
+### 3.2 Oracle evidence
 
-- 最终完成选择及来源：L1来自`relay-nine-ab1abec-20261026-032833`；
-  L2/L3来自`relay-r16-38b5423-20261026-171651`。
-- 每项原始60Hz motion、chunk/index/hash、冻结源模型／素材、原始task、
-  actions／events／报告、实际完成截止与记录前缀证明。
-- `USER-GOAL-ALL-NINE-COMPLETE.json`、用户验收与原native结果；
-  native仍有未通过时不能清理成一份“native九项成功”。
-- 真失败、恢复请求／结果、控制修正源码、热加载源hash／ack与干预分类。
-  不因最后成功，就删除证明失败原因和恢复历史的原始记录。
-- 回归fixtures与测试，尤其翻面抓取、末端开口／撤离、支撑和未知动作检查。
-- 当前session原始文件与Git历史保持原处，不改写、不清除。
+- Final selections: L1 from `relay-nine-ab1abec-20261026-032833`; L2/L3 from `relay-r16-38b5423-20261026-171651`.
+- Each original 60Hz motion/chunk/index/hash, frozen source model/assets, original task, actions/events/reports, actual completion cutoff and prefix proof.
+- `USER-GOAL-ALL-NINE-COMPLETE.json`, user acceptance and original native results. Native failures must not become a cleaned-up claim of nine native successes.
+- Actual failures, recovery requests/results, control-correction source, hot-loaded source hashes/acks and intervention classification. Final success does not justify deleting failure/recovery evidence.
+- Regression fixtures/tests, especially flipped grasp, final aperture/withdrawal, support and uncertain actions.
+- Original session files and Git history in place, unchanged.
 
-### 3.3 媒体与复用数据
+### 3.3 Media and reusable data
 
-| 重要目录（主仓库共享数据） | 当前逻辑规模 | 保留理由 |
+| Important primary shared directory | Logical size | Retention reason |
 | --- | --- | --- |
-| `outputs/oracle/relay-20x-20261027/` | 98文件，约501MiB | 成对视频、逐帧映射、核验、首末图、报告 |
-| `outputs/oracle/relay-edited-tracks-20261027/` | 1043文件，约730MiB | 九项剪辑60Hz状态、源模型、事件、保留区间、来源hash |
-| `outputs/oracle/relay-nine-videos-20x-20261027/` | 9文件，约192MiB | 用户要求的简单背景集中视频目录 |
-| `outputs/robo-factory/relay-nine-videos-20x-20261027/` | 9文件，约278MiB | 用户要求的工厂背景集中视频目录 |
-| `outputs/robo-factory/relay-recorded-20261027/` | 603文件，约51MiB | 与真实源版本精确匹配的工厂模型和资源 |
+| `outputs/oracle/relay-20x-20261027/` | 98 files, about 501MiB | Paired videos, per-frame mappings, checks, endpoint images/reports |
+| `outputs/oracle/relay-edited-tracks-20261027/` | 1043 files, about 730MiB | Nine edited 60Hz streams, source models/events/retained intervals/hashes |
+| `outputs/oracle/relay-nine-videos-20x-20261027/` | 9 files, about 192MiB | User-requested consolidated simple-background videos |
+| `outputs/robo-factory/relay-nine-videos-20x-20261027/` | 9 files, about 278MiB | User-requested consolidated Factory videos |
+| `outputs/robo-factory/relay-recorded-20261027/` | 603 files, about 51MiB | Factory model/assets exactly matching recorded sources |
 
-冻结源、asset-cache与各source可能已用硬链接；不要根据目录累计730MiB就重复去重。
-旧完整／旧4x视频属于保留对照资料，先停止作为默认交付入口；
-无原视频和时间映射时不可仅留压缩快放版。集中视频目录本身不能被当成重复垃圾删掉。
-确有同hash复制时，可在保持用户访问路径的前提下研究硬链接／COW，
-而非直接删文件；共享数据实际整理另做清单，不混进代码分支删除。
+Frozen sources, asset-cache and source directories could already be hardlinked;
+730MiB cumulative size did not justify repeated deduplication. Retain old complete/
+4x comparison videos while removing them as defaults. Without original video/time
+mapping, accelerated copies alone are insufficient. Consolidated folders are
+not disposable duplicates. For exact same-hash copies, investigate hardlinks/COW
+while retaining user paths. Inventory shared-data changes separately from code removals.
 
-## 4. 先解决“worktree消失后还能不能读”
+## 4. Surviving worktree removal
 
-这是比节省几MiB更紧迫的交接问题。
+This was more urgent than saving a few MiB.
 
-`suite/source_snapshot.freeze_executor`冻结Python及harness/catalog字节，
-但对configs、assets、docs、.agents等建立链接，不是完整独立归档。
-关键两批各发现8条executor链接直接指向当前Relay worktree，包括：
-`executor/configs`、`assets`、`docs`、`.agents`、`config.json`，
-以及经过worktree再次指向共享区的runs／outputs／vendor。
-之后移除worktree可能使这些链接断裂。
+`suite/source_snapshot.freeze_executor` froze Python/harness/catalog bytes but
+linked configs, assets, docs and .agents, rather than producing a fully independent
+archive. Each of the two key batches had 8 executor links directly into this
+Relay worktree: `executor/configs`, `assets`, `docs`, `.agents`, `config.json`
+and runs/outputs/vendor reached through the worktree. Removal could break them.
 
-此外，最新视频报告与轨迹包README都链接到本worktree的
-`docs/relay-recorded-video.md`；合并后也应提供稳定的主仓库／归档说明路径。
+Latest video reports/package README also linked to this worktree's
+`docs/relay-recorded-video.md`, requiring stable primary/archive navigation.
 
-实施整理时应先建立依赖清单，区分：
+Inventory dependencies in three groups:
 
-- 历史记录中的来源路径字符串：保留历史事实，不为了好看批量改hash或重写报告。
-- 实际加载必须存在的文件／链接：导出所需依赖到稳定位置，按hash核对，
-  为其创建新的派生归档／迁移索引；不能盲目把所有链接指向内容已变化的main。
-- 当前交付文档的导航链接：迁至合并后稳定位置或包内说明，不再依赖临时worktree路径。
+- Historical provenance strings: retain them; do not cosmetically rewrite reports/hashes.
+- Required files/links: export exact dependencies to durable storage, verify hashes and create separate derived archives/migration indexes. Never redirect every link to changed main content blindly.
+- Current delivery navigation: move to stable merged/package-local guidance instead of temporary worktree paths.
 
-不能据“run已有executor目录”便宣称归档完全自包含；也不能为了打断链接，
-把整个worktree和所有旧outputs无选择复制一遍。
+An executor directory alone did not establish a self-contained archive.
+Breaking links also did not justify copying the entire worktree/all old outputs.
 
-## 5. 删除、退役、收敛的具体候选
+## 5. Specific cleanup/retirement candidates
 
-### A. 可先清理的低风险内容
+### A. Low-risk cleanup candidates
 
-- 当前真实工作目录内的`__pycache__/`、`*.pyc`；已有忽略规则，无需新增框架。
-- 经枚举确认的本次工具残留／空partial文件，前提是没有活写入者且不属于失败证据。
-  本轮未发现新的可直接删掉的大型临时文件，不能为追求清理数量扩大解释。
+- Actual worktree `__pycache__/` and `*.pyc`, already covered by ignore rules.
+- Enumerated tool leftovers/empty partials only after writer exit and excluding failure evidence. No newly disposable large temporary file had been found; do not widen scope for a larger deletion count.
 
-### B. 有明确替代后可退役的入口／补丁
+### B. Retire only after explicit replacement
 
-| 当前文件 | 建议 | 删除前必须满足 |
+| Then-current file | Proposal | Required before removal |
 | --- | --- | --- |
-| `scripts/run_relay_oracle_batch.py` | 退役旧限时／pilot批次入口，保留在历史executor中 | 当前唯一入口有文档和静态回归；历史复核不再依赖host文件 |
-| `scripts/declare_relay_goal_contacts.py` | 收敛声明后删除这类一次性append迁移脚本 | 最终规则由本类权威定义一次生成，公开任务同步 |
-| `scripts/render_relay_progress.py` | 退出当前媒体主入口，历史复现需要时归档 | 新导出覆盖来源／截止／真实运动／帧映射，旧视频来源不丢 |
-| `scripts/render_relay_underslung.py` | 退役提案图／设计预览专用入口 | 最终装置预览由现有正式构建入口覆盖，重要图与参数保留 |
-| `scripts/revise_relay_scenes.py` | 从默认构建中移除迭代式迁移用途 | 最终环境能直接装载／重建，不再逐版本升级才能得到当前器材 |
+| `scripts/run_relay_oracle_batch.py` | Retire old timed/pilot batch entry, preserving frozen executors | Document/static-test the sole replacement; historical review no longer depends on host files |
+| `scripts/declare_relay_goal_contacts.py` | Consolidate declarations, then retire one-off append migration | Generate final family rules once and align public tasks |
+| `scripts/render_relay_progress.py` | Leave the active media path; archive for historical reproduction | New export retains source/cutoff/actual motion/frame mapping and old provenance |
+| `scripts/render_relay_underslung.py` | Retire proposal/design-preview-only entry | Formal builder covers final mechanisms and retains important images/parameters |
+| `scripts/revise_relay_scenes.py` | Remove iterative migration from default builds | Load/rebuild final environments directly without upgrading through each revision |
 
-这些只是可审查候选，不是本轮已删除。未找到导入引用也不等于可删，
-CLI、文档、保存的命令和运行快照也属于引用。
+These were review candidates, not completed deletions. No Python import did not
+mean no reference: CLI commands, docs, saved commands and snapshots also counted.
 
-### C. 名字像临时文件，但目前不能删
+### C. Temporary-sounding names that still mattered
 
-- `scripts/diagnose_relay_descent.py`被最终记录复核与用户终点检查导入，
-  不是仅供人临时执行的脚本；若要简化，先把可复用只读加载能力放回本类模块，
-  CLI再做薄入口，之后才讨论是否退役旧名字。
-- `relay_contact_escape.py`、`relay_user_goal_policy.py`、`relay_donor_staging.py`、
-  `relay_observation_state.py`保有实际修正行为；不可因有`install()`就直接删掉。
-- `relay_live_recovery.py`是类型化恢复与来源／请求编号／未知执行的职责，
-  不是一堆无效日志；若收敛补丁，必须保留这些执行约束。
-- `rigid_relay.py`仍提供最终L2/L3使用的环、弹簧等构建能力，
-  不能因文件名是早期版本就连行为一起删掉。
-- `relay_oracle.py`仍被旧套件验证／校准入口引用；属于公共历史支持，
-  当前分支不能单方面把相关全局入口清空。
+- `scripts/diagnose_relay_descent.py` was imported by final-record review/user endpoint checks. Move reusable read-only loading into the family module before making a thin CLI/retiring a name.
+- `relay_contact_escape.py`, `relay_user_goal_policy.py`, `relay_donor_staging.py`, `relay_observation_state.py` retained real corrections; `install()` alone did not justify deletion.
+- `relay_live_recovery.py` owned typed recovery, provenance, IDs and uncertainty, rather than useless logs. Consolidation had to retain those constraints.
+- `rigid_relay.py` still built final L2/L3 rings/springs; an early filename did not make the behavior obsolete.
+- `relay_oracle.py` remained referenced by old suite verification/calibration. The family branch could not unilaterally remove shared historical support.
 
-### D. 旧场景与生成数据：依赖解除前保留
+### D. Keep old scenes/generated data until dependencies are removed
 
-R17构建调用R16；R16又从8／16臂R13、12臂R15源构建。
-当前默认九项直接读取3项L1和6项R17，但“当前不默认选择”不等于“无依赖”。
-旧compiled-physics／workstation注册表也是校验／身份映射输入，不能直接删掉大JSON。
+R17 built from R16; R16 used 8/16-arm R13 and 12-arm R15 sources. Nine defaults
+loaded 3 L1 and 6 R17 scenes directly; nondefault did not mean dependency-free.
+Old compiled-physics/workstation registries still supported identity checks,
+so large JSON files were not automatically disposable.
 
-后续可把最终环境作为自包含默认输入，构建器只读最终参数；
-解除链式升级、测试和文档引用后，才将无运行依赖的旧版本移出当前输入区。
-历史精确源、许可／素材、来源hash必须先独立归档，不能只指望Git保住未跟踪资产。
-公共基线带来的大量旧环境整理由主session统一决定，不在本Relay分支制造大规模删除冲突。
+A later self-contained default could build from final parameters alone. Only
+after removing chained-upgrade/test/doc dependencies could unused versions leave
+active inputs. Archive exact sources, licenses/assets and hashes independently
+first; Git does not preserve ignored assets. Shared-baseline environment cleanup
+belonged to the main session, avoiding broad Relay deletion conflicts.
 
-## 6. 将说明与代码整理成真正的最终默认
+## 6. Consolidate actual final defaults
 
-### 6.1 规则与说明
+### 6.1 Rules and guidance
 
-不再采用“基础规则＋R16追加＋R17追加＋50mm补注”的表达。
-未来最终任务说明按当前真实状态完整重写一遍：器材、静态布局、目标、
-交接／允许接触／堆叠／近桌松爪、50mm边缘容差、真实释放／落地、违规与恢复。
-不要求额外速度或静止持续时间，不把Oracle模板中心当目标。
-当前20／30mm释放口径冲突需实际对齐，不能只删掉其中一段文字假装代码也统一了。
-九项的差异由参数表达；task、public-task及本类判定共享同一权威定义。
+Replace layered base/R16/R17/50mm-addendum explanations with one complete task
+specification: equipment, static layout, goal, handoff/allowed contacts/stacking/
+near-table release, 50mm edge tolerance, actual release/landing and violations/
+recovery. Do not add velocity/stillness gates or treat Oracle template centers
+as targets. The 20/30mm release discrepancy required actual code alignment,
+not merely deleting contradictory prose. Parameters express nine-case variation;
+task/public-task/evaluator share one authority.
 
-公开输入只保留最终任务事实，不放版本演进、实验搜索轨迹、修复ID或Oracle答案。
-历史版本及原始报告保持自身语义，不被“整理最终态”重写。
+Public inputs contain final task facts, not version history, search traces,
+repair IDs or Oracle answers. Old versions/reports retain their own semantics.
 
-### 6.2 默认代码路径
+### 6.2 Default code path
 
-- 选择一个当前Relay启动入口，显式读取当前本类catalog、受版本控制的配置与实际模型。
-  不能默认到`runs/oracle/relay-key-units-20261025-213449/inputs/harness.json`找配置。
-- 当前九任务入口虽会调用live runner，但默认未启用pipeline等路径；
-  几个最终恢复`install`也没有全部从普通入口接入。需先写明“声明的最终默认”
-  并做静态／局部回归，不能把曾热更新成功的原现场当成当前HEAD默认能重现九项的证明。
-- 将已确定有效的修正纳入本类正常调用路径，移除层叠的`_before_*`／revision安装包装；
-  已冻结的热加载源码与ack另作历史证据保留，不能反向删掉实际能力。
-- 保持现有模块路径，优先收敛函数与调用，而非为追求新名字大规模重命名／拆目录。
-- 删除旧测试只因新默认不再需要某段旧实现是不够的；应先保证对应风险行为仍有回归。
-  不以删失败测试来制造全绿；已有资源缺失的测试记录也保留真实范围。
+- Select one Relay entry with explicit family catalog, tracked configuration and actual model. Do not implicitly load `runs/oracle/relay-key-units-20261025-213449/inputs/harness.json`.
+- The nine-case entry called the live runner but did not default-enable pipeline and related paths. Final recovery installs were not all connected. Declare the intended default and run static/local regressions; a successful hot-patched world did not prove nine cases reproducible from HEAD.
+- Integrate verified corrections into normal family calls, replacing layered `_before_*`/revision installers. Retain frozen hot-load source/acks as evidence without deleting useful behavior.
+- Keep module paths and consolidate calls/functions before broad renaming/directory changes.
+- Obsoleting an implementation was insufficient to delete its tests. Retain regression coverage for the underlying risk; do not manufacture green results by removing failures. Preserve honest scope of resource-missing tests.
 
-### 6.3 文档入口
+### 6.3 Documentation entries
 
-拟最终只保留少量当前入口：
+Proposed concise active guidance:
 
-1. 一份`docs/relay.md`：当前任务事实、九项选择、默认入口、完成证据索引和明确未完成项。
-2. 现有`docs/relay-recorded-video.md`：轨迹、剪辑、工厂迁移与当前实际能力。
-3. 一份合并交接说明：共享补丁、冲突、重要数据与路径迁移、GPT就绪缺口。
+1. `docs/relay.md`: task facts, nine-case selection, default entry, evidence index and explicit unfinished work.
+2. Existing `docs/relay-recorded-video.md`: motion, editing, Factory migration and actual capabilities.
+3. One merge handoff: shared patches/conflicts, important data/path migration and GPT readiness gaps.
 
-现有长continuation／compact、R8／R9／R11演进等进入既有`docs/history/`归档职责，
-先保留完整内容与可追溯引用，再压缩当前入口；不继续在顶端不断prepend“最新”。
-公共README／架构中其他家族的旧状态不在本分支擅自改写；提交本类准确摘要供主session整合。
-上述路径是拟议结果，本轮尚未创建或移动这些最终文档。
+Long continuation/compact notes and R8/R9/R11 evolution would move into existing
+`docs/history/`, retaining full contents/traceable references before shortening
+active navigation. Stop prepending successive latest updates. Other families'
+shared README/architecture status was not this branch's authority; supply an
+accurate Relay summary for main integration. These paths were proposals, not
+newly created/moved documents in this round.
 
-## 7. 需要交给主session的内容
+## 7. Main-session handoff
 
-- 本分支可独立合并的最终Relay定义／模块／测试／证据索引，以及明确退役的文件清单。
-- 共享修改的单独清单：v2任务投影／就绪与Relay判定接线、公共catalog装配、工厂播放接口。
-- Relay与Mosaic同名`motion_edit.py`、同schema异义及测试文件冲突，必须语义合并。
-- 多桌独立剪辑时钟、较大无意义被动振荡删除仍待实施；每桌完成后保持终态已确定。
-  保留现有剪辑包的全部源时间／原帧号／cut边界，不让主session再从视频识别一遍。
-- 工厂精确源替换、材质／资源／贴图来源、近远景与镜头能力完整保留；
-  不为清理删除主session后续丰富工厂需要的素材、许可和参考图。
-- 移除墙面Robo Factory展示文字、固定基线下测量丰富工厂的渲染成本、
-  30fps及各类自己的倍速／航拍Demo，均为主session后续任务，不在这里改全局默认。
-- Codex400k上下文／350k自动compact属于宿主设置核查，与Relay合并文件不同；
-  当前不修改、不把其写进仓库当成已生效配置。
+- Independently mergeable final Relay definitions/modules/tests/evidence index and explicit retired-file list.
+- Separate shared changes: v2 projection/readiness/Relay evaluation, shared catalogs and Factory playback interfaces.
+- Semantic resolution of Relay/Mosaic `motion_edit.py`, same-schema/different-meaning and test-name collisions.
+- Independent station edit clocks and prolonged useless passive-oscillation removal remained pending; final-state holding was then agreed. Retain all source times/frames/cut boundaries instead of asking main to infer stillness from video again.
+- Preserve exact Factory source replacement, material/resource/texture provenance and near/far/camera capability. Cleanup must not discard assets/licenses/references needed for later detail.
+- Robo Factory wall-lettering removal, fixed-baseline render-cost comparison, 30fps, family-specific speeds and aerial demos were later main-session work, not global changes here.
+- Requested Codex 400k context/350k automatic compaction concerned host settings, not Relay merge files. This round neither changed nor claimed active repository configuration for them.
 
-## 8. 实施顺序与验收
+## 8. Proposed order and acceptance
 
-1. 先保护并索引原始证据、素材、源快照、会话来源和所有当前引用；
-   修复未来移除worktree会断的依赖，保留历史hash与来源事实。
-2. 再收敛最终Relay规则、默认配置／入口与已验证修正，补齐本类静态和只读验收。
-3. 然后退役被替代脚本、消除重复声明与无效安装层，更新引用和测试。
-4. 当前说明只描述最终状态，历史迁入归档职责，给主session一份简洁交接。
-5. 最后才清理已确认无引用、可再生的缓存／派生副本；重要数据不做破坏性删减。
+1. Protect/index original evidence, assets, source snapshots, session provenance and references; repair dependencies that worktree removal would break, retaining hashes/history.
+2. Consolidate final rules/default config/entry/verified corrections and complete static/read-only family checks.
+3. Retire replaced scripts, duplicate declarations and ineffective installer layers, updating references/tests.
+4. Keep active guidance about final state, archive history and supply a concise main-session handoff.
+5. Only then remove confirmed unreferenced reproducible caches/derived copies; do not destructively reduce important data.
 
-验收必须包括：九项冻结源及记录仍可读、重要媒体／剪辑hash不变、
-默认入口没有旧run隐式依赖、任务说明与实际判定一致、历史／辅助分类未洗白、
-本类回归通过、共享补丁单列，且不依赖将被移除的worktree路径才能回放。
-纯缓存删除不额外造测试；规则／加载与行为收敛才运行有意义的回归。
+Acceptance required readable nine-case frozen sources/records, unchanged important
+media/edit hashes, no implicit old-run default dependencies, matching rules/
+implementation, unchanged historical/assisted classification, passing family
+regressions, separate shared patches and replay independent of retiring worktrees.
+Pure cache deletion needed no extra tests; rule/loading/behavior consolidation
+needed meaningful regressions.
 
-本方案旨在减少主session的决策与冲突负担，不以文件数减少代替正确整理。
+The plan reduced receiving-session decisions/conflicts; fewer files alone did
+not establish correct cleanup.

@@ -1829,3 +1829,12 @@ unrelated paths, source overwrites and unverified links. Twelve focused installe
 checks pass. Both independent bundle pins and raw-Mosaic-chunk limits are now in
 the testing guide. The v3 bundle/receipts remain retained. New-source independent
 v4 Linux discovery and public fixture distribution remain pending at this commit.
+
+## English Relay cleanup-planning archive
+
+The 2026-10-27 read-only Relay cleanup plan now uses English. Its inventory,
+proposed removals, shared-link cautions, evidence/dependency boundaries and
+future main-session responsibilities remain historical, without performing
+cleanup or reopening old instructions. All numeric tokens and local links were
+checked in `english-relay-cleanup-verification.json`. Remaining English migration:
+eight tracked files / 33,097 Han characters.
