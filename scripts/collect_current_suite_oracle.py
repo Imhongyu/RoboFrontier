@@ -96,18 +96,18 @@ def collect():
 
 def page(records):
     groups=[]
-    labels={'transport':'物品传递','relay':'空中接力','mosaic':'火箭拼图','dial':'旋钮 / 手摇柄'}
+    labels={'transport':'Transport','relay':'Relay','mosaic':'Rocket Mosaic','dial':'Dial / crank'}
     for family,label in labels.items():
         cards=[]
         for r in [r for r in records if r['family']==family]:
-            cid=r['case_id'];state={'passed':'所选记录通过','paused':'用户暂停，未完成','failed':'失败 / 部分过程','not_run':'尚无 Oracle 轨迹'}[r['status']]
-            warning=' · 较早场景版本' if r.get('current_scene_matches') is False else ''
-            videos=''.join(f'<div><b>{label}</b><video controls preload="none" src="{cid}/{v}.mp4"></video><a href="{cid}/{v}.mp4" target="_blank">单独播放 / 下载</a></div>' for v,label in [('global','正面'),('global_rear','背面')]) if r.get('video_ready') else '<p>暂无可播放视频</p>'
-            cards.append(f'<article><h3>{cid}</h3><p>{state}{warning} · {r["report_count"]} 份历史报告</p><div class="views">{videos}</div><p><a href="{cid}/README.txt">来源说明</a> · <a href="{cid}/all-original-run-data/">本任务全部原始运行文件</a></p></article>')
+            cid=r['case_id'];state={'passed':'Selected recording passed','paused':'User-paused, incomplete','failed':'Failed / partial','not_run':'No Oracle trajectory'}[r['status']]
+            warning=' · Earlier scene revision' if r.get('current_scene_matches') is False else ''
+            videos=''.join(f'<div><b>{label}</b><video controls preload="none" src="{cid}/{v}.mp4"></video><a href="{cid}/{v}.mp4" target="_blank">Open / download</a></div>' for v,label in [('global','Front'),('global_rear','Rear')]) if r.get('video_ready') else '<p>No playable video</p>'
+            cards.append(f'<article><h3>{cid}</h3><p>{state}{warning} · {r["report_count"]} historical reports</p><div class="views">{videos}</div><p><a href="{cid}/README.txt">Source notes</a> · <a href="{cid}/all-original-run-data/">All original run files for this case</a></p></article>')
         groups.append(f'<section><h2>{label}</h2>'+''.join(cards)+'</section>')
     ready=sum(r.get('video_ready',False) for r in records)
     (OUT/'manifest.json').write_text(json.dumps(records,ensure_ascii=False,indent=2))
-    (OUT/'index.html').write_text(f'<!doctype html><meta charset="utf-8"><title>仅本轮36任务 · Oracle</title><style>body{{font:17px system-ui;background:#f1f5f7;color:#182631;max-width:1500px;margin:32px auto;padding:0 24px}}article{{background:white;border-radius:12px;margin:20px 0;padding:20px}}.views{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}video{{width:100%}}a{{color:#175d94}}p{{line-height:1.6}}</style><h1>仅本轮 36 个任务 · Oracle 文件夹</h1><p>不含之前其他实验。目前 {ready} 个任务已导出正反视频；未运行、失败、暂停和较早场景版本均单独标明。视频是带时间和倍速标注的快速总览，使用实际保存的状态，未启动新物理实验。每个任务保留所有历史报告，并链接本轮全部原始运行文件。</p><p><a href="frontier-v1-oracle-videos-and-reports.zip">下载视频与报告 ZIP</a> · <a href="manifest.json">索引</a></p>'+''.join(groups))
+    (OUT/'index.html').write_text(f'<!doctype html><meta charset="utf-8"><title>Selected 36 cases · Oracle</title><style>body{{font:17px system-ui;background:#f1f5f7;color:#182631;max-width:1500px;margin:32px auto;padding:0 24px}}article{{background:white;border-radius:12px;margin:20px 0;padding:20px}}.views{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}video{{width:100%}}a{{color:#175d94}}p{{line-height:1.6}}</style><h1>Selected 36-case Oracle delivery</h1><p>Other experiments are excluded. Currently {ready} cases have front/rear videos. Unstarted, failed, paused and earlier scene revisions are labeled separately. These accelerated overviews use recorded states with time/speed captions, without new physics. All historical reports and original run files remain linked.</p><p><a href="frontier-v1-oracle-videos-and-reports.zip">Download videos/reports ZIP</a> · <a href="manifest.json">Index</a></p>'+''.join(groups))
 
 
 def main():

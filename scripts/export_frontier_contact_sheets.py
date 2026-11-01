@@ -21,10 +21,10 @@ WIDTH, HEIGHT = 1920, 1200
 INK = '#182631'
 PAPER = '#f1f5f7'
 LABELS = {
-    'transport': ('物品传递', ['方块放置', '固定双孔插接', '弹性支撑板插接']),
-    'relay': ('空中接力', ['木条', '木条＋短环砝码', '木条＋绳索砝码']),
-    'mosaic': ('火箭拼图', ['下凹孔槽', '桌面网格', '无线桌面']),
-    'dial': ('弹簧密码旋钮', ['桌面固定齿轮', '浮空齿轮', '浮空手摇柄']),
+    'transport': ('Transport', ['Cube placement', 'Fixed two-slot insertion', 'Spring-board insertion']),
+    'relay': ('Relay', ['Beam', 'Beam + short-ring weight', 'Beam + cable weight']),
+    'mosaic': ('Rocket Mosaic', ['Recessed pockets', 'Table grid', 'Unmarked tabletop']),
+    'dial': ('Spring dial codebreaker', ['Fixed tabletop gear', 'Floating gear', 'Floating crank']),
 }
 
 
@@ -94,13 +94,13 @@ def render_case(case):
 
 
 def description(case):
-    text = f"{case['arms']} 臂"
+    text = f"{case['arms']} arms"
     if case['family'] == 'mosaic':
         text += f" · 7×{case['columns']}"
     elif case['family'] == 'dial':
-        text += f" · {case['dials']} 盘"
+        text += f" · {case['dials']} dials"
     elif case['family'] == 'relay':
-        text += f" · {case['arms']//2} 组"
+        text += f" · {case['arms']//2} groups"
     return text
 
 
@@ -113,8 +113,8 @@ def compose(family, cases, views):
     size = (margin*2 + cell_w*3 + gap*2, header + cell_h*3 + gap*2 + 80)
     sheet = Image.new('RGB', size, PAPER)
     draw = ImageDraw.Draw(sheet)
-    draw.text((margin, 30), title + ' · 九个环境', fill=INK, font=font(66))
-    draw.text((margin, 112), '行：D1 → D3    列：规模递增    |    当前版本初始状态 · 静态渲染', fill=INK, font=font(34))
+    draw.text((margin, 30), title + ' · Nine scenes', fill=INK, font=font(66))
+    draw.text((margin, 112), 'Rows: D1 → D3    Columns: increasing scale    |    Initial state, static render', fill=INK, font=font(34))
     for row in range(3):
         for col, scale in enumerate(scales):
             case = next(c for c in cases if c['level'] == row+1 and c.get('dials', c['arms']) == scale)
@@ -124,12 +124,12 @@ def compose(family, cases, views):
             draw.text((x+16, y+59), case['id']+f" · v{case.get('scene_revision',1)}", font=font(27), fill='#4b6170')
             yy = y + caption
             for view in views:
-                label = 'TOP · 俯视' if view == 'top' else 'FRONT · 正面'
+                label = 'TOP · Top' if view == 'top' else 'FRONT · Front'
                 draw.text((x+16, yy), label, fill=INK, font=font(28))
                 with Image.open(OUT/'individual'/case['id']/(view+'.png')) as image:
                     sheet.paste(image, (x+16, yy+view_label))
                 yy += HEIGHT + view_label + 12
-    draw.text((margin, size[1]-55), 'RoboFrontier · 36 场景 / 72 视图 · 无物理推进、无策略执行；展示取景自动留边，不修改环境。', fill=INK, font=font(28))
+    draw.text((margin, size[1]-55), 'RoboFrontier · 36 scenes / 72 views · No physics or policy execution; camera padding does not alter the world.', fill=INK, font=font(28))
     suffix = 'top-front' if len(views) == 2 else views[0]
     name = family + '-' + suffix
     sheet.save(OUT/(name+'.png'), optimize=True)
@@ -155,13 +155,13 @@ def main():
     sections = []
     for family, (title, _) in LABELS.items():
         plates = manifest['sheets'][family]
-        links = ' · '.join(f'<a href="{p["file"]}">{label} PNG 原图</a>' for p,label in zip(plates,('俯视＋正面','仅俯视','仅正面')))
+        links = ' · '.join(f'<a href="{p["file"]}">{label} Original PNG</a>' for p,label in zip(plates,('Top + front','Top only','Front only')))
         cards = []
         for c in [c for c in cases if c['family'] == family]:
             prefix = f'individual/{c["id"]}/'
-            cards.append(f'<article><b>{html.escape(c["id"])} — {description(c)}</b><div class="pair">'+''.join(f'<a href="{prefix}{v}.png"><span>{label}</span><img loading="lazy" src="{prefix}{v}.png"></a>' for v,label in [('top','俯视'),('global','正面')])+'</div></article>')
-        sections.append(f'<section id="{family}"><h2>{title}</h2><p>{links}</p><a href="{plates[0]["file"]}"><img class="plate" src="{plates[0]["preview"]}"></a><details><summary>展开九个环境的 18 张独立高清图</summary>{"".join(cards)}</details></section>')
-    (OUT/'index.html').write_text('<!doctype html><meta charset="utf-8"><title>RoboFrontier · 36 场景图册</title><style>body{font-family:system-ui;background:#f1f5f7;color:#182631;margin:32px auto;max-width:1500px;padding:0 24px}h1{font-size:36px}a{color:#175d94}nav{position:sticky;top:0;background:#f1f5f7;padding:16px 0}nav a{margin-right:24px}.plate{max-width:100%;max-height:1100px;object-fit:contain;object-position:left}section{margin:40px 0}article{background:white;padding:20px;margin:20px 0;border-radius:12px}.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}.pair img{width:100%}.pair span{display:block}summary{cursor:pointer;font-size:20px;padding:16px}</style><h1>RoboFrontier · 36 场景 / 72 个视图</h1><p>当前环境初态。点击大图查看无损原图，或展开每个环境的独立高清图。每张原始视图 1920×1200。展示相机自动留边，未改动物理世界，也未恢复实验。</p><nav>'+''.join(f'<a href="#{f}">{t[0]}</a>' for f,t in LABELS.items())+'</nav>'+''.join(sections))
+            cards.append(f'<article><b>{html.escape(c["id"])} — {description(c)}</b><div class="pair">'+''.join(f'<a href="{prefix}{v}.png"><span>{label}</span><img loading="lazy" src="{prefix}{v}.png"></a>' for v,label in [('top','Top'),('global','Front')])+'</div></article>')
+        sections.append(f'<section id="{family}"><h2>{title}</h2><p>{links}</p><a href="{plates[0]["file"]}"><img class="plate" src="{plates[0]["preview"]}"></a><details><summary>Expand 18 individual high-resolution images for nine scenes</summary>{"".join(cards)}</details></section>')
+    (OUT/'index.html').write_text('<!doctype html><meta charset="utf-8"><title>RoboFrontier · 36-scene atlas</title><style>body{font-family:system-ui;background:#f1f5f7;color:#182631;margin:32px auto;max-width:1500px;padding:0 24px}h1{font-size:36px}a{color:#175d94}nav{position:sticky;top:0;background:#f1f5f7;padding:16px 0}nav a{margin-right:24px}.plate{max-width:100%;max-height:1100px;object-fit:contain;object-position:left}section{margin:40px 0}article{background:white;padding:20px;margin:20px 0;border-radius:12px}.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}.pair img{width:100%}.pair span{display:block}summary{cursor:pointer;font-size:20px;padding:16px}</style><h1>RoboFrontier · 36 scenes / 72 views</h1><p>Initial scene states. Open full-size lossless images or expand individual views. Each original is 1920×1200. Camera padding changes no physics and resumes no experiment.</p><nav>'+''.join(f'<a href="#{f}">{t[0]}</a>' for f,t in LABELS.items())+'</nav>'+''.join(sections))
     print(OUT/'index.html', flush=True)
 
 

@@ -1514,3 +1514,18 @@ comparison and passing/failing reports remain in
 `runs/engineering/main-integration-oracle-final-20261102/`. No paid inference
 or new full video was started. Remaining fixture packaging, English migration,
 hardware/provider qualification and final publication gates stay open.
+
+## English historical display generators
+
+Eight historical collection, contact-sheet, video-index, concept-preview and
+Dial/Relay/Mosaic display generators now emit English captions. Original status
+labels still distinguish selected success, incomplete/user-paused runs and older
+scene revisions. Concept sketches remain explicitly labeled as concepts.
+
+Each edited Python file parses, and its AST is identical after replacing string
+constants only. Numeric drawing coordinates, execution paths, input/output paths,
+record selection and physics are unchanged. No generator, renderer, world or
+model was executed for this text migration, so no newly rendered layout is
+claimed. The comparison receipt is `english-display-verification.json` under the
+2026-11-02 Oracle engineering directory. Tracked text now contains 42 files /
+70,259 Han characters; the repository-wide English gate remains open.

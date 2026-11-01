@@ -18,10 +18,10 @@ def arrow(a,b,c,w=7,head=18):
     d.polygon([b,(b[0]-head*math.cos(t-.55),b[1]-head*math.sin(t-.55)),
                (b[0]-head*math.cos(t+.55),b[1]-head*math.sin(t+.55))],fill=c)
 
-text(60,38,'按压解锁旋钮：先按入，再旋转，松开后卡位',44)
-text(65,102,'同一组角度与计分规则；新增可见的轴向按钮和真实机械定位结构。',24,MUTED)
+text(60,38,'Press-to-turn: press, rotate, release into a detent',44)
+text(65,102,'Same angles and scoring; adds a visible axial button and mechanical detents.',24,MUTED)
 rr((52,155,1050,1030));rr((1080,155,1748,1030))
-text(90,180,'正面：看角度并操作中心按钮',28)
+text(90,180,'Front: read the angle and operate the center button',28)
 
 # Main top-down dial
 cx,cy,R=535,570,290
@@ -42,14 +42,14 @@ d.ellipse((cx-48,cy-48,cx+48,cy+48),fill='#EF6258',outline='white',width=4)
 d.ellipse((cx-25,cy-25,cx+25,cy+25),fill='#C93C35')
 # Press-in and turn cues
 arrow((cx,cy-275),(cx,cy-112),BLUE,8,20)
-text(cx+36,cy-278,'按入',26,BLUE)
+text(cx+36,cy-278,'Press',26,BLUE)
 d.arc((cx-126,cy-126,cx+126,cy+126),195,325,fill=ORANGE,width=9)
 arrow((cx+103,cy-73),(cx+88,cy-58),ORANGE,6,16)
-text(cx+145,cy-96,'按住旋转',23,ORANGE)
+text(cx+145,cy-96,'Hold and rotate',23,ORANGE)
 
 # Side-section panel
-text(1120,180,'侧剖面与动作顺序',28)
-text(1120,224,'按压行程会让定位销退出凹槽。',20,MUTED)
+text(1120,180,'Side section and action sequence',28)
+text(1120,224,'Pressing withdraws the pin from its detent.',20,MUTED)
 
 def section(y,pressed,title,subtitle):
     text(1120,y,title,22,INK)
@@ -68,17 +68,17 @@ def section(y,pressed,title,subtitle):
         d.line((1222,y+76,1227,y+76),fill=INK,width=5)
     text(1405,y+72,subtitle,18,BLUE if pressed else MUTED)
 
-section(265,False,'1  未按入','销卡在槽内')
-section(420,True,'2  按入','销退出凹槽')
-text(1120,575,'3  按住旋转 → 松开卡入刻度槽',21,INK)
+section(265,False,'1  Released','Pin in detent')
+section(420,True,'2  Pressed','Pin withdrawn')
+text(1120,575,'3  Hold and rotate → release into a detent',21,INK)
 rr((1110,625,1718,810),fill='#F5F1E8',out='#DDD5C8',r=14,w=2)
-text(1140,650,'视觉线索',23,INK)
-text(1140,692,'中心按钮有明显轴向行程。',20,MUTED)
-text(1140,729,'按下时按钮缩入，松手后卡位。',20,MUTED)
-text(1140,766,'指针和刻度始终保持清晰可见。',20,MUTED)
+text(1140,650,'Visual cues',23,INK)
+text(1140,692,'Visible axial button travel.',20,MUTED)
+text(1140,729,'Press inward; release to engage a detent.',20,MUTED)
+text(1140,766,'Pointer and marks remain visible.',20,MUTED)
 rr((1110,835,1718,960),fill='#EEF3F5',out='#D0DDE2',r=14,w=2)
-text(1140,860,'使用原有动作接口',22,INK)
-text(1140,900,'移动 / 夹爪 / 观察；顺序由 Agent 决定。',19,MUTED)
+text(1140,860,'Existing action interface',22,INK)
+text(1140,900,'Move / gripper / observe; agent chooses the order.',19,MUTED)
 
-text(58,1060,'结构示意，尚未验证推力、行程、销槽接触和旋转稳定性。',20,MUTED)
+text(58,1060,'Concept only; force, travel, detent contacts and rotation stability remain unverified.',20,MUTED)
 im.save(OUT);print(OUT)

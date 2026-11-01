@@ -18,10 +18,10 @@ def arrow(a,b,c=INK,w=6,head=16):
     d.polygon([b,(b[0]-head*math.cos(t-.55),b[1]-head*math.sin(t-.55)),
                (b[0]-head*math.cos(t+.55),b[1]-head*math.sin(t+.55))],fill=c)
 
-txt(62,38,'单侧开口护圈：只从开放侧接近旋钮',46)
-txt(66,102,'任务规则不变；护圈遮住其他方向，夹爪需判断入口、对准并从侧面抓取。',24,MUTED)
+txt(62,38,'Side-entry guard: approach from the open side',46)
+txt(66,102,'Same task rules. The guard blocks other approaches; align with the side opening.',24,MUTED)
 rr((52,158,1125,1005)); rr((1152,158,1748,1005))
-txt(90,185,'俯视图',30)
+txt(90,185,'Top view',30)
 
 # Main top-down scene
 cx,cy,R=585,580,300
@@ -54,11 +54,11 @@ d.rounded_rectangle((cx-35,cy-35,cx+35,cy+35),radius=14,fill=RED,outline='white'
 d.rounded_rectangle((cx-8,cy-115,cx+8,cy-34),radius=7,fill=ORANGE)
 # allowed approach: gripper fingers straddling knob from right through opening
 rr((875,cy-62,994,cy+62),fill='#E9F0F5',out=BLUE,r=16,w=4)
-txt(935,cy,'夹爪',23,BLUE,'mm')
+txt(935,cy,'Gripper',23,BLUE,'mm')
 d.rounded_rectangle((cx+70,cy-43,875,cy-27),radius=7,fill=BLUE)
 d.rounded_rectangle((cx+70,cy+27,875,cy+43),radius=7,fill=BLUE)
 arrow((870,cy),(cx+78,cy),BLUE,7,18)
-txt(840,cy-108,'唯一入口',25,BLUE,'mm')
+txt(840,cy-108,'Only entry',25,BLUE,'mm')
 # blocked approaches and X marks
 for a in (90,180,270):
     t=math.radians(a); start=(cx+(R+85)*math.cos(t),cy+(R+85)*math.sin(t))
@@ -67,10 +67,10 @@ for a in (90,180,270):
     mx,my=cx+(R+5)*math.cos(t),cy+(R+5)*math.sin(t)
     d.line((mx-12,my-12,mx+12,my+12),fill=RED,width=6)
     d.line((mx-12,my+12,mx+12,my-12),fill=RED,width=6)
-txt(360,270,'不可从上方压下',21,RED)
-txt(186,585,'侧面被挡',20,RED)
+txt(360,270,'No top-down entry',21,RED)
+txt(186,585,'Blocked side',20,RED)
 # Side / entrance cross-section
-txt(1190,185,'从入口看的侧视图',30)
+txt(1190,185,'Side view through entry',30)
 sx,sy=1450,470
 d.rectangle((1225,sy+140,1690,sy+184),fill='#B98F70',outline='#927057',width=3)
 # dial disk / knob
@@ -85,13 +85,13 @@ d.rectangle((sx-170,sy-28,sx+170,sy-3),fill=METAL)
 d.rounded_rectangle((sx-85,sy+47,sx-20,sy+62),radius=6,fill=BLUE)
 d.rounded_rectangle((sx+20,sy+47,sx+85,sy+62),radius=6,fill=BLUE)
 arrow((sx,sy+260),(sx,sy+75),BLUE,7,18)
-txt(1460,sy+276,'从开放侧水平进入',22,BLUE,'mm')
-txt(1200,sy+360,'侧墙高过旋钮顶部，限制从上方抓取。',22,INK)
-txt(1200,sy+404,'夹爪必须穿过入口，再闭合夹持。',22,INK)
+txt(1460,sy+276,'Enter horizontally from the open side',22,BLUE,'mm')
+txt(1200,sy+360,'Walls extend above the dial and block top grasps.',22,INK)
+txt(1200,sy+404,'Pass through the entry, then close to grasp.',22,INK)
 rr((1190,sy+390,1710,sy+530),fill='#F4EFE5',out='#DDD4C7',r=14,w=2)
-txt(1220,sy+405,'主要测量',22,INK)
-txt(1220,sy+445,'抓取成功 · 重试次数 · 目标角度误差',19,MUTED)
-txt(1220,sy+484,'到位耗时 · 接近路径 · 滑脱',19,MUTED)
+txt(1220,sy+405,'Measurements',22,INK)
+txt(1220,sy+445,'Grasp success · Retries · Angular error',19,MUTED)
+txt(1220,sy+484,'Time to target · Approach · Slips',19,MUTED)
 
-txt(62,1040,'示意 UI：护圈为概念几何。入口宽度、夹爪尺寸、全臂可达性及旋转行程仍需在 MuJoCo 中验证。',20,MUTED)
+txt(62,1040,'Concept guard geometry: entry width, gripper size, arm reach and rotation still need MuJoCo checks.',20,MUTED)
 im.save(OUT); print(OUT)

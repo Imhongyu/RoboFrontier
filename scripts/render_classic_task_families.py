@@ -22,15 +22,15 @@ def arrow(a,b,color=INK,width=5,head=13):
     d.polygon([b,(b[0]-head*math.cos(q-.55),b[1]-head*math.sin(q-.55)),
                (b[0]-head*math.cos(q+.55),b[1]-head*math.sin(q+.55))],fill=color)
 
-txt(66,45,'经典任务模板：动作原语简单，长程结构清楚',50)
-txt(70,110,'可映射到抓取、放置、移动、旋转或推移；图示是概念草图，不是已搭建的仿真。',24,MUTED)
+txt(66,45,'Classic tasks: simple actions, long-horizon structure',50)
+txt(70,110,'Maps to grasp, place, move, rotate or push. Concept sketches, not built simulations.',24,MUTED)
 cards=[(55,165,875,660),(925,165,1745,660),(55,695,875,1190),(925,695,1745,1190)]
 for c in cards: box(*c)
 
 # Sokoban
 x1,y1,x2,y2=cards[0]
-txt(x1+32,y1+24,'1  推箱子 · Sokoban',34,BLUE)
-txt(x1+34,y1+72,'只推不拉；推错位置可能形成死局。',23,MUTED)
+txt(x1+32,y1+24,'1  Sokoban',34,BLUE)
+txt(x1+34,y1+72,'Push only; a wrong push may create a deadlock.',23,MUTED)
 gx,gy=115,290; cell=74
 grid=[['#','#','#','#','#','#'],['#','.','.','.','.','#'],['#','.','@','$','.','#'],['#','.','.','.','G','#'],['#','#','#','#','#','#']]
 for r,row in enumerate(grid):
@@ -45,18 +45,18 @@ for r,row in enumerate(grid):
       d.rounded_rectangle((xx+14,yy+14,xx+57,yy+57),radius=7,fill=GOLD,outline='white',width=3)
     elif ch=='@':
       d.ellipse((xx+17,yy+17,xx+55,yy+55),fill=BLUE,outline='white',width=3)
-txt(x1+555,gy+4,'任务',22,INK)
-txt(x1+555,gy+45,'把箱子推到目标。',22)
-txt(x1+555,gy+104,'规划重点',22,BLUE)
-txt(x1+555,gy+145,'先站到箱子哪一侧？',20)
-txt(x1+555,gy+181,'这一步会不会把箱子',20)
-txt(x1+555,gy+217,'推入无法恢复的角落？',20)
-txt(x1+555,gy+285,'动作：走 / 推',22,MUTED)
+txt(x1+555,gy+4,'Task',22,INK)
+txt(x1+555,gy+45,'Push boxes onto targets.',22)
+txt(x1+555,gy+104,'Planning focus',22,BLUE)
+txt(x1+555,gy+145,'Which side to approach?',20)
+txt(x1+555,gy+181,'Could this push trap',20)
+txt(x1+555,gy+217,'the box in a corner?',20)
+txt(x1+555,gy+285,'Actions: walk / push',22,MUTED)
 
 # Blocks World
 x1,y1,x2,y2=cards[1]
-txt(x1+32,y1+24,'2  积木世界 · Blocks World',34,PURPLE)
-txt(x1+34,y1+72,'只能拿起最上面的积木，再放到桌面或另一块上。',22,MUTED)
+txt(x1+32,y1+24,'2  Blocks World',34,PURPLE)
+txt(x1+34,y1+72,'Lift only the top block; place it on the table or another block.',22,MUTED)
 def tower(cx,base,blocks):
   bw,bh=78,55
   for i,(label,color) in enumerate(blocks):
@@ -64,20 +64,20 @@ def tower(cx,base,blocks):
     d.rounded_rectangle((cx-bw//2,yy,cx+bw//2,yy+bh-3),radius=7,fill=color,outline='white',width=3)
     txt(cx,yy+bh//2,label,23,'white','mm')
   d.line((cx-95,base,cx+95,base),fill='#7E756B',width=4)
-txt(x1+88,y1+145,'当前',22,INK)
+txt(x1+88,y1+145,'Current',22,INK)
 tower(x1+205,y1+383,[('A',RED),('B',BLUE),('C',GREEN)])
 arrow((x1+285,y1+286),(x1+416,y1+286),PURPLE,5)
-txt(x1+352,y1+255,'先清上层',20,PURPLE,'mm')
-txt(x1+464,y1+145,'目标',22,INK)
+txt(x1+352,y1+255,'Clear the top',20,PURPLE,'mm')
+txt(x1+464,y1+145,'Target',22,INK)
 tower(x1+580,y1+383,[('C',GREEN),('A',RED),('B',BLUE)])
-txt(x1+664,y1+231,'一个移动会改变',19,MUTED)
-txt(x1+664,y1+266,'哪些块可拿、可放。',19,MUTED)
-txt(x1+664,y1+325,'动作：抓 / 放',21,MUTED)
+txt(x1+664,y1+231,'One move changes',19,MUTED)
+txt(x1+664,y1+266,'which blocks are accessible.',19,MUTED)
+txt(x1+664,y1+325,'Actions: grasp / place',21,MUTED)
 
 # Tower of Hanoi
 x1,y1,x2,y2=cards[2]
-txt(x1+32,y1+24,'3  汉诺塔 · Tower of Hanoi',34,GREEN)
-txt(x1+34,y1+72,'一次移动一片；大盘不能压在小盘上。',23,MUTED)
+txt(x1+32,y1+24,'3  Tower of Hanoi',34,GREEN)
+txt(x1+34,y1+72,'Move one disk; never place a larger disk on a smaller one.',23,MUTED)
 base=y1+380; pegs=[x1+180,x1+425,x1+670]
 for cx in pegs:
   d.line((cx,base-210,cx,base),fill='#8C8378',width=8)
@@ -87,15 +87,15 @@ for i in range(3):
   width=sizes[i]; yy=base-(i+1)*45
   d.rounded_rectangle((pegs[0]-width//2,yy,pegs[0]+width//2,yy+42),radius=13,fill=colors[i],outline='white',width=3)
 arrow((pegs[0]+95,base-125),(pegs[2]-95,base-125),GREEN,5,16)
-txt(pegs[0],base+18,'起点',20,MUTED,'ma')
-txt(pegs[1],base+18,'辅助柱',20,MUTED,'ma')
-txt(pegs[2],base+18,'目标',20,MUTED,'ma')
-txt(x1+45,y1+438,'动作简单；合法顺序形成递归依赖。',21,GREEN)
+txt(pegs[0],base+18,'Start',20,MUTED,'ma')
+txt(pegs[1],base+18,'Spare peg',20,MUTED,'ma')
+txt(pegs[2],base+18,'Target',20,MUTED,'ma')
+txt(x1+45,y1+438,'Simple actions; legal order creates recursive dependencies.',21,GREEN)
 
 # Rush Hour
 x1,y1,x2,y2=cards[3]
-txt(x1+32,y1+24,'4  华容道 / 交通堵塞 · Rush Hour',33,RED)
-txt(x1+34,y1+72,'车辆只能沿车身方向滑动；清出目标车辆的出口通道。',22,MUTED)
+txt(x1+32,y1+24,'4  Sliding traffic · Rush Hour',33,RED)
+txt(x1+34,y1+72,'Cars slide along their length; clear the target car exit.',22,MUTED)
 gx,gy,cell=1000,850,48
 for r in range(6):
   for c in range(6):
@@ -106,18 +106,18 @@ def car(c,r,length,horizontal,color,label):
   else: x,y=gx+c*cell+5,gy+r*cell+3; w,h=cell-10,length*cell-6
   d.rounded_rectangle((x,y,x+w,y+h),radius=11,fill=color,outline='white',width=3)
   txt(x+w/2,y+h/2,label,20,'white','mm')
-car(0,2,2,True,RED,'目标')
+car(0,2,2,True,RED,'Target')
 car(2,0,2,False,BLUE,'1')
 car(3,1,2,False,GREEN,'2')
 car(1,4,2,True,PURPLE,'3')
 car(4,3,2,False,GOLD,'4')
 arrow((gx+6*cell+10,gy+2*cell+cell//2),(gx+6*cell+65,gy+2*cell+cell//2),RED,5,14)
-txt(1340,gy+25,'先移动挡路车辆',22,INK)
-txt(1340,gy+70,'有些车先挪开后，',20,MUTED)
-txt(1340,gy+104,'可能又会堵住别的车。',20,MUTED)
-txt(1340,gy+164,'动作：推 / 滑动',21,MUTED)
-txt(1340,gy+221,'共享窄道可增加',20,RED)
-txt(1340,gy+255,'多臂时序与冲突。',20,RED)
+txt(1340,gy+25,'Move blocking cars first',22,INK)
+txt(1340,gy+70,'Moving one car may',20,MUTED)
+txt(1340,gy+104,'block another car.',20,MUTED)
+txt(1340,gy+164,'Actions: push / slide',21,MUTED)
+txt(1340,gy+221,'Shared narrow lanes add',20,RED)
+txt(1340,gy+255,'multi-arm timing conflicts.',20,RED)
 
 im.save(OUT)
 print(OUT)
