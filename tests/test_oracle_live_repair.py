@@ -104,6 +104,45 @@ class LiveRepairTests(unittest.TestCase):
             repair.adapter.close(dict(passed=False,scope='unit live repair'))
 
 
+    def test_task_reference_can_continue_only_after_original_stop_feedback(self):
+        from unittest.mock import patch
+        from robofrontier.suite.oracle_protocol import unresolved_robots
+        with tempfile.TemporaryDirectory() as tmp:
+            scene=Path(__file__).resolve().parents[1]/'configs/environments/spring_dial/frontier-v2-r11-dial-best5-n04-d1'
+            t=Trial(scene,Path(tmp)/'world',frames=False)
+            t.task['run_protocol']={'evaluation_semantics':'terminal_outcome_v2'}
+            try:
+                with patch.object(t,'step',side_effect=RuntimeError('Interrupted feedback')):
+                    with self.assertRaisesRegex(RuntimeError,'Interrupted feedback'):
+                        t.execute('original',{'A':('gripper',dict(width_m=.06,speed_m_s=.05))})
+                with self.assertRaisesRegex(RuntimeError,'original-action review'):
+                    t.execute('unreviewed',{'A':('gripper',dict(width_m=.08,speed_m_s=.05))})
+                repair=object.__new__(LiveRepair);repair.t=t;repair.adapter=None
+                repair.settle()
+                self.assertFalse(unresolved_robots(t))
+                self.assertEqual(t.actions[0]['results']['A']['status'],'uncertain')
+                t.execute('continued',{'A':('gripper',dict(width_m=.08,speed_m_s=.05))})
+                self.assertEqual(t.actions[-1]['results']['A']['status'],'completed')
+            finally:t.close(dict(passed=False,scope='Original-action resolution engineering test'))
+
+    def test_partial_start_failure_records_attempted_ids_and_leaves_unissued_calls_unstarted(self):
+        from unittest.mock import Mock
+        t=Trial.__new__(Trial);t.data=SimpleNamespace(time=0.);t._live_data=t.data
+        t.task={'workspace_world_m':{'lower':[-1]*3,'upper':[1]*3}}
+        t.cfg={};t.actions=[];t.events=[];t.tick=0;t.stride=1
+        t.check_stop=lambda:None;t.event=Mock();t.step=Mock()
+        t.arms={r:SimpleNamespace(validate=Mock(return_value={}),job=None,
+                 start=Mock(side_effect=RuntimeError('Lost start acknowledgement') if r=='B' else None))
+                for r in ('A','B','C')}
+        with self.assertRaisesRegex(RuntimeError,'Lost start acknowledgement'):
+            t.execute('partial-start',{r:('gripper',{}) for r in t.arms})
+        results=t.actions[0]['results']
+        self.assertEqual(results['A']['status'],'uncertain')
+        self.assertEqual(results['B']['status'],'uncertain')
+        self.assertEqual(results['C']['status'],'not_started')
+        self.assertEqual(results['B']['call_id'],'oracle-0-B')
+        t.arms['C'].start.assert_not_called();t.step.assert_not_called()
+
     def test_interrupted_action_is_recorded_before_next_call_id(self):
         t=object.__new__(Trial);starts=[];t.data=SimpleNamespace(time=0.);t._live_data=t.data
         t.task={'workspace_world_m':{'lower':[-1]*3,'upper':[1]*3}};t.cfg={};t.actions=[];t.events=[];t.tick=0;t.stride=1

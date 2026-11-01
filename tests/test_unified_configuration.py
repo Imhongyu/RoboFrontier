@@ -27,6 +27,20 @@ class UnifiedConfigurationTests(unittest.TestCase):
             self.assertEqual(plan(config)['task_count'], 4)
             self.assertEqual(config['render']['device'], 'nvidia')
 
+    def test_old_operator_toml_uses_its_own_defaults_shape(self):
+        for version in (1,2,3):
+            with self.subTest(version=version),tempfile.TemporaryDirectory() as temporary:
+                path=Path(temporary)/'old.toml'
+                path.write_text(f'schema_version={version}\n[batch]\nparallel=2\n')
+                config=load_configuration(path)
+                self.assertEqual(config['schema_version'],version)
+                self.assertEqual(config['batch']['parallel'],2)
+                self.assertEqual('factory' in config,version>=2)
+                self.assertEqual('oracle' in config,version>=3)
+                if version==3:self.assertNotIn('evaluation_mode',config['oracle'])
+                with self.assertRaises(ValueError):
+                    load_configuration(path,{'oracle':{'evaluation_mode':'task-reference'}})
+
     def test_invalid_options_fail_before_installation_or_launch(self):
         cases = [{'batch': {'paralell': 3}}, {'batch': {'parallel': True}},
                  {'batch': {'startup_interval_s': float('nan')}},

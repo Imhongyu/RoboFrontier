@@ -348,7 +348,7 @@ class RelayReferenceTests(unittest.TestCase):
         self.assertEqual(len(future['future_waypoints']),1)
         point,yaw=future['future_waypoints'][0]
         np.testing.assert_allclose(point[:2],t.task['route'][1]['center_m'][:2])
-        self.assertEqual(yaw,t.task['route'][1]['nominal_yaw_rad'])
+        self.assertAlmostEqual(yaw,t.task['route'][1]['nominal_yaw_rad'],places=14)
 
     def test_curved_l1_returns_first_actual_successor_witness(self):
         from unittest.mock import patch

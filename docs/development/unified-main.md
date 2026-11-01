@@ -1350,3 +1350,70 @@ included passed 206 Python checks on both Mac and Linux, plus 28 dispatcher
 checks. Evidence is under
 `runs/engineering/main-integration-task-atlas-20261101/`; these are offline
 protocol checks, not new model or task qualification.
+
+## Oracle terminal recovery and final local regression
+
+New schema-4 Oracle preparations freeze an explicit execution protocol with
+`task-reference` terminal semantics; `strict-process` remains available. Old
+schema-1/2/3 configurations and frozen executions keep their original shape and
+rules. Source scenes, score tolerances, asset locks and historical reports are
+unchanged. Reports expose task completion, process cleanliness, resolved
+execution, valid physics and strategy completion separately. Privileged Oracle
+work remains distinct from a scored model trajectory.
+
+The recovery audit removes historical-process vetoes from task-reference
+Mosaic/Relay paths, distinguishes current support from old drop/custody flags,
+and uses measured separation instead of preferred aperture as a release fact.
+Transport retains force-off release phases across rejected exits. Its empty-hand
+screen requires real upward board support, compares identical geometry-distance
+queries, bounds finger contact across the whole phase and rejects new/worsened
+penetration without falling back to insertion tolerance. Final scoring and normal
+arm/world guards are preserved. See [recovery boundaries](../oracle-recovery.md).
+
+The previously failing Linux Dial pressure-requalification test was reproduced
+unchanged. Nominal 20 mm regrasp failed at a measured 26.709 mm aperture. At that
+boundary the tilted stem's projection on the fingers' closing axis was 21.906 mm.
+Changing only the requested grasp width to the measured projection made the
+original physical test pass on macOS and Linux. The 5 mm actuator tolerances and
+actual bilateral airborne-support checks remain unchanged. Invalid projections
+still require geometry review. This fixes a reference geometry assumption, not
+the task evaluator or the physical drive's acceptance thresholds.
+
+The audit also reproduced a permanent historical-uncertainty veto after original
+terminal feedback was known. Resolution now matches the original call ID and
+robot without editing the uncertain history. Adapter acknowledgement fences need
+explicit execution-owner review of the adapter's own terminal result; no pending
+sequence is replayed. Legacy/strict behavior is retained. A separate regression
+reproduced partial-start acknowledgement loss escaping the action log; attempted
+IDs are now recorded as uncertain and unissued calls as `not_started` before
+another batch ID can be allocated. Invalid physics blocks new actions.
+
+The final selected group passed 391 tests on macOS (73.111 seconds) and Linux
+aarch64 (88.236 seconds), with no failures, errors or skips. It covers the four
+Oracle families, original physical Dial fault injection, real Panda owner-review
+and stop feedback, archived-pose socket screening, configuration versions,
+workflow supervision, Factory and source snapshots. These are overlapping
+engineering checks, not full task or real-provider qualification. Linux used
+the existing `8b47962499c1` dependency image with current source mounted read-only,
+network disabled and local temporary fixtures; it was not a newly built image.
+The first concurrent Linux run had two source-asset read-permission errors;
+that failed log is retained, followed by the complete passing isolated run.
+Both platforms additionally passed 235 protocol-only Python tests and 28
+dispatcher scenarios, with physics entrypoints blocked. Linux's first protocol
+invocation lacked writable fixture/bytecode directories and failed before a
+complete report. A new invocation used local executable temporary directories for
+the legacy fixture and Python cache while retaining read-only source; it passed
+without changing tests or production code. Both invocation logs remain retained.
+
+An independent new controlled Transport probe, `archived-pose-exit-v9`, completed
+three withdrawal actions and 8.040 simulation seconds, established separation
+and retained original acceptance of the selected material. Execution was resolved,
+physics valid and the scene hash unchanged. It explicitly reports the full
+24-goal task incomplete. Initialization used archived state 73 and new holding
+references; this is neither exact episode continuation nor a new physics-release
+qualification. Earlier attempts remain unchanged.
+
+Evidence is in `runs/engineering/main-integration-oracle-final-20261102/` and
+`runs/engineering/oracle-terminal-recovery-20261102/`. No paid model calls or new
+video rendering were performed. Full repository, real hardware/provider and
+publication gates remain open.

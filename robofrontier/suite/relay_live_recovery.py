@@ -15,6 +15,7 @@ import numpy as np
 from ..run_setup import write_json
 from ..robot_control import quat_matrix
 from . import relay_oracle_v2 as ref
+from .oracle_protocol import process_blocks
 
 
 def continuation_options(value):
@@ -78,8 +79,9 @@ class RelayLiveRecovery:
         if not request.get('review') or request.get('assisted') is not True:raise ValueError('External model repair requires review and assisted attestation')
         t=self.trial
         op=request.get('op')
-        if any(a.job is not None for a in t.arms.values()) and op!='stop':raise ValueError('Original execution unresolved; request controlled stop, never replay')
-        if t.monitor.violations:raise ValueError('Irreversible process history retained; repair cannot erase it')
+        if any(a.job is not None or getattr(a,'uncertainty_reported',False) for a in t.arms.values()) and op!='stop':raise ValueError('Original execution unresolved; request controlled stop, never replay')
+        if process_blocks(t) and t.monitor.violations:raise ValueError('Irreversible process history retained; repair cannot erase it')
+        if getattr(t,'physics_failure',None):raise ValueError('Invalid physical trajectory cannot be repaired as valid evidence')
         if op not in {'carry','place','release','place_release','handover','grasp','open','move_empty','stop','wait','resume'}:raise ValueError('No state/reset/physics editing operation')
         if 'joint_rad' in request and op!='move_empty':raise ValueError('Joint target applies only to observed empty-robot movement')
         if 'target_quaternion_wxyz' in request and op!='carry':raise ValueError('Payload orientation applies only to coupled carry')
@@ -127,13 +129,13 @@ class RelayLiveRecovery:
                 result['receivers']=receivers
             elif op=='grasp':
                 state=t.monitor.relay_v2.states[payload]
-                if state['dropped'] and not set(team)<=state['custody']:raise ValueError('Only original custody may recover a drop')
+                if process_blocks(t) and state['dropped'] and not set(team)<=state['custody']:raise ValueError('Only original custody may recover a drop')
                 body=t.data.body(payload);offset=request.get('offset_m',.44)
                 continuing=set(team)&support
                 if len(continuing)>1:raise ValueError('Already supported; use an explicit retained handover for regrasp')
                 retained={}
                 if continuing:
-                    if not set(team)<=state['custody']:raise ValueError('Partial support recovery belongs to original custody')
+                    if process_blocks(t) and not set(team)<=state['custody']:raise ValueError('Partial support recovery belongs to original custody')
                     robot=next(iter(continuing));arm=t.arms[robot]
                     local=body.xmat.reshape(3,3).T@(t.data.site_xpos[arm.site]-body.xpos)
                     retained={int(local[1]>=0):robot}

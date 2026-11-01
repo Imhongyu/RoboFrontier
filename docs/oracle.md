@@ -46,6 +46,44 @@ commissioning goal limit. Transport uses the full-order solver; Relay keeps its
 rolling pipeline; Dial keeps its isolated blind BEST-only solver. These are
 privileged references, not interchangeable policy agents.
 
+## Task outcome and process qualification
+
+New schema-4 preparations freeze `private/execution-protocol.json` separately
+from the original scene. It binds the case ID and exact task/XML SHA-256 values
+and selects `terminal_outcome_v2`, the same completion semantics used by current
+policy preparations. The original scene contracts, asset locks and scoring
+geometry are not rewritten. The supervisor verifies this protocol before launch.
+
+`[oracle].evaluation_mode` defaults to `task-reference`. Recorded process
+violations remain evidence, but do not permanently prevent ordinary recovery.
+Use `strict-process` for engineering qualification that additionally requires a
+clean process history:
+
+```sh
+.venv/bin/robofrontier oracle prepare --cases transport-a04-d1 \
+  --output runs/oracle/transport-strict --evaluation-mode strict-process
+```
+
+Frozen schema-1/2/3 settings and existing prepared Oracle executions retain their
+original shapes and protocols. Launch supervision clears an inherited Oracle
+protocol environment variable before deciding whether this preparation has its
+own verified protocol. Do not edit or upgrade an already prepared execution.
+When loading an older operator TOML for a new preparation, defaults are selected
+for that schema before merging. New options supplied under an older schema are
+errors; selecting schema 4 is an explicit opt-in, not an automatic migration.
+
+New native reports use `robofrontier.oracle-report.v2`. `task_goal_met` records
+the evaluator outcome; `task_completed` additionally requires valid physics and
+resolved execution. `process_clean`, `execution_resolved`, `physics_valid` and
+`strategy_completed` report separate facts. `passed` still requires a successful
+full reference execution; a partial commissioning test or failed strategy is
+never promoted just because one object reached a goal. Strict mode also requires
+clean process history. The unified status copies these verdicts from the native
+report instead of recomputing completion from a raw legacy field.
+
+See [Oracle recovery boundaries](oracle-recovery.md) for the distinction between
+task requirements, actuator feedback and private planning checks.
+
 Dial preparation samples a fresh uniform nonzero symbol per dial, just as policy
 preparation does. An explicit `--codebook /path/to/puzzle.json` can instead freeze
 an evaluator-only puzzle with exactly `{"code_symbols": [...]}`. The private file

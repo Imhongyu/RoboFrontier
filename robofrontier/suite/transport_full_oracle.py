@@ -161,6 +161,22 @@ def execute_job(t,runtime,job,resume=False):
     name=job['object'];goal=job['goal'];path=job['path'];robot=path[0]
     obj=next(o for o in t.env['objects'] if o['id']==name)
     def pose():return goal_pose(t,goal)
+    if resume:
+        from .oracle_protocol import process_blocks
+        if not process_blocks(t):
+            from .transport_socket_motion import finish_socket_release
+            for owner,payload in list(getattr(t,'socket_released_payload',{}).items()):
+                if payload!=name or owner not in runtime._current()[1]['robots']:continue
+                if t.arms[owner].grasp_force is not None:
+                    if not t.finger_contacts(owner,name):
+                        raise SocketPlanningError('payload_support',dict(reason='regrasp_not_physically_verified'))
+                    t.socket_released_payload.pop(owner,None)
+                    getattr(t,'socket_release_phases',{}).pop(owner,None)
+                    continue
+                finish_socket_release(t,owner,name,goal['board'])
+                t.wait(1.2)
+                if goal['goal_id'] not in t.monitor.result().get('assignments',{}):
+                    raise SocketPlanningError('seating-recovery',dict(reason='released_but_original_goal_not_met',object=name))
     accepted=t.monitor.result().get('assignments',{})
     if goal['goal_id'] in accepted:
         if t.monitor.released(t.monitor.geoms[name]):
@@ -176,6 +192,8 @@ def execute_job(t,runtime,job,resume=False):
         for owner,held in list(t.held.items()):
             if owner in allowed and held==name and t.arms[owner].grasp_force is None and not ref._robot_payload_contacts(t,owner,name):
                 t.held.pop(owner)
+                getattr(t,'socket_released_payload',{}).pop(owner,None)
+                getattr(t,'socket_release_phases',{}).pop(owner,None)
                 t.event('transport_measured_carrier_cleared',robot=owner,object=name)
         holders=[r for r in allowed if t.arms[r].grasp_force is not None and t.finger_contacts(r,name)]
         if len(holders)>1:raise RuntimeError('Dual grasp frontier needs an explicit release/withdraw repair')

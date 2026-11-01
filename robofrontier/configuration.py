@@ -29,6 +29,7 @@ SCHEMA = {
                 'blender': str, 'mode': str, 'views': list, 'width': int, 'height': int,
                 'samples': int, 'duration_s': float, 'import_speedup': float, 'parallel': int},
     'oracle': {'wall_limit_s': float, 'stop_grace_s': float,
+               'evaluation_mode': str,
                'mosaic_planning_workers': int, 'mosaic_physics_workers': int,
                'mosaic_max_goals': int},
 }
@@ -69,23 +70,39 @@ def load_configuration(path=None, overrides=None):
     """
     with DEFAULT.open('rb') as stream:
         result = tomllib.load(stream)
+    updates = {}
     if path is not None and Path(path).resolve() != DEFAULT.resolve():
         with Path(path).open('rb') as stream:
-            _merge(result, tomllib.load(stream))
+            updates = tomllib.load(stream)
+    version = (overrides or {}).get('schema_version', updates.get('schema_version', result['schema_version']))
+    shape = _configuration_shape(version)
+    # Select versioned defaults before merging. Only default fields are pruned;
+    # explicitly supplied options from a different schema are still errors.
+    result = {key: ({field: result[key][field] for field in kind}
+                    if isinstance(kind, dict) else result[key]) for key,kind in shape.items()}
+    _merge(result, updates)
     if overrides:
         _merge(result, deepcopy(overrides))
     validate_configuration(result)
     return result
 
 
-def validate_configuration(config):
-    version = config.get('schema_version')
-    if type(version) is not int or version not in (1, 2, 3):
+def _configuration_shape(version):
+    if type(version) is not int or version not in (1, 2, 3, 4):
         raise ValueError('Unsupported configuration schema_version')
     # Older frozen configurations remain exact. Do not append new Factory or
     # Oracle defaults to an already-hashed experiment configuration.
-    _validate_shape(config, {k: v for k, v in SCHEMA.items()
-                            if (version >= 2 or k != 'factory') and (version >= 3 or k != 'oracle')})
+    shape = {k: dict(v) if isinstance(v, dict) else v for k, v in SCHEMA.items()
+             if (version >= 2 or k != 'factory') and (version >= 3 or k != 'oracle')}
+    if version == 3:
+        shape['oracle'].pop('evaluation_mode')
+    return shape
+
+
+def validate_configuration(config):
+    version = config.get('schema_version')
+    shape = _configuration_shape(version)
+    _validate_shape(config, shape)
     def choice(section, field, allowed):
         if config[section][field] not in allowed:
             raise ValueError(f'Invalid {section}.{field}: choose from {", ".join(map(str, allowed))}')
@@ -159,6 +176,8 @@ def validate_configuration(config):
                 raise ValueError('Invalid factory.'+field)
     if version >= 3:
         oracle = config['oracle']
+        if version >= 4:
+            choice('oracle', 'evaluation_mode', ('task-reference', 'strict-process'))
         for field in ('wall_limit_s', 'stop_grace_s'):
             if not math.isfinite(oracle[field]) or oracle[field] <= 0:
                 raise ValueError('oracle.'+field+' must be positive and finite')

@@ -1,5 +1,6 @@
 """Fit/path regressions. The archived fixture is only kinematic evidence."""
 from copy import copy
+import hashlib
 from contextlib import nullcontext
 import json
 from pathlib import Path
@@ -22,6 +23,36 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 class SocketMotionTests(unittest.TestCase):
+    def test_archived_supported_exit_is_not_rejected_by_existing_socket_contact(self):
+        fixture=json.loads((ROOT/'tests/fixtures/transport_socket_release_exit.json').read_text())
+        scene=ROOT/fixture['scene']
+        self.assertEqual(hashlib.sha256((scene/'scene.xml').read_bytes()).hexdigest(),fixture['source_scene_sha256'])
+        t=Trial.__new__(Trial)
+        t.model=mujoco.MjModel.from_xml_path(str(scene/'scene.xml'));t.data=mujoco.MjData(t.model)
+        t.data.qpos[:]=fixture['qpos'];t.data.qvel[:]=fixture['qvel']
+        mujoco.mj_forward(t.model,t.data)
+        t.task=json.loads((scene/'task.json').read_text())
+        t.task['run_protocol']={'evaluation_semantics':'terminal_outcome_v2'}
+        t.env=json.loads((scene/'environment.json').read_text())
+        t.arms={r:PandaArm(t.model,t.data,r) for r in t.task['arms']}
+        for arm in t.arms.values():arm.qref=t.data.qpos[arm.qids].copy()
+        t.monitor=Monitor(t);t.screen_model=copy(t.model)
+        t.screen_model.geom_margin[:]=np.maximum(t.screen_model.geom_margin,.004)
+        t.screen_data=mujoco.MjData(t.screen_model)
+        t.stop_requested=None;t.live_preview=False;t.held={'F':'H_item2'}
+        t.socket_released_payload={'F':'H_item2'}
+        t.carry_geoms={};t.hand_geoms={};t.event=Mock();original=Mock();t.execute=original
+        robot=fixture['robot'];arm=t.arms[robot]
+        target=t.data.site_xpos[arm.site]+t.data.body(fixture['object']).xmat.reshape(3,3)[:,2]*.02
+        rotation=t.data.site_xmat[arm.site].reshape(3,3)
+        from robofrontier.robot_control import matrix_quat
+        envelope=socket.exit_contact_envelope(t,robot,fixture['object'],fixture['board'])
+        self.assertTrue(any(value<-.0003 for value in envelope.values()))
+        before=t.data.qpos.copy();socket.guard_contact_moves(t,fixture['board'])
+        t.execute('socket-withdraw',{robot:('move',dict(target_m=target.tolist(),quaternion_wxyz=matrix_quat(rotation).tolist()))})
+        original.assert_called_once()
+        np.testing.assert_array_equal(t.data.qpos,before)
+
     def test_fast_arm_continues_while_other_arm_is_busy(self):
         starts=[]
         class Arm:
@@ -82,7 +113,7 @@ class SocketMotionTests(unittest.TestCase):
             with self.subTest(status=status,reason=reason):
                 result=dict(status=status,reason=reason)
                 trial=SimpleNamespace(held={'A':'part'},task={'cube_size_m':.06},
-                    arms={'A':SimpleNamespace(site=0,grip_max=.08,grasp_force=None)},
+                    arms={'A':SimpleNamespace(site=0,grip_max=.08,grasp_force=None,job=None)},
                     data=SimpleNamespace(site_xpos=np.zeros((1,3)),site_xmat=np.eye(3).reshape(1,9),
                         body=lambda _:SimpleNamespace(xpos=np.zeros(3),xmat=np.eye(3).ravel())),
                     execute=Mock(return_value={'A':result}),move=Mock(),move_free=Mock(),event=Mock(),wait=Mock(),

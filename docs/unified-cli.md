@@ -51,8 +51,8 @@ overrides its named settings; explicit CLI options override those settings.
 Unknown fields, incorrect types, non-finite intervals and invalid limits are
 errors. Credentials belong in `.env` or the environment, never in TOML.
 
-New settings use `schema_version=3`, with independent Factory and Oracle sections.
-Frozen version 1 and 2 configurations retain their exact shapes and hashes;
+New settings use `schema_version=4`, with independent Factory and Oracle sections
+and an explicit Oracle evaluation mode. Frozen version 1, 2 and 3 configurations retain their exact shapes and hashes;
 new sections are not appended to archived configurations. New partial user TOML files
 can omit the version to inherit the current schema. A frozen configuration is
 evidence, not an operator settings template to overwrite.

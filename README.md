@@ -43,6 +43,7 @@ user's request; the editable English project remains available.
 | See which integration gates have passed | [Acceptance and source provenance](docs/development/unified-main.md) |
 | Read the policy's role and tool contract | [Robot collaboration skill](.agents/skills/robot-collaboration/SKILL.md) |
 | Read completion and recovery rules | [Shared policy rules](prompts/policy-rules.md) |
+| Run privileged references and interpret recovery checks | [Oracle execution](docs/oracle.md) and [recovery boundaries](docs/oracle-recovery.md) |
 
 Other documentation and historical entries are still being reconciled into the
 English release. Frozen legacy inputs retain their original protocol and source;

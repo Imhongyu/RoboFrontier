@@ -10,11 +10,13 @@ import sys
 import time
 
 
-def final_success(report):
-    """A prior win cannot survive a late violation or unknown action."""
+def final_success(report,trial=None):
+    """Keep unlock latched; strict commissioning also requires clean history."""
+    from robofrontier.suite.oracle_protocol import process_blocks
     evaluation=report.get('evaluation',{})
+    strict=trial is None or process_blocks(trial)
     return bool(report.get('passed') and not report.get('error')
-                and evaluation.get('task_success') and not evaluation.get('violations')
+                and evaluation.get('task_success') and not (strict and evaluation.get('violations'))
                 and not report.get('unresolved_robot_actions'))
 
 
@@ -59,7 +61,7 @@ def close_trial(trial,report):
     report['goal_reached']=bool(report['evaluation'].get('solved'))
     report['online_repair_interventions']=getattr(trial,'oracle_repair_interventions',0)
     report['continued_after_violation']=getattr(trial,'continued_after_violation',False)
-    report['passed']=final_success(report)
+    report['passed']=final_success(report,trial)
     if adapter is not None:adapter.close(report)
     else:trial.close(report)
 

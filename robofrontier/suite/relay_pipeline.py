@@ -56,7 +56,7 @@ def finalize_frontier(t):
     if frontiers is None:return
     actual=t.monitor.result().get('payloads',{})
     for f in frontiers:
-        if actual.get(f.ident,{}).get('completed'):
+        if ref.payload_complete(t,actual.get(f.ident,{})):
             f.phase='done';f.blocked='';f.blocked_at=None
     snapshot(t,frontiers)
 
@@ -122,7 +122,7 @@ def plan_transfer(t,f,frontiers,flexible):
         except RuntimeError:pass
     planner=ref.flexible_handover_plan if flexible else ref.handover_plan
     shift=packing_shift(t,f,frontiers) if f.index+1==len(route)-1 else 0.
-    completed_peer=any(t.monitor.result().get('payloads',{}).get(other.ident,{}).get('completed') for other in frontiers if other is not f)
+    completed_peer=any(ref.payload_complete(t,t.monitor.result().get('payloads',{}).get(other.ident,{})) for other in frontiers if other is not f)
     complex_stage=t.task['level']>1 or t.task['mechanism']['layout']!='straight' or completed_peer
     budget=ref.STAGE_SEARCH_WALL_S if complex_stage else min(40.,ref.STAGE_SEARCH_WALL_S)
     try:return planner(t,f.ident,f.team,f.offset,f.index+1,search_budget_s=budget,landing_shift_m=shift),False
@@ -136,7 +136,7 @@ def direct_terminal_plan(t,f,frontiers):
     """A qualified current team may finish without another nominal relay."""
     if not ref.goal_contact_allowed(t):return None
     state=t.monitor.relay_v2.states[f.ident]
-    if state['dropped'] or not state['transitions']:return None
+    if ref.process_blocks(t) and (state['dropped'] or not state['transitions']):return None
     if not set(f.team)<=t.monitor.bilateral(state['rod_geoms'],positive_force=True):return None
     body=t.data.body(f.ident);actual=body.xpos.copy();r=body.xmat.reshape(3,3)
     if t.monitor.relay_v2.inside(state):return actual,math.atan2(r[1,0],r[0,0])
@@ -215,7 +215,7 @@ def packing_shift(t,frontier,frontiers):
     """Rank finite in-region landings away from already delivered loads."""
     result=t.monitor.result().get('payloads',{});region=t.task['route'][-1];frame=rz(region['nominal_yaw_rad'])
     peers=[float((frame.T@(t.data.body(other.ident).xpos-region['center_m']))[0]) for other in frontiers
-           if other is not frontier and result.get(other.ident,{}).get('completed')]
+           if other is not frontier and ref.payload_complete(t,result.get(other.ident,{}))]
     if not peers:return 0.
     nominal=(frontier.number-(len(frontiers)-1)/2)*.12-.045
     body=t.data.body(frontier.ident);relative=rz(ref.payload_route_yaw(t,frontier.ident,region))@body.xmat.reshape(3,3).T
@@ -247,7 +247,7 @@ def carry_chunk(t,frontier):
     if frontier.following=='place':
         relay=t.monitor.relay_v2;state=relay.states[frontier.ident]
         support=t.monitor.bilateral(state['rod_geoms'],positive_force=True)
-        if not state['dropped'] and set(frontier.team)<=support and relay.inside(state):
+        if not (ref.process_blocks(t) and state['dropped']) and set(frontier.team)<=support and relay.inside(state):
             # The painted GOAL is the task condition. A private packing-center
             # estimate is not an extra precision gate. Still preserve an
             # actual descent corridor past already delivered payloads.
@@ -294,7 +294,7 @@ def execute_carry_chunks(t,requests):
     t.execute('relay-frontier-carry',commands)
     for request in selected:
         state=t.monitor.relay_v2.states[request['ident']]
-        if state['dropped']:raise RuntimeError('Physical support lost in concurrent carry '+request['ident'])
+        if ref.support_lost(t,request['ident'],request['team']):raise RuntimeError('Physical support lost in concurrent carry '+request['ident'])
     return [request['ident'] for request in selected]
 
 
@@ -314,7 +314,7 @@ def install_motion_metrics(t):
         for ident in positions:
             current=t.data.body(ident).xpos.copy();speed=np.linalg.norm(current-positions[ident])/dt
             state=result.get(ident,{})
-            if speed>.005 and state.get('airborne') and len(state.get('support',[]))>=2 and not state.get('completed'):
+            if speed>.005 and state.get('airborne') and len(state.get('support',[]))>=2 and not ref.payload_complete(t,state):
                 moving.append(ident);metrics['payload_motion_sim_s'][ident]=metrics['payload_motion_sim_s'].get(ident,0.)+dt
             positions[ident]=current
         if moving:metrics['any_payload_motion_sim_s']+=dt
@@ -351,7 +351,7 @@ def solve(t,*,flexible=False,terminal_observer=None,handover_observer=None):
         priority=lambda item:(0 if item.phase in ('place','release') else 1 if item.phase=='receive' else 3 if item.phase=='plan' else 2,
                               -item.index if item.phase=='plan' else 0)
         for f in sorted(frontiers,key=priority):
-            if t.monitor.result().get('payloads',{}).get(f.ident,{}).get('completed'):
+            if ref.payload_complete(t,t.monitor.result().get('payloads',{}).get(f.ident,{})):
                 if f.phase!='done':
                     if f.phase in ('verify','recheck'):notify(f,'terminal_complete')
                     f.phase='done';f.milestone+=1;progress=True
@@ -405,7 +405,7 @@ def solve(t,*,flexible=False,terminal_observer=None,handover_observer=None):
                     f.phase='verify';f.recheck_since=t.time
                 elif f.phase in ('verify','recheck'):
                     state=t.monitor.relay_v2.states[f.ident]
-                    if not t.monitor.relay_v2.inside(state) or state['dropped']:raise RuntimeError('Released payload needs actual goal recovery '+f.ident)
+                    if not t.monitor.relay_v2.inside(state) or (ref.process_blocks(t) and state['dropped']):raise RuntimeError('Released payload needs actual goal recovery '+f.ident)
                     t.wait(.25)
                 f.blocked='';f.blocked_at=None;f.milestone+=1;progress=True;snapshot(t,frontiers)
                 # Finish enabled landing/release before an upstream search
@@ -413,7 +413,8 @@ def solve(t,*,flexible=False,terminal_observer=None,handover_observer=None):
                 if terminal_phase:break
             except ReferenceStopped:raise
             except RuntimeError as error:
-                if t.monitor.violations or any(a.job is not None for a in t.arms.values()):raise
+                from .oracle_protocol import process_blocks
+                if (process_blocks(t) and t.monitor.violations) or any(a.job is not None or getattr(a,'uncertainty_reported',False) for a in t.arms.values()):raise
                 if len(t.actions)!=prior_actions:raise
                 f.blocked=str(error);f.blocked_at=ready(f)
                 t.event('relay_frontier_blocked',payload=f.ident,phase=f.phase,error=str(error));snapshot(t,frontiers)

@@ -12,8 +12,23 @@ import mujoco
 import numpy as np
 from .scenes import rz
 from .oracle import ReferenceStopped,joint_edge_clear
+from .oracle_protocol import process_blocks,uses_terminal_outcome
 from .joint_route import connect_route
 
+
+def payload_complete(trial,report):
+ """Read the active per-payload outcome without rewriting legacy evidence."""
+ return bool(report.get('terminal_goal_met' if uses_terminal_outcome(trial) else 'completed',False))
+
+
+def support_lost(trial,ident,team):
+ """A historical drop is not current support loss after legitimate recovery."""
+ state=trial.monitor.relay_v2.states[ident]
+ if process_blocks(trial):return bool(state['dropped'])
+ if not team:return True
+ if set(team)<=trial.monitor.bilateral(state['rod_geoms'],positive_force=True):return False
+ trial.wait(.12)
+ return not set(team)<=trial.monitor.bilateral(state['rod_geoms'],positive_force=True)
 STAGE_SEARCH_WALL_S=240.
 
 
@@ -531,8 +546,8 @@ def carry(t,ident,team,point,yaw,landing=False,target_rotation=None):
   desired=p0*(1-f)+np.asarray(point)*f;rotation=axis_rotation(axis,angle*f)@r0
   commands={a:t.pose_command(a,desired+rotation@off,rotation@relative,.035,.25) for a,(off,relative) in offsets.items()}
   t.execute('relay-carry',commands)
-  if t.monitor.violations:raise RuntimeError('Physical relay violation: '+str(t.monitor.violations[-1]))
-  if t.monitor.relay_v2.states[ident]['dropped']:raise RuntimeError('Physical support lost during carry '+ident)
+  if process_blocks(t) and t.monitor.violations:raise RuntimeError('Physical relay violation: '+str(t.monitor.violations[-1]))
+  if support_lost(t,ident,team):raise RuntimeError('Physical support lost during carry '+ident)
 
 
 LANDING_STOP_REASON='Final-region support contact; controlled stop before TCP target'
@@ -756,7 +771,7 @@ def place(t,ident,team):
   if commands is None:
    live=t.data is getattr(t,'_live_data',None)
    support=t.monitor.bilateral(state['rod_geoms'],positive_force=True)
-   known=live and not t.monitor.violations and not state['dropped'] and set(team)<=support and not any(arm.job is not None for arm in t.arms.values())
+   known=live and not (process_blocks(t) and (t.monitor.violations or state['dropped'])) and set(team)<=support and not any(arm.job is not None or getattr(arm,'uncertainty_reported',False) for arm in t.arms.values())
    plan=terminal_reposition_plan(t,ident,team) if known and repairs<2 else None
    if plan is None:raise RuntimeError('No whole-arm-clear terminal descent '+ident)
    repairs+=1
@@ -767,8 +782,8 @@ def place(t,ident,team):
    carry(t,ident,team,plan['target_m'],plan['yaw'],target_rotation=plan['rotation'])
    continue
   execute_landing_increment(t,ident,team,commands)
-  if t.monitor.violations:raise RuntimeError('Physical terminal placement violation: '+str(t.monitor.violations[-1]))
-  if state['dropped']:raise RuntimeError('Physical support lost during terminal placement '+ident)
+  if process_blocks(t) and t.monitor.violations:raise RuntimeError('Physical terminal placement violation: '+str(t.monitor.violations[-1]))
+  if support_lost(t,ident,team):raise RuntimeError('Physical support lost during terminal placement '+ident)
  raise RuntimeError('No final-region table support within bounded terminal descent '+ident)
 
 
@@ -874,7 +889,8 @@ def move_empty_robot(t,ident,robot,joint_rad):
  """
  arm=t.arms[robot];width=float(arm.observe()['gripper_width_m']);goal=np.asarray(joint_rad,dtype=float)
  if arm.job is not None or arm.grasp_force is not None:raise ValueError('Empty movement requires resolved force-free execution')
- if not math.isfinite(width) or width<t.task['mechanism']['cross_section_m'][0]+.012:raise ValueError('Empty movement requires measured open jaws')
+ from .oracle_protocol import process_blocks
+ if not math.isfinite(width) or (process_blocks(t) and width<t.task['mechanism']['cross_section_m'][0]+.012):raise ValueError('Empty movement requires measured open jaws')
  if t.held.get(robot) not in (None,ident):raise ValueError('Different cargo label requires its own owner review')
  from .relay_contract import is_current
  if is_current(t.task) and arm_payload_contact(t,ident,robot):
@@ -908,13 +924,13 @@ def terminal_recovery_state(t,ident,team):
  """A known grounded world, not an exception mask or a reset permission."""
  live=getattr(t,'_live_data',None)
  if live is None or getattr(t,'data',None) is not live:return False
- active={a:arm.job for a,arm in t.arms.items() if arm.job is not None}
+ active={a:arm.job for a,arm in t.arms.items() if arm.job is not None or getattr(arm,'uncertainty_reported',False)}
  if active:
   t.relay_recovery_pending=dict(reason='Execution must be resolved before shared-load recovery',active_jobs=active)
   return False
  state=t.monitor.relay_v2.states[ident]
- ok=bool(not t.monitor.violations and not state['dropped'] and state['landed']
-         and set(team)<=state['custody'] and t.monitor.relay_v2.inside(state)
+ ok=bool(not (process_blocks(t) and (t.monitor.violations or state['dropped'] or not state['landed'] or not set(team)<=state['custody']))
+         and t.monitor.relay_v2.inside(state)
          and beam_table_contact(t,ident))
  if not ok:t.relay_recovery_pending=dict(reason='Actual beam/table/custody state does not admit this release recovery',payload=ident)
  return ok
@@ -938,7 +954,7 @@ def sequential_terminal_release(t,ident,team):
    try:release(t,ident,[robot],terminal=True)
    except (RuntimeError,ValueError) as error:
     t.event('terminal_forward_release_known_stop',payload=ident,robot=robot,reason=str(error))
-    if t.monitor.violations or any(arm.job is not None for arm in t.arms.values()):raise
+    if (process_blocks(t) and t.monitor.violations) or any(arm.job is not None or getattr(arm,'uncertainty_reported',False) for arm in t.arms.values()):raise
     # An exact-aperture failure stays failed. Physical separation and a known
     # force-mode exit can still admit an ordinary, freshly screened home move.
     if (str(error).startswith('Relay release aperture not verified')
@@ -954,7 +970,7 @@ def sequential_terminal_release(t,ident,team):
   if not pending:
    for _ in range(60):
     t.wait(.05)
-    if t.monitor.result()['payloads'][ident]['completed'] and beam_table_contact(t,ident):
+    if payload_complete(t,t.monitor.result()['payloads'][ident]) and beam_table_contact(t,ident):
      t.relay_recovery_pending=None;return True
    break
   t.wait(.25)
@@ -966,11 +982,20 @@ def sequential_terminal_release(t,ident,team):
 def observed_wider_release(t,ident,robot,feedback,width):
  """A failed aperture command can still leave a genuinely empty open hand.
 
- Preserve the failed motor feedback. Only the measured opening overshoot,
- ended force/job and actual cargo separation authorize ordinary withdrawal;
- an unknown failure or an undershot opening does not establish release.
+ Preserve failed motor feedback. Task-reference mode admits a known opening
+ outcome only after actual separation and a force-free, resolved execution.
+ Legacy/strict execution retains its original overshoot-only interpretation.
  """
  actual=feedback.get('actual_width_m')
+ from .oracle_protocol import process_blocks
+ if not process_blocks(t):
+  return bool(feedback.get('status')=='failed'
+      and feedback.get('reason') in ('Requested opening not reached','Requested aperture exceeded')
+      and feedback.get('direction')=='opening'
+      and isinstance(actual,(int,float)) and math.isfinite(actual) and actual>=0
+      and t.arms[robot].grasp_force is None and t.arms[robot].job is None
+      and not getattr(t.arms[robot],'uncertainty_reported',False)
+      and not arm_payload_contact(t,ident,robot))
  return bool(feedback.get('status')=='failed'
      and feedback.get('reason')=='Requested aperture exceeded'
      and feedback.get('direction')=='opening'
@@ -994,12 +1019,12 @@ def release(t,ident,team,terminal=False):
  for a,r in result.items():
   if r['status']!='completed':
    if not observed_wider_release(t,ident,a,r,width):raise RuntimeError('Relay release aperture not verified '+a)
-   t.event('relay_release_observed_wider',robot=a,payload=ident,
+   t.event('relay_release_observed_wider' if process_blocks(t) else 'relay_release_observed_separation',robot=a,payload=ident,
            requested_width_m=width,original_feedback=dict(r),
-           reason='Opening is wider than requested, force/job ended and actual cargo contact absent; original call remains failed')
+           reason='Known opening outcome, force/job ended and actual cargo contact absent; original call remains failed')
   t.held.pop(a,None)
  t.wait(.25)
- if t.monitor.relay_v2.states[ident]['dropped']:raise RuntimeError('Independent receiver support lost at release '+ident)
+ if process_blocks(t) and t.monitor.relay_v2.states[ident]['dropped']:raise RuntimeError('Independent receiver support lost at release '+ident)
  for a in team:
   if permitted:
    allowed=terminal_contact_names(t,ident)
@@ -1267,7 +1292,7 @@ def solve(t,payload_ids=None,terminal_observer=None,allow_partial_handover=False
   carry(t,ident,team,point,payload_route_yaw(t,ident,final))
   state=t.monitor.relay_v2.states[ident]
   supported=set(team)<=set(t.monitor.bilateral(state['rod_geoms'],positive_force=True))
-  if not t.monitor.relay_v2.inside(state) or not supported or state['dropped']:
+  if not t.monitor.relay_v2.inside(state) or not supported or (process_blocks(t) and state['dropped']):
    raise RuntimeError('Terminal preparation did not establish supported in-region readiness '+ident)
   if terminal_observer is not None:terminal_observer('prepared',ident,team)
   if terminal_observer is not None:terminal_observer('placement_started',ident,team)
@@ -1276,6 +1301,6 @@ def solve(t,payload_ids=None,terminal_observer=None,allow_partial_handover=False
   t.wait(.3)
   if terminal_observer is not None:terminal_observer('release_started',ident,team)
   release(t,ident,team,terminal=True);t.wait(1.1)
-  if not t.monitor.result().get('payloads',{}).get(ident,{}).get('completed'):raise RuntimeError('Released payload did not satisfy final acceptance '+ident)
+  if not payload_complete(t,t.monitor.result().get('payloads',{}).get(ident,{})):raise RuntimeError('Released payload did not satisfy final acceptance '+ident)
   if terminal_observer is not None:terminal_observer('terminal_complete',ident,team)
- if selected is not None:return dict(commissioning_only=True,selected_payloads=sorted(selected),selected_completed=all(t.monitor.result()['payloads'][ident]['completed'] for ident in selected),scope='Selected apparatus commissioning; never a complete family-case result')
+ if selected is not None:return dict(commissioning_only=True,selected_payloads=sorted(selected),selected_completed=all(payload_complete(t,t.monitor.result()['payloads'][ident]) for ident in selected),scope='Selected apparatus commissioning; never a complete family-case result')

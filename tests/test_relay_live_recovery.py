@@ -33,6 +33,32 @@ class RelayLiveRecoveryTests(unittest.TestCase):
         self.t.arms['G'].job='original-unresolved'
         with self.assertRaisesRegex(ValueError,'Original execution unresolved'):self.recovery.process(self.request)
         self.t.close.assert_not_called()
+
+    def test_terminal_history_is_retained_without_blocking_known_carry(self):
+        self.t.task={'run_protocol':{'evaluation_semantics':'terminal_outcome_v2'}}
+        event={'kind':'robot_contact','sim_time_s':.5}
+        self.t.monitor.violations=[event]
+        with patch('robofrontier.suite.relay_live_recovery.ref.carry') as carry:
+            result=self.recovery.process(self.request)
+        self.assertEqual(result['status'],'completed')
+        self.assertEqual(self.t.monitor.violations,[event]);carry.assert_called_once()
+
+    def test_unknown_flag_without_active_job_still_fences_repair(self):
+        self.t.task={'run_protocol':{'evaluation_semantics':'terminal_outcome_v2'}}
+        self.t.arms['G'].uncertainty_reported=True
+        with self.assertRaisesRegex(ValueError,'Original execution unresolved'):
+            self.recovery.process(self.request)
+
+    def test_terminal_drop_can_be_recovered_by_other_legitimate_arms(self):
+        self.t.task={'run_protocol':{'evaluation_semantics':'terminal_outcome_v2'}}
+        self.t.monitor.relay_v2.states['p'].update(dropped=True,custody={'former'})
+        self.t.monitor.bilateral=lambda *_,**__:set()
+        self.t.data.body=lambda _:SimpleNamespace(xpos=np.array([0.,0.,1.]),xmat=np.eye(3))
+        with patch('robofrontier.suite.relay_live_recovery.ref.choose_team',return_value=['G','H']), \
+             patch('robofrontier.suite.relay_live_recovery.ref.grasp') as grasp:
+            result=self.recovery.process(dict(self.request,op='grasp'))
+        self.assertEqual(result['status'],'completed');grasp.assert_called_once()
+        self.assertTrue(self.t.monitor.relay_v2.states['p']['dropped'])
     def test_state_edits_and_wrong_world_are_rejected(self):
         for request in [dict(self.request,op='reset'),dict(self.request,world_id='old-world')]:
             with self.assertRaises(ValueError):self.recovery.process(request)

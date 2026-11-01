@@ -93,9 +93,15 @@ class BestManipulator(HoldingManipulator):
             robot=a['nominal_robots'][1];arm=t.arms[robot]
             width=arm.observe()['gripper_width_m']
             if not .010<width<.030:raise RuntimeError('Blue pressure repair needs geometry review '+a['id'])
-            # The declared stem has 16/20 mm faces. This is a new ordinary
-            # grasp, not a driver-state write or proof based on aperture alone.
-            expected=.020 if width>=.018 else .016
+            # A tilted rectangular stem need not present a nominal 16/20 mm
+            # face to the current hand. Measure its box projection along the
+            # fingers' closing axis; keep the actuator's original tolerances.
+            stem=t.model.geom(a['id']+'_module_stem')
+            basis=t.data.geom(a['id']+'_module_stem').xmat.reshape(3,3)
+            closing_axis=t.data.site_xmat[arm.site].reshape(3,3)[:,1]
+            expected=float(2*np.sum(abs(closing_axis@basis)*stem.size))
+            if not math.isfinite(expected) or not .010<expected<.030:
+                raise RuntimeError('Blue pressure repair needs geometry review '+a['id'])
             force=arm.grasp_force if arm.grasp_force is not None else 70.
             t.execute('blue-pressure-requalify',{robot:('gripper',dict(mode='grasp',width_m=expected,
                 force_n=force,speed_m_s=.02,epsilon_inner_m=.005,epsilon_outer_m=.005))})

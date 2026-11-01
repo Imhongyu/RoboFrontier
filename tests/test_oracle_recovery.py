@@ -148,6 +148,48 @@ class OracleRecoveryTests(unittest.TestCase):
         self.assertFalse(final['passed'])
         self.assertIn('A', final['unresolved_robot_actions'])
 
+    def test_terminal_owner_review_resolves_acknowledgement_without_replaying_sequence(self):
+        self.trial.oracle_protocol={'mode':'task-reference'}
+        self.trial.task['run_protocol']={'evaluation_semantics':'terminal_outcome_v2'}
+        request=self.request('review-original','A',[
+            {'op':'gripper','parameters':{'width_m':.06,'speed_m_s':.05}},
+            {'op':'gripper','parameters':{'width_m':.02,'speed_m_s':.05}},
+        ])
+        self.adapter.submit(request)
+        self.adapter.fence('owner','review-original','Acknowledgement lost')
+        with self.assertRaises(ValueError):
+            self.adapter.review_terminal('owner','review-original','Still running')
+        self.adapter.advance(2.)
+        for owner,review in [('other','Review'),('owner','')]:
+            with self.assertRaises(ValueError):
+                self.adapter.review_terminal(owner,'review-original',review)
+        self.assertIn('A',self.adapter.unknown)
+        self.adapter.review_terminal('owner','review-original','Original terminal motor feedback checked',assisted=True)
+        status=self.adapter.submit(request)
+        self.assertEqual(status['status'],'resolved')
+        self.assertEqual(status['execution_resolution']['original_status'],'uncertain')
+        self.assertEqual(status['execution_resolution']['terminal_feedback']['call_id'],'recovery-review-original-0')
+        self.assertNotIn('A',self.adapter.unknown)
+        self.assertEqual(self.adapter.submitted_actions,1)
+        self.assertGreater(self.trial.arms['A'].observe()['gripper_width_m'],.05)
+        self.adapter.handoff('owner')
+        self.adapter.close({'passed':False,'evaluation':{'task_success':False}})
+        self.closed=True
+        final=json.loads((self.trial.directory/'report.json').read_text())
+        self.assertTrue(final['execution_resolved'])
+        self.assertTrue(final['assisted'])
+        self.assertTrue(any(e['event']=='oracle_execution_resolved' for e in self.trial.events))
+
+    def test_legacy_acknowledgement_fence_cannot_be_cleared_by_new_review(self):
+        request=self.request('legacy-original','A',[
+            {'op':'gripper','parameters':{'width_m':.06,'speed_m_s':.05}}])
+        self.adapter.submit(request)
+        self.adapter.fence('owner','legacy-original','Acknowledgement lost')
+        self.adapter.advance(2.)
+        with self.assertRaises(ValueError):
+            self.adapter.review_terminal('owner','legacy-original','Legacy review')
+        self.assertIn('A',self.adapter.unknown)
+
     def test_hidden_or_non_json_observation_is_not_exposed_or_a_physics_barrier(self):
         self.adapter.submit(self.request('b-observe', 'B', [
             {'op':'gripper','parameters':{'width_m':.02,'speed_m_s':.01}},

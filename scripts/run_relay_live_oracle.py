@@ -20,7 +20,8 @@ def attempt_with_recovery(trial, operation, recovery):
     except (ReferenceStopped, KeyboardInterrupt, CommissionComplete):
         raise
     except Exception as error:
-        if trial.monitor.violations:
+        from robofrontier.suite.oracle_protocol import process_blocks
+        if (process_blocks(trial) and trial.monitor.violations) or getattr(trial,'physics_failure',None):
             raise
         return recovery.wait_for_repair(error)
 
@@ -91,7 +92,7 @@ def main():
         if a.owner_start:recovery.wait_for_repair()
         while not t.monitor.result().get('task_success'):
             t.check_stop()
-            pending=[ident for ident,s in t.monitor.result()['payloads'].items() if not s['completed']]
+            pending=[ident for ident,s in t.monitor.result()['payloads'].items() if not ref.payload_complete(t,s)]
             try:
                 def operation():
                     if a.pipeline:return relay_pipeline.solve(t,flexible=a.flexible,terminal_observer=phase,handover_observer=handover)

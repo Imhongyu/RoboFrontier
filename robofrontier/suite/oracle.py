@@ -47,6 +47,9 @@ class Trial:
         self.stop_requested=None
         self.abort_on_process_violation=False
         self.task=json.loads((self.scene/'task.json').read_text());self.env=json.loads((self.scene/'environment.json').read_text());self.seed=seed
+        from .oracle_protocol import configure_trial
+        configure_trial(self)
+        self.physics_failure=None
         self.source_bundle=bundle_manifest(self.scene);write_json(self.directory/'source-assets.json',self.source_bundle)
         def immutable_copy(a,b):
             try:os.link(a,b)
@@ -146,6 +149,7 @@ class Trial:
             updated_at_unix_s=time.time(),active_robots=[r for r,a in self.arms.items() if a.job is not None]))
         self.last_heartbeat=stamp
     def step(self):
+        if getattr(self,'physics_failure',None):raise RuntimeError(self.physics_failure)
         if self.data is not getattr(self,'_live_data',self.data):raise RuntimeError('Planning scratch cannot step a physical world')
         guard=getattr(self,'reference_step_guard',None)
         if guard is not None:guard()
@@ -156,10 +160,14 @@ class Trial:
             if arm.grasp_force is not None:arm.physics_control()
         before=self.time;mujoco.mj_step(self.model,self.data)
         from ..physics_health import require_valid_step
-        require_valid_step(self.data,before)
+        try:require_valid_step(self.data,before)
+        except RuntimeError as error:
+            self.physics_failure=str(error)
+            raise
         self.tick+=1;self.monitor.physical_step()
         if self.process_events is not None:self.process_events.record(self.time,self.monitor.result_cache,self.monitor.violations)
-        if self.abort_on_process_violation and self.monitor.violations:
+        from .oracle_protocol import process_blocks
+        if self.abort_on_process_violation and process_blocks(self) and self.monitor.violations:
             if self.motion is not None:self.motion.capture(self.data,force=True)
             self.event('irreversible_process_violation',violation=self.monitor.violations[-1],active_robots=[r for r,a in self.arms.items() if a.job is not None])
             raise ProcessViolation('Irreversible process violation: '+str(self.monitor.violations[-1]))
@@ -177,6 +185,13 @@ class Trial:
         if self.data is not getattr(self,'_live_data',self.data):raise RuntimeError('Planning scratch cannot execute robot actions')
         self.check_stop()
         if not commands:return {}
+        if getattr(self,'physics_failure',None):
+            raise RuntimeError('Invalid physical trajectory cannot accept new actions')
+        from .oracle_protocol import process_blocks,unresolved_robots
+        if not process_blocks(self) and set(commands)&unresolved_robots(self):
+            raise RuntimeError('Unknown execution requires original-action review; never replay')
+        if any(getattr(self.arms[r],'uncertainty_reported',False) for r in commands):
+            raise RuntimeError('Unknown execution requires original-action review; never replay')
         lower=np.array(self.task['workspace_world_m']['lower']);upper=np.array(self.task['workspace_world_m']['upper'])
         validated={}
         for r,(op,p) in commands.items():
@@ -184,9 +199,11 @@ class Trial:
             except ValueError as error:
                 self.event('validation_rejected',label=label,robot=r,command=[op,p],reason=str(error));raise
         index=len(self.actions);self.event('action_start',label=label,commands=commands)
-        for r,c in validated.items():self.arms[r].start(f'oracle-{index}-{r}',c,self.time)
-        pending=set(commands);results={};start=self.time
+        pending=set(commands);results={};start=self.time;issued=set()
         try:
+            for r,c in validated.items():
+                issued.add(r)
+                self.arms[r].start(f'oracle-{index}-{r}',c,self.time)
             while pending:
                 self.step()
                 if self.tick%self.stride:continue
@@ -197,7 +214,8 @@ class Trial:
         except Exception as error:
             # Preserve submitted calls and advance IDs before live recovery.
             # Unresolved calls stay uncertain until an actual stop/poll event.
-            interrupted={r:results.get(r,dict(call_id=f'oracle-{index}-{r}',status='uncertain',reason=str(error))) for r in commands}
+            interrupted={r:results.get(r,dict(call_id=f'oracle-{index}-{r}',
+                status='uncertain' if r in issued else 'not_started',reason=str(error))) for r in commands}
             self.actions.append(dict(label=label,commands=commands,results=interrupted,start_sim_s=start,end_sim_s=self.time,interrupted=True))
             self.event('action_interrupted',label=label,results=interrupted)
             raise
@@ -495,6 +513,8 @@ class Trial:
         if not self.monitor.released(self.monitor.geoms[name]):raise RuntimeError('Payload still contacting robot after release '+name)
         self.held.pop(robot);self.event('placed',robot=robot,object=name,target_m=np.asarray(position).tolist())
     def close(self,report):
+        from .oracle_protocol import summarize
+        summarize(self,report)
         self.monitor.close();self.event('trial_end',result=report);self.trace.close()
         if self.process_events is not None:
             self.process_events.close();report['process_recording']=dict(schema=self.process_events.schema,pose_stream='motion/stream.json',process_events='process.jsonl')

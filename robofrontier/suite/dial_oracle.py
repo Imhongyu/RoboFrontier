@@ -45,7 +45,8 @@ class Manipulator:
     def maintain_holds(self,symbols):
         pass
     def rule_failure(self):
-        return bool(self.t.monitor.violations and not getattr(self.t,'continue_after_recorded_violation',False))
+        from .oracle_protocol import process_blocks
+        return bool(process_blocks(self.t) and self.t.monitor.violations and not getattr(self.t,'continue_after_recorded_violation',False))
     def update_decoder(self,guess):
         # The physical Oracle may measure apparatus pose. Its code solver gets
         # only its requested input and the currently visible count, never the

@@ -15,6 +15,7 @@ import time
 import numpy as np
 
 from .placement_oracle import graph, route
+from .oracle_protocol import process_blocks
 
 
 def validate_inputs(task, environment):
@@ -802,7 +803,7 @@ def _repair_small_l1_placement(t, goal, name):
         result = t.monitor.result()
         t.event('reference_goal_repair_result', goal=goal['goal_id'], object=name,
                 attempt=attempt+1, progress=result.get('matched_goals', 0))
-        if t.monitor.violations:
+        if process_blocks(t) and t.monitor.violations:
             raise RuntimeError('Process violation during goal repair: '+str(t.monitor.violations[-1]))
         if goal['goal_id'] in result.get('assignments', {}):
             return result
@@ -839,7 +840,7 @@ def _legacy_baseline(t):
         t.wait(.7)
         result = t.monitor.result()
         t.event('goal_attempt', goal=goal['goal_id'], object=obj['id'], path=path, progress=result.get('matched_goals', 0))
-        if t.monitor.violations:
+        if process_blocks(t) and t.monitor.violations:
             raise RuntimeError('Process violation: '+str(t.monitor.violations[-1]))
         if goal['goal_id'] not in result.get('assignments', {}) and t.task['level'] == 1:
             result = _repair_small_l1_placement(t, goal, obj['id'])
@@ -864,7 +865,7 @@ def _occupied_transport_robots(t):
 
 def _safe_transport_deferral(t,error):
     """Only settled, known admission/tabletop failures can yield to other work."""
-    if t.monitor.violations or any(arm.job is not None or getattr(arm,'uncertainty_reported',False)
+    if (process_blocks(t) and t.monitor.violations) or any(arm.job is not None or getattr(arm,'uncertainty_reported',False)
                                   for arm in t.arms.values()):return False
     if any(arm.grasp_force is not None for arm in t.arms.values()):return False
     allowed=('Payload not physically released before withdrawal','No pickup pose',
@@ -1433,7 +1434,7 @@ def solve(trial, *, assisted_release=False, forward_recovery=True, goal_ids=None
     trial.transport_forward_recovery=bool(forward_recovery)
     trial.transport_goal_ids=None if goal_ids is None else set(goal_ids)
     trial.transport_yield_on_deferral=bool(yield_on_deferral)
-    trial.stop_requested = lambda: bool(trial.monitor.violations) or (original_stop is not None and original_stop())
+    trial.stop_requested = lambda: (process_blocks(trial) and bool(trial.monitor.violations)) or (original_stop is not None and original_stop())
     picking = {}
 
     def pick_impl(robot, name, **kwargs):
@@ -1540,7 +1541,7 @@ def solve(trial, *, assisted_release=False, forward_recovery=True, goal_ids=None
     try:
         frontier=_baseline(trial)
         if on_frontier is not None and isinstance(frontier,dict) and frontier.get('needs_recovery'):
-            if trial.monitor.violations or any(
+            if (process_blocks(trial) and trial.monitor.violations) or any(
                     getattr(arm,'job',None) is not None or getattr(arm,'uncertainty_reported',False)
                     for arm in trial.arms.values()):
                 raise RuntimeError('External frontier handler cannot consume unresolved or prohibited execution')

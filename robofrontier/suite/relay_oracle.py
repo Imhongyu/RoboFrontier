@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import mujoco,numpy as np
 from .scenes import rz
 from ..robot_control import rotation_vector
+from .oracle_protocol import process_blocks
 
 @dataclass
 class HandoffPlan:
@@ -134,7 +135,7 @@ def carry(t,robots,point,yaw):
             # or automatic regrasp. The continuous monitor remains active.
             t.wait(.12);support=t.monitor.bilateral(t.monitor.geoms['payload'],positive_force=True)
         if not set(robots)<=support:raise RuntimeError('Support lost during carry '+str(set(robots)-support))
-        if t.monitor.violations:raise RuntimeError('Relay process violation '+str(t.monitor.violations[-1]))
+        if process_blocks(t) and t.monitor.violations:raise RuntimeError('Relay process violation '+str(t.monitor.violations[-1]))
     t.wait(.25)
 
 def reachable_carry(t,robot,q,off,relative,p0,yaw0,p1,yaw1,return_seed=False):
@@ -254,7 +255,7 @@ def release(t,robots):
             # home route was found; later planning includes that exact posture
             # and the continuous monitor still rejects forbidden collisions.
             clear_width=float(np.linalg.norm(t.task['mechanism']['beam_cross_section_m']))+.008
-            if arm.job is not None or arm.grasp_force is not None or arm.observe()['gripper_width_m']<clear_width or t.monitor.violations:raise
+            if arm.job is not None or arm.grasp_force is not None or arm.observe()['gripper_width_m']<clear_width or (process_blocks(t) and t.monitor.violations):raise
             t.event('sender_idle_without_home',robot=a,aperture_m=arm.observe()['gripper_width_m'],reason=str(error),scope='Known stopped/open hand; no guaranteed HOME or global clearance is claimed. Subsequent plans use the real state.')
     t.wait(.2)
 

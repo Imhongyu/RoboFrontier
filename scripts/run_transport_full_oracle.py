@@ -101,7 +101,8 @@ def main():
         t.wait(2.);result=t.monitor.result()
         unresolved=[r for r,arm in t.arms.items() if arm.job is not None or arm.uncertainty_reported]
         report.update(evaluation=result,unresolved_robot_actions=unresolved)
-        report['passed']=bool(result.get('task_success') and not result['violations'] and not unresolved and not report['frontier']['pending'] and not report['frontier']['failed'] and not report['frontier']['retained_resources'])
+        from robofrontier.suite.oracle_protocol import process_blocks
+        report['passed']=bool(result.get('task_success') and not (process_blocks(t) and result['violations']) and not unresolved and not report['frontier']['pending'] and not report['frontier']['failed'] and not report['frontier']['retained_resources'])
         if not report['passed']:report['error']='Full original order not completed; inspect preserved frontier'
     except (Exception,KeyboardInterrupt) as error:
         report['error']=type(error).__name__+': '+str(error)

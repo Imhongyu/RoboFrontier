@@ -12,6 +12,9 @@ class PickupSupportLost(RuntimeError):
 
 def requires_contact_recovery(error):
     if isinstance(error,PickupSupportLost):return True
+    from .transport_socket_motion import SocketPlanningError
+    if isinstance(error,SocketPlanningError) and error.stage in ('socket-withdraw','release','payload_support','seating-recovery'):
+        return True
     return any(text in str(error) for text in (
         'Grasp stopped outside expected object-width tolerance',
         'Requested opening not reached','Requested aperture exceeded',

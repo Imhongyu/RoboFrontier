@@ -9,6 +9,19 @@ from robofrontier.suite.transport_recovery import EngineeringRecovery
 
 
 class EngineeringRecoveryTests(unittest.TestCase):
+    def test_terminal_inventory_heuristic_requests_review_without_blocking_the_inbox(self):
+        with TemporaryDirectory() as tmp:
+            lost=[dict(object='part',position_m=[10.,0.,1.])]
+            handler=EngineeringRecovery(tmp,inventory_check=lambda _:lost)
+            handler.observation=Mock(return_value=dict(failed_jobs={},accepted_goals={}))
+            trial=SimpleNamespace(task={'run_protocol':{'evaluation_semantics':'terminal_outcome_v2'}},event=Mock())
+            runtime=SimpleNamespace(jobs={})
+            handler.poll(trial,runtime,[],[],force=True)
+            lost[0]['position_m'][0]=11.
+            handler.poll(trial,runtime,[],[],force=True)
+            trial.event.assert_called_once()
+            self.assertEqual(trial.oracle_inventory_warnings[0]['position_m'][0],11.)
+
     def test_owner_input_claims_actor_before_automatic_retry(self):
         with TemporaryDirectory() as tmp:
             handler=EngineeringRecovery(tmp);handler.failed_progress['automatic']=0

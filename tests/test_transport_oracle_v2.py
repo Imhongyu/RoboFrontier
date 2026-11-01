@@ -712,6 +712,20 @@ class TransportReferenceTests(unittest.TestCase):
             reference.solve(t)
         self.assertIs(t.stop_requested, original_stop)
 
+    def test_terminal_wrapper_keeps_history_without_overriding_owner_stop(self):
+        task,env=fixture_data();task['run_protocol']={'evaluation_semantics':'terminal_outcome_v2'}
+        stop=[False];original_stop=lambda:stop[0]
+        t=SimpleNamespace(task=task,env=env,event=Mock(),pick=Mock(),execute=Mock(),place=Mock(),
+                          monitor=SimpleNamespace(violations=[]),stop_requested=original_stop)
+        def baseline(current):
+            current.monitor.violations.append({'kind':'inter_robot_contact'})
+            self.assertFalse(current.stop_requested())
+            stop[0]=True
+            self.assertTrue(current.stop_requested())
+        with patch.object(reference,'_baseline',side_effect=baseline):reference.solve(t)
+        self.assertEqual(len(t.monitor.violations),1)
+        self.assertIs(t.stop_requested,original_stop)
+
     def test_delegates_after_board_relative_contract_check(self):
         task, env = fixture_data()
         events = []

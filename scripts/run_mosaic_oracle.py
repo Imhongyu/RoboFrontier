@@ -186,9 +186,13 @@ def run(args):
     finally:
         unknown=[r for r,a in trial.arms.items() if a.job is not None]
         unknown+= [r for action in trial.actions for r,result in action.get('results',{}).items() if result.get('status')=='uncertain']
+        from robofrontier.suite.oracle_protocol import process_blocks,unresolved_robots
+        if not process_blocks(trial):unknown=unresolved_robots(trial)
         report['unresolved_robot_actions']=sorted(set(unknown))
+        if unknown or (process_blocks(trial) and trial.monitor.violations):
+            report['passed']=False
         if unknown or trial.monitor.violations:
-            report['passed']=False;report['commissioning_passed']=False
+            report['commissioning_passed']=False
         metadata=dict(llm_used=review.assisted,assisted=review.assisted,
             oracle_mode='privileged_assisted' if review.assisted else 'pure_program',
             recovery=dict(world_id=review.world_id,reviews=review.history,

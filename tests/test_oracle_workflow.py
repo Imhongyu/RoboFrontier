@@ -73,6 +73,12 @@ class OracleWorkflowTests(unittest.TestCase):
                 self.assertNotIn('/runs/oracle/', manifest['source_directory'])
                 self.assertEqual(catalog['cases'][0]['id'], case)
                 self.assertFalse((root/'trial').exists())
+                self.assertEqual(manifest['execution_protocol'], 'private/execution-protocol.json')
+                self.assertEqual(env['ROBOFRONTIER_ORACLE_PROTOCOL'], str(root/'private/execution-protocol.json'))
+                protocol = json.loads((root/'private/execution-protocol.json').read_text())
+                self.assertEqual(protocol['mode'], 'task-reference')
+                self.assertEqual(protocol['source_task_sha256'], manifest['source_sha256']['task.json'])
+                self.assertEqual(protocol['evaluation_semantics'], 'terminal_outcome_v2')
                 if manifest['family'] == 'mosaic':
                     self.assertEqual(catalog['scene_revision'], 14)
                 if manifest['family'] == 'dial':
@@ -85,9 +91,12 @@ class OracleWorkflowTests(unittest.TestCase):
                     self.assertNotIn('--codebook', command)
 
     def test_configuration_versions_one_and_two_are_not_rewritten(self):
-        for version in (1, 2):
+        for version in (1, 2, 3):
             config = deepcopy(load_configuration())
-            del config['oracle']
+            if version < 3:
+                del config['oracle']
+            else:
+                del config['oracle']['evaluation_mode']
             if version == 1:
                 del config['factory']
             config['schema_version'] = version
@@ -105,8 +114,30 @@ class OracleWorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'exactly one'):
             workflow.prepare(self.root/'many', load_configuration())
 
+    def test_legacy_preparation_does_not_inherit_a_new_execution_protocol(self):
+        config=self.config()
+        config['schema_version']=3
+        del config['oracle']['evaluation_mode']
+        root=self.root/'legacy'
+        with patch.object(workflow,'_committed_source',return_value='test-source'):
+            workflow.prepare(root,config)
+        _,manifest,frozen_config=workflow._load(root)
+        self.assertNotIn('execution_protocol',manifest)
+        with patch.dict(os.environ,{'ROBOFRONTIER_ORACLE_PROTOCOL':'/unrelated/protocol.json'}):
+            _,env=workflow._command(root,manifest,frozen_config)
+        self.assertNotIn('ROBOFRONTIER_ORACLE_PROTOCOL',env)
+        self.assertEqual(frozen_config,config)
+
+    def test_strict_process_preparation_is_explicit_and_hash_bound(self):
+        root=self.prepare(evaluation_mode='strict-process')
+        _,manifest,config=workflow._load(root)
+        self.assertEqual(config['oracle']['evaluation_mode'],'strict-process')
+        protocol=json.loads((root/manifest['execution_protocol']).read_text())
+        self.assertEqual(protocol['mode'],'strict-process')
+        self.assertIn('private/execution-protocol.json',manifest['input_sha256'])
+
     def test_configuration_and_executor_mutation_rejected_before_any_process(self):
-        for index, name in enumerate(('private/executor/robofrontier/suite/oracle.py', 'effective-config.json')):
+        for index, name in enumerate(('private/executor/robofrontier/suite/oracle.py', 'effective-config.json', 'private/execution-protocol.json')):
             root = self.root/str(index)
             with patch.object(workflow, '_committed_source', return_value='test-source'):
                 workflow.prepare(root, self.config())

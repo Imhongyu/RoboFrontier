@@ -65,6 +65,8 @@ class EngineeringRecovery:
             robots={r:a.observe() for r,a in t.arms.items()},
             objects={o['id']:dict(position_m=t.data.body(o['id']).xpos.tolist(),rotation=t.data.body(o['id']).xmat.tolist()) for o in t.env['objects']},
             held=dict(t.held),active_robots=sorted(runtime.running),updated_at_unix_s=time.time(),
+            socket_release_phases=getattr(t,'socket_release_phases',{}),
+            inventory_warnings=getattr(t,'oracle_inventory_warnings',[]),
             state_qpos=t.data.qpos.tolist(),state_qvel=t.data.qvel.tolist(),
             capabilities=['coherent_qpos_qvel','retain_robots_on_prepare','pause_after_prepare','known_action_fault_review','measured_payload_support','immutable_review_snapshots'],
             source='Privileged engineering observation; never a GPT benchmark policy input')
@@ -117,6 +119,8 @@ class EngineeringRecovery:
                 for actor,held in list(t.held.items()):
                     if actor in robots and t.arms[actor].grasp_force is None and not _robot_payload_contacts(t,actor,held):
                         t.held.pop(actor)
+                        getattr(t,'socket_released_payload',{}).pop(actor,None)
+                        getattr(t,'socket_release_phases',{}).pop(actor,None)
                         t.event('transport_measured_carrier_cleared',robot=actor,object=held)
                 raise PreparationComplete(retain_robots=keep,pause_after_prepare=pause)
             return execute_job(t,runtime,original,resume=True)
@@ -131,10 +135,20 @@ class EngineeringRecovery:
         if self.inventory_check is not None:
             lost=self.inventory_check(t)
             if lost:
+                from .oracle_protocol import process_blocks
                 from .transport_inventory import UnreachableTransportInventory
-                if t.motion is not None:t.motion.capture(t.data,force=True)
-                t.event('transport_inventory_unreachable',objects=lost)
-                raise UnreachableTransportInventory('Required stock left the admitted robot workspace: '+str(lost))
+                if process_blocks(t):
+                    if t.motion is not None:t.motion.capture(t.data,force=True)
+                    t.event('transport_inventory_unreachable',objects=lost)
+                    raise UnreachableTransportInventory('Required stock left the admitted robot workspace: '+str(lost))
+                signature=tuple(sorted(item['object'] for item in lost))
+                if getattr(t,'oracle_inventory_warning_ids',None)!=signature:
+                    t.event('transport_inventory_review_required',objects=lost,
+                            scope='Finite stock reach heuristic; not a proof of task impossibility')
+                t.oracle_inventory_warning_ids=signature
+                t.oracle_inventory_warnings=lost
+            else:
+                t.oracle_inventory_warnings=[];t.oracle_inventory_warning_ids=()
         self.next_poll=time.monotonic()+1.;state=self.observation(t,runtime)
         write_json(self.path/'frontier.json',state);changed=False
         # Explicit owner repairs acquire resources before heuristic retries.

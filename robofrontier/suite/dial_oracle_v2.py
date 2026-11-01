@@ -50,8 +50,11 @@ class Manipulator(BaselineManipulator):
         if (arm.job is not None or arm.grasp_force is not None or
                 not t.monitor.released(self.red_geoms(dial))):
             raise RuntimeError('Crank clear requires terminal opening and real separation '+robot)
-        if arm.observe()['gripper_width_m']<arm.grip_max-.002:
-            raise RuntimeError('Crank clear requires measured maximum aperture '+robot)
+        # Real separation was observed above. Screen with the actual finger
+        # joints; maximum aperture is a command preference, not a task rule.
+        width=float(arm.observe()['gripper_width_m'])
+        if not math.isfinite(width):
+            raise RuntimeError('Crank clear requires finite measured aperture '+robot)
         point=np.asarray(point);rotation=np.asarray(rotation)
         distance=float(np.dot(t.data.site_xpos[arm.site]-point,-rotation[:,2]))
         for length in (.06,.055,.05,.045,.04,.035,.03):

@@ -53,6 +53,7 @@ def add_arguments(subparsers):
             command.add_argument('--codebook', type=Path, help='Optional evaluator-only Dial puzzle; never sent to its solver')
             command.add_argument('--render', choices=('nvidia', 'cpu', 'native'))
             command.add_argument('--wall-limit-s', type=float)
+            command.add_argument('--evaluation-mode', choices=('task-reference', 'strict-process'))
             command.add_argument('--mosaic-max-goals', type=int)
             command.add_argument('--mosaic-planning-workers', type=int)
     for name in ('run', 'status', 'stop'):
@@ -170,6 +171,15 @@ def prepare(output, config, *, codebook=None):
               'private/run.json', 'private/executor/snapshot.json']
     if puzzle is not None:
         pinned.append('private/codebook.json')
+    protocol = None
+    if config['schema_version'] >= 4:
+        from .suite.oracle_protocol import PROTOCOL_SCHEMA
+        protocol = dict(schema=PROTOCOL_SCHEMA, mode=config['oracle']['evaluation_mode'],
+                        case_id=case['id'], source_task_sha256=inventory['task.json'],
+                        source_scene_sha256=inventory['scene.xml'],
+                        evaluation_semantics='terminal_outcome_v2')
+        write_json(private/'execution-protocol.json', protocol)
+        pinned.append('private/execution-protocol.json')
     pinned.extend('private/executor/'+name for name in _read(frozen/'snapshot.json')['files'])
     document = {'schema': 'robofrontier.oracle-execution.v1', 'case_id': case['id'], 'family': family,
                 'git_commit': commit, 'source_root': str(ROOT), 'prepared_directory': str(output),
@@ -180,6 +190,8 @@ def prepare(output, config, *, codebook=None):
                 'clock': 'Owner-launch engineering elapsed time; includes planning and review pauses',
                 'dial_puzzle': ('explicit evaluator-only input' if codebook is not None else
                                 'fresh uniformly sampled evaluator-only input') if puzzle is not None else None}
+    if protocol is not None:
+        document['execution_protocol'] = 'private/execution-protocol.json'
     write_json(output/'oracle.json', document)
     write_json(output/'oracle-status.json', {'phase': 'prepared', 'case_id': case['id'], 'model_calls': 0})
     return {'execution': str(output), 'case_id': case['id'], 'model_calls': 0, 'physics_stepped': False,
@@ -203,6 +215,10 @@ def _load(execution):
     expected.update('private/executor/'+name for name in snapshot['files'])
     if document['family'] == 'dial':
         expected.add('private/codebook.json')
+    if document.get('execution_protocol'):
+        if document['execution_protocol'] != 'private/execution-protocol.json':
+            raise ValueError('Unknown Oracle execution protocol path')
+        expected.add('private/execution-protocol.json')
     if set(document['input_sha256']) != expected:
         raise ValueError('Oracle frozen-input inventory is incomplete or has unknown entries')
     for name, checksum in snapshot['files'].items():
@@ -216,6 +232,14 @@ def _load(execution):
     validate_configuration(config)
     if 'oracle' not in config:
         raise ValueError('Expected an Oracle configuration')
+    if (config['schema_version'] >= 4) != bool(document.get('execution_protocol')):
+        raise ValueError('Oracle execution protocol missing or unexpected')
+    if document.get('execution_protocol'):
+        from .suite.oracle_protocol import effective_task
+        protocol = _read(root/document['execution_protocol'])
+        effective_task(document['source_directory'], _read(Path(document['source_directory'])/'task.json'), protocol)
+        if protocol['mode'] != config['oracle']['evaluation_mode']:
+            raise ValueError('Oracle execution mode differs from its frozen configuration')
     for name, checksum in document['source_sha256'].items():
         if _sha(Path(document['source_directory'])/name) != checksum:
             raise ValueError('Oracle source scene changed since preparation: '+name)
@@ -241,6 +265,10 @@ def _command(root, document, config):
     elif family == 'dial':
         command.extend(['--codebook', str(root/'private/codebook.json'), '--wall-s', '0'])
     env = rendering_environment(config['render']['device'], platform.system(), os.environ)
+    from .suite.oracle_protocol import PROTOCOL_ENV
+    env.pop(PROTOCOL_ENV, None)
+    if document.get('execution_protocol'):
+        env[PROTOCOL_ENV] = str(root/document['execution_protocol'])
     env.update(PYTHONPATH=str(frozen), ROBOFRONTIER_ORACLE_FROZEN_ROOT=str(frozen),
                TRANSPORT_ORACLE_COMMIT=document['git_commit'], TRANSPORT_ORACLE_WORKTREE=document['source_root'],
                ROBOFRONTIER_MOSAIC_COMMIT=document['git_commit'], PYTHONUNBUFFERED='1',
@@ -352,6 +380,10 @@ def run(execution):
                        returncode=process.returncode, finished_unix_s=time.time(),
                        report='trial/report.json' if report else None,
                        scope='Privileged Oracle engineering; not a policy benchmark result')
+            if report.get('report_schema') == 'robofrontier.oracle-report.v2':
+                for key in ('report_schema','task_completed','task_goal_met','process_clean',
+                            'execution_resolved','physics_valid','strategy_completed'):
+                    row[key]=report[key]
             if not report:
                 row['error'] = 'Native Oracle produced no report; inspect oracle.log and retained evidence'
         except BaseException as error:
@@ -409,7 +441,7 @@ def execute(args):
         return result
     updates = {field: getattr(args, field) for field in ('families', 'cases', 'level', 'min_arms')
                if getattr(args, field, None) is not None}
-    options = {field: getattr(args, field) for field in ('wall_limit_s', 'mosaic_max_goals', 'mosaic_planning_workers')
+    options = {field: getattr(args, field) for field in ('wall_limit_s', 'mosaic_max_goals', 'mosaic_planning_workers', 'evaluation_mode')
                if getattr(args, field, None) is not None}
     overrides = {}
     if updates:

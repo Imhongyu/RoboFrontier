@@ -11,7 +11,9 @@ def unreachable_required_inventory(trial,padding_m=.12):
 
     The padding exceeds the object/finger grasp offsets in this suite. This
     does not change the workspace, physics, inventory or final acceptance.
-    It stops a doomed attempt instead of repeatedly planning for lost stock.
+    This is a stock reach heuristic, not a complete impossibility proof. The
+    Oracle recovery protocol decides whether to stop strict commissioning or
+    publish a task-reference review warning while retaining ordinary limits.
     """
     workspace=trial.task['workspace_world_m'];lower=np.asarray(workspace['lower']);upper=np.asarray(workspace['upper'])
     accepted=set(trial.monitor.result().get('assignments',{}).values());rows=[]

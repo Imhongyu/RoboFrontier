@@ -6,6 +6,7 @@ commands; screening does not certify contact manipulation or final acceptance.
 from collections import Counter
 import numpy as np
 from . import placement_oracle as helpers
+from .oracle_protocol import process_blocks
 
 
 def validate_task(task):
@@ -378,7 +379,7 @@ def execute_loaded_transit(trial, robot, target, rotation, joints):
         last=actions[-1] if actions else {};result=last.get('results',{}).get(robot,{})
         if (result.get('status')!='failed' or result.get('reason')!='Action timeout; stopped at current reference' or
                 not last.get('label','').startswith('mosaic-feedback-transit') or
-                any(a.job is not None for a in trial.arms.values()) or trial.monitor.violations or
+                any(a.job is not None or getattr(a,'uncertainty_reported',False) for a in trial.arms.values()) or (process_blocks(trial) and trial.monitor.violations) or
                 trial.held.get(robot) is None or arm.grasp_force is None):raise
         name=trial.held[robot];observations=[]
         if not trial.finger_contacts(robot,name):raise
@@ -391,7 +392,7 @@ def execute_loaded_transit(trial, robot, target, rotation, joints):
         verified=bool(all(x['joint_error_rad']<.004 and x['joint_speed_rad_s']<.03 and x['bilateral'] for x in observations) and
             np.max(np.linalg.norm(positions-positions[0],axis=1))<.002 and
             positions[:,2].min()>trial.task['table_height_m']+.08 and
-            not trial.monitor.violations and trial.pose_clear(robot,trial.data.qpos[arm.qids]))
+            not (process_blocks(trial) and trial.monitor.violations) and trial.pose_clear(robot,trial.data.qpos[arm.qids]))
         evidence=dict(robot=robot,object=name,original_call_id=result.get('call_id'),
             original_status='failed',original_feedback_preserved=True,target_joint_rad=np.asarray(joints).tolist(),
             observations=observations,verified=verified)
@@ -953,7 +954,10 @@ def protected_remaining_inputs(trial, protected_assignments):
     current=dict(trial.monitor.result().get('assignments',{}))
     for goal,name in protected_assignments.items():
         if current.get(goal)!=name:
-            raise RuntimeError('Previously completed pairing changed '+goal+'/'+name)
+            if process_blocks(trial):
+                raise RuntimeError('Previously completed pairing changed '+goal+'/'+name)
+            trial.event('mosaic_completed_pairing_changed',goal=goal,previous_object=name,
+                        current_object=current.get(goal),scope='Replan from current matching; retain all prior events')
     used=set(current.values())
     goals=[goal for goal in trial.task['goals'] if goal['goal_id'] not in current]
     objects=[item for item in trial.env['objects'] if item['id'] not in used]
@@ -987,7 +991,8 @@ def assign_supply(trial, goals, coverage, pickups, neighbors, available_objects=
 
 
 def check_process(trial):
-    if trial.monitor.violations:
+    from .oracle_protocol import process_blocks
+    if process_blocks(trial) and trial.monitor.violations:
         raise RuntimeError('Process violation: ' + str(trial.monitor.violations[-1]))
 
 

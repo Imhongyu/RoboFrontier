@@ -23,8 +23,11 @@ class OracleRecovery:
     def __init__(self, trial, *, owner, world_id, observe):
         if getattr(trial, '_oracle_recovery_attachment', None) is not None:
             raise ValueError('This world already has a recovery execution owner')
-        if any(arm.job is not None for arm in trial.arms.values()):
+        if any(arm.job is not None or getattr(arm,'uncertainty_reported',False) for arm in trial.arms.values()):
             raise ValueError('Attach only at an idle, exclusive execution handover')
+        from .oracle_protocol import process_blocks,unresolved_robots
+        if not process_blocks(trial) and unresolved_robots(trial):
+            raise ValueError('Original action feedback must be resolved before recovery handover')
         self.trial, self.owner, self.world_id, self.observe = trial, owner, world_id, observe
         self.requests, self.running, self.reserved, self.unknown = {}, {}, {}, {}
         self.recoveries, self.paused = {}, False
@@ -47,6 +50,8 @@ class OracleRecovery:
             raise ValueError('Use the single live physics owner thread')
         if execution and not self.attached:
             raise ValueError('Execution was handed back; this adapter cannot step or submit')
+        if execution and getattr(self.trial,'physics_failure',None):
+            raise ValueError('Invalid physical trajectory cannot be repaired as valid evidence')
 
     def _blocked_legacy_execute(self, *args, **kwargs):
         raise ValueError('Recovery owns execution; drain and explicitly handoff before Trial.execute')
@@ -108,6 +113,9 @@ class OracleRecovery:
             if self.requests[ident]['request'] != request:
                 raise ValueError('Request ID reused with different input')
             return self.status(ident)
+        from .oracle_protocol import process_blocks,unresolved_robots
+        if not process_blocks(self.trial) and robot in unresolved_robots(self.trial):
+            raise ValueError('Original action feedback is unresolved; never replay')
         if self.paused or robot in self.reserved or robot in self.unknown:
             raise ValueError('Robot paused, reserved, or outcome uncertain')
         if robot not in self.trial.arms or self.trial.arms[robot].job is not None:
@@ -318,13 +326,45 @@ class OracleRecovery:
         self._finish(ident, 'uncertain', reason)
         self.trial.event('oracle_recovery_execution_fenced', request_id=ident, reason=reason)
 
+    def review_terminal(self, owner, ident, review, *, assisted=False):
+        """Resolve one acknowledgement using this owner's original poll result.
+
+        Never resume the remaining sequence or turn a failed motor call into
+        success. Legacy/strict fences keep their original behavior.
+        """
+        self._thread()
+        from .oracle_protocol import process_blocks
+        if process_blocks(self.trial) or owner!=self.owner or not review or not isinstance(assisted,bool):
+            raise ValueError('Task-reference owner review is required')
+        rec=self.requests[ident];robot=rec['request']['robot']
+        result=rec.get('terminal_feedback',{})
+        arm=self.trial.arms[robot]
+        if (rec['status']!='uncertain' or robot in self.running or arm.job is not None
+                or getattr(arm,'uncertainty_reported',False)
+                or not result.get('call_id') or self.unknown.get(robot)!=result['call_id']
+                or result.get('status') not in ('completed','failed')):
+            raise ValueError('Original terminal motor feedback is required; never infer from idle state')
+        self.assisted |= assisted
+        resolution=dict(original_status='uncertain',terminal_feedback=deepcopy(result),
+                        review=str(review),assisted=assisted,sim_time_s=self.trial.time,
+                        remaining_sequence_replayed=False)
+        rec.update(status='resolved',execution_resolution=resolution)
+        self.unknown.pop(robot)
+        recovery=self.recoveries.get(rec['request'].get('recovery_id'))
+        if recovery is not None:recovery['status']='feedback_ready'
+        self.trial.event('oracle_execution_resolved',robot=robot,request_id=ident,
+                         result=deepcopy(result),review=str(review),assisted=assisted)
+        self._publish(ident)
+        return self.status(ident)
+
     def close(self, report):
         if self.closed:
             return
         self._thread(False)
         report['unresolved_robot_actions'] = sorted(set(self.unknown) |
             {r for r, a in self.trial.arms.items() if a.job is not None})
-        if report['unresolved_robot_actions'] or self.trial.monitor.violations:
+        from .oracle_protocol import process_blocks
+        if report['unresolved_robot_actions'] or (process_blocks(self.trial) and self.trial.monitor.violations):
             report['passed'] = False
         metadata = dict(llm_used=self.assisted, assisted=self.assisted,
             oracle_mode='privileged_assisted' if self.assisted else 'pure_program',

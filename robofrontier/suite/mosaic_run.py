@@ -16,14 +16,17 @@ import numpy as np
 from ..run_setup import write_json
 from .oracle import ProcessViolation, ReferenceStopped
 from . import mosaic_oracle_v2 as reference
+from .oracle_protocol import process_blocks, unresolved_robots
 
 
 def require_known_idle(trial):
-    if trial.monitor.violations:
+    if getattr(trial,'physics_failure',None):
+        raise RuntimeError('Invalid physical trajectory cannot be repaired as valid evidence')
+    if process_blocks(trial) and trial.monitor.violations:
         raise ProcessViolation('Retained process violation prevents canonical continuation')
-    if (any(arm.job is not None for arm in trial.arms.values()) or
-            any(result.get('status') == 'uncertain' for action in trial.actions
-                for result in action.get('results', {}).values())):
+    historical_unknown=any(result.get('status') == 'uncertain' for action in trial.actions
+                           for result in action.get('results', {}).values())
+    if unresolved_robots(trial) or (process_blocks(trial) and historical_unknown):
         raise RuntimeError('Unknown or in-flight execution requires original-action review')
 
 
@@ -65,7 +68,9 @@ class MosaicReview:
         t=self.trial;name=t.held.get(robot)
         if name is None:return
         arm=t.arms[robot]
-        if (arm.grasp_force is not None or arm.observe()['gripper_width_m']<t.task['cube_size_m']+.003 or
+        width=float(arm.observe()['gripper_width_m'])
+        if (arm.grasp_force is not None or not np.isfinite(width) or
+                (process_blocks(t) and width<t.task['cube_size_m']+.003) or
                 not t.monitor.released(t.monitor.geoms[name])):
             raise ValueError('Payload is not physically released '+robot+'/'+name)
         velocity=t.monitor.velocity(t.model.body(name).id)
