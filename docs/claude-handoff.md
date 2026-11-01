@@ -1,109 +1,137 @@
-# Claude harness: development status
+# Native Claude Code engineering handoff
 
-This branch is under development. It does **not** admit scored tasks. Its
-experimental engineering runner can start a simulator and paid inference when
-explicitly invoked; provider profiles are candidates, not compatibility claims.
-The existing Codex benchmark remains separate.
+The unified integration retains the native Claude CLI/MCP implementation beside
+Codex. It does **not** admit scored Claude tasks. Current Single/Adaptive
+engineering entries can start real simulation and potentially billable inference
+only when explicitly invoked. Provider profiles are candidates, not compatibility
+certificates. Permanent Worker topologies remain an implementation/qualification
+gate; see [the component map](claude-codex-parity.md),
+[harness alignment](harness-alignment.md) and
+[the current acceptance ledger](development/unified-main.md).
 
-当前调用编号、容量恢复和统计字段以
-[harness 对齐说明](harness-alignment.md) 为准。下面的历史测试记录保留当时条件。
+## Current startup, time and finish contract
 
-## 当前运行默认值与结束规则
+New Single/Adaptive policy inputs use direct Controller START. Once the world is
+ready and the Controller's native session is bound, the host persists START and
+sends an explicit started prompt. Initial task reading, observation and planning
+count toward the task clock. `ready` is an optional capability query; it is not
+a readiness barrier. Frozen `ready_barrier_v1` runs keep their historical
+READY/idle startup and must not be reinterpreted as direct-start experiments.
 
-`run-engineering` 的 `--turn-budget-usd`、`--task-budget-usd` 现为可选，默认都不设
-美元上限。省略时不向 Claude CLI 注入 `--max-budget-usd`；仍保存 CLI 报告的费用。
-adaptive 的 Controller、子代理、fork setup 共用运行目录内的账本；没有费用上限时，
-缺失费用会单独记录为未报告，不会被当成零费用或阻止已确认正常的后续轮次。
-执行结果不明、取消后的状态不明、fork 身份验证失败仍要求复核，不会自动重放。
-显式传入预算时仍保留原有的额度检查；只传任务预算时，一轮可能预留全部剩余额度，
-此时另一角色申请额度会被拒绝。需要在预算内并发时，同时设置合适的单轮额度。
-这些额度都是 CLI 估算控制，实际账单以供应商为准。
+The default task limit is 86,400 seconds from persisted START. A separately
+selected engineering stop does not rewrite that public limit. Normal policy
+turns have no separate default timeout; startup, RPC, tool waits and tool-free
+fork creation still have their own bounds. Host creation time is not a second
+24-hour experiment clock. `run-engineering --startup-timeout-s` defaults to
+120 seconds; the unified TOML startup default is 600 seconds. Record the entry
+and its frozen settings rather than treating these as one parameter.
 
-默认 `--wall-limit-s 86400`，依据持久化 START 计时；工程测试可显式缩短。
-公开任务时限仍使用冻结输入，工程停止时间不会改写它。正常策略轮次默认无独立超时；
-启动等待、RPC 和无机器人权限的 fork setup 超时仍保留。实时 MP4 默认关闭，
-`prepare-draft --record-video` 可开启；motion 和策略观察图照常记录。
+The shared [policy rules](../prompts/policy-rules.md) require continued work and
+recovery while unfinished. Use `finish` after public evidence supports completion,
+or explain publicly supported unrecoverability. The runtime independently checks
+actions and delegation closure, and the private scorer evaluates the terminal
+world. Accepted finish does not imply success. Ending a CLI turn or returning a
+child does not itself finish the task. Dial retains unlock-once completion.
+
+Realtime MP4 is off by default. Observations and motion are still recorded.
+Legacy `prepare-draft --record-video` enables MP4 and requires FFmpeg/ffprobe;
+engineering sealing checks the stream and decodes its first frame. This is not
+full-file decode qualification. Requested video that cannot be verified requires
+review; expected absence when disabled is not a task failure.
+
+## Configuration and installation
+
+Use the checked-out integration's [README](../README.md) and
+[unified CLI guide](unified-cli.md). Integration has not yet replaced GitHub main.
+The earlier public `codex/claude-code-harness` branch is a historical source;
+cloning it does not acquire all newer unified features automatically.
+
+Install Python 3.12, uv and the native Claude CLI on macOS/Linux. Observed local
+checks use Claude Code 2.1.312. Requalify changed versions. An outer manager may
+be Codex, Claude, another coding agent, or ordinary shell commands; selecting the
+Claude policy engine does not require the outer manager to be Claude Desktop.
+A native Claude-only path does not require the Codex CLI. The unified Docker
+image installs both pinned CLIs.
 
 ```sh
-.venv/bin/python -m scripts.claude_benchmark run-engineering RUN_DIR --parallel 4 --confirm-engineering-spend
-```
-
-新准备任务的共享 [policy rules](../prompts/policy-rules.md) 要求完成后依据公开证据
-核验再 `finish`；未完成时继续恢复，只有证据表明无法恢复才主动结束并说明原因。
-这是策略执行规则，运行时仍独立检查动作和委派收尾，私有评分器独立评分；接受
-`finish` 不代表成功。已有冻结批次保持原输入，使用新规则需在新目录重新准备。
-
-For an agent-independent orchestration prompt, see
-[Claude engineering manager](../prompts/claude/engineering-manager.md).
-The older [multimodel handoff](multimodel-handoff.md) describes the Codex
-runner and its asset-bundle recovery, not Claude command names or readiness.
-
-## Claude 分支接手步骤
-
-`codex/claude-code-harness` 已发布在公开 GitHub 仓库，可直接克隆；直接向仓库
-push 仍需要写入权限。其他分支可能仍使用 Codex 路线，不能把它们当成这个 Claude 分支。
-
-```sh
-git clone --branch codex/claude-code-harness https://github.com/changxuanfan/robofrontier.git robofrontier-claude
-cd robofrontier-claude
-git rev-parse --short HEAD
-```
-
-在 macOS 或 Linux 准备 Python 3.12、`uv`、Claude Code CLI 和可用的图形环境；
-录像还需 FFmpeg 和 ffprobe。已验证的本机 CLI 为 2.1.312，版本变化后需要重新
-验证。Claude 路线本身不需要安装 Codex CLI；外层调度 session 可以使用具备终端
-访问的其他 coding agent。下面先安装依赖，并从已发布的 R14 资产包恢复资源：
-
-```sh
-claude --version
 uv sync --locked --extra oracle
-.venv/bin/python -m scripts.benchmark_handoff setup-assets
+claude --version
+.venv/bin/robofrontier bootstrap
+.venv/bin/robofrontier plan --engine claude --profile haiku --level 1 --min-arms --parallel 4
+.venv/bin/robofrontier prepare --engine claude --profile haiku --level 1 --min-arms --parallel 4 --render native --output runs/engineering/claude-current-l1
 ```
 
-上述公开下载不需要 GitHub 登录；离线安装可从同仓库的 `handoff-20261028` Release 下载 `policy-assets-rolling003-20261029.tar.gz`，再运行 `setup-assets --archive /path/to/policy-assets-rolling003-20261029.tar.gz`，程序会校验文件哈希。
-包内资产版本为 R14，Mosaic R15 不在本分支。恢复程序还校验资产清单和文件哈希。
+The renderer example is for macOS. On Linux select `--render nvidia` or
+`--render cpu`. Preparation restores pinned assets automatically, creates no
+world or model session and does not authorize inference. Mosaic uses R14. Use
+`configs/policy-assets.json` for the exact archive/hash; offline installation is
+`python -m scripts.benchmark_handoff setup-assets --archive /path/to/archive`.
+Do not approximate missing labels or silently substitute another asset revision.
 
-在仓库根目录创建个人 `.env`，以下命令不会覆盖已有文件；只在自己的机器填写
-相应变量，不要在聊天中粘贴密钥或把密钥提交到 Git：
+The model catalog is `configs/claude-models.json`. Create the ignored `.env`
+without replacing an existing file, then edit it locally:
 
 ```sh
 .venv/bin/python -c 'import os; from pathlib import Path; fd = os.open(".env", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600); os.write(fd, Path(".env.claude.example").read_bytes()); os.close(fd)'
 ```
 
-`opus` 使用 `ANTHROPIC_API_KEY`；国产模型分别读取模板中的对应变量，千问还需
-按账号和区域填写 Anthropic 兼容 endpoint。`opus_subscription` 是尚未使用真实订阅
-验证的候选配置。模板的空值不构成登录或可用性证明。环境变量优先于 `.env`。
-如果 `.env` 已存在，检查并编辑原文件，不要覆盖；不要将创建命令的失败当成认证失败。
+`haiku` and `opus` use `ANTHROPIC_API_KEY`. Other profiles use their catalog's
+credential variable; Qwen additionally uses `DASHSCOPE_ANTHROPIC_BASE_URL` matching
+the actual account/region. Existing process environment values take precedence.
+An empty template value is neither a login nor a compatibility check. Keep keys
+out of chat, TOML and Git.
 
-百炼 [Coding Plan 使用说明](https://help.aliyun.com/zh/model-studio/coding-plan) 明确限制
-非交互式批量 API 调用；本 harness 会由外层进程自动并发启动多个 CLI，会话用途与
-套餐允许范围须向供应商确认。不要因为它支持 Claude Code 就假定可用于此批量任务；
-应使用允许该用途的账号与服务，例如核实后采用按量计费接口。套餐和按量计费的
-密钥、endpoint 不能混用，见[百炼 Claude Code 接入说明](https://help.aliyun.com/zh/model-studio/claude-code)。
-DeepSeek profile 使用的 Anthropic 兼容地址与 [DeepSeek 官方接入说明](https://api-docs.deepseek.com/quick_start/agent_integrations/claude_code/)一致；
-模型映射、视觉和工具往返仍需对实际账号和所选 profile 预检，不能只凭地址判断通过。
-`kimi` 保留原 Moonshot API 候选设置；新增 `kimi_code` 单独使用
-`KIMI_CODE_API_KEY`、国内 Kimi Code 端点和 `k3.1-pro`。根据 [Kimi Code 官方说明](https://www.kimi.com/code/docs/en/third-party-tools/claude-code.html)，
-该模型与可用上下文取决于会员等级，并且仅支持思考模式；海外账号应核实官方区域端点。
-这两个候选 profile 均未在本工程做真实预检，也不能假定 Kimi Code 套餐允许此类批量
-benchmark；请先确认账号权限、用途和额度，再选择 profile 进行授权预检。
-API Key 模式将所选厂商密钥传给 Claude 的 `ANTHROPIC_API_KEY`；本机 CLI 2.1.312
-的回环测试确认请求使用 `x-api-key`。百炼的[兼容接口文档](https://help.aliyun.com/zh/model-studio/anthropic-api-messages)
-和 [DeepSeek 兼容接口文档](https://api-docs.deepseek.com/zh-cn/guides/anthropic_api/)
-均列出对该请求头的支持；这不构成真实账号认证、其他厂商兼容性或完整任务通过的证明。
+API profiles pass only their selected credential/endpoint into the native CLI;
+`--bare` avoids reading native OAuth. The candidate `opus_subscription` path uses
+`CLAUDE_CODE_OAUTH_TOKEN`, disables project/user setting sources and automatic MCP
+discovery/tool search, and permits that token only at the official Anthropic
+endpoint. It does not copy Claude Desktop login. Its real subscription behavior,
+credits/cost reporting and refresh are not qualified. The native loopback tests
+used a synthetic token. Follow the current
+[Anthropic authentication documentation](https://code.claude.com/docs/en/authentication)
+for account setup; do not share a generated token in chat or Git.
 
-以下离线命令不启动世界、不调用模型：
+Check current provider account terms, allowed batch use, model mapping, endpoint,
+vision/tool support, quota and pricing before paid prechecks. An editor-compatible
+coding plan does not automatically authorize unattended parallel benchmarks.
+Do not mix coding-plan and pay-as-you-go keys/endpoints. Historical source links:
+[Qwen Claude Code integration](https://help.aliyun.com/zh/model-studio/claude-code),
+[DeepSeek Claude Code integration](https://api-docs.deepseek.com/quick_start/agent_integrations/claude_code/),
+[Kimi Code integration](https://www.kimi.com/code/docs/en/third-party-tools/claude-code.html).
+`kimi` and `kimi_code` are distinct candidates with different credential variables
+and endpoints. A configured URL or model name is not provider qualification.
 
-```sh
-.venv/bin/python -m scripts.claude_benchmark doctor --models opus
-.venv/bin/python -m scripts.claude_benchmark plan --models opus --level 1 --min-arms --parallel 4
-```
+The engine-specific doctor only checks local CLI/assets, credential presence and
+FFmpeg/ffprobe availability. It does not validate authentication, an encoder,
+model responses or a complete video. The unified doctor additionally checks a
+real renderer; neither calls a provider. A missing local permission should be
+resolved in the intended environment rather than bypassed.
 
-doctor 只检查凭据是否存在、本机资产和 FFmpeg/ffprobe 是否在 PATH 中等条件；
-录像工具检查不验证编码器或实际录像。plan 只列出四项任务。先确认这些
-结果，再根据后文进行已获授权的付费预检。无论预检结果如何，当前版本仍不能生成
-正式计分 benchmark。可把 [Claude 工程批次主 session prompt](../prompts/claude/engineering-manager.md)
-交给外层 agent，明确模型、任务、并发和预算。
+## Optional engineering cost allowances
+
+`--turn-budget-usd` and `--task-budget-usd` are optional and unset by default.
+Without a turn allowance, `--max-budget-usd` is not injected into the Claude CLI.
+Reported cost is still retained. Adaptive Controller, children and fork setup
+share one run-local ledger. Missing cost without a ceiling is recorded as
+unreported rather than zero, and does not alone block a confirmed normal turn.
+Unknown execution, uncertain cancellation or failed fork provenance still needs
+review regardless of whether a budget exists.
+
+With explicit allowances, reservations and remaining estimated task funds bound
+new turns. A task-only allowance may reserve the entire remainder for one turn,
+so another role can be denied concurrently; set a suitable per-turn allowance
+when intending concurrency within a task budget. Unknown/invalid/overspent cost
+under an allowance blocks further allocation. Reservations from uncertain or lost
+processes are not automatically released. These are CLI-reported estimates,
+not hard provider billing caps, subscription credits or one shared batch budget.
+
+## Provider prechecks and historical evidence
+
+The following records preserve the conditions and limitations of earlier
+engineering work. Dates, costs and source commits describe those attempts; they
+are not qualification for every later profile, CLI, account or public protocol.
+Some original attempts used the historical READY barrier. New direct-start runs
+must use their own prepared inputs and evidence.
 
 After `uv sync --locked --extra oracle`, use:
 
@@ -239,13 +267,13 @@ event files with owner-only permissions. This does not sanitize Claude's native
 session files or detect transformed/partial secrets; treat the entire run
 directory as private and inspect it before sharing.
 
-Live preflight status:
+First Haiku preflight record (historical, before the Opus checks above):
 
 - `haiku` (`claude-haiku-5-5`, CLI 2.1.312) passed on 2026-10-28 with a total
   cost of $0.000541 under a $0.5 cap. Its receipt is local at
   `runs/engineering/claude-precheck/haiku-20261028-194259/receipt.json`
   (`runs/` is gitignored). This covers only that profile, CLI version and cap.
-- `opus` and the other providers have not been preflighted.
+- The first Haiku record did not establish Opus readiness; the later separately authorized Opus checks are recorded above. Other providers remain unqualified.
 
 `robofrontier.claude.robot_mcp` is an experimental role-bound MCP server. Its
 offline probe checks Claude CLI tool discovery, simulated tool-image forwarding and
@@ -277,208 +305,181 @@ four frozen inputs. Claude-focused discovery completed 123 tests with six
 skipped. This was a clone of the local branch, because the Claude branch was
 not yet published; it did not call a real provider or run a scored task.
 
-共享 `scripts.export_run_report` 对 Claude run 只读取本 run 的角色回合摘要，不查询
-Codex 会话目录；CLI 报告的模型只作为观察，`all_requested_models_verified` 仍为
-false，不能据此断定服务商没有映射模型或辅助请求。报告本身也不授予正式计分资格。
-Claude 工程运行的 JSON 审计报告明确包含 `benchmark_qualified: false`，Markdown
-报告也标记未取得正式资格；任务评估结果与正式资格是两件不同的事。
-新准备的 Claude 草稿还冻结其命令实际导入的 `benchmark.py`、
-`benchmark_handoff.py` 和 `tasks.py`；这些共享脚本变动后需重新准备草稿。
-已准备的旧草稿不具备这一新增检查，不能通过后续代码更新获得追溯保护。
 
-At Claude commit `85f9b91`, a Git merge preview against GitHub `main` at
-`c8b4137` reported no textual conflicts; this is not a completed merge and does
-not prove behavioral compatibility. The branch descends from the existing
-`codex/multimodel-handoff` branch, so its eventual merge also includes that
-branch's changes. Shared engine-neutral and Codex CLI benchmark tests passed
-(8 and 10 tests), as did 24 Node dispatcher scenarios. Recheck the actual
-target branch and rerun relevant tests before merging.
+## Reports, frozen inputs and provenance
 
-## 接手进度：开发记录
+`scripts.export_run_report` reads only the current Claude run's role/turn
+summaries, not unrelated Codex homes. A CLI-reported model name remains an
+observation; `all_requested_models_verified` stays false. It cannot rule out
+provider mapping or auxiliary requests. JSON audit reports declare
+`benchmark_qualified: false`; Markdown also labels the unqualified state.
+Task success and permission to claim a scored benchmark are different facts.
 
-以下按开发阶段保留当时的测试范围；其中“本轮”“目前”和“尚未”的表述指对应阶段，
-不覆盖本文开头的当前状态及后面的真实 MuJoCo 烟雾检查结果。
+New drafts freeze their actual shared imports `benchmark.py`,
+`benchmark_handoff.py` and `tasks.py`, alongside native engine code and inputs.
+Reprepare after source changes. Older drafts do not gain that check retroactively.
+At historical Claude commit `85f9b91`, a merge preview against main `c8b4137` had
+no text conflicts; this was not a completed merge or behavioral proof. That
+branch descends from Codex handoff and brings its ancestors. Eight engine-neutral,
+ten benchmark and 24 Node dispatcher checks passed then; current integration
+must use its own source comparison and regressions.
 
-本轮继续仅使用本地假模型与假机器人服务，没有调用真实 API 或启动正式试验。
-`robofrontier/claude/session_host.py` 管理一个角色的原生 CLI 回合：固定角色 MCP、
-唯一会话 ID、明确续接、相互排斥、回合证据和停止请求。`robofrontier/claude/dispatch.py`
-使用现有运行时的调度规则处理已绑定的 centralized Controller。目前已有实验性
-启动、批次、停止和封存代码，**尚未完成正式 runner 的实际环境验证**。
+## Native sessions, tools and internal delegation
 
-Claude CLI 2.1.312 使用本地假服务通过了角色会话启动、工具图片返回和续接测试；
-这些不是模型能力或厂商兼容验证。任务世界丢失和进程崩溃后的监督恢复仍未完成
-端到端验证。Claude 的通用 `delegate-bind` 入口保持禁用；实验性的内部 adaptive
-委派已连接并经过本机模拟模型和 MuJoCo 烟雾测试。转录前缀相同只是历史匹配证据，
-不能单独证明原生 fork 创建过程或角色授权。Codex 的现有委派入口不受此限制。
+`ClaudeSessionHost` owns one role's unique native session, fixed MCP connection,
+turn exclusion, explicit resume, evidence and cancellation. Unknown turn outcomes
+never automatically start another turn. A host's lifecycle result is not a task
+score. Public bootstrap text is packaged from allowlisted frozen inputs because
+policy file-reading tools are disabled.
 
-Claude 工程草稿现会在 harness 与 manifest 均标记 `engine: claude`，但仍是
-`prepared_not_qualified`，不可用于正式运行。上一个会话报告的两组测试因缺失的旧
-`mosaic/four-arm-10x10/assets` 而失败；本机从 main 工作树的同一场景版本恢复该目录后，
-`test_execution_contract.py` 与 `test_robot_actions.py` 已通过。这不证明历史资产全部齐备。
+`robot public_image` returns only reference paths explicitly listed by the
+current public task, within its public input directory. It also accepts the
+listed `target.reference_image`, used for the Mosaic target. Historical public
+reference inputs remain PNG and retain their signed bytes; runtime camera
+observations use their separately frozen image profile. This distinction does
+not authorize rewriting source textures or old reference hashes.
 
-目前还新增了集中式工程接入 `robofrontier/claude/policy_host.py`：只接受已准备且输入
-通过校验的 centralized Claude 世界，绑定 Controller、加载公开材料并检查 READY/idle。
-调用方仍须负责启动世界、明确发起 START、停止和封存；没有暴露正式批次运行命令。
-策略会话关闭了文件读取工具，因此 `bootstrap.py` 将公开文本材料打包，并通过
-`robot` 的 `public_image` 操作返回 task.json 显式列出的初始参考图。该操作限制在
-当前 run 的 public 目录，仍需实际任务级验证。
-`public_image` 也允许读取任务明确列出的 `target.reference_image`；Mosaic R14 的
-`target-pattern.png` 通过该字段提供。它仍只接受当前任务列出的路径和公开输入目录内的 PNG。
-2026-10-28 已离线准备全部 12 个 Level 1 工程草稿，并逐项验证 bootstrap、冻结输入、
-task.json 中列出的 PNG 能通过此工具返回；没有启动模拟或模型。三种 Mosaic 规模各有
-一张目标图，三种 Dial 规模各有三张参考图；这不验证真实模型能理解图片或完成任务。
-本机另以真实 Claude CLI 和本地合成模型确认最小 Mosaic R14 目标图的字节经 MCP
-到达模型请求；可用 `ROBOFRONTIER_MOSAIC_IMAGE=1 .venv/bin/python -m unittest discover -s tests -p 'test_claude_mosaic_image_integration.py' -v` 复测。
-同一检查也确认最小 Dial 场景的三张公开参考图在一次 MCP 调用中逐张到达本地
-合成模型，请求中的图片字节与冻结文件一致。这不证明真实模型能够理解图像。
-
-离线测试还将集中式策略主机接到真实 `RuntimeService` 和调度器，使用合成世界及
-本机回环服务验证绑定、READY、显式 START 和调度；这不等于真实 MuJoCo 或真实模型测试。
-`prepare-draft` 可选 `--topology centralized` 来准备集中式工程草稿，默认仍是 adaptive。
-两种草稿都不具备正式运行资格；准备草稿不会自动启动任务。四个 Level 1 最少臂集中式草稿
-已在临时目录通过冻结输入校验和公开材料加载检查。
-
-`robofrontier/claude/supervisor.py` 新增已有世界上的集中式工程监督循环：等待 READY、
-显式 START、持续调度，遇到启动超时、停止请求、世界丢失、未知会话状态或墙钟上限
-时停止模型并请求现有 seal。seal 不成功时保留错误，不能报告运行已安全关闭。它仍不
-负责创建世界或调度批次，尚不是正式运行入口。
-
-API Key profile 使用 `--bare`；Claude CLI 不会在该模式读取 OAuth。现有候选 profile
-`opus_subscription` 使用 `CLAUDE_CODE_OAUTH_TOKEN`，非 bare 启动时关闭用户/项目设置
-源、MCP 自动发现和工具搜索；仅允许凭据发送到 Anthropic 官方 endpoint。它使用独立
-会话目录，不会自动接管 Claude Desktop 的登录。按照 [Anthropic 认证文档](https://code.claude.com/docs/en/authentication)，
-用户可自行在安全终端运行 `claude setup-token`，把生成的 token 作为敏感凭据配置到
-`.env` 或环境变量中，不要贴到聊天或提交 Git。托管策略仍可能影响 CLI；不同启动方式
-的系统提示可能不同。候选路径只在真实 CLI 加本地假 token/假模型下验证了图片、续接、
-fork 和项目配置隔离；真实订阅及其成本报告仍未验证。设置费用上限而费用不明时
-账本会暂停；未设上限时记录费用缺失。不能将
-CLI 报告视为订阅额度或实际账单的硬上限。
-
-`robofrontier/claude/engineering_run.py` 进一步连接了工程草稿校验、一次性启动记录、
-独立物理进程与监督循环；最初只接受未认证的 centralized 工程草稿，尚无正式批次 CLI。
-异常不重启世界，也不强杀可能仍在执行的物理进程；进程仍活着或封存未确认时标记待检查。
-封存证据必须明确列出空的未解决动作列表，否则即使进程已退出也标记待检查。
-`turn_budget_usd` 是可选的 Claude CLI 每回合限制，任务累计阈值也为可选，默认均不设。
-显式设置任务预算时，后续回合按报告的剩余额度启动；设置额度而费用缺失、零值或无效时
-停止并要求检查。未设置额度时，已确认正常的轮次不会仅因费用缺失而停止。
-这是估算控制，第三方厂商可能不提供可靠成本，账单可能与 CLI 报告不同，也可能超出
-阈值；它不是服务商的硬性扣费上限或整批共享预算。调用此代码可能产生 API 费用；
-该开发阶段仅使用替身测试，后续物理烟雾测试的范围见下文。
-
-`robofrontier/claude/engineering_batch.py` 增加了实验性集中式工程批次的内部接口：
-全部任务预检后按设置的数量并发，支持只读状态和停止请求，监督者失联及异常任务
-标记待检查，批次和单任务都不自动重启。相关测试用替身验证了这些调度行为。它还没有
-开放正式计分批次 CLI。该开发阶段的测试没有证明真实模型、MuJoCo、多角色委派或
-服务商账单控制可用；后续使用合成模型对 MuJoCo 和委派做了有限的烟雾测试。
-如果批次已有启动占用记录但没有状态文件，查询会显示
-`claim_without_status_needs_review`；它可能在启动过程中中断，不能作为未启动批次重跑。
-停止发生在启动前时，状态为 `stopped_before_start`；停止导致有任务未启动或已启动
-任务按停止请求封存时，批次为 `stopped`。若任何任务需要检查，批次优先显示
-`needs_review`。`closed` 只描述工程批次结束，不代表任务成功或正式计分通过。
-新运行若共享账本含执行结果不明、额度约束下费用不明或尚未结算的预留，
-或设有累计预算的集中式主机费用未知，单任务与
-批次均标记为 `needs_review`，即使物理世界已经封存。单任务状态中的
-`budget_status` 和 `budget_review_required` 记录该判断；物理封存结果仍单独保留。
-旧运行的历史状态不会被追溯改写，需结合其原账本检查费用。
-若世界因策略 `finish` 结束，工程状态还要求私有 `evaluation.json` 可读取且包含
-布尔型 `task_success`；缺失或损坏时标为 `needs_review`。这只是评估文件完整性的
-基本检查，`task_success: false` 仍可以是正常封存的失败任务，并不表示任务成功。
-隔离测试中实际终止过运行替身任务的监督进程：查询能显示
-`supervisor_lost_needs_review`，保留领取记录并拒绝重跑；此测试没有启动物理世界，
-不证明监督进程崩溃后真实物理子进程已停止或完成封存。
-`status-engineering` 同时展示批次和各任务的 `stop_requested`，表示停止标记是否
-存在；监督者失联时，标记存在不代表物理进程已经接收请求、退出或封存。
-每项任务还显示 `claim_record_present`，表示单任务启动占用记录是否存在，方便在
-监督者失联后区分已有占用记录的任务与没有找到记录的任务。这只是文件存在性快照：
-它不能证明进程当前状态，也不能单独作为重跑或封存已完成的依据。任务详情里的
-`owner_pid` 是最后记录的 PID，并非存活验证，PID 也可能被系统重用。
-遇到 Controller 会话状态不明或错误时，新运行的详细状态包含受限的
-`session_evidence`：预算状态、已识别的 CLI 结果类型及该回合的 CLI 报告费用。
-即便能看到费用数字，不确定回合仍不视为已核对账单，也不能自动重试。
-
-工程命令（支持 centralized 和 adaptive 草稿；需要相应 profile 的凭据；可能产生费用）：
+The 2026-10-28 offline Level 1 preparation covered twelve drafts. Three Mosaic
+scales each exposed a target image; three Dial scales each exposed three reference
+images. A real CLI/local synthetic model check confirmed exact image bytes for
+the smallest Mosaic and Dial cases through MCP. It did not test real model
+understanding. Opt-in recheck:
 
 ```sh
-.venv/bin/python -m scripts.claude_benchmark run-engineering RUN_DIR --parallel 2 --turn-budget-usd 0.1 --task-budget-usd 1 --wall-limit-s 1200
+ROBOFRONTIER_MOSAIC_IMAGE=1 .venv/bin/python -m unittest discover -s tests -p 'test_claude_mosaic_image_integration.py' -v
+```
+
+General Claude `delegate-bind` is closed. The internal Adaptive engineering path
+claims a delegation, binds it to the unique unmatched native tool call, creates
+a tool-free native fork, verifies unchanged parent/prefix/session evidence, then
+binds scope and enables child MCP authority. Native transcript writes can lag;
+the bounded match wait pauses on timeout/ambiguity. Prefix equality alone does
+not establish trusted creation or authorization. Failed/uncertain setup is not
+automatically reforked. Role hosts, original transcripts and referenced parent
+`tool-results` must stay available during the run.
+
+A returned child's authorized report is available to the Controller via
+`robot work` with `{"delegate_id":"Delegate_..."}` in `delegate_report`.
+The report is model-authored public evidence, not private evaluation. Missing
+return, mismatched references or an oversized report does not expose a body.
+
+## Engineering run, status and stop
+
+The unified entry uses frozen settings:
+
+```sh
+.venv/bin/robofrontier run runs/engineering/claude-current-l1 --engineering
+.venv/bin/robofrontier status runs/engineering/claude-current-l1
+.venv/bin/robofrontier stop runs/engineering/claude-current-l1
+```
+
+Run is potentially billable; invoke only with explicit authorization. The
+engine-specific multi-profile entry remains available for engineering inspection:
+
+```sh
+.venv/bin/python -m scripts.claude_benchmark run-engineering RUN_DIR --parallel 2 --wall-limit-s 1200 --startup-timeout-s 600
 .venv/bin/python -m scripts.claude_benchmark status-engineering RUN_DIR
 .venv/bin/python -m scripts.claude_benchmark stop-engineering RUN_DIR
 ```
 
-第一条缺少 `--confirm-engineering-spend` 时只报告不会启动；加上该选项才实际调用。
-可用 `--startup-timeout-s 600` 设置启动等待，默认 120 秒，用于等待物理 owner 发布连接。
-旧版 READY 门槛协议还会单独使用此时限等待策略准备；新版 direct-start 不等待模型 READY，
-环境就绪后先开始计时，再启动模型回合。
-`--wall-limit-s` 是工程监督器从 START 后计算的停止时限，不包括启动等待或封存时间；
-它与草稿中冻结的任务时限是不同设置。监督器达到较短的工程时限后会请求停止并封存，
-实际停止受监督循环及清理过程影响，不能把它当作精确的模型调用截止时间。
-这些工程运行标记为不计分，跨引擎比较时应先统一并记录任务时限和监督器设置。
-延长等待并不
-保证真实模型完成启动，也不会改变费用额度；监督器记录所选启动时限。
-示例额度不是价格预测；四个任务的每任务额度各自独立，不能当成共享的批次总上限。
-运行中的 CLI 收到 Ctrl-C 或 SIGTERM 会请求停止批次、跳过未启动任务并等待活动任务的
-停止与封存；应等待命令退出并检查 `status-engineering`。这不是立即强制停止；SIGKILL、
-机器崩溃或 supervisor 意外失联可能留下进程，必须按状态人工检查，不能自动重跑。
-模型回合启动前会检查取消标记；若标记已设置，不会创建 CLI 进程。取消与进程创建
-同时发生仍可能启动进程，结果按未知处理，不能保证没有发生服务请求或费用。
-明确在创建进程之前取消的回合会释放其共享预算预留；角色及委派的状态仍需检查，
-不会因此自动重试。启动后取消或启动结果不明仍将预算标为不确定。
-本机另用真实 MuJoCo 和 Claude CLI、回环合成模型对单个和四个并发 adaptive 工程任务
-进行了 SIGTERM 烟雾测试，验证了 supervisor 退出及各物理进程封存和退出；未验证所有中断时机。
-可在已恢复资产的图形环境中运行 `ROBOFRONTIER_PHYSICS_SIGNAL=1 .venv/bin/python -m unittest discover -s tests -p 'test_claude_signal_physics_smoke.py' -v`。
-预算取消处理更新后，以提交 `9d58b2a` 复测了单任务和四任务 SIGTERM 物理检查，
-两项通过；同一代码的 Claude 测试集运行 127 项，跳过 7 项可选检查。仍使用本地
-合成模型，未验证真实模型或所有崩溃、取消时机。
+The first command is a dry plan unless `--confirm-engineering-spend` is added.
+Use optional `--turn-budget-usd`/`--task-budget-usd` only when an allowance is
+intended. An engineering wall stop is measured after START, excludes startup
+and sealing, and requests orderly stop rather than an exact provider cutoff.
+The shorter of the applicable persisted task deadline and engineering stop
+controls execution. Waiting longer for startup changes neither allowance nor
+physical/model qualification.
 
-自适应工程路径现已连接启动器和批次接口；父角色、fork 设置和子角色共用单任务
-SQLite 费用估算账本。真实 Claude CLI 通过本机合成模型与合成世界测试了 READY、
-START、委派、fork、子角色返回及机器人控制权恢复。原生记录写入有时晚于 MCP 请求，
-现在创建 fork 前等待对应委派调用被记录，超时则暂停并要求人工检查。
-非零退出通常需要复核；新版仅对已确认结束且会话匹配的结构化容量错误允许有界恢复，
-具体条件见 [恢复规则](harness-alignment.md#容量与限流恢复)。设置额度而费用未知时仍停止分配。
-这些测试不验证真实模型、服务商兼容性、MuJoCo 物理、计分、账单或整个批次的总费用；
-adaptive 仍属于未认证工程运行，不能用作正式 benchmark 结果。
-Claude 策略没有文件读取工具：Controller 调用 `robot` 的 `work`，传入
-`{"delegate_id":"Delegate_…"}`，可在 `delegate_report` 读取运行时授权的已返回
-子角色报告。报告是模型自述，不能当作私有评估；未返回、路径不符或报告过大时不提供正文。
+The launcher validates a draft, claims it once, starts an independent physical
+owner and supervises existing role sessions. It never automatically restarts a
+world or an uncertain task. Sealing must explicitly report no unresolved actions;
+process exit alone is insufficient. If finish ended the world, a readable private
+`evaluation.json` with boolean `task_success` is required for clean engineering
+closure. `task_success: false` may be a normally sealed unsuccessful task.
+Missing/corrupt evaluation remains `needs_review`.
 
-另外，可在已恢复 R14 资产且支持本机图形的环境中运行可选物理烟雾检查：
+Batch startup prechecks all tasks, respects concurrency and does not restart
+claimed tasks. Useful status values include:
 
-```sh
-ROBOFRONTIER_PHYSICS_SMOKE=1 .venv/bin/python -m unittest discover -s tests -p test_claude_physics_smoke.py -v
-```
+| State | Meaning |
+| --- | --- |
+| `stopped_before_start` | Stop arrived before a task was launched. |
+| `stopped` | Stop skipped unstarted tasks or sealed active tasks. |
+| `closed` | Engineering batch closure, not successful task scoring. |
+| `needs_review` | At least one task has unresolved execution/sealing/cost evidence; takes precedence over normal closure. |
+| `claim_without_status_needs_review` | A launch claim exists without a status file; do not treat it as a fresh unlaunched batch. |
+| `supervisor_lost_needs_review` | Supervisor loss needs inspection; claims remain and replay is refused. |
 
-该检查使用真实 MuJoCo 进程和 Claude CLI，但模型服务只绑定本机回环，使用合成密钥，
-不访问真实 API。默认检查 transport Level 1 工程草稿；可用环境变量
-`ROBOFRONTIER_PHYSICS_CASE` 选择其他已发布 case。它验证自适应委派与返回、墙钟停止、
-封存和进程退出。它还检查相机图片到达模拟模型端，并通过子角色对 A 臂执行 5 mm 的
-仿真位移；不验证复杂操作、模型能力或正式计分。2026-10-28 本机分别对四类
-最少臂 Level 1（transport、mosaic R14、relay、dial）通过了该测试，默认关闭录像。
-要额外在 transport 草稿检查录制与封存时的首帧解码，设置 `ROBOFRONTIER_PHYSICS_VIDEO=1`
-并运行相同命令；本机已通过。这只检查首帧，并不证明视频全程完整。
+`stop_requested` is marker existence, not confirmation the owner received it.
+`claim_record_present` is likewise a file snapshot. Recorded `owner_pid` is not a
+live-process check and may be reused by the OS. When Controller state is unknown
+or failed, limited `session_evidence` records allowance status, recognized CLI
+result subtype and reported turn cost; a number does not reconcile an uncertain
+bill or authorize retry. A run with unknown execution, unresolved reservations
+or cost uncertainty under an allowance remains review-required even if its
+physical world sealed. Historical statuses are never retroactively rewritten.
 
-`prepare-draft --record-video` 在新草稿中开启录像，需要 FFmpeg 和 ffprobe。工程封存
-会尝试验证视频流并解码首帧；录像被要求而无法验证时，任务标为 `needs_review`。
-默认草稿不录像，封存报告提示视频缺失是预期结果。
+Ctrl-C/SIGTERM requests batch stop, skips pending launches and waits for active
+models/owners to stop and seal. Wait for exit and inspect status. SIGKILL, node
+loss or supervisor crashes can leave physical processes; do not infer sealing
+or blindly relaunch. A prelaunch cancellation check avoids creating the CLI when
+already canceled, and can release its unused reservation. A cancellation racing
+with process creation can still launch a request and incur cost; its outcome and
+reservation remain uncertain. Role/delegation state still needs inspection.
 
-四项并发工程物理烟雾检查（需要更多 CPU、内存和图形资源）：
+Only conclusively ended, matching-session structured capacity failures permit
+bounded recovery, under the [current recovery checks](harness-alignment.md#capacity-and-rate-limit-recovery).
+Ordinary nonzero exits, unknown actions, uncertain fork creation and unknown
+identity remain review-required. Provider retries never replay physical actions.
 
-```sh
-ROBOFRONTIER_PHYSICS_BATCH=1 .venv/bin/python -m unittest discover -s tests -p test_claude_parallel_physics_smoke.py -v
-```
+## Historical local integration and physics checks
 
-该检查在同一批中使用四个相互独立的物理进程，检查它们确实同时存活，并分别核对
-委派、短位移和封存。模型仍是本机合成服务；测试不证明厂商并发、速率限制或成本。
-2026-10-28 在本机以代码提交 `9f8709d` 复测通过；四个场景同时存在独立物理进程，
-且各自完成委派、合成短位移与封存。另有上述四任务同时 SIGTERM 停止检查。
-更新 Claude 控制提示后，以提交 `2972dba` 再次运行同一并发检查，四项均通过；
-该测试的模型响应仍由本机合成服务预设，不代表真实模型完成任务。
+Early local synthetic model/robot checks verified native session launch, image
+forwarding, resume, fixed role connection, READY/START and deterministic
+scheduling. They did not prove provider compatibility or real physics. Two old
+execution/action tests initially lacked `mosaic/four-arm-10x10/assets`; restoring
+the exact main-worktree scene let them pass then. This does not establish all
+historical assets for a new clone.
 
-单任务提前结束与评估链路的可选烟雾检查：
+The optional physical checks below use real MuJoCo owners and Claude CLI, but
+only a loopback synthetic model with a synthetic key. They make no paid calls
+and do not measure model ability. Install current pinned assets and choose a
+working graphics environment first.
 
 ```sh
-ROBOFRONTIER_PHYSICS_FINISH=1 .venv/bin/python -m unittest discover -s tests -p test_claude_finish_physics_smoke.py -v
+ROBOFRONTIER_PHYSICS_SMOKE=1 .venv/bin/python -m unittest discover -s tests -p 'test_claude_physics_smoke.py' -v
+ROBOFRONTIER_PHYSICS_BATCH=1 .venv/bin/python -m unittest discover -s tests -p 'test_claude_parallel_physics_smoke.py' -v
+ROBOFRONTIER_PHYSICS_FINISH=1 .venv/bin/python -m unittest discover -s tests -p 'test_claude_finish_physics_smoke.py' -v
+ROBOFRONTIER_PHYSICS_SIGNAL=1 .venv/bin/python -m unittest discover -s tests -p 'test_claude_signal_physics_smoke.py' -v
 ```
 
-本机使用真实 MuJoCo 和 CLI、合成模型，对 transport centralized 草稿提前调用 `finish`，
-确认私有评估报告任务未成功、导出的审计报告保留该结果，并未把声明的模型视作已核验。
-这验证失败任务的结束路径，不验证任务成功、真实模型或正式评分资格。
+The single-run check defaults to minimum-arm Level 1 Transport; set
+`ROBOFRONTIER_PHYSICS_CASE` for another released case. It verifies images reaching
+the synthetic model, Adaptive delegation/return, a synthetic 5 mm A-arm movement,
+deadline stop, sealing and owner exit. On 2026-10-28, each minimum-arm Level 1
+family passed separately. Setting `ROBOFRONTIER_PHYSICS_VIDEO=1` additionally
+checks recorded stream/first-frame decode; the historical Transport check
+passed but did not decode the entire video.
+
+The four-way check verified four independent MuJoCo owners alive concurrently,
+images, child displacement/return and sealing. It passed at `9f8709d` and again
+at `2972dba` after prompt changes. Predetermined synthetic responses are not
+real model collaboration or provider concurrency/rate/billing evidence.
+
+The finish check deliberately ended an unfinished centralized Transport case.
+Private evaluation correctly reported failure, exported audit retained it and
+requested-model identity remained unverified. It checks failure closure and
+scorer isolation, not successful completion or scored eligibility.
+
+Single- and four-task SIGTERM checks verified supervisor exit and each owner
+seal/exit under the tested timing. After cancellation-reservation changes,
+`9d58b2a` passed both checks; its Claude group ran 127 tests with seven optional
+checks skipped. A separate supervisor-loss test used fake tasks, retained launch
+claims and refused rerun; it does not prove that real physical children stop
+or seal after supervisor loss. None of these tests covers every crash, provider
+error, interruption boundary or long-run concurrent task.
+
+Real-provider successful task completion, true multi-role stability, current
+subscription operation and formal scored qualification remain required. Use the
+integration ledger for newer source-specific acceptance; preserved historical
+counts and receipts do not certify changed code automatically.

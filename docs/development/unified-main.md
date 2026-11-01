@@ -571,3 +571,35 @@ integration branch has been published. The repository layout guide is now
 English and distinguishes tracked code/atlas from ignored original recordings,
 collections and historical local delivery layouts. Repository-wide English,
 full editable promo and the other outstanding gates remain open.
+
+
+The committed atlas source `c68becf` also passed all eight artifact checks in a
+network-disabled Linux container (1.990 seconds), using an extracted Git source
+archive and the previously installed pinned dependency environment. This is
+Linux artifact/contract verification, not a newly built current policy image or
+a provider/Slurm/GPU run. The first check allocated only 512 MiB to its temporary
+source filesystem and failed while extracting the 654 MiB source archive; it
+never reached tests. A new attempt with an explicit 1 GiB temporary filesystem
+passed. Both logs are retained with the atlas evidence.
+
+
+## English native-engine and evidence handoff
+
+The Claude handoff, Codex/Claude component map, harness-alignment guide and
+evidence-storage guide are now English. They preserve dated native CLI/provider
+observations, costs, source commits and qualification limits, while separating
+current direct START from historical READY. The stale first-Haiku preflight
+paragraph no longer contradicts the later separately authorized Opus checks.
+Budget defaults remain unset, structured recovery remains bounded, and no new
+model/provider capability is asserted by translation.
+
+The evidence guide now leads with the unified ZIP path and explicitly separates
+ZIP extraction (compressed objects) from restoration (ordinary motion/session
+files). It distinguishes the unified retention of stopped incomplete evidence
+from the lower-level directory archiver's complete-by-default mode, and explains
+that reversible image extraction retains image bytes. Historical PNG transcoding
+is not silently described as lossless. Local links and English-only content
+passed inspection; the documented offline Claude plan selected four tasks with
+zero model calls. Current Claude discovery passed 164 tests in 31.704 seconds,
+with seven opt-in checks skipped. This is not full repository or real-provider
+physical qualification.
