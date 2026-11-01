@@ -441,3 +441,12 @@ runtime measurements remain explicitly synthetic; no physical qualification is
 claimed. Tests retain every existing privacy, symbol mapping, role/fork return,
 sampling and success-latch assertion, without installing/overwriting a published
 scene or loosening production scene-path checks.
+
+A combined regression run after these changes passed all 100 selected tests in
+25.125 seconds, including the generated legacy Dial fixture followed by current
+motion/Oracle tests in the same process. The temporary fixture roots were
+restored correctly. This is the focused integration group, not the still-open
+full historical discovery gate. Its log is
+`/tmp/robofrontier-unified-oracle-final-regressions.log`. The policy/Factory asset
+locks and scene files were unchanged, `main` remains at `c8b4137`, and none of
+these integration commits has been pushed or merged into main.

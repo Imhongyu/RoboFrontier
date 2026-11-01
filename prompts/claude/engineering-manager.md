@@ -64,8 +64,9 @@ Parameters:
 6. Run scripts.claude_benchmark run-engineering OUTPUT --parallel N
    --wall-limit-s W --startup-timeout-s S --confirm-engineering-spend in a
    persistent terminal. Add --turn-budget-usd T or --task-budget-usd B only when
-   explicitly set. Startup timeout bounds owner/policy startup stages; it is not
-   an extra task clock. Keep the process handle and poll status-engineering
+   explicitly set. Startup timeout bounds owner startup and the policy startup
+   gate of legacy READY runs; it is not another task clock. Keep the process
+   handle and poll status-engineering
    until it exits. Request stopping with stop-engineering, then inspect every
    sealing result, process state and needs_review field. Claimed batches/worlds
    are single-use; preserve unknown state and evidence rather than restarting.
