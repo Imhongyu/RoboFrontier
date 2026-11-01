@@ -1,34 +1,51 @@
-# RGB + 本体状态实际操控：2026-10-19
+# Historical RGB/proprioceptive operation: 2026-10-19
 
-本轮由当前 Codex 在对话中逐步观察图片、选择动作并调用本地入口，使用同一套键盘控制器和机器人 IK。不是预先成功的固定坐标参考脚本。
+The Codex session observed images, chose actions incrementally and called the
+local entry through the same keyboard controller/robot IK. This was not a
+previously successful fixed-coordinate reference script.
 
-## 协议
+## Protocol
 
-- 新建随机布局：`--blind` 使用独立随机源，在首次观测之前布置三个方块，避免利用此前默认布局的已知坐标。
-- 操作输入只包含正面/侧面 RGB、TCP、关节角及速度、夹爪开口、执行状态。
-- 没有读取物体位姿、深度、接触真值、成功计时器、私有初始快照或内部物理日志来决定动作。
-- 选蓝色方块，由图像判断方向和抓取时机。接口只支持小步末端速度请求、夹爪、等待和观察，没有自动对准或 pick。
-- 使用原有动力学、摩擦和夹持设置；三次尝试在同一个持续运行的 episode 内完成，没有重置或更改参数。
-- 仿真在模型思考与工具调用之间继续运行；没有使用暂停冻结物体。
-- 两个 RGB 视角是本轮允许的观测，并非单相机测试。机器人模型、固定工作台等任务先验仍存在。
+- `--blind` used an independent random source to place three cubes before the
+  first observation, avoiding known coordinates of the previous default layout.
+- Inputs were front/side RGB, TCP, joint angles/velocities, aperture and execution state.
+- Decisions did not read object pose, depth, contact truth, success timers,
+  private initial snapshots or internal physics logs.
+- The blue cube was selected visually; images informed alignment/grasp timing.
+  The interface provided small end-effector velocity requests, gripper, wait and
+  observe, without automatic alignment or pick.
+- Original dynamics, friction and grasp settings remained. Three attempts used
+  one continuously running episode, without reset or parameter changes.
+- Physics continued between reasoning/tool calls; objects were not frozen for reasoning.
+- Two RGB views were permitted, so this was not a single-camera test. Robot-model
+  and fixed-workbench priors still existed.
 
-## 观察到的结果
+## Observations
 
-共 27 条机器人动作、3 次闭合尝试，未完成稳定抓取：
+There were 27 robot actions and 3 closing attempts, without a stable grasp:
 
-1. 首次闭合后开口约 4 cm；第一次小幅抬升后开口归零，RGB 显示方块留在桌面。
-2. 修正前后位置后，方块短暂随夹爪抬起；继续上升时发生倾斜和滑落。
-3. 再次对齐，并用机器人自身反馈补偿上升时的水平偏移；仍出现短暂抬起后滑落。
+1. After the first close, aperture was approximately 4 cm. A small lift closed
+   it to zero while RGB showed the cube remaining on the table.
+2. After fore/aft correction, the cube briefly rose, then tilted and slipped
+   during further ascent.
+3. Realignment and proprioceptive compensation for horizontal lift drift again
+   produced a brief lift followed by slipping.
 
-这些是根据返回图像和机器人自身信息作出的观察，不是读取隐藏的物体真值进行验收。不能宣称达到稳定抬高 5 cm 并保持 1 s 的成功标准，也不能据此估计模型总体成功率。倾斜/滑落可能涉及抓取位置、姿态和控制跟踪，具体原因尚未诊断。
+These were observations from images/robot feedback, not hidden object-truth
+acceptance. They did not meet stable 5 cm lift/1 s hold criteria or establish an
+overall model success rate. Grasp location, orientation and tracking could have
+contributed; the cause had not been diagnosed.
 
-## 留存
+## Retained evidence
 
-episode：`runs/20261019-220952-187535/`。
+Episode: `runs/20261019-220952-187535/`.
 
-- `recording-01.mp4`：完整录像，包含等待和失败，1280×800、30 FPS，约 8 分 35 秒。
-- `demo-4x.mp4`：同一完整过程的四倍速版，没有移除失败尝试。
-- `rgb-0001-*.png` 到 `rgb-0028-*.png`：每次观测的正面/侧面截图。
-- 内部 `trace.jsonl`：物理审计日志，包含真值；未用于本轮操作决策。
+- `recording-01.mp4`: complete recording including waits/failures, 1280×800,
+  30 FPS, approximately 8 minutes 35 seconds.
+- `demo-4x.mp4`: the same complete sequence at four times speed, retaining failures.
+- `rgb-0001-*.png` through `rgb-0028-*.png`: front/side images at each observation.
+- Internal `trace.jsonl`: physics audit containing truth, unused for action selection.
 
-工具入口在本轮后补充独立 `policy.jsonl` 写入，后续启动生效；本轮原始工具请求/结果保留于对话及内部事件日志。
+A separate `policy.jsonl` writer was added after this episode and took effect on
+subsequent launches. Original tool requests/results remain in the conversation
+and internal event log.

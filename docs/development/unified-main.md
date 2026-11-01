@@ -1432,3 +1432,29 @@ Local links resolve and the three files contain no Han characters. The current
 tracked-text inventory is 61 files / 75,375 Han characters, so the English-only
 gate remains open. Verification is in
 `runs/engineering/main-integration-oracle-final-20261102/english-operations-verification.json`.
+
+## Committed native Oracle protocol smoke and English historical entries
+
+Committed source `87cf155` prepared and ran the four current minimum-arm Level 1
+native Oracle entries through the unified CLI, each with a 15-second engineering
+limit and 20-second cleanup allowance. All four native owners exited without
+forced kill or descendant cleanup and released their owner locks. Every entry
+wrote `robofrontier.oracle-report.v2`, with valid physics and incomplete tasks.
+Transport/Mosaic/Relay retained their unresolved in-flight actions; Dial resolved
+its stop. No interrupted run was promoted to full success.
+
+Read-only stream audits decoded 1,405 Transport, 1,601 Mosaic, 1,909 Relay and
+1,493 Dial frames (6,408 total), checking every chunk, timestamp and visual event.
+Maximum sample gap was 0.018 seconds, and all events fit within retained final
+poses. Each complete-recording gate correctly rejected only the interrupted
+status. These checks did not solve full tasks, call a model or render new videos.
+Native status/report and motion receipts remain under
+`runs/engineering/main-integration-oracle-final-20261102/`.
+
+The current Dial/environment entries, dated Oracle integration plan, Transport
+R11/R12/R13 history, early RGB/NoSlip records and three historical redirect
+headers now use English. Historical commands, numerical results and source URLs
+are retained, with old demo defaults and preview-only checks labeled by date.
+All edited local links resolve. The tracked-text inventory is now 50 files /
+72,002 Han characters; the English-only gate is still open. Translation source
+comparisons are in `english-history-verification.json` beside the Oracle evidence.

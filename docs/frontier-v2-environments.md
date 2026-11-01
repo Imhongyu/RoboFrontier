@@ -1,21 +1,25 @@
-# Frontier V2任务入口
+# Frontier V2 task entry
 
-四类任务各有三个规模、三个等级，共36项。统一清单为
-`configs/task_families/current.json`，显式区分`gpt`和`oracle`用途。
+Four families each have three scales and three levels, giving 36 cases.
+`configs/task_families/current.json` distinguishes `gpt` and `oracle` purposes.
 
-| 家族 | GPT输入 | Oracle展示 | 倍速 | 规格与证据 |
+| Family | GPT input | Oracle presentation | Speed | Specification/evidence |
 | --- | --- | --- | --- | --- |
-| Transport | R14真实半孔 | 原R13冻结录制；显示半孔 | 20x | [任务说明](tasks/transport.md) |
-| Mosaic | R14附近混色 | 原R13配色录制 | 30x | [任务说明](tasks/mosaic.md) |
-| Relay | 最终50mm Goal、低位释放、可堆叠 | 每次录制自己的冻结源 | 20x | [任务说明](relay.md) |
-| Dial | R11 BEST5 | R11原始记录 | 10x | [任务说明](tasks/dial-best5.md) |
+| Transport | R14 physical half-holes | Original R13 frozen recordings; half-hole presentation | 20x | [Task guide](tasks/transport.md) |
+| Mosaic | R14 nearby mixed colors | Original R13 color recordings | 30x | [Task guide](tasks/mosaic.md) |
+| Relay | Final 50 mm GOAL, low release, stacking allowed | Each recording's own frozen source | 20x | [Task guide](relay.md) |
+| Dial | R11 BEST5 | Original R11 recordings | 10x | [Task guide](tasks/dial-best5.md) |
 
-Transport/Mosaic R14是新输入；R13完整Oracle结论不自动成为R14物理通过。
-Relay的最终Goal口径与历史native通过分开报告。辅助和纯程序证据保留原标签。
+Transport/Mosaic R14 are new inputs; R13 full Oracle results do not qualify R14
+physics. Relay terminal-GOAL results and historical native acceptance are
+reported separately. Assisted and pure-program evidence retain their labels.
 
-公共材料随新run冻结；原任务文件的预览标记不改写，新运行通过源绑定协议
-进入评估和记录。见[GPT准备](gpt-policy.md)。工厂使用源级剪辑、独立循环、30fps；
-此规则覆盖旧交接中的播完停止。见[工厂说明](robo-factory.md)。
+New runs freeze public material and use a source-bound evaluation/recording
+protocol; original task preview labels are not rewritten. See
+[policy preparation](gpt-policy.md). Factory uses source-level edits, independent
+station loops and 30 fps, superseding the old play-once/stop instruction. See
+[Factory](robo-factory.md).
 
-历史catalog、生成器和包保留用于解释旧实验，不能直接选择当前版本。
-[旧环境说明](history/frontier-v2-environments-before-cleanup-20261027.md)保留修订过程。
+Historical catalogs, generators and packages explain old experiments; they do
+not directly select the current release. The [earlier environment guide](history/frontier-v2-environments-before-cleanup-20261027.md)
+preserves revision history.

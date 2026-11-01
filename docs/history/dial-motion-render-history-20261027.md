@@ -1,4 +1,4 @@
-> 历史记录：本文保留当时过程，不作为当前操作指令。当前规则、默认值和入口见 [旋钮家族说明](../tasks/dial-best5.md)。
+> Historical record: retained as evidence, not current operating instructions. See the [Dial family guide](../tasks/dial-best5.md) for current rules, defaults and entries.
 
 # Recorded motion editing and factory replay
 

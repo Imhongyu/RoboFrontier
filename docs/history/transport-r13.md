@@ -1,13 +1,20 @@
-> 历史归档。当前规格与状态见 [Transport任务说明](../tasks/transport.md)；合并操作见 [交接](../plans/suite-v2/transport-merge-handoff.md)。本文保留当时的过程与证据。
+# Transport R13: shorten the board by 20 mm
 
-# Transport R13：白板缩短20 mm
+Historical archive. See the [current Transport guide](../tasks/transport.md) for
+current specifications/status and the [handoff](../plans/suite-v2/transport-merge-handoff.md)
+for historical integration. This note preserves that revision's evidence.
 
-九个Transport环境的白板从143×416 mm改为143×396 mm，两端各缩短10 mm。
-安装中心、目标／插孔中心、编号、84 mm标识和36 mm标识间隔沿用R12。
-标识到白板两端各剩36 mm。厚度、材料、弹簧、机器人与供料保持不变，编译器重新计算白板质量和惯量。
+Boards in nine Transport environments changed from 143×416 mm to 143×396 mm,
+removing 10 mm at each end. Mount centers, target/socket centers, numbering,
+84 mm markers and 36 mm marker gaps remained from R12. The remaining marker-to-end
+clearance was 36 mm. Thickness, materials, springs, robots and supply were
+unchanged; compilation recomputed board mass/inertia.
 
-R12及更早环境保留。当前清单为`configs/suites/frontier-transport-r13.json`。
-预览：`docs/generated/frontier-v2/transport-r13/index.html`。
-仅做静态检查与重渲染，不运行Oracle或机械臂动作。
+R12 and earlier environments were retained. The catalog at this date was
+`configs/suites/frontier-transport-r13.json`; preview:
+`docs/generated/frontier-v2/transport-r13/index.html`.
+The dimensional change received static checks and rerendering, without an
+Oracle run or arm commands.
 
-上述是本次尺寸修改的范围；后续用户授权的[最小操作验证与并行计划](transport-r13-units.md)另行记录，未运行完整任务。
+Subsequent user-authorized [minimum-operation checks and parallel planning](transport-r13-units.md)
+are recorded separately. They did not constitute full-task execution.

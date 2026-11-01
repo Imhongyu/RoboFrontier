@@ -1,32 +1,40 @@
-# Oracle交付整合与GPT准备
+# Historical Oracle delivery integration and policy preparation
 
-本轮从main `d3e5916`接收四类已完成交付，不启动正式GPT、不删除worktree。
-基线提交和数据依赖清单保存在`runs/engineering/oracle-integration-20261027/`。
+This is the completed 2026-10-27 integration plan, not the current unified-main
+release checklist. It accepted four delivered families from main `d3e5916`,
+without starting formal GPT runs or deleting worktrees. Pinned commits and data
+dependencies were recorded under `runs/engineering/oracle-integration-20261027/`.
 
-## 当前要求
+## Requirements at that date
 
-- Transport：原R13 Oracle证据；GPT使用R14真实半孔；展示20x。
-- Mosaic：原R13 Oracle配色；GPT使用R14附近混色；展示30x。
-- Relay：按每次运行的冻结源回放，当前任务采用最终50mm Goal规则；展示20x。
-- Dial：R11 BEST5，保留程序与辅助证据区别；展示10x。
-- 工厂输出30fps；原60Hz流及失败、恢复、外观事件、冻结源和视频原字节保留。
-- 2026-10-27用户最新要求覆盖旧交接的停止规则：工厂每桌独立循环，导出视频有明确时长。
-- 工厂增加桌下、过道边和墙边设施，去掉ROBO FACTORY墙字；保留资源复用和近远景能力。
+- Transport: original R13 Oracle evidence; R14 physical half-holes for GPT; 20x presentation.
+- Mosaic: original R13 Oracle colors; R14 nearby mixed colors for GPT; 30x presentation.
+- Relay: replay each frozen source; terminal 50 mm GOAL rules for current tasks; 20x presentation.
+- Dial: R11 BEST5, retaining program/assisted distinctions; 10x presentation.
+- Factory output at 30 fps; preserve original 60 Hz streams, failures, recovery,
+  appearance events, frozen sources and original video bytes.
+- The user's 2026-10-27 instruction superseded the old stop rule: independent
+  station loops in Factory, with an explicit exported-video duration.
+- Add under-table, aisle-side and wall-side facilities; remove the ROBO FACTORY
+  wall lettering; retain resource reuse and near/far camera capability.
 
-## 实施与验收
+## Implementation and acceptance at that date
 
-- [x] 固定提交与保护清单，归档仍有用途的worktree依赖。
-- [x] 合并四个分支，按功能协调共享代码，恢复被忽略的资产。
-- [x] 统一家族/用途选择、公开材料封存和正式运行协议。
-- [x] 统一源绑定回放接口、独立时钟、循环与外观复位。
-- [x] 复核源去静止与反复振荡，保留任务进展、失败和恢复。
-- [x] 构建36桌正确冻结源的工厂，增加设施和镜头配置。
-- [x] 验证共用harness、家族输入、保护数据、多桌回放及渲染成本。
-- [x] 收敛当前文档和运行入口，提交最终整合。
+- [x] Pin source/protection inventories and archive useful worktree dependencies.
+- [x] Merge four branches, reconcile shared functions and restore ignored assets.
+- [x] Unify family/purpose selection, frozen public material and formal protocols.
+- [x] Unify source-bound replay, independent clocks, loops and appearance resets.
+- [x] Review source idle/repetitive-motion edits while retaining progress, failures and recovery.
+- [x] Compose 36 stations from correct frozen sources, with facilities and cameras.
+- [x] Verify shared harness, family inputs, protected data, multi-station replay and rendering cost.
+- [x] Reconcile current documentation/entries and commit the integration.
 
-最终离线回归1008项通过；36项准备文件仍未启动。数据保全、48条原有断链与
-原生宿主未验收的范围见[验收记录](../oracle-integration.md)。
+The final offline regression passed 1008 tests; 36 prepared policy cases remained
+unstarted. See the [dated acceptance receipt](../oracle-integration.md) for data
+preservation, 48 pre-existing broken links and native-host qualification limits.
 
-正式策略只能读取本次冻结公开材料和允许的运行反馈。Oracle答案、私有配对、
-真值、轨迹和工程修复经验不进入新策略上下文。R14的设计/兼容证据不改写为新的
-完整物理通过；历史评测和辅助标签保持原身份。实际模型宿主能力须在启动前核实。
+Policies may read only their frozen public material and allowed runtime feedback.
+Oracle answers, private pairings, ground truth, trajectories and engineering
+repair knowledge must not enter a new policy context. R14 design/compatibility
+evidence is not a new full physical success. Historical outcomes and assistance
+labels retain their identity; actual model-host capability requires preflight.

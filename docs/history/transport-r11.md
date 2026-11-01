@@ -1,42 +1,68 @@
-> 历史归档。当前规格与状态见 [Transport任务说明](../tasks/transport.md)；合并操作见 [交接](../plans/suite-v2/transport-merge-handoff.md)。本文保留当时的过程与证据。
+# Transport R11: environment and task snapshot
 
-# Transport R11 — 环境与任务说明
+Historical archive. Current specifications/status are in the
+[Transport guide](../tasks/transport.md); historical integration is in the
+[handoff](../plans/suite-v2/transport-merge-handoff.md).
 
-本次仅处理物品传递的4／8／12臂×L1／L2／L3，共9个环境。
-不创建或唤醒分身，不启动Oracle、GPT、抓取／交接／插入单元实验。
+This revision covered only 4 / 8 / 12 arms × L1/L2/L3, 9 Transport environments.
+It created/woke no delegates and started no Oracle, GPT, grasp, handover or
+insertion-unit experiments.
 
-## 输入与版本
+## Inputs and versions
 
-- 新清单：`configs/suites/frontier-transport-r11.json`。
-- 当前36项目录 `configs/suites/frontier-v2.json` 指向9个Transport R11和27个未改的R10场景。
-- 冻结R10清单、场景、报告与录像保留；旧18/36完整通过结论仅属于相应R10输入，不能转授R11。
-- 新场景各自保存完整模型、资产、关节／几何映射和源哈希，供以后同版本录制与工厂离线重建。没有修改工厂布局、迁移旧运动或验证Isaac。
+- New catalog: `configs/suites/frontier-transport-r11.json`.
+- At that date `configs/suites/frontier-v2.json` selected nine Transport R11 and
+  27 unchanged R10 scenes out of 36 cases.
+- Frozen R10 catalogs, scenes, reports and recordings remained. The earlier
+  18/36 full-success result belonged to those R10 inputs, not R11.
+- New scenes retained complete models/assets, joint/geometry maps and source
+  hashes for matching future recording/Factory reconstruction. Factory layouts,
+  old motion migration and Isaac verification were not changed/performed.
 
-## 已改内容
+## Changes
 
-1. 去掉全部中转大方框和固定中转点数据。新说明允许空中直接交接、等待或安全落桌暂存，不限定暂存框、路线或固定机器人组合。最终目标白板保留。
-2. 每个最终位置根据原订单显示颜色与形状：方块对应正方形，圆柱对应圆形；标识外径／边长84 mm，为60 mm物体的1.4倍。深色0.8 mm轮廓帮助辨认白色标识。插孔位置的颜料几何真正留空，未用非碰撞盖片遮住孔。
-3. 白板110×320 mm增至143×416 mm，长宽各增加30%；厚度保持L1为3 mm、L2／L3为32 mm。
-4. 若板中心不动，四臂相邻矩形板角会重叠。所有规模统一把白板及其支座向对应机械臂移50 mm；板内目标中心仍为0、±100 mm，插片与插孔局部几何保持不变。机器人安装、初始供料和订单未改。
-5. 颜色块用于识别订单，未扩大验收容差。旧参考程序依赖固定暂存点，尚未适配／验证新环境；本次不改Oracle路线或并行算法，也不改通用Skill、控制器或运行Harness。
+1. Remove large intermediate staging boxes and fixed staging-point data. Direct
+   airborne handover, waiting and safe temporary table placement were permitted
+   without prescribed boxes, routes or robot pairings. Final boards remained.
+2. Each final target displayed its ordered color/shape: square for cubes, circle
+   for cylinders. Markers were 84 mm across, 1.4 times a 60 mm object. A dark
+   0.8 mm outline made white markers readable. Painted geometry left physical
+   socket openings empty, without noncolliding covers.
+3. Boards grew from 110×320 mm to 143×416 mm, 30% along each axis. Thickness
+   remained 3 mm at L1 and 32 mm at L2/L3.
+4. Keeping centers would overlap adjacent rectangular board corners in the
+   four-arm scene. Every scale moved boards/supports 50 mm toward their arm.
+   Board-local centers remained 0 and ±100 mm; local tabs/sockets were unchanged.
+   Robot mounting, initial stock and orders were unchanged.
+5. Order-color markers did not widen acceptance tolerances. The old reference
+   depended on fixed staging points and had not been adapted/qualified. Oracle
+   routing/parallel algorithms, shared skills, controllers and harness were unchanged.
 
-## 物理变化
+## Physics changes
 
-真实白板维持650 kg/m³材料密度，由MuJoCo重新编译质量和惯量，颜料质量为零、不可碰撞。
-L2／L3单板质量约0.7253155→1.2305059 kg；L1约0.06864→0.1160016 kg。
-各环境的`board-physics.json`保留新旧主惯量、重心和静态估算。
+Boards retained material density 650 kg/m³. MuJoCo recomputed mass/inertia;
+paint was massless and noncolliding. Per-board L2/L3 mass changed approximately
+0.7253155→1.2305059 kg; L1 changed 0.06864→0.1160016 kg.
+Each scene's `board-physics.json` retained old/new principal inertia, COM and
+static estimates.
 
-L3弹簧参数保持Kz=1400 N/m、Cz=45 Ns/m、角刚度0.60 Nm/rad、角阻尼0.075 Nms/rad，行程／限位不变。
-简单F/k估算：空板下沉约8.62 mm，承载三个带插片方块约12.41 mm，低于18 mm行程。
-这是静态估算，不能代替倾斜、接触、振荡或真实插入验证；不宣称插入已通过。
+L3 springs retained Kz=1400 N/m, Cz=45 Ns/m, angular stiffness 0.60 Nm/rad and
+angular damping 0.075 Nms/rad, with unchanged travel/limits. Simple F/k estimates
+gave approximately 8.62 mm empty-board sag and 12.41 mm carrying three tabbed
+cubes, below 18 mm travel. These static estimates did not qualify tilt, contact,
+oscillation or actual insertion.
 
-## 本次检查与预览
+## Checks and previews at that date
 
-- 静态模型编译、订单数量和身份守恒、公开任务输出。
-- 与R10对照：机器人／物体初态、物体质量、关节布局、弹簧、执行器参数保持；局部插孔与最终验收逻辑不变。
-- 白板投影不重叠、处于桌面支撑范围；初始机器人／装置穿透检查。
-- 颜色标识不碰撞、不覆盖实际孔口；圆形／方形与订单身份对应。
-- 自包含资产与姿态导出契约仍可用。
+- Static compilation, order counts, identity conservation and public task output.
+- Compared with R10: unchanged robot/object initial state, object mass, joint
+  layout, springs and actuators; unchanged local sockets/final acceptance logic.
+- Nonoverlapping board projections inside tabletop support; initial robot/device
+  penetration checks.
+- Noncolliding paint leaving real socket openings exposed; marker shapes match orders.
+- Self-contained assets and pose-export contract retained.
 
-预览：`docs/generated/frontier-v2/transport-r11/index.html`，含九项俯视、正反视角及白板／插孔近景。
-以上均为静态检查，没有执行物理积分或机械臂命令。后续最小操作验证和完整并行规划需单独开始。
+Historical preview: `docs/generated/frontier-v2/transport-r11/index.html`, with
+nine top/front/rear sets and board/socket close-ups. These were static checks,
+without physics integration or arm commands. Minimum-operation verification and
+full parallel planning required separate authorization/work.
