@@ -1083,3 +1083,44 @@ evidence root. No model calls were made.
 The remaining tracked-text migration is 91 files /
 97,564 Han characters, recorded in
 `english-inventory-after-legacy-transport.json`. This remains an open release gate.
+
+## Full released-case preparation matrix
+
+At source `abd700e`, the actual unified CLI prepared all 36 released cases for
+each combination of two engines (Codex/Luna and Claude/Haiku) and four topologies
+(Single, Adaptive, Controller + Worker, Worker-Worker): eight batches / 288 runs.
+Every run passed frozen input verification and the complete frozen policy-release
+projection check. Per-family counts are nine and per-level counts twelve in
+every batch. Role counts/arm authority match each topology, including maximum
+arm counts; Single/Adaptive use direct_controller_v2 and both standing modes
+use direct_team_v3. Each effective config retains parallel 36, startup interval
+0.3 seconds, START task limit 86,400 seconds, startup timeout 600 seconds, high
+effort and task-scoped API runtime settings. Observation settings are
+jpeg_896x560_q85 with realtime video disabled. Public textual inputs across all
+288 prepared runs contain no Han text.
+
+These checks ran on macOS with CPU observation settings, without starting a
+simulator, model process, API request or runtime rendering backend. They prove
+preparation coverage, not 288-task execution, API quota, GPU readiness or
+physical completion. Claude batches deliberately remain prepared_not_qualified
+with execution_available false; Codex batches remain prepared_not_started.
+An initial verifier wrongly expected the Codex batch status for Claude. Its
+assertion stopped after preparation, not during a trial. The corrected verifier
+reused and verified existing frozen batches, then prepared the remaining ones;
+no worlds or model sessions were restarted. Both logs and the complete final
+`full-preparation-matrix.json` are retained under the engineering evidence root.
+
+## Historical Claude migration proposal
+
+The 2026-10-28 native-harness proposal is now English and clearly historical,
+with links to current implementation/qualification guides. It preserves all
+23 original source URLs, model IDs, baseline commit, recorded CLI versions,
+stages A-I, eight implementation progression conditions and original section
+numbering (including its missing section 13). It distinguishes proposed paths,
+recorded third-party integration claims and obsolete READY gating from current
+commands/direct START. It does not relaunch the old proposal, assert current
+provider access, or make a new paid preflight. Local Markdown links resolve;
+`english-claude-plan-verification.json` records the source comparison.
+
+Remaining English migration: 90 files / 91,957 Han
+characters, recorded in `english-inventory-after-claude-plan.json`.
