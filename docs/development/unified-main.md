@@ -31,7 +31,7 @@ these fields from Git history or the repository owner.
 - [x] Preserve refs and uncommitted source work outside the integration worktree.
 - [x] Fast-forward Codex and Factory server without duplicating their shared history.
 - [x] Integrate Luna, multi-topology and Claude with targeted regression checks.
-- [ ] Provide one validated TOML configuration and CLI; resolve defaults once and freeze the effective configuration per run.
+- [x] Provide one validated TOML configuration and CLI; resolve defaults once and freeze the effective configuration per run.
 - [x] Launch initial task hosts through one scheduler with a default 0.3-second interval.
 - [ ] Isolate task runtime state, verify Codex initialization/authentication, and stage Slurm SQLite state on node-local storage.
 - [ ] Preserve shared START, scoring, safe call-ID and stop semantics across native engines.
@@ -41,8 +41,27 @@ these fields from Git history or the repository owner.
 - [ ] Integrate qualified Oracle functionality without exposing private solutions to policies.
 - [ ] Publish English-only current content, task atlas, editable full video project, detailed README and documentation.
 - [ ] Exercise CPU, native macOS, NVIDIA/EGL and Slurm paths where hardware is available; record unavailable checks explicitly.
-- [ ] Run offline suites and clean-checkout checks; record any remaining paid/hardware qualification separately.
+- [x] Run offline suites and clean-checkout checks; record any remaining paid/hardware qualification separately.
 - [ ] Review the integrated branch before publishing or merging it into main.
+
+## Latest scoped acceptance snapshot
+
+As of 2026-11-02, the Oracle repair regression group passes on macOS and Linux
+(391 checks each). Full macOS discovery passed 1,501 checks before addition of
+the fixture installer. An independent Linux-local clone of `4f9cd85`, supplied
+only the explicitly pinned optional historical fixtures and an existing
+dependency image, passed 1,512 checks: zero failures/errors and 26 conditional
+skips. All JavaScript/dispatcher and portable-link checks passed. Subsequent
+palette/task/report display translations have separate text-invariance checks;
+the Linux receipt is not relabeled as a full run of those later commits.
+
+The optional historical fixture installer and separate local bundle now support
+independent installation. Public bundle distribution, final current-source image,
+remaining English migration, final review and main publication are still open.
+Real-provider/subscription lifecycle, 36-task capacity, NVIDIA observations and
+the unified Slurm execution/stage-out path remain distinct qualification gates.
+Slurm resource discovery alone does not satisfy them. Claude formal scored
+execution remains closed. The user's deferred full video rerender stays deferred.
 
 ## Invariants
 
@@ -1627,3 +1646,23 @@ intelligence. All three Python files parse and retain identical non-text ASTs.
 No exporter, renderer or simulation was run. The source comparison is retained
 in `english-legacy-report-verification.json`. English migration remains open at
 26 tracked files / 61,812 Han characters.
+
+## Independent Linux full discovery passed with v3 fixtures
+
+The independent Git-bundle clone of `4f9cd85` installed all 44,536 v3 historical
+fixture files in 10.446 seconds on its Linux-local volume. Full discovery ran
+1,512 checks in 227.561 seconds: 1,486 passed, 26 conditionally skipped, zero
+failures/errors. All 28 dispatcher scenarios, other JavaScript checks, syntax
+checks and documentation links passed. Stopped-container receipts and logs were
+copied to `linux-isolated-results-v3/`; the original v2 failure stays retained.
+No source assertions, physics thresholds or original evidence hashes were
+weakened. Network was disabled; no credentials or active host database were
+mounted. Native loopback test sessions are engineering checks without real
+provider inference. The existing arm64 dependency image and pinned Panda assets
+were reused, so this is independent current-code Linux CPU discovery, not a new
+image build, x86/NVIDIA qualification or automatic public fixture distribution.
+
+Slurm was discoverable after loading the site's `slurm/slurm/23.02.6` module.
+Read-only queries reported debug and llm partitions with GPU resources; several
+SSH attempts failed before a later successful query. No allocation, provider
+trial or unified stage-out qualification is claimed by this discovery receipt.
