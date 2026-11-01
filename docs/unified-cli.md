@@ -75,10 +75,29 @@ physics steps, or model turns. It is not a provider rate-limit guarantee.
 | `evidence.auto_archive` | Create a verified portable ZIP from that collection |
 | `evidence.delete_sources` | Must remain false; automatic destructive cleanup is not implemented |
 
-This first configuration schema covers policy execution and evidence. Factory
-editing, GPU device selection, Slurm resources and Oracle recovery still use
+This first configuration schema covers policy execution, evidence and Slurm
+resource requests. Factory editing, GPU device selection and Oracle recovery still use
 their native commands/configuration until those integration gates are complete.
 They are not silently interpreted as unified TOML options.
+
+## Startup in all four modes
+
+New Single and Adaptive tasks use `direct_controller_v2`. New Controller + Worker
+and Worker-Worker tasks use `direct_team_v3`. The owner first prepares the world
+and the host binds every required initial native session. The runtime then
+persists one START timestamp and the host explicitly tells each initial role
+that the experiment has started. Initial reading, observation and planning are
+inside the task clock. Session/environment preparation happens before START.
+
+`ready` is an optional capability query for every role under direct start. It
+does not unlock START and its response does not require a waiting turn. New
+requests follow the current role's ownership and communication permissions:
+direct start does not give a coordinating Controller its Workers' robots.
+
+Existing `ready_barrier_v1` inputs retain their legacy startup behavior. They
+are not rewritten or silently upgraded. A new fixed-team batch prepared through
+either the unified CLI or a profile with `benchmark_topology` uses direct team
+start. Binding/START failure or STOP during setup blocks initial model input.
 
 ## Render backends
 

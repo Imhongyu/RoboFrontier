@@ -17,6 +17,17 @@ from scripts import benchmark
 
 
 class CliBenchmarkTests(unittest.TestCase):
+    def test_profile_selected_standing_workers_use_direct_team_start(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary)
+            catalog=json.loads((benchmark.ROOT/'configs/models.json').read_text())
+            catalog['profiles']['luna']['benchmark_topology']='peer'
+            config=root/'models.json';config.write_text(json.dumps(catalog))
+            prepared=prepare_batch(root/'batch',['luna'],cases=['transport-a04-d1'],config=config)
+            run=Path(json.loads(prepared.read_text())['jobs'][0]['run_directory'])
+            harness=json.loads((run/'private/inputs/harness.json').read_text())
+            self.assertEqual((harness['topology'],harness['startup_protocol']),('peer','direct_team_v3'))
+
     def test_level_and_minimum_arms_select_four_tasks_without_launch(self):
         expected=['transport-a04-d2','mosaic-a04-6x12-d2','relay-a08-d2','dial-best5-n04-d2']
         with patch.object(benchmark.subprocess,'run') as launch:

@@ -72,7 +72,7 @@ def prepare(output, config):
     setup_assets()
     topology = TOPOLOGIES[policy['topology']]
     harness = {'topology': topology,
-               'startup_protocol': 'direct_controller_v2' if topology in ('centralized', 'adaptive') else 'ready_barrier_v1',
+               'startup_protocol': 'direct_controller_v2' if topology in ('centralized', 'adaptive') else 'direct_team_v3',
                'observation_image_profile': config['render']['observation_profile'],
                'startup_timeout_s': config['batch']['startup_timeout_s'],
                'render_device': config['render']['device'],

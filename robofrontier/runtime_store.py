@@ -142,8 +142,15 @@ class RuntimeStore:
             if self.get('lifecycle') != 'prepared':
                 raise ValueError('Run is not prepared')
             policy = {a: v for a, v in self.agents().items() if v['kind'] != 'manager'}
-            direct = self.get('config').get('startup_protocol') == 'direct_controller_v2'
-            if not policy or (direct and (set(policy) != {'Controller'} or not policy['Controller']['thread_id'])) or (not direct and not all(v['ready'] for v in policy.values())):
+            protocol = self.get('config').get('startup_protocol', 'ready_barrier_v1')
+            direct = protocol in ('direct_controller_v2', 'direct_team_v3')
+            if direct:
+                threads = [v['thread_id'] for v in policy.values()]
+                if not threads or not all(threads) or len(set(threads)) != len(threads):
+                    raise ValueError('Direct START requires every initial role bound to a distinct session')
+                if protocol == 'direct_controller_v2' and set(policy) != {'Controller'}:
+                    raise ValueError('Direct Controller START requires one Controller')
+            elif not policy or not all(v['ready'] for v in policy.values()):
                 raise ValueError('All policy roles must be READY')
             self.put('lifecycle', 'running')
             self.put('physics_state', 'running')

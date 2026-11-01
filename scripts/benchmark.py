@@ -154,7 +154,7 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
             if set(harness_overrides)-allowed:raise ValueError('Unsupported harness overrides')
             harness.update(harness_overrides)
         if not harness_overrides and p.get('benchmark_topology') in ('hierarchical', 'peer'):
-            harness.update(topology=p['benchmark_topology'], startup_protocol='ready_barrier_v1')
+            harness.update(topology=p['benchmark_topology'], startup_protocol='direct_team_v3')
         harness_path=config_dir/'harness.json';write_json(harness_path,harness)
         for case in selected:
             run=output/name/case

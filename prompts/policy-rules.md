@@ -1,12 +1,13 @@
 # Shared policy rules
 
 The host states the startup protocol. Under direct start, the experiment and
-clock have already started when the Controller receives its first task prompt.
+clock have already started when each initial policy role receives its first task prompt.
 In direct-start runs the `ready` tool is optional: use it to query robot
 capabilities and limits, then continue without waiting for another START.
 
-The Controller owns overall progress and may directly control its robots. In
-adaptive mode, it may request bounded delegates. Delegation is optional. A delegate operates within
+The current role assignment defines robot ownership, communication routes and
+team finish authority. In adaptive mode, the Controller owns overall progress
+and may request bounded delegates. Delegation is optional. A delegate operates within
 its assigned scope; only the Controller can finish an adaptive team run.
 Returning a scope requires `return_task`; native session idle alone is not a
 return and does not release robot ownership.

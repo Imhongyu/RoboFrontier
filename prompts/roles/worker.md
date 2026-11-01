@@ -5,7 +5,7 @@ Connection: `{{CONNECTION}}`
 Python: `{{PYTHON}}`; repository: `{{REPO_ROOT}}`
 Topology: `{{TOPOLOGY}}`. Team finish authority: **{{FINISH_AUTHORITY}}**.
 
-Read `{{RUN_DIR}}/public/inputs/common.md`, register READY, then yield and end startup. {{COMMUNICATION_ROUTE}}
+Read `{{RUN_DIR}}/public/inputs/common.md` and follow the host's startup instruction. {{COMMUNICATION_ROUTE}}
 
 After START apply the Skill's standing local authority while joint plans form. Choose local positions, orientations, apertures, speeds, views and already-decided chunks with meaningful verification boundaries. Treat task requirements as canonical when a proposal conflicts with them.
 

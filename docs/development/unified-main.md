@@ -145,3 +145,25 @@ stage-out, credentials and recovery limits. The focused staging/collection/
 configuration regression group passed 56 tests with no model calls. This does
 not validate a site's Slurm process tracker, actual node storage, 36-task memory
 capacity, NVIDIA EGL or its cluster network.
+
+## Direct startup for standing teams
+
+New standing-team Codex batches use `direct_team_v3`: all required roles must be
+bound to distinct native sessions before one persisted START, followed by an
+explicit started prompt to every role. No role must first run a READY model
+turn. Single/Adaptive retain their direct Controller startup. Frozen legacy
+READY inputs remain supported, without being rewritten.
+
+The Single Controller, standing Controller and Worker role prompts no longer
+unconditionally demand READY/yield. The shared policy contract now describes
+initial roles rather than assuming every topology starts with a Controller.
+The capability reference distinguishes an optional direct-start query from a
+legacy readiness registration. Codex bootstrap/recovery text is now English.
+
+Offline checks cover both standing-team topologies, actions before/after START,
+distinct-session binding, optional post-START capabilities, unchanged ownership,
+one task clock, failed binding/START, STOP during setup and legacy behavior.
+The runtime group passed 55 tests; the configuration/compatibility group passed
+18 tests; six further profile/bootstrap checks passed. Fourteen native host tests
+and all 24 existing dispatcher scenarios passed. These are overlapping groups,
+not a count of unique release tests. No model inference was used.

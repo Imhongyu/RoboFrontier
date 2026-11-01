@@ -170,7 +170,8 @@ async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAda
     if (observations.length) await runtime('observe-sessions',{observations,cycle});
     if (statusPaused) return {lifecycle:snapshot.lifecycle,paused:true,cycles:cycle};
     const expectedPolicy = Object.entries(snapshot.agents).filter(([,a])=>a.kind!=='manager');
-    if (snapshot.lifecycle==='prepared' && startWhenReady && expectedPolicy.length>0 &&
+    if (snapshot.lifecycle==='prepared' && startWhenReady &&
+        (snapshot.config.startup_protocol || 'ready_barrier_v1')==='ready_barrier_v1' && expectedPolicy.length>0 &&
         expectedPolicy.every(([actor,a])=>a.ready && a.thread_id && !a.recovery_required && observations.some(o=>o.actor===actor && o.status==='idle' && o.turn_id))) {
       const started = await runtime('request-start');
       if (started.error || !started.started) throw new Error('START gate rejected: '+JSON.stringify(started));

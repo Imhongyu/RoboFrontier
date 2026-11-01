@@ -79,6 +79,21 @@ class UnifiedConfigurationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'frozen configuration'):
                 _frozen_configuration(batch)
 
+    def test_new_standing_team_batches_freeze_direct_start_without_a_ready_barrier(self):
+        for topology in ('controller-worker', 'worker-worker'):
+            with self.subTest(topology=topology), tempfile.TemporaryDirectory() as temporary:
+                config = load_configuration(overrides={'policy': {'topology': topology},
+                    'selection': {'cases': ['transport-a04-d1']}, 'batch': {'parallel': 1}})
+                batch = Path(temporary)/'batch'
+                prepare(batch, config)
+                job = json.loads((batch/'batch.json').read_text())['jobs'][0]
+                run = Path(job['run_directory'])
+                harness = json.loads((run/'private/inputs/harness.json').read_text())
+                self.assertEqual(harness['startup_protocol'], 'direct_team_v3')
+                roles = json.loads((run/'public/inputs/roles.json').read_text())['roles']
+                self.assertEqual(set(roles), {'Meta', 'Controller', 'A', 'B', 'C', 'D'} if topology == 'controller-worker' else {'Meta', 'A', 'B', 'C', 'D'})
+                self.assertEqual(verify_inputs(run), [])
+
 
 if __name__ == '__main__':
     unittest.main()
