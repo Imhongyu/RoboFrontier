@@ -9,7 +9,7 @@
 | `check_codex_cli` | 使用本地Responses stub验证真实CLI工具、图片与fork；无外部模型调用 |
 | `curate_repository` | 生成并校验数据清理计划，按冻结来源保护原始流 |
 | `tasks list/check/prepare/prepare-batch` | 当前36项的版本、输入审计与独立GPT准备 |
-| `factory build/video/poses` | 当前工厂、独立循环、Cycles GPU 30fps视频与公共姿态导出 |
+| `factory build/video/poses` | 底层构建、公共姿态导出与 Cycles 视频；须显式提供匹配源。新机器优先使用 factory_server |
 | `factory_server setup/doctor/prepare/submit/run/status/import-motion` | 独立 R14 工厂数据、Linux GPU 作业数组、可校验收尾和新 benchmark motion 渲染；见 [交接说明](../docs/factory-server.md) |
 | `restore_scene_assets` | 按原SHA恢复忽略的场景资产，拒绝覆盖漂移资产 |
 | `check_harness` | 全部离线Python/JS/文档与协议回归 |

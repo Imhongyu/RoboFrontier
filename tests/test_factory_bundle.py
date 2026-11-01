@@ -141,6 +141,48 @@ class FactoryBundleTests(unittest.TestCase):
             changed=bundle.read(plan);changed['samples']=999;bundle.write(plan,changed)
             with self.assertRaisesRegex(ValueError,'plan changed'):server.load_plan(plan)
 
+    @unittest.skipUnless(os.name=='posix','POSIX signals are used by the Slurm runner')
+    def test_sigterm_collects_interrupted_attempt_without_success_marker(self):
+        import signal
+        import subprocess
+        import sys
+        import time
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data=fixture(root)
+            plan=Path(server.prepare(data,root/'batch',device='CPU')['plan'])
+            marker=root/'subprocess-started'
+            script='''
+import subprocess,sys
+from unittest.mock import patch
+from robofrontier import factory_server as server
+original=subprocess.Popen
+def launch(argv,**kwargs):
+    return original([sys.executable,'-c',
+        "import pathlib,time; pathlib.Path("+repr(sys.argv[2])+").write_text('ready'); time.sleep(60)"],**kwargs)
+with patch.object(server.subprocess,'Popen',side_effect=launch):
+    try: server.run_job(sys.argv[1],0,blender=sys.executable,scratch=sys.argv[3])
+    except InterruptedError: pass
+'''
+            worker=subprocess.Popen([sys.executable,'-c',script,str(plan),str(marker),str(root)])
+            try:
+                deadline=time.monotonic()+15
+                while not marker.exists() and worker.poll() is None and time.monotonic()<deadline:
+                    time.sleep(.05)
+                self.assertTrue(marker.exists(),'The subprocess must start before sending SIGTERM')
+                worker.send_signal(signal.SIGTERM)
+                self.assertEqual(worker.wait(timeout=15),0)
+            finally:
+                if worker.poll() is None:
+                    worker.kill();worker.wait()
+            job=root/'batch/jobs/transport-a04-d1--front'
+            self.assertFalse((job/'complete.json').exists())
+            attempts=list(job.glob('attempt-*/attempt.json'))
+            self.assertEqual(len(attempts),1)
+            self.assertEqual(bundle.read(attempts[0])['status'],'interrupted')
+            self.assertEqual(bundle.read(attempts[0])['signals'],[signal.SIGTERM])
+            self.assertFalse((job/'running.json').exists())
+            self.assertEqual(server.status(plan)['jobs'][0]['status'],'interrupted')
+
     def test_render_dependency_verification_checks_used_bytes_without_other_recordings(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);data=fixture(root)

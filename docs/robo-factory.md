@@ -1,5 +1,11 @@
 # 工厂展示与渲染
 
+新机器和 Linux/Slurm 请使用 [Factory 交接入口](factory-server.md)：
+`scripts.factory_server setup/prepare/run/submit/status`。数据由
+`configs/factory-assets.json` 固定，下载后使用包内的 `release.json`，Mosaic 为 R14。
+下文保留美术设计、底层接口和 V9/V10 历史验收；历史 `outputs/`、`runs/` 路径不随
+Git clone 出现，也不作为新服务器的运行依赖。
+
 工厂源码现将每区按俯视图从上到下排列L1/L2/L3、从左到右排列规模；工位标签放在实际桌沿上方。
 既有V10场景与视频为旧布局的历史交付，静态图索引为
 `outputs/robo-factory/v10-centered-labels-review/README.md`。区域标签固定在各矩形上边中间，
@@ -21,7 +27,8 @@
 
 ## 源、剪辑和独立循环
 
-`configs/task_families/current.json`绑定每桌自己的冻结场景、录制和剪辑。
+历史 V9/V10 通过当时的 `configs/task_families/current.json` 绑定每桌源场景、录制和剪辑。
+服务器交接现独立冻结这些输入，不再依赖该文件指向的本地 Oracle 缓存。
 Transport 20x、Mosaic 30x、Relay 20x、Dial 10x，输出30fps，原记录60Hz。
 每桌独立跳过自己的无用区间，完成后回到原始起点继续循环；循环时恢复初始RGBA，
 再累积该周期的外观事件。每帧更新所有工位后只提交一次工厂FK、渲染一次。
@@ -67,11 +74,14 @@ Cycles玻璃保留相机方向的反射/透射，阴影射线使用薄玻璃透�
 
 ## 构建、观看与导出
 
-从仓库根执行，生成目录必须是新目录：
+服务器和新 clone 按上述交接文档操作。以下为已有本地输入的底层构建接口，
+不是独立交接命令；`video/poses` 须显式提供匹配场景的、已解析路径的 `--release`。
+`RESOLVED_RELEASE_JSON` 可使用 `factory_server prepare` 在批次目录生成的 `release.json`。
+生成目录必须是新目录：
 
 ```sh
 .venv/bin/python -m scripts.factory build --output outputs/robo-factory/my-factory
-.venv/bin/python -m scripts.factory video --renderer cycles --camera orbit --duration 8 --output outputs/robo-factory/my-cycles
+.venv/bin/python -m scripts.factory video --scene outputs/robo-factory/my-factory/scene.xml --release RESOLVED_RELEASE_JSON --renderer cycles --camera orbit --duration 8 --output outputs/robo-factory/my-cycles
 ```
 
 `--scene`选择新场景，`--families`选择家族，`--camera`可选tour、orbit、desk-front或相机预设。
@@ -91,7 +101,7 @@ Cycles启用GPU降噪，CPU用于源FK、文件与场景更新。`--save-blend`�
 保持源视场角，固定相机，保留周围工厂及其他工位：
 
 ```sh
-.venv/bin/python -m scripts.factory video --camera desk-front --station transport-a04-d1 --duration 1 --width 1920 --height 1080 --output outputs/robo-factory/my-desk-front
+.venv/bin/python -m scripts.factory video --scene FACTORY_SCENE_XML --release RESOLVED_RELEASE_JSON --camera desk-front --station transport-a04-d1 --duration 1 --width 1920 --height 1080 --output outputs/robo-factory/my-desk-front
 ```
 
 `poses`也支持相同的`--camera desk-front --station CASE_ID`组合。
@@ -106,7 +116,7 @@ Cycles启用GPU降噪，CPU用于源FK、文件与场景更新。`--save-blend`�
 
 ```sh
 .venv/bin/python -m scripts.export_factory_blender --scene outputs/robo-factory/v9-workstations/scene.xml --output outputs/robo-factory/my-blender
-.venv/bin/python -m scripts.factory poses --duration 8 --camera orbit --output outputs/robo-factory/my-poses
+.venv/bin/python -m scripts.factory poses --scene outputs/robo-factory/v9-workstations/scene.xml --release RESOLVED_RELEASE_JSON --duration 8 --camera orbit --output outputs/robo-factory/my-poses
 /Applications/Blender.app/Contents/MacOS/Blender --background --python-exit-code 1 --python scripts/render_factory_blender.py -- --asset outputs/robo-factory/my-blender --animation outputs/robo-factory/my-poses/animation.json --output outputs/robo-factory/my-cycles --engine cycles --device METAL --profile fast --samples 24
 ```
 

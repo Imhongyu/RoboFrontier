@@ -3,14 +3,26 @@
 本入口读取冻结的 motion、外观事件和剪辑，做 FK 和 Blender Cycles 离线渲染。
 没有模型调用、机器人命令、接触仿真或新的任务成绩。真实 benchmark 的 Slurm/SQLite
 存储限制仍见 `server-benchmark.md`，不能用本渲染入口的验收替代。
+实际检查范围与结果见 [本次交接验收](factory-server-validation.md)。
 
 ## 安装与数据
 
-从本分支 clone 后，在仓库根安装锁定的 Python 3.12 依赖：
+在计算节点可访问的共享大盘目录创建新 checkout，不需要复制维护者的 worktree：
+
+```sh
+git clone --branch codex/factory-server-handoff --single-branch \
+  https://github.com/changxuanfan/robofrontier.git robofrontier-factory
+cd robofrontier-factory
+```
+
+在仓库根安装锁定的 Python 3.12 依赖：
 
 ```sh
 uv sync --locked
 ```
+
+`.venv` 在服务器重新安装，不从 Mac 复制。若 uv 缓存和仓库跨文件系统，可设置
+`UV_LINK_MODE=copy`，避免依赖安装时反复尝试硬链接。
 
 另需 Blender 5.1.2、FFmpeg 和 FFprobe，三者应在计算节点可执行。设置
 `BLENDER_BIN=/绝对路径/blender`；FFmpeg/FFprobe 放到 PATH。Linux NVIDIA GPU
@@ -26,6 +38,18 @@ uv sync --locked
 恢复，无须手动找到 Release。离线已有完整归档时加 `--archive /path/factory.tar.gz`。
 自选数据目录用 `--data-root /shared/path/factory-r14`，后续命令也传相同目录。
 使用绝对路径方便排队作业；数据目录不要安装在有小额配额的 home。
+
+本组 slogin 禁止数据处理：不要直接在登录节点解包、校验或 prepare。
+先加载 Slurm 模块，再把这些命令提交到允许 CPU 处理的分区，例如：
+
+```sh
+module load slurm/slurm/23.02.6
+srun --partition debug --cpus-per-task 8 --mem 16G --time 01:00:00 \
+  .venv/bin/python -m scripts.factory_server setup
+```
+
+下文 prepare 命令也可用相同的 `srun` 前缀执行；submit 是轻量的排队命令。
+其他集群替换 CPU/GPU 分区和模块名。每项命令结束后资源会释放，无须常驻主 session。
 
 数据包包括 36 工位、Mosaic R14、各录制自己的冻结场景/资产、motion、事件、剪辑
 及其语义校验证据、相机和预导出的 Blender 场景。与约 186 MB 的 benchmark 场景
@@ -74,6 +98,10 @@ module load slurm/slurm/23.02.6
 不是模型并发数。提交目录应是共享、计算节点可访问的 checkout，Python 环境、数据
 和 BLENDER_BIN 也须可访问。模板不包含个人账号或固定 Lustre 路径。
 Slurm 时限涵盖准备、渲染、编码和回传，和 benchmark 的 START 时限无关。
+
+提交返回 `job_id` 后，用 `squeue -j 作业ID` 查看排队原因。`QOSMaxJobsPerUserLimit`
+表示共享账号的同时运行作业数已满；`Resources` 表示资源暂不可用，均不代表渲染失败。
+数组的 `--parallel` 只是本批次上限，仍受账号配额约束；不要取消同账号其他人的作业。
 
 ## 完整工位视频与宣传片
 
