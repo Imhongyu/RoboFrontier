@@ -1,4 +1,4 @@
-> 历史归档。当前规格与状态见 [Transport任务说明](../tasks/transport.md)；合并操作见 [交接](../plans/suite-v2/transport-merge-handoff.md)。本文保留当时的过程与证据。
+> Historical archive. See [current Transport tasks](../tasks/transport.md) and [merge notes](../plans/suite-v2/transport-merge-handoff.md). This preserves the original process and evidence.
 
 # Transport continuation — 2026-10-26
 

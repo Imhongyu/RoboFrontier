@@ -76,8 +76,8 @@ class StoreTests(unittest.TestCase):
     def test_messages_and_events_share_byte_budget_and_drain_without_loss(self):
         cfg=self.s.get('config');cfg['max_batch_bytes']=1600;self.s.put('config',cfg)
         for i in range(8):
-            self.s.send('Controller',['A'],'m'+str(i)+'汉'*80,'m'+str(i))
-            self.s.signal('A',{'event':'test_progress','index':i,'text':'文'*100})
+            self.s.send('Controller',['A'],'m'+str(i)+'\u6c49'*80,'m'+str(i))
+            self.s.signal('A',{'event':'test_progress','index':i,'text':'\u6587'*100})
         seen_messages=[];seen_events=[]
         while self.s.pending('A')['messages']+self.s.pending('A')['signals']:
             batch=self.s.delivery('A')
@@ -89,11 +89,11 @@ class StoreTests(unittest.TestCase):
             self.assertIn('remaining_events',batch)
             self.s.acknowledge('A',batch['delivery_id'])
         self.assertEqual(seen_events,list(range(8)))
-        self.assertEqual(seen_messages,['m'+str(i)+'汉'*80 for i in range(8)])
+        self.assertEqual(seen_messages,['m'+str(i)+'\u6c49'*80 for i in range(8)])
 
     def test_individual_oversized_event_is_rejected_before_enqueue(self):
         cfg=self.s.get('config');cfg['max_batch_bytes']=1000;self.s.put('config',cfg)
-        with self.assertRaises(ValueError):self.s.signal('A',{'event':'test','text':'汉'*1000})
+        with self.assertRaises(ValueError):self.s.signal('A',{'event':'test','text':'\u6c49'*1000})
         self.assertEqual(self.s.pending('A')['signals'],0)
 
 if __name__=='__main__':unittest.main()

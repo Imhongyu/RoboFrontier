@@ -209,14 +209,18 @@ async function neutralAdapter() {
   assert(observed.length>0&&observed.every(c=>c.includes('"source":"claude.host"')));
 }
 (async()=>{
- await neutralAdapter();
- await scenario();await scenario({busy:true});await scenario({failSend:true});await scenario({wrongThread:true});
- await interrupted();await startup(false,true);await startup(true,false);await startup(true,true);
- await delegation();await delegation({count:4});await delegation({failFork:true});await delegation({failBind:true});
- await delegation({failSnapshot:true});await delegation({failSnapshotBind:true});await delegation({wrongSnapshotParent:true});await delegation({abandoned:true});
- await delegation({lostStartAck:true});await delegation({lostStartAck:true,returnedBeforeAck:false});
- await statusScenario('transient');await statusScenario('isolate');await statusScenario('persistent');await statusScenario('finished');
- await endedDelegateCallback();await endedDelegateCallback({failed:true});await platformErrorDetails();
- await delegation({label:true});await delegation({label:true,titleFailure:true});
- console.log('PASS: 24 dispatcher scenarios: neutral engine adapter, fork lifecycle, first-result callback, failed-turn evidence, best-effort robot titles, error detail redaction, pinned settings, bounded status retries, visible pause, no finished-role polling');
+ const cases=[
+  neutralAdapter,
+  ()=>scenario(), ()=>scenario({busy:true}), ()=>scenario({failSend:true}), ()=>scenario({wrongThread:true}),
+  interrupted, ()=>startup(false,true), ()=>startup(true,false), ()=>startup(true,true),
+  ()=>delegation(), ()=>delegation({count:4}), ()=>delegation({failFork:true}), ()=>delegation({failBind:true}),
+  ()=>delegation({failSnapshot:true}), ()=>delegation({failSnapshotBind:true}),
+  ()=>delegation({wrongSnapshotParent:true}), ()=>delegation({abandoned:true}),
+  ()=>delegation({lostStartAck:true}), ()=>delegation({lostStartAck:true,returnedBeforeAck:false}),
+  ...['transient','isolate','persistent','finished'].map(kind=>()=>statusScenario(kind)),
+  ()=>endedDelegateCallback(), ()=>endedDelegateCallback({failed:true}), platformErrorDetails,
+  ()=>delegation({label:true}), ()=>delegation({label:true,titleFailure:true})
+ ];
+ for(const run of cases)await run();
+ console.log(`PASS: ${cases.length} dispatcher scenarios: neutral engine adapter, fork lifecycle, first-result callback, failed-turn evidence, best-effort robot titles, error detail redaction, pinned settings, bounded status retries, visible pause, no finished-role polling`);
 })().catch(e=>{console.error(e);process.exit(1)});

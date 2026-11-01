@@ -1232,3 +1232,56 @@ No failures are hidden or waived by the narrower passing CLI suites.
 
 Remaining English migration: 87 files / 87,491 Han
 characters (`english-inventory-after-engineering-notes.json`).
+
+## Portable protocol acceptance and English operations cleanup
+
+The protocol-only checker initially failed for two reproducible fixture reasons:
+legacy Beam freezing required missing ignored textures, and the spring-Dial
+fixture compiled a model despite the no-physics guard. Those groups now use
+self-contained synthetic XML/previews and FakeWorld measurements. They retain
+all task validation, input freezing, role routing, scoring and privacy assertions;
+no real Panda/contact qualification is inferred from their primitive fixtures.
+
+The original dispatcher program actually invoked 28 top-level scenarios while
+its console label claimed 24 and the checker hardcoded 23. The runner now counts
+its executed scenario list, and the checker requires/parses that result. No
+scenario was removed. Three historical absolute Mac links also appeared valid
+only because those artifacts existed on the developer's machine. They are now
+explicit retired local references. Link validation rejects absolute paths,
+outside-checkout traversal and symlink escapes even when those targets exist.
+Two regression tests cover portable encoded/anchor/external links and those
+machine-dependent false positives.
+
+Current Mac and Linux runs both passed 199 Python protocol tests with zero
+failures, errors or skips, all 28 dispatcher scenarios, the remaining JavaScript
+checks, syntax checks and portable documentation links. Linux used the pinned
+8b47962499c1 dependency image with this checkout mounted read-only, network
+blocked, and writable temporary test directories; it is a mounted-source check,
+not a newly built image qualification. Bypassing the normal image entry initially
+left its TMPDIR uncreated, then a noexec tmpfs prevented a synthetic Python helper
+from executing. Both failed invocation logs are retained. Setting TMPDIR to the
+existing executable test tmpfs resolved that test-launch configuration without
+changing production code or omitting tests.
+
+Evidence is in `runs/engineering/main-integration-task-atlas-20261101/`:
+`protocol-fixture-reproduction.log`, `protocol-portable-final-mac.json`, and
+`protocol-portable-final-linux-exec-tmp.log`. The full historical discovery suite
+and real native/provider/physics/cluster acceptance are separate gates.
+
+OpenLux operations, Relay task/replay guides, the historical README and selected
+archive redirects are now English. The OpenLux guide uses the actual unified
+TOML/CLI, explicit paid preflight, task-local homes and maintained Docker/Slurm
+flows rather than the old batch-shared and privileged-container examples. The
+Relay guide distinguishes terminal completion from stricter historical process
+and Oracle requirements. Historical frame rates, source-time mapping, exact
+track schemas and all Relay media command blocks were retained. Original
+external URLs in the ten translated documents were checked for preservation.
+
+Five Unicode test fixtures now spell their non-ASCII samples with Unicode
+escapes; parsed Python ASTs are identical to their predecessors. Their 62-test
+regression group passed. The literal-Han inventory dropped from 87 files/87,491
+characters to 72 files/81,751 characters. This is progress toward the English-only
+repository, not a claim that the remaining history, scripts and asset UI are done.
+No model calls, new scene renders, release physics edits or asset-pin changes
+were made for this work. The original Factory video remains the published media;
+its deferred replacement was not restarted.

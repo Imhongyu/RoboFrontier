@@ -1,55 +1,103 @@
 # OpenLux GPT-6.1 Terra
 
-此工作树提供 `openlux-terra` profile：模型 `gpt-6.1-terra`、推理强度 `high`、OpenLux `https://api.openlux.ai/v1`、Codex Responses API。默认 Luna profile 保留。OpenLux 模型名和连接配置不证明实际上游模型、视觉、工具、fork 或上下文压缩可用；必须先通过真实预检。当前上下文 272000、压缩阈值 245000 是工程配置，未验证极限。
+The `openlux-terra` catalog profile requests `gpt-6.1-terra` at `high` effort
+through `https://api.openlux.ai/v1`, using the native Codex Responses runner.
+Selecting it does not change the repository's default Luna profile. A model
+name and endpoint do not prove upstream model identity, vision, tools, native
+forks or compaction support. Validate the actual account and token with a paid
+preflight before execution. The configured 272000-token context and 245000-token
+compaction threshold are engineering settings, not verified capacity limits.
 
-## 配置 Key
+## Credentials and group selection
 
-在 OpenLux 控制台为需要的分组设置 API token，在本地 `.env` 添加：
+Set the token's allowed groups and priorities in the OpenLux console. Put only
+the credential in the local ignored `.env` file:
 
 ```dotenv
-OPENLUX_API_KEY=在本机填写
+OPENLUX_API_KEY=fill_locally
 ```
 
-不要把密钥写入 Git、命令行参数或聊天。进程环境的同名变量优先于 `.env`。这个 profile 使用一个 token；分组范围、优先级和跨组重试取决于该 token 的 OpenLux 设置，本程序不负责在两个组间切换，也不能验证实际上游模型。不要把一个分组切换误认为本程序实现了主备。
+Do not commit credentials or put them in command arguments or chat. An existing
+process environment variable takes precedence over `.env`. This profile uses one
+token. Group selection, priority and fallback depend on that token's server-side
+configuration; the harness does not implement or verify a two-group failover.
 
-## 本机检查和短测
+## Unified native command flow
 
-运行前安装环境和资产，见 [Luna CPU 指南](luna-cpu.md)。`doctor` 不调用模型；`preflight` 发起付费请求，验证图片、工具、手动压缩与 fork，但不证明自动压缩极限、API 真实上游身份或正式任务可用。
+Install locked dependencies, assets and the pinned native CLI as described in
+[the unified CLI guide](unified-cli.md). Create an operator TOML, for example
+`openlux.toml`:
 
-```bash
-.venv/bin/python -m scripts.luna_cpu doctor --profile openlux-terra
-.venv/bin/python -m scripts.luna_cpu preflight --profile openlux-terra --output runs/policy/terra-smoke
-.venv/bin/python -m scripts.luna_cpu submit --profile openlux-terra --output runs/policy/terra-smoke --level 1 --min-arms --wall-limit-s 600 --parallel 4
+```toml
+[policy]
+engine = "codex"
+profile = "openlux-terra"
+effort = "high"
+topology = "adaptive"
+
+[render]
+device = "nvidia"
+
+[selection]
+level = 1
+min_arms = true
+
+[batch]
+parallel = 4
 ```
 
-预检通过后才能提交；`submit` 默认 36 项并发且会付费，缩小测试必须显式指定过滤和并行数。CPU 渲染、隔离 Codex home、Motion 和 session 收集方式沿用 [Luna CPU 指南](luna-cpu.md)。现有 Slurm 脚本固定 Luna profile；本配置不能通过直接提交现有脚本切换为 OpenLux。SQLite 节点本地暂存与回传尚未验证，暂不要提交正式集群批次。
+Use `device = "native"` for macOS or `"cpu"` for Linux Mesa OSMesa. The remaining
+settings inherit repository defaults: task-local API homes, a 0.3-second initial
+host-launch interval, and 24 hours per task from persisted START. The example
+selects four minimum-arm Level 1 cases. Omitting the selection and parallel
+sections restores all 36 tasks and 36 slots; that is not a capacity guarantee.
 
-也可不调用模型先准备任务，之后 run 从 batch.json 识别 profile：
-
-```bash
-.venv/bin/python -m scripts.luna_cpu prepare --profile openlux-terra --output runs/policy/terra-plan --level 1 --min-arms --wall-limit-s 600
-.venv/bin/python -m scripts.luna_cpu preflight --profile openlux-terra --output runs/policy/terra-plan
-.venv/bin/python -m scripts.luna_cpu run runs/policy/terra-plan --parallel 4
+```sh
+.venv/bin/robofrontier bootstrap
+.venv/bin/robofrontier --config openlux.toml plan
+.venv/bin/robofrontier --config openlux.toml doctor
+.venv/bin/robofrontier --config openlux.toml prepare --output runs/policy/openlux-l1
 ```
 
-预检输出位于 `runs/engineering/model-compatibility/openlux-terra/`。批次中的 `codex-home.json` 给出独立 session 目录；用 `scripts.luna_cpu collect` 收集已停止批次。以上目录含实验记录，不应直接公开分享。
+Those commands do not invoke a language model. Doctor does create a local RGB
+context. Preflight and run are separate, billable operations:
 
-## macOS 原生与 Linux/Docker 一条命令提交
-
-在仓库已安装依赖、资产和 Codex、已配置 `.env` 并通过本模型预检后，以下命令自动检查渲染和沙箱、建立本批次 Codex home、准备并提交任务，不需要 LLM 主 session。默认 OpenLux Terra high、6 个指定 Level 1 任务、并发 6、每任务 START 后 300 秒，实际请求会收费。批次目录必须是新的；命令不会重启已有批次。预检本身也会产生模型费用。
-
-macOS 原生渲染（使用本机原生 OpenGL，不保证 CPU 渲染）：
-
-```bash
-.venv/bin/python -m scripts.portable_benchmark --output runs/policy/mac-six-example
+```sh
+.venv/bin/robofrontier --config openlux.toml preflight --confirm-spend
+.venv/bin/robofrontier run runs/policy/openlux-l1
 ```
 
-Docker/Linux CPU 软件渲染：
+A successful full compatibility receipt checks the configured provider's image,
+tool, manual compaction and native fork paths. It does not qualify the maximum
+automatic context size, upstream model identity, resource capacity or every task.
+A smoke-only receipt is insufficient for a benchmark run. Profile/catalog and
+native CLI identity changes invalidate existing compatibility receipts.
 
-```bash
-docker run --rm --cap-add SYS_ADMIN --security-opt seccomp=unconfined \
-  -v "$PWD:/workspace" -w /workspace --entrypoint python robofrontier-luna-cpu \
-  -m scripts.portable_benchmark --output runs/policy/docker-six-example
+Monitor or stop through the command interface; do not inspect a live SQLite
+file across storage/container boundaries:
+
+```sh
+.venv/bin/robofrontier status runs/policy/openlux-l1
+.venv/bin/robofrontier stop runs/policy/openlux-l1
 ```
 
-上面的容器权限设置会降低隔离，仅在已确认需要的环境中使用。可用 `--parallel`、`--wall-limit-s` 和 `--cases` 调整；执行前须检查服务端并发限制与可用内存。命令不会安装依赖、下载资产或自动执行收费预检；失败时检查提示。Codex home 按批次隔离，批次内任务仍共享；并发配置文件风险尚未完全排除。任务返回 `needs_review` 时必须查看日志，不能自动重放结果不确定的物理动作。
+New runs automatically collect and ZIP stopped evidence by default, retaining
+originals. Inspect collection issues and uncertain actions; a sealed archive is
+not proof of task success. Preflight reports are under
+`runs/engineering/model-compatibility/openlux-terra/`; task home markers and
+collected session indexes identify the actual native session files. These are
+research records, not public assets to upload without review.
+
+## Docker and Slurm
+
+Use the same profile TOML with the [Docker wrapper](docker.md), which builds
+committed source and stores active runtime/session data in local Docker volumes.
+Use the frozen, node-local [Slurm flow](slurm.md) for queue execution. Neither
+entry should put active SQLite files directly on Lustre/NFS. Real cluster,
+NVIDIA and provider resource qualification remain separate acceptance gates.
+
+The earlier `scripts.luna_cpu` and `scripts.portable_benchmark` commands are
+legacy interfaces documented in the [Luna CPU guide](luna-cpu.md). Their old short-test limits, batch-shared homes
+and manual privileged Docker invocation are not the unified configuration.
+Do not submit the retired Luna sbatch scripts to switch this profile; use the
+current Slurm submission command and site-specific settings instead.

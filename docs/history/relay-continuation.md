@@ -1,3 +1,7 @@
+> Legacy historical continuation. Live-process statements and control IDs below
+> refer to the original 2026-10-26/27 work, not an instruction to resume it now.
+> See [current Relay tasks](../relay.md) for current semantics and entry points.
+
 # Relay continuation — 2026-10-26
 
 > **Latest compact recovery:** read [relay-compact-checkpoint-20261027.md](relay-compact-checkpoint-20261027.md)
@@ -423,7 +427,7 @@ The user additionally proposed16-arm radial row gap1.30m. A separate optional
 layout drawing uses symmetric50mm row shifts (outer2.43→2.38m, inner1.03→1.08m),
 keeping the1.73m route centreline. Closest staggered cross-row pairs then span
 1.300–1.374462m; same-side adjacent distances become outer.826565m/inner.667477m.
-When asked whether this includes L1, the user replied“先不改”. Acknowledged:
+When asked whether this includes L1, the user replied, in translation, "do not change it yet". Acknowledged:
 no actual scene changes, L1 remains in its present layout;1.30m is preview only.
 `16-arm-gap-1300-option.png/.svg` and`proposal.json` record this non-applied option.
 
@@ -650,7 +654,7 @@ Any runtime loading needs explicit user approval before debugger attachment
 because the original process has no normal reload endpoint and losing it
 would lose the preserved scene. Continue independent16L3 work while pending.
 
-The explicit user answer first allowed 25 mm, followed by “其实50mm内都问题不大，继续，不用停”. Unified final boundary tolerance is now **50 mm**, overriding every older 5 mm/25 mm statement below. No velocity or static-duration requirement. Open jaws near the table are allowed; actual final landing/contact and qualified prior airborne handover remain checked separately. Do not tighten the task again around a diagnostic buffer. No new physical processes/episodes; keep four original worlds alive. User permits at most two cores per task if possible without restarting: one unchanged physics actor plus one external helper. `reserve_helper_core` enforces the helper slot; never spawn-and-wait a child using the same slot.
+The explicit user answer first allowed 25 mm, followed by the translated instruction, "within 50 mm is acceptable; continue without stopping". Unified final boundary tolerance is now **50 mm**, overriding every older 5 mm/25 mm statement below. No velocity or static-duration requirement. Open jaws near the table are allowed; actual final landing/contact and qualified prior airborne handover remain checked separately. Do not tighten the task again around a diagnostic buffer. No new physical processes/episodes; keep four original worlds alive. User permits at most two cores per task if possible without restarting: one unchanged physics actor plus one external helper. `reserve_helper_core` enforces the helper slot; never spawn-and-wait a child using the same slot.
 
 Read fresh immutable RPC results/observations before acting. Current whole-case status remains 5/9 and placed count 20/27. Original 12L2 has P2/P3 accepted, P1 D/J after a small Y shift, +0.1 rad yaw and 80 mm lowering; receiver E/J approaches exist but donor D withdrawal fails. Original 12L3 has P2/P3 accepted under 50 mm; P1 advanced B/I → C/I → C/J → D/J and several finite translations/turns toward the centre. Original 16L2 P4 accepted; P3 is within Goal and force-free/open but still rests on P's left finger, so it is **not yet counted**; preserve its terminal aperture failure. P2 E/M has completed a -0.12 rad wrist reorientation; N receiving exists but M withdrawal fails. P1 remains D/L. Original 16L3 P3/P4 accepted; P2 H/O advanced to the O/P overlap area and P was staged home, but O forearm blocks P's reachable grasp; P1 F/N rose 80 mm and advanced to [0.30,1.69,1.2575]. Newer observations/results supersede these approximate positions.
 

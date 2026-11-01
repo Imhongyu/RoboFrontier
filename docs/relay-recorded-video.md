@@ -1,79 +1,111 @@
-# Relay：同一剪辑轨迹迁移背景并以20倍速播放
+# Relay: one edited trajectory across backgrounds at 20x
 
-2026-10-27。使用原来已完成的九项任务，不重跑Oracle、不积分物理、不重置原世界。
+This describes the historical 2026-10-27 export of nine recorded cases. It did
+not rerun an Oracle, integrate task physics or reset a live world. Current
+imports and compressed recordings use the [Factory workflow](factory.md);
+legacy packages retain their frozen source and original verdicts.
 
-## 三种频率
+## Three sampling rates
 
-- 原仿真积分步长2ms，即500Hz。
-- 原位姿记录60Hz，float32 qpos；记录包含所有关节、夹爪、主杆和独立砝码状态。
-- 去静止判定沿用已审查的20Hz样本与0.25s/2s窗口；视频新输出30fps、按有效仿真时间20倍速。
+- Original physics: 2-ms integration steps, 500 Hz.
+- Original pose recording: 60-Hz float32 qpos, including joints, grippers,
+  timber and independent weights.
+- Editing decisions: reviewed 20-Hz samples with 0.25-s/2-s windows. Exported
+  video: 30 fps at 20x effective simulation time.
 
-视频从原60Hz记录直接选帧，按有效仿真时间计算倍速。
-运动分析入口为`scripts/analyze_relay_motion.py`，唯一当前影片导出入口为
-`scripts/export_relay_edited.py`。Relay时间映射实现为`robofrontier/relay_motion_edit.py`。
+Video selects states directly from original 60-Hz rows. Motion analysis is in
+`scripts/analyze_relay_motion.py`, track/simple-background export is in
+`scripts/export_relay_edited.py`, and Relay time mapping is in
+`robofrontier/relay_motion_edit.py`. Factory films use the separate Cycles entry;
+these scripts do not become a new Factory task-physics simulator.
 
-## 先剪轨迹，再换场景
+## Edit the trajectory before changing the background
 
-`outputs/oracle/relay-edited-tracks-20261027/`每个case包含：
+Each case under the historical local
+`outputs/oracle/relay-edited-tracks-20261027/` contains:
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `edit.json` | 源场景hash、完成截止、保留区间、既有去静止规则/阈值/画面复核来源 |
-| `track.npz` | 保留区间内原60Hz状态，原始时间、原始帧号、剪辑时间、每行时长、区间编号 |
-| `source/` | 与这些qpos精确匹配的冻结模型、关节/几何注册表和本地资源 |
-| `events.jsonl` | 完成截止前全部外观事件；即使事件落在删去等待里，也在下个显示帧前应用 |
-| `initial-rgba.json` | 初始外观 |
-| `source-chunks.json` | 原始chunk清单、hash以及本次抽取时已校验的chunk |
+| `edit.json` | Source scene hash, completion cutoff, retained intervals, reviewed thresholds and visual-review provenance |
+| `track.npz` | Original 60-Hz states in retained intervals, source times/frame numbers, edited times, row durations and interval IDs |
+| `source/` | Exact frozen model, joint/geometry registry and assets matching qpos |
+| `events.jsonl` | All appearance events up to completion; events inside removed waits apply before the next displayed frame |
+| `initial-rgba.json` | Initial appearance |
+| `source-chunks.json` | Original chunk inventory, hashes and extraction-time verification |
 
-没有重新判定工厂像素是否静止。既有20Hz最终布尔剪辑表先转成以原仿真秒计的
-半开时间区间，每个判定样本管理其相邻样本中点之间的时间格，再取出落在保留格里的
-原60Hz记录行。qpos直接复制，未根据控制命令重建，也未在剪切边界插值或跑物理。
-原记录的所有等待仍留在原始文件中；派生包才移除了这些等待。
+The exporter does not reclassify stillness from Factory pixels. Reviewed 20-Hz
+Boolean decisions become half-open source-time intervals, with each sample's
+cell bounded by the midpoints to adjacent samples. Original 60-Hz rows are
+selected from retained cells. qpos is copied, not reconstructed from commands,
+interpolated across cuts or advanced through physics. Original recordings keep
+all waits; only the derived package removes them.
 
-全场机械臂/夹爪有效动作按OR保留；极小数值噪声、全场静止、只有砝码摆动的等待，
-继承此前经过960段画面检查的同一剪辑结果。主杆滑落等真实事件仍保留。
-这是带阈值的工程运动识别，不保证识别任意小于记录/采样分辨率的动作。
-目前为单项剪辑与逐项工厂回放。多桌各自时钟的联合播放器尚待集成；
-较大、长时间无进展的主杆／弹簧被动振荡也需要进一步识别，不能据现有规则声称全部已删。
-联合播放器按每桌自带倍速读取本表，结束后保持各自终态。
+Effective arm and beam motion are combined with OR. Numerical noise, whole-scene
+stillness and weight-only swings reuse the same edit decisions reviewed across
+960 visual segments. Genuine events such as timber slipping remain. Thresholded
+engineering analysis cannot guarantee detection of arbitrarily small motion
+below sample/recording resolution. Long passive timber/spring oscillations
+without progress still need better classification; do not claim all were removed.
+The historical delivery handled cases individually. A joint player with
+independent table clocks was then pending; a player must preserve each table's
+speed and hold its final state after its own timeline ends.
 
-`track.npz`中的`edited_time_s`从零开始，等待被切掉，`source_time_s`保留原时间跳跃。
-`duration_s`累加为有效时长，原采样落在2ms时钟上，实际相邻记录约16/18ms，
-因此按原时间差而非固定帧号计算速度。不同区间边界不桥接。
-`context_qpos`/`context_source_time_s`另保留原始首末证据姿态。
-新派生包的schema为`robofrontier.relay-motion-edit.v1`。
-已交付包的旧`robofrontier.motion-edit.v1`不改写；读取时以完整Relay字段校验识别。
-Mosaic的同名旧schema是另一种帧引用格式，不能直接当成Relay轨迹包。
+`edited_time_s` in `track.npz` starts at zero and excludes removed waits;
+`source_time_s` retains the jumps. Accumulated `duration_s` gives effective
+length. Original sampling lies on a 2-ms clock with approximately 16/18-ms row
+gaps: compute speed from actual time differences, not a fixed frame interval,
+and never bridge cut boundaries. `context_qpos` and `context_source_time_s`
+retain original first/last evidence poses.
 
-## 场景迁移的边界
+New derived packages use `robofrontier.relay-motion-edit.v1`. Already delivered
+`robofrontier.motion-edit.v1` packages are not rewritten; readers identify them
+through complete Relay field validation. Mosaic's older schema of the same
+name is a different frame-reference format, not a Relay trajectory package.
 
-`source/workstation.json`给出稳定body/geom身份以及qpos布局。工厂模型由每个包的
-精确冻结源组成，旧版本杆件不混用。机器人未命名几何使用注册表的`source_index`，
-不能把诸如`A_link0:geom0`当作MuJoCo原生名字查询。
+## Frozen-source migration boundaries
 
-源FK产生每个body位姿；工厂给工作台、全部机械臂、物体及相机施加同一个平移和
-绕竖直轴旋转，尺寸不缩放。世界坐标自由体和机器人根部都正确转换；关节角仍使用
-本地值。桌子材质、光照、工厂静态背景可以不同，剪辑与原始时间不变。
-只改变部分基座/桌面相对布局、缩放器材或改变物理，不属于可直接复用的刚体迁移。
+`source/workstation.json` supplies stable body/geom identities and qpos layout.
+Each Factory visual model uses its package's exact frozen source; do not mix
+beam revisions. Unnamed robot geometry uses the registry's `source_index`.
+A registry label such as `A_link0:geom0` is not a native MuJoCo geom name.
 
-工厂是零task动力学的视觉模型，以mocap body呈现已记录的FK位姿。
-不把它说成“工厂物理重新验证成功”，也不把其他静态工作站说成并行完成任务。
-每个输出帧校验源/目标全部可见几何的位置和旋转矩阵，误差限1e-6；源场景hash不符则拒绝。
+Source forward kinematics produces all body poses. Apply one common translation
+and vertical-axis rotation to the table, all robots, objects and cameras, without
+scaling. Transform world-space free bodies and robot roots correctly; joint
+angles remain local. Table materials, lights and static Factory background may
+change while source/edited times remain unchanged. Moving selected bases or
+the table independently, scaling apparatus or changing physics is outside this
+rigid migration contract.
 
-## 20倍速与逐帧对应
+Factory playback uses mocap bodies to display recorded FK poses with zero task
+dynamics. It does not revalidate task physics or establish that neighboring
+static workstations completed their tasks. Every output frame checks all visible
+source/target geom positions and rotation matrices with a 1e-6 limit. A source
+scene hash mismatch rejects playback.
 
-`video_rows`在连续剪辑时钟上每`20/30`秒选一个原记录状态，未作qpos插值。
-任意背景使用完全相同的行号。首末各增加一帧证据姿态，总额外时长2/30秒。
-因此视频时长为`ceil(有效仿真秒×30/20)/30 + 2/30`。
-快放时短于显示采样间隔的动作可能只在轨迹包里完整保留；需要慢放时可以用同一包重新渲染。
+## Frame mapping at 20x
 
-每项`outputs/oracle/relay-20x-20261027/<case>/frame-map.csv`由两种背景共享，包含
-视频帧号/播放时间、原始仿真时间、剪辑时间、轨迹行号、原始60Hz帧号、区间号。
-`render.json`记录同一派生轨迹hash、工厂hash、倍速、帧率、几何误差、完整解码与视频hash。
+`video_rows` selects one recorded state every `20/30` seconds of the continuous
+edited clock, without qpos interpolation. Every background uses identical row
+numbers. First and last evidence poses add one frame each, a total of 2/30 s.
+Video duration is `ceil(effective_simulation_seconds * 30 / 20) / 30 + 2/30`.
+Fast playback may omit short actions from displayed frames even though the full
+track preserves them. The same package can later be rendered more slowly.
 
-工厂离线影片现统一使用 `python -m scripts.factory video` 的 Cycles 入口；下面的 Relay render 命令只输出简单背景。原配对视频与原始帧映射保留。
+The historical
+`outputs/oracle/relay-20x-20261027/<case>/frame-map.csv` is shared by both
+backgrounds. It records video frame/playback time, source simulation time,
+edited time, track row, original 60-Hz frame and interval ID. `render.json`
+records the derived track hash, Factory hash, speed, fps, geometry errors,
+complete decoding and video hash. Preserve original paired videos/frame maps.
 
-## 可重用命令
+## Legacy reusable commands
+
+These require the original local inputs and new output directories; clone does
+not download these historical experimental records. They are not commands to
+resume a live task. The `render` command below outputs the simple background.
+Factory video uses `python -m scripts.factory video` through the current
+[Factory workflow](factory.md).
 
 ```sh
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=. \
@@ -92,5 +124,7 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=. \
   --output outputs/oracle/relay-20x-20261027
 ```
 
-新场景用新的输出目录并重新组成精确源。输出编码先写partial文件，完整解码和帧数
-校验后再作为最终影片；复用已有结果时核对渲染计划。所有旧影片与原轨迹均保留。
+A changed scene needs a new output and a newly assembled exact-source model.
+Encoders write partial files first, promote only after full decode/frame-count
+checks, and compare the render plan before reusing existing results. Preserve
+original videos and source trajectories.

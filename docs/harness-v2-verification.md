@@ -19,7 +19,12 @@ JavaScript, syntax and documentation checks. Missing ignored historical scenes
 can cause real failures; do not report those as a passing current release gate.
 For the explicit non-physics contract subset, `--protocol-only` installs guards
 that forbid MuJoCo model creation and stepping. That subset is not equivalent
-to full contact, rendering or provider qualification.
+to full contact, rendering or provider qualification. Its legacy Beam and spring
+Dial fixtures use self-contained primitive XML, small synthetic previews and
+FakeWorld measurements; they contain no Panda robots. Their preparation,
+public/private boundaries and scoring assertions remain active. They do not
+require ignored historical textures, model compilation or an IK solve. Current
+36-case scene preparation and actual physical regressions are separate checks.
 
 Optional `--skill-validator PATH --skill-python PYTHON` checks skill formatting.
 The external validator is not a runtime dependency. Valid formatting does not

@@ -14,7 +14,7 @@ from fake_pipeline import FakeWorld, fake_capture
 from robofrontier.delegation import Delegations
 from robofrontier.run_setup import prepare_run, verify_inputs
 from robofrontier.runtime_service import RuntimeService
-from robofrontier.spring_dial import PARAMETERS, specification, create_scene, update_display
+from robofrontier.spring_dial import update_display
 from robofrontier.spring_dial_task import (CODE_PATH, SpringDialSampler, make_spring_task,
                                          private_code, public_spring_task, validate_spring_task)
 from robofrontier.task_config import load_harness
@@ -50,30 +50,18 @@ class SpringPolicyTests(unittest.TestCase):
         The world and preview are explicitly synthetic: this group tests public
         evidence and role routing, never legacy physical task qualification.
         """
-        import xml.etree.ElementTree as ET
-        import mujoco
-        from PIL import Image
-        from robofrontier.cube_transport import initialize, add_initial_keyframe
         from robofrontier.configuration import ROOT
+        from synthetic_legacy_scenes import spring_scene
         from unittest.mock import patch
         (ROOT/'runs').mkdir(exist_ok=True)
         fixture=tempfile.TemporaryDirectory(prefix='test-legacy-spring-',dir=ROOT/'runs')
         cls.addClassCleanup(fixture.cleanup)
         fixture_root=Path(fixture.name)
+        cls.scene=fixture_root/'configs/environments/spring_dial/facing-04'
+        spring_scene(ROOT/'configs/environments/spring_dial/facing-04', cls.scene)
         for module in ('robofrontier.spring_dial_task', 'robofrontier.scene_task'):
             patcher=patch(module+'.ROOT',fixture_root)
             patcher.start();cls.addClassCleanup(patcher.stop)
-        cls.scene=fixture_root/'configs/environments/spring_dial/facing-04'
-        params=copy.deepcopy(PARAMETERS);env=specification(params)
-        root=create_scene(cls.scene,params,env)
-        ET.ElementTree(root).write(cls.scene/'scene.xml',encoding='unicode')
-        model=mujoco.MjModel.from_xml_path(str(cls.scene/'scene.xml'))
-        data=initialize(model,env)
-        add_initial_keyframe(root,model,data)
-        ET.ElementTree(root).write(cls.scene/'scene.xml',encoding='unicode')
-        (cls.scene/'environment.json').write_text(json.dumps(env))
-        (cls.scene/'parameters.json').write_text(json.dumps(params))
-        Image.new('RGB',(32,24),'white').save(cls.scene/'preview-board.png')
 
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name)

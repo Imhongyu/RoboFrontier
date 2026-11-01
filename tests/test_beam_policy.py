@@ -70,13 +70,21 @@ class BeamPolicyTests(unittest.TestCase):
         self.assertIn('agent_configurable_impedance',p['not_supported'])
         self.assertFalse(p['simulation_parameters_mutable_by_policy'])
     def test_task_freezes_in_every_topology_without_physics(self):
+        from synthetic_legacy_scenes import beam_scene
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);t=root/'task.json';t.write_text(json.dumps(self.task))
-            for mode in ('centralized','adaptive','hierarchical','peer'):
-                cfg=load_harness();cfg['topology']=mode;c=root/(mode+'.json');c.write_text(json.dumps(cfg))
-                run=prepare_run(root/mode,t,c);self.assertEqual(verify_inputs(run),[])
-                p=json.loads((run/'public/inputs/task.json').read_text())
-                self.assertEqual(p['evaluation_rules'],evaluation_rules())
+            root=Path(tmp).resolve()
+            fixture=root/'configs/environments/beam_handoff/facing-08'
+            beam_scene(ROOT/'configs/environments/beam_handoff/facing-08', fixture)
+            with patch('robofrontier.beam_task.ROOT',root), patch('robofrontier.scene_task.ROOT',root):
+                self._assert_freezing_modes(root, make_beam_task(fixture))
+
+    def _assert_freezing_modes(self,root,task):
+        t=root/'task.json';t.write_text(json.dumps(task))
+        for mode in ('centralized','adaptive','hierarchical','peer'):
+            cfg=load_harness();cfg['topology']=mode;c=root/(mode+'.json');c.write_text(json.dumps(cfg))
+            run=prepare_run(root/mode,t,c);self.assertEqual(verify_inputs(run),[])
+            p=json.loads((run/'public/inputs/task.json').read_text())
+            self.assertEqual(p['evaluation_rules'],evaluation_rules())
 
     def test_invalid_beam_collision_dimension_count_is_rejected_without_physics(self):
         env=json.loads((ROOT/'configs/environments/beam_handoff/facing-08/environment.json').read_text())

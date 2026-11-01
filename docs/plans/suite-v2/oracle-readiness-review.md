@@ -1,4 +1,4 @@
-> 此文件是准备前的历史审查。当前结果见 [pre-oracle-preparation.md](pre-oracle-preparation.md)。
+> Historical review before preparation. See [pre-oracle-preparation.md](pre-oracle-preparation.md) for the later preparation record.
 
 # Pre-Oracle review — 2026-10-25
 

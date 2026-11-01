@@ -1,60 +1,83 @@
-> 历史README快照。当前项目说明见 [项目首页](../../README.md)。
+> Legacy README snapshot from before the 2026-10-27 cleanup. Commands and claims
+> below describe that historical checkout, not the unified CLI or current release
+> qualification. See the [current README](../../README.md). The old interactive
+> executable is now `robofrontier-demo`; `robofrontier` selects the unified CLI.
 
-# RoboFrontier
+# RoboFrontier: historical project state
 
-当前主线是四类、36 个环境的 Frontier V2：物品传递、拼图、空中接力和旋钮密码锁。当前环境草稿为9项Transport R13＋其余27项R10（80 cm桌高、2 ms步长）；旧版保留。R13已做局部操作验证与双臂串／并行对照，尚未运行完整Oracle。R10现有同配置证据为**18/36完整通过**，不代表效率合格，也不能继承给新版。不能把静态构建或局部成功当成整项通过。
+At this snapshot, Frontier V2 comprised four families and 36 environments:
+Transport, Mosaic, airborne Relay and a dial codebreaker. The environment draft
+used nine Transport R13 cases plus 27 R10 cases, 80-cm tables and 2-ms steps;
+older versions remained available. R13 had local manipulation and two-arm
+serial/parallel comparisons, not a full Oracle run. Existing same-configuration
+R10 evidence completed **18/36** cases, which did not establish efficiency or
+transfer to changed versions. Static construction and local success were not
+whole-task passes.
 
-另按用户授权完成了最小规模的 **12项限时GPT试验**：Adaptive、gpt-6.1-sol/high，每项START后最多20分钟，2项完整通过。所有物理进程与模型轮次均已结束，12段原速录像已完整解码检查。该探测试验不等于36项Oracle认证，也未把Oracle抓点/经验输入策略。见[结果与录像目录](../../outputs/gpt/frontier-v2-minimum-20m-20261025/README.md)。
+A separately authorized minimum-scale GPT probe ran **12 tasks**, Adaptive,
+`gpt-6.1-sol/high`, at most 20 minutes after START per task; two fully passed.
+All model/physics processes ended and all 12 original-speed videos passed full
+decode. This was not 36-case Oracle certification. Oracle grasp points and
+engineering experience were not supplied to the policies. Its retired local
+results/video directory was
+`outputs/gpt/frontier-v2-minimum-20m-20261025/README.md`, not distributed here.
 
-- [当前 36 环境目录与说明](../frontier-v2-environments.md)
-- [Transport R11修改范围与静态检查](transport-r11.md)
-- [Transport R12目标间隔调整](transport-r12.md)
-- [Transport R13白板缩短20 mm](transport-r13.md)
-- [Transport R13最小单元、真实并行对照及后续计划](transport-r13-units.md)
-- [R10／工厂 V6／离线回放与运行目录](../plans/suite-v2/implementation-r10.md)
-- [冻结的 36 项输入清单](../../configs/suites/frontier-v2-r10.json)
-- 当前 R10 pd1000-v1 Oracle 结果索引（历史产物已退役：`../../runs/oracle/suite-v2-r10-closure-20261025/coverage-current.json`）
-- 成功与未通过Oracle录像（历史产物已退役：`../../outputs/oracle/review-20261025/index.html`）
-- 本轮并行 Oracle 复盘与剩余缺口（历史产物已退役：`../../runs/oracle/suite-v2-r10-servo2-20261025/review.md`）
-- 原 legacy 驱动工程结果（历史产物已退役：`../../runs/oracle/suite-v2-r10-20261025/summary.json`）
-- 工厂当前预览（历史产物已退役：`../../outputs/robo-factory/v6-cycles-final/interior_diagonal.png`）
+- [36-environment catalog](../frontier-v2-environments.md).
+- [Transport R11 scope and static checks](transport-r11.md).
+- [Transport R12 goal-spacing changes](transport-r12.md).
+- [Transport R13 whiteboard shortened by 20 mm](transport-r13.md).
+- [R13 commissioning and real serial/parallel comparisons](transport-r13-units.md).
+- [R10, Factory V6, replay and run layout](../plans/suite-v2/implementation-r10.md).
+- [Frozen 36-case R10 inputs](../../configs/suites/frontier-v2-r10.json).
+- Retired R10 pd1000-v1 Oracle index: `runs/oracle/suite-v2-r10-closure-20261025/coverage-current.json`.
+- Retired passed/failed Oracle videos: `outputs/oracle/review-20261025/index.html`.
+- Retired parallel-Oracle review: `runs/oracle/suite-v2-r10-servo2-20261025/review.md`.
+- Retired original legacy-driver results: `runs/oracle/suite-v2-r10-20261025/summary.json`.
+- Retired Factory preview: `outputs/robo-factory/v6-cycles-final/interior_diagonal.png`.
 
-下列链接包含早期多臂试点与原单臂键盘练习；其通过记录不自动适用于当前 36 环境。
+The older pilots and keyboard exercise below did not automatically qualify the
+then-current 36 environments:
 
-- [下一阶段计划与验收顺序](../next-iteration-plan.md)
-- trial04 效率诊断（历史产物已退役：`../../runs/trial04-efficiency-audit-20261020/report.md`） 与 针对性修复（历史产物已退役：`../../runs/efficiency-fixes-20261020/report.md`）
-- [目录、状态与上下文](../architecture.md)
-- [Meta 启动与管理](../meta-runbook.md)
-- [当前验收范围](../harness-v2-verification.md)
-- [Coordinator / Worker Skill](../../.agents/skills/robot-collaboration/SKILL.md)
-- [四臂 10×10 方块拼图环境](../../configs/environments/mosaic/four-arm-10x10/README.md)
-- [实验三：八臂面对面传递长木条（环境预览）](../../configs/environments/beam_handoff/facing-08/README.md)
-- [真机命令语义与抓取力审计](../robot-command-reality-audit-20261022.md)：共享多臂工具已增加 grasp 模式；原单臂键盘练习仍沿用旧位置夹爪。
-- [3～12 臂方块＋圆柱场景与离线任务包（历史独立系列）](../../benchmarks/cube_transport_cylinders/README.md)
-- [原方块＋球体版本与历史参考](../../benchmarks/cube_transport/README.md)
-- [历史试点与诊断](.)
+- [Next iteration and gates](../next-iteration-plan.md).
+- Retired trial04 efficiency review: `runs/trial04-efficiency-audit-20261020/report.md`;
+  fixes: `runs/efficiency-fixes-20261020/report.md`.
+- [Architecture and context](../architecture.md).
+- [Meta setup and management](../meta-runbook.md).
+- [Harness acceptance scope](../harness-v2-verification.md).
+- [Controller/Worker skill](../../.agents/skills/robot-collaboration/SKILL.md).
+- [Four-arm 10x10 Mosaic](../../configs/environments/mosaic/four-arm-10x10/README.md).
+- [Eight-arm opposing-pair beam environment](../../configs/environments/beam_handoff/facing-08/README.md).
+- [Command semantics and grasp-force audit](../robot-command-reality-audit-20261022.md):
+  shared multi-arm tools added grasp mode; the keyboard exercise kept position control.
+- [3–12-arm cube/cylinder standalone catalog](../../benchmarks/cube_transport_cylinders/README.md).
+- [Earlier cube/sphere catalog](../../benchmarks/cube_transport/README.md).
+- [Historical pilots and diagnostics](.).
 
-仅准备文件：`uv run python scripts/create_pipeline_run.py runs/NEW`。离线检查：`uv run python scripts/check_harness.py`。二者不会创建模型会话或操作机器人。物理启动是单独的显式步骤，见操作说明。
+Historical preparation: `uv run python scripts/create_pipeline_run.py runs/NEW`.
+Offline checks: `uv run python scripts/check_harness.py`. Neither created model
+sessions or robot actions; starting physics was a separate explicit step.
 
-## 原单臂键盘练习
+## Original single-arm keyboard exercise
 
-本机 MuJoCo 小 Demo：固定在桌面的 Panda 7 DoF、双指夹爪、三个自由方块。默认由键盘控制末端位移，机器人运动通过 IK 和上游位置执行器实现；抓取依靠真实接触与摩擦。
+A local MuJoCo demo used one fixed-base Panda, seven arm DoFs, a two-finger
+parallel gripper and three free cubes. Keyboard input moved the end effector;
+IK and upstream position actuators drove the robot. Grasps relied on contact
+and friction.
 
-当前启动默认使用 `configs/noslip.json`（`noslip-10-v1`）：仅启用 10 次 NoSlip 接触后处理，保留原摩擦、夹爪执行器强度、质量和速度。原配置保存在 `config.json`，可用 `uv run robofrontier --config config.json` 复现原始设置。不同接触配置的结果需要分开记录；NoSlip 解决了本案例的慢滑，不保证任意抓取姿态成功。
+The historical default was `configs/noslip.json` (`noslip-10-v1`), enabling
+10 NoSlip postprocessing iterations while retaining friction, gripper strength,
+mass and speed. `config.json` retained original settings. Contact variants needed
+separate records. NoSlip addressed slow slip in that case, not every grasp pose.
+An RGB attempt lifted the randomized blue cube for over 38 s; evidence was in
+`docs/history/noslip-validation-20261019.md`, separate from earlier failures and
+the fixed-coordinate reference controller.
 
-新随机布局的实际 RGB 操作已抓起蓝色方块并保持超过 38 s 未掉落，原速视频与验证记录见 `docs/history/noslip-validation-20261019.md`。这与此前默认配置下的失败、固定坐标参考程序的成绩分别记录。
+## Historical installation and window controls
 
-## 打开
-
-本机环境和模型已准备好。双击 **`Launch Demo.command`**，或在本目录运行：
-
-```sh
-uv run robofrontier
-```
-
-点击仿真窗口，再使用英文键盘输入。macOS 功能键若被系统用于亮度/媒体控制，请使用 `Fn + F9` 等组合。
-
-首次在其他机器安装：先安装 [uv](https://docs.astral.sh/uv/) 和 FFmpeg，然后：
+The original checkout provided `Launch Demo.command` or `uv run robofrontier`.
+These are historical commands; use the current demo entry when reproducing the
+exercise in the unified repository. The original setup first installed
+[uv](https://docs.astral.sh/uv/) and FFmpeg. On another machine, its commands were:
 
 ```sh
 uv sync --locked
@@ -62,101 +85,116 @@ uv run python scripts/fetch_robot.py
 uv run robofrontier
 ```
 
-此版本在 Apple Silicon macOS、Python 3.12.6、MuJoCo 3.16.0 上验证。独立虚拟环境位于 `.venv`，具体依赖由 `uv.lock` 固定。
+That version was checked on Apple Silicon macOS, Python 3.12.6 and MuJoCo 3.16.0,
+with `.venv` and `uv.lock`. Focus the simulation and use an English keyboard.
+macOS may require Fn for function keys assigned to brightness/media controls.
 
-## 键位
-
-| 操作 | 按键 |
+| Operation | Keys |
 | --- | --- |
-| 桌面内平移 | 方向键；↑ 是 -X（远离正面相机），↓ 是 +X，← / → 是 -Y / +Y |
-| 抬高 / 降低末端 | W / S |
-| 夹爪 yaw | A / D |
-| 打开 / 关闭夹爪 | O / P |
-| 慢 / 正常 / 快 | `[` / `]` |
-| 切换末端 / 七关节模式 | Tab |
-| 切换正面 / 侧面相机 | C；切换后方向键仍跟随世界坐标 |
-| 恢复初始场景 | Backspace（Mac 键盘的 Delete） |
-| 暂停 / 恢复整个物理世界 | Space，仅供调试 |
-| 开始 / 停止录屏 | F9 |
-| 保存截图 | F8 |
-| 显示 / 隐藏帮助 | F1 |
-| 保存并退出 | Esc |
+| Planar translation | Arrows; up is -X, away from the front camera; down +X, left -Y, right +Y |
+| Raise/lower TCP | W/S |
+| Gripper yaw | A/D |
+| Open/close | O/P |
+| Slow/normal/fast | `[` / `]` |
+| End-effector/seven-joint mode | Tab |
+| Front/side camera | C; world-relative controls stay unchanged |
+| Restore identical initial state | Backspace, labeled Delete on Mac |
+| Debug physics pause/resume | Space |
+| Start/stop recording | F9 |
+| Show/hide help | F1 |
+| Save and exit | Esc |
 
-默认末端平移速度 3 cm/s，慢档 1 cm/s，快档 6 cm/s。按住方向键持续运动，松开后受限减速并保持，物理世界仍继续运行。失焦会清空运动输入并保持，**不会冻结重力**。多轴同时输入按总平移速度限幅。
+Normal TCP speed was 3 cm/s, slow 1 cm/s, fast 6 cm/s. Holding a key continued
+motion; release decelerated and held while physics continued. Losing focus
+cleared motion input and held position without freezing gravity. Multi-axis
+translation was bounded by the combined speed. The yellow TCP marker identified
+the finger pinch center. Operators aligned in front view, checked height from
+the side, lowered opposite fingers around a cube, closed with P and raised with
+W. Backspace restored the exact initial state after failure; that reset was a
+demo operation, not permission to reset a benchmark episode.
 
-黄色小点是 TCP（夹指夹持区域中心）。建议先从正面调整左右和前后，再按 C 从侧面检查高度；降低夹爪，让两指分别位于方块两侧，按 P 闭合，然后 W 抬起。失败时 Backspace 从完全相同的初态重来。
-
-七关节模式使用：
-
-| 关节 | 正向 / 负向 |
+| Joint | Positive/negative keys |
 | --- | --- |
-| J1 | Q / A |
-| J2 | W / S |
-| J3 | E / D |
-| J4 | R / F |
-| J5 | T / G |
-| J6 | Y / H |
-| J7 | U / J |
+| J1 | Q/A |
+| J2 | W/S |
+| J3 | E/D |
+| J4 | R/F |
+| J5 | T/G |
+| J6 | Y/H |
+| J7 | U/J |
 
-支持多个关节同时输入，同一关节的正负键相互抵消。键盘硬件可能限制特定多键组合。各关节默认参考速度 15°/s，慢 / 快为 5 / 30°/s，参考加速度初值 60°/s²。实际反馈速度显示在右上角；模型采用位置伺服，不能把参考速度当作实际速度的硬保证。
+Multiple joints could move together; opposite keys for one joint canceled.
+Keyboard hardware could limit combinations. Normal reference speed was 15 deg/s,
+slow/fast 5/30 deg/s, with 60 deg/s^2 reference acceleration. The upper-right
+feedback displayed actual speed; position servos did not guarantee actual speed
+was bounded by the reference.
 
-## IK 与机器人导入
+## IK and imported robot
 
-- **机器人不用重新建模**：`scripts/fetch_robot.py` 从 Google DeepMind MuJoCo Menagerie 获取 Panda 的 MJCF、67 个引用网格和许可证。当前固定 commit 为 `62ab00f2bc44f6f20c1c9b7a13f3fb1dd41a4e35`；文件 SHA-256 保存在 `vendor/panda/SOURCE.json`。
-- `robofrontier/scene.py` 读取该 MJCF，在内存中设置固定底座位置，并加入桌子、方块、相机和 TCP site；不改写上游机器人文件。每个 episode 会保存完整组装后的 `scene.xml`。
-- **MuJoCo 提供正运动学和末端雅可比等基础计算；这版的数值 IK 是我们写的小型阻尼最小二乘求解器**，位于 `robofrontier/sim.py`。它只使用机器人关节配置、运动学模型和期望 TCP 位姿；不读取运行中方块的真值坐标。
-- 键盘 → 小步末端目标 → IK → 受速度/加速度/关节范围限制的关节参考 → 原模型位置执行器 → MuJoCo 接触物理。
-- 没有吸附、抓取 weld 或运行时直接修改物体位置。IK 不会替操作者识别目标、对齐方块或选择闭合时机。
+- `scripts/fetch_robot.py` fetched Google DeepMind MuJoCo Menagerie's Panda MJCF,
+  67 referenced meshes and license. The pin was
+  `62ab00f2bc44f6f20c1c9b7a13f3fb1dd41a4e35`; hashes were in `vendor/panda/SOURCE.json`.
+- `robofrontier/scene.py` assembled the fixed base, table, cubes, cameras and TCP
+  site in memory without rewriting upstream files. Each episode saved `scene.xml`.
+- MuJoCo supplied forward kinematics and Jacobians. The small numerical damped
+  least-squares IK solver in `robofrontier/sim.py` used robot configuration,
+  kinematics and desired TCP pose, not live cube truth.
+- Keyboard input produced small TCP targets, IK produced bounded joint
+  references, and upstream position actuators drove MuJoCo contact physics.
+- No attachment, grasp weld or live object-position write performed the grasp.
+  IK did not identify cubes, align the gripper or choose closing time.
 
-## 配置、日志和视频
+## Configuration, logs and video
 
-`config.json` 集中保存桌面高度、方块尺寸与质量、摩擦、速度档、工作区域、初始 TCP 和相机等设置。默认 2 ms 物理步长、100 Hz 控制，初始化后先稳定运行 1 s，再保存初始状态。reset 同时恢复完整积分状态与控制器参考。
+`config.json` contained table/cube dimensions, mass, friction, speed, workspace,
+initial TCP and cameras. Defaults were 2-ms physics, 100-Hz control and a 1-s
+settle before recording the initial state. Reset restored full integration and
+controller references. Each launch/reset created `runs/<date-time>/`:
 
-每次启动或 reset 创建一个 `runs/日期-时间/` 目录，包括：
+- `metadata.json`: settings, model hash, versions, source and initial references.
+- `scene.xml`: fully assembled scene.
+- `initial.npz`: initial simulation and controller state.
+- `trace.jsonl`: approximately 10-Hz inputs, robot/object/physics state and video
+  events; demo diagnostics, not a formal per-action research protocol.
+- `recording-XX.mp4`: F9-controlled 1280x800, 30-FPS camera video with status,
+  encoded directly from MuJoCo pixels without macOS screen-recording permission.
 
-- `metadata.json`：配置、模型 hash、版本、上游来源、初始关节参考。
-- `scene.xml`：完整组装的场景。
-- `initial.npz`：初始仿真状态及控制器状态。
-- `trace.jsonl`：约 10 Hz 的动作输入、物理状态、机器人和物体状态，以及录像等事件。这是练习诊断日志，并非正式的逐动作研究数据协议。
-- `recording-XX.mp4`：F9 录制，固定 1280×800、30 FPS，包含当前相机画面及状态提示。直接编码 MuJoCo 像素，不需要 macOS 屏幕录制权限。
+Video used wall time; logs retained simulation and wall clocks. Encoding was
+asynchronous with a bounded queue and recorded failures/drops. Reset ended the
+old recording to keep initial states separate. No standalone replay UI existed.
 
-视频按墙钟时间采样，仿真和墙钟时间分别写入日志。编码异步、队列有界，编码失败和丢帧会写日志。reset 结束旧录像，避免不同初态混在同一视频里。当前不含独立回放界面。
-
-## 已验证与范围
-
-运行物理验收：
+## Historical verification scope
 
 ```sh
 uv run python scripts/verify_demo.py
-```
-
-验证当前默认配置和长时间保持：
-
-```sh
 uv run python scripts/verify_demo.py --config configs/noslip.json --hold-seconds 30
 ```
 
-该配置已从同一初态连续 3 次抓起蓝色方块，抬高约 12 cm，各保持 30 s，保持期间位移约 0.05 mm。结果存于 `runs/verification-noslip.json`，属于参考程序的物理验收。
+The NoSlip reference lifted the blue cube about 12 cm from the same initial
+state three consecutive times, holding each for 30 s with about 0.05-mm drift.
+`runs/verification-noslip.json` was reference-controller physics evidence, not
+vision-model/GPT performance. Original `runs/verification.json` recorded 30 s
+idle without evident drift/divergence; full reset; simultaneous two-joint motion,
+hold/mode switching; bounded target accumulation during downward input; three
+blue-cube lifts of about 9.5 cm with about 4.6 s contact hold; and native-window,
+screenshot and H.264 encoding checks.
 
-该参考程序使用已知坐标验证控制器和接触物理，**不是视觉模型或 GPT 的成绩**。验证结果写入 `runs/verification.json`：
+The demo had keyboard and RGB/proprioceptive tool control in one continuing
+world, using `Simulation.control()`. It did not yet implement a standalone GPT
+API client, MCP registration, experiment matrix or statistical evaluation.
 
-- 空闲运行 30 s，物体无明显漂移或数值发散。
-- 完整初态恢复；双关节同时运动、松键保持、模式切换。
-- 连续向下输入后目标没有无限积累。
-- 从同一初态连续 3 次双指抓取蓝色方块，抬高约 9.5 cm，持续接触保持约 4.6 s。
-- 原生窗口、渲染截图和 H.264 MP4 编码已检查。
-
-当前包含 Human 键盘练习版与本地 RGB + 本体状态工具入口，仿真持续运行。未加入独立 GPT API 客户端、MCP 注册、实验矩阵和统计评估。工具接管调用同一个 `Simulation.control()`，不更换机器人或另建物理世界。
-
-## 供 Codex 操作的本地入口
+## Historical local Codex bridge
 
 ```sh
 uv run robofrontier --bridge --blind --record
 ```
 
-`--blind` 在初始化时重新随机摆放方块，不把物体坐标通过入口返回。控制使用 RGB + 机器人本体状态；两台固定 RGB 相机与键盘 C 切换的相机相同。内部完整状态仅用于物理与诊断日志，策略操作时不得读取 `metadata.json`、`scene.xml`、`initial.npz` 或内部 `trace.jsonl` 来获取物体真值。该约束是实验协议，不是操作系统文件权限隔离。
-
-另一个终端或 Codex 的命令工具可以调用：
+`--blind` randomized cubes at initialization without returning their coordinates.
+Policies used RGB and robot proprioception; two fixed cameras matched the C-key
+views. Internal full state was diagnostic only. Policies were prohibited from
+reading `metadata.json`, `scene.xml`, `initial.npz` or private `trace.jsonl` for
+object truth. This was an experimental restriction, not OS-level isolation.
+A second terminal or command tool could invoke:
 
 ```sh
 uv run python -m robofrontier.client observe
@@ -167,20 +205,39 @@ uv run python -m robofrontier.client wait --duration 1
 uv run python -m robofrontier.client record stop
 ```
 
-每次 move 都可以按动作选择 `--speed slow|normal|fast`；速度档对应键盘的 TCP 速度和关节速度，控制器仍施加 60°/s² 的关节加速度限制。move 持续时间可设为 0.1–4 s，位移上限按 `TCP 速度 × 持续时间` 计算；最长单步约为 4、12、24 cm。夹爪与等待动作仍限于 2 s。yaw 每次最多 10°。例如高位长距离接近可选 fast，最后对准可选 slow。返回的是实际位置，不保证请求位移被精确执行。运动结束后留出 0.35 s 的减速/稳定时间，再返回正面与侧面截图。等待模型决策期间物理仍运行。此版本是有界速度请求，不是精确位置到达规划器。
+Each move selected slow/normal/fast TCP and joint references, retaining the
+60-deg/s^2 joint acceleration limit. Duration was 0.1–4 s; displacement limits
+were TCP speed times duration, approximately 4/12/24 cm maximum per step.
+Gripper/wait actions remained at most 2 s and yaw at most 10 degrees. Fast
+served clear high approaches; slow served final alignment. Results reported
+actual position, without exact displacement guarantees, after 0.35 s of
+bounded deceleration/settle and front/side capture. Physics continued during
+model deliberation. This was a bounded-velocity interface, not a precise pose
+planner.
 
-仅绑定本机回环地址，令牌保存在忽略提交的 `.robot-bridge.json`；HTTP 线程排队，GUI 主线程执行物理和渲染。`--request-id` 可显式指定请求编号，同编号同参数重试返回缓存结果，不重复运动。Space 可中断正在运行的工具动作。没有 object-state、depth、自动 pick 或隐式重置入口。后续启动会把策略可见的请求与结果另存 `policy.jsonl`；内部真值 trace 与它分开。
+The server bound loopback only. Ignored `.robot-bridge.json` held its token;
+HTTP threads queued requests and the GUI thread executed physics/rendering.
+`--request-id` allowed explicit IDs; same-ID/same-argument retries returned the
+cached result without replay. Space interrupted tool motion. No object-state,
+depth, automatic-pick or implicit reset endpoint existed. Later launches wrote
+public requests/results separately to `policy.jsonl`, apart from private truth.
+The first RGB attempt was documented in `docs/history/rgb-attempt-20261019.md`;
+its result was distinct from fixed-coordinate reference success.
 
-首次 RGB 尝试的说明见 `docs/history/rgb-attempt-20261019.md`。参考控制器的固定坐标成功记录与该 RGB 尝试是两个不同结果。
+Joint exploration offered basic limits and target-error checks, not global
+collision avoidance. Collisions remained physical; demo reset could recover a
+bad posture. These simulation settings were not real-hardware control settings.
 
-关节模式允许探索姿态，只有基本限位与目标偏差限制，不提供全局避障。碰撞会真实发生；遇到难以恢复的姿态可 reset。此 Demo 的仿真设置不能直接当作真机控制配置。
+## Primary references
 
-## 一手资料
+- [Menagerie Panda](https://github.com/google-deepmind/mujoco_menagerie/tree/main/franka_emika_panda).
+- [MuJoCo Python API](https://mujoco.readthedocs.io/en/stable/python.html).
+- [MuJoCo visualization](https://mujoco.readthedocs.io/en/stable/programming/visualization.html).
+- Further local notes: `docs/mujoco-official-notes.md`, `docs/vla-action-spaces.md`.
 
-- [Menagerie Panda](https://github.com/google-deepmind/mujoco_menagerie/tree/main/franka_emika_panda)
-- [MuJoCo Python API](https://mujoco.readthedocs.io/en/stable/python.html)
-- [MuJoCo visualization](https://mujoco.readthedocs.io/en/stable/programming/visualization.html)
-- 进一步说明见 `docs/mujoco-official-notes.md` 和 `docs/vla-action-spaces.md`。
-
-
-八臂木条的正式任务入口为 [task.json](../../configs/environments/beam_handoff/facing-08/task.json)，复用现有运行服务；任务私有验收与通用同步提交分别位于 beam_task/action_batch。新增能力属于工程接入，不能把 Oracle 回放当作 GPT 成绩。详见[环境说明](../../configs/environments/beam_handoff/facing-08/README.md)。
+The historical eight-arm beam's formal adapter input was
+[task.json](../../configs/environments/beam_handoff/facing-08/task.json), using the
+shared runtime. Private task evaluation and generic synchronized submission were
+implemented in beam_task/action_batch. This was engineering integration, not GPT
+performance or permission to substitute Oracle playback for a model result.
+See the [environment guide](../../configs/environments/beam_handoff/facing-08/README.md).

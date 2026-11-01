@@ -178,7 +178,7 @@ class ClaudeRunnerTests(unittest.TestCase):
     def test_event_and_stderr_redact_credential_before_truncation(self):
         with tempfile.TemporaryDirectory() as tmp:
             run = Path(tmp) / 'run'; run.mkdir()
-            secret = 'fake-"unicode-密钥'
+            secret = 'fake-"unicode-\u5bc6\u94a5'
             binary = fake_claude(tmp, '''
 secret = os.environ['ANTHROPIC_API_KEY']
 print(json.dumps({'type':'result', 'subtype':'success', 'is_error':False, 'result':secret}))

@@ -141,7 +141,7 @@ class DelegationTests(unittest.TestCase):
 
     def test_full_reports_are_files_and_parallel_notifications_stay_small(self):
         self.delegate(('A','B','C'));children=self.activate()
-        report='视觉分析与证据。'*1500
+        report='\u89c6\u89c9\u5206\u6790\u4e0e\u8bc1\u636e。'*1500
         for child in children:
             data={'outcome':'completed','result':report}
             reply=self.call(child['actor'],'return_task',data,'return-'+child['actor'])['result']

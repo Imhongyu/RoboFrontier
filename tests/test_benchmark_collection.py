@@ -63,7 +63,7 @@ class BenchmarkCollectionTests(unittest.TestCase):
             sessions=home/'sessions/2026'; sessions.mkdir(parents=True)
             write(batch/'codex-home.json', {'codex_home':str(home)})
         for tid in ('parent','child'):
-            write(sessions/(tid+'.jsonl'), {'sessionId':tid,'text':'原始记录'})
+            write(sessions/(tid+'.jsonl'), {'sessionId':tid,'text':'\u539f\u59cb\u8bb0\u5f55'})
         return batch,run,sessions
 
     def test_all_role_kinds_and_failed_task_roundtrip(self):

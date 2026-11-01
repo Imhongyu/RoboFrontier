@@ -19,6 +19,25 @@ sys.path.insert(0,str(ROOT/'scripts'))
 sys.path.insert(0,str(ROOT/'tests'))
 
 
+def documentation_links(root, documents):
+    """Require local links to remain usable inside an independent checkout."""
+    root=Path(root).resolve()
+    broken=[]
+    for document in documents:
+        for target in re.findall(r'\[[^\]]*\]\(([^)]+)\)',document.read_text()):
+            if '://' in target or target.startswith(('#','mailto:')):continue
+            path=unquote(target.split('#')[0].strip('<>'))
+            if not path:continue
+            resolved=(document.parent/path).resolve()
+            if Path(path).is_absolute() or not resolved.is_relative_to(root):
+                reason='Local link must be relative and stay inside the checkout'
+            elif not resolved.exists():
+                reason='Local link target does not exist'
+            else:continue
+            broken.append({'file':str(document.relative_to(root)),'target':target,'reason':reason})
+    return broken
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--report',type=Path)
@@ -39,7 +58,7 @@ def main():
         modules=('test_action_batch','test_sync_groups','test_beam_policy','test_spring_dial','test_spring_dial_policy','test_pipeline','test_pipeline_client',
                  'test_runtime_store','test_run_setup','test_scheduling','test_centralized','test_delegation',
                  'test_delegate_callbacks','test_private_evaluation','test_run_seal','test_run_report',
-                 'test_session_mailbox_demo','test_transport_schedule','test_recording')
+                 'test_session_mailbox_demo','test_transport_schedule','test_recording','test_harness_checker')
         suite=unittest.defaultTestLoader.loadTestsFromNames(modules)
     else:suite=unittest.defaultTestLoader.discover(str(ROOT/'tests'),pattern='test_*.py')
     try:result=unittest.TextTestRunner(verbosity=2).run(suite)
@@ -71,24 +90,21 @@ def main():
     doc_js="const fs=require('fs');const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;const s=fs.readFileSync(process.argv[1],'utf8');for(const m of s.matchAll(/```javascript\\n([\\s\\S]*?)```/g))new AsyncFunction(m[1]);"
     runbook=subprocess.run(['node','-e',doc_js,str(ROOT/'docs/meta-runbook.md')],capture_output=True,text=True)
     tool_docs=subprocess.run(['node','-e',doc_js,str(ROOT/'.agents/skills/robot-collaboration/references/tools.md')],capture_output=True,text=True)
-    broken_links=[]
     documents=[ROOT/'README.md',*(ROOT/'docs').rglob('*.md'),*(ROOT/'.agents/skills/robot-collaboration').rglob('*.md')]
-    for document in documents:
-        for target in re.findall(r'\[[^\]]*\]\(([^)]+)\)',document.read_text()):
-            if '://' in target or target.startswith(('#','mailto:')):continue
-            path=unquote(target.split('#')[0].strip('<>'))
-            if path and not (document.parent/path).exists():broken_links.append({'file':str(document.relative_to(ROOT)),'target':target})
+    broken_links=documentation_links(ROOT,documents)
     validator=None
     if args.skill_validator:
         validator=subprocess.run([args.skill_python,str(args.skill_validator),str(ROOT/'.agents/skills/robot-collaboration')],capture_output=True,text=True)
         print(validator.stdout,end='');print(validator.stderr,end='',file=sys.stderr)
-    passed=result.wasSuccessful() and node.returncode==0 and bridge.returncode==0 and sequence.returncode==0 and local_step.returncode==0 and cli_rpc.returncode==0 and cli_preflight.returncode==0 and all(s['passed'] for s in js_syntax) and ui.returncode==0 and runbook.returncode==0 and tool_docs.returncode==0 and not broken_links and (validator is None or validator.returncode==0)
+    dispatcher_count=re.search(r'^PASS: (\d+) dispatcher scenarios:',node.stdout,re.MULTILINE)
+    dispatcher_passed=node.returncode==0 and dispatcher_count is not None
+    passed=result.wasSuccessful() and dispatcher_passed and bridge.returncode==0 and sequence.returncode==0 and local_step.returncode==0 and cli_rpc.returncode==0 and cli_preflight.returncode==0 and all(s['passed'] for s in js_syntax) and ui.returncode==0 and runbook.returncode==0 and tool_docs.returncode==0 and not broken_links and (validator is None or validator.returncode==0)
     report={'checked_at':datetime.now(ZoneInfo('Asia/Hong_Kong')).isoformat(),'passed':passed,
             'scope':('Protocol-only engineering: FakeWorld/HTTP, private scoring on synthetic records, frozen inputs and encoder recovery. Physics creation/stepping prohibited; no native sessions, model inference or GUI.' if args.protocol_only else 'Offline engineering; synthetic sessions, FakeWorld/HTTP, robot kinematics/contacts and FFmpeg encode/decode/crash regressions when tools are installed. No live model inference, native session wakeups, GUI or multi-agent policy trial.'),
             'physics_entrypoints_blocked':args.protocol_only,
             'python_tests':{'run':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),'skipped':len(result.skipped)},
-            'dispatcher_js':{'passed':node.returncode==0,'scenarios':23},
-            'role_tool_bridge_js':{'passed':bridge.returncode==0,'scenarios':15,'error':bridge.stderr or None},
+            'dispatcher_js':{'passed':dispatcher_passed,'scenarios':int(dispatcher_count[1]) if dispatcher_count else None,'error':node.stderr or None},
+            'role_tool_bridge_js':{'passed':bridge.returncode==0,'summary':bridge.stdout.strip(),'error':bridge.stderr or None},
             'finite_sequence_js':{'passed':sequence.returncode==0,'error':sequence.stderr or None},
             'local_role_step_js':{'passed':local_step.returncode==0,'error':local_step.stderr or None},
             'codex_cli_rpc_js':{'passed':cli_rpc.returncode==0,'error':cli_rpc.stderr or None},

@@ -1,81 +1,104 @@
-# Relay：当前任务与入口
+# Relay tasks and entry points
 
-Relay Oracle已按用户终点规则完成九项、27根。原始记录、失败／恢复历史与辅助分类保留。
-当前任务、默认入口及文件职责如下；历史过程不作为运行说明。
+Relay has nine released cases. Historical Oracle records report completion of
+nine cases and 27 beams under the user's final-goal review, retaining failures,
+recovery and assistance labels. That statement is provenance, not a new run or
+qualification of changed physics. Use the exact frozen scene and task revision
+when comparing results.
 
-## 任务
+## Released geometry
 
-| 机械臂数 | 布局 | 每项装置数 | L2／L3初始端点跨度 |
+| Arms | Layout | Assemblies per case | Initial endpoint chord, L2/L3 |
 | --- | --- | --- | --- |
-| 8 | 两排直线 | 2 | 1.15m |
-| 12 | 90°圆弧，外7／内5 | 3 | 1.15m |
-| 16 | 半圆，外10／内6 | 4 | 1.20m |
+| 8 | Two straight rows | 2 | 1.15 m |
+| 12 | 90-degree arc, seven outer/five inner | 3 | 1.15 m |
+| 16 | Semicircle, ten outer/six inner | 4 | 1.20 m |
 
-三种规模各有L1／L2／L3，共九项。桌面高0.80m；16臂径向排距1.40m，
-12臂外／内半径3.46／2.16m。L1器材与布局保留。
-L2为63°圆弧杆；L3为31.5°折转、148.5°内夹角，全部为±25°的垂直弯折被动弹簧。
-L2／L3下表面距末端沿杆100mm处直接连接固定环，无短柱，
-配170mm木质摆杆和600g砝码。基座、区域与几何细节以各项冻结模型为准。
+Each scale has Levels 1, 2 and 3. Tables are 0.80 m high. The 16-arm radial row
+spacing is 1.40 m; the 12-arm outer/inner radii are 3.46/2.16 m. Level 1 retains
+its own apparatus and arrangement. Level 2 uses a 63-degree circular-arc timber.
+Level 3 uses a 31.5-degree deflection, 148.5-degree interior angle and passive
+out-of-plane springs with limits of +/-25 degrees. On Levels 2 and 3, a fixed eye
+attaches directly to the timber underside 100 mm along it from the endpoint,
+without a mounting stem, and interlinks with the pendant's eye. The wooden shaft
+is 170 mm and its weight is 600 g. Frozen model geometry is authoritative.
 
-最终规则：
+## Current policy completion and process records
 
-- 各装置从自身初始位置向公共GOAL运输；不必先回START。团队、交接点、调度由规划者选择。
-- 空中运输至少两只真实木杆抓持；先建立接收支持再释放供方，每根必须有真实合格交接。
-- GOAL允许任意摆放、互相接触和堆叠。整套装置的几何边界允许最多50mm向外误差。
-- 允许低位先松爪：最低装置部件距桌面不超过30mm时可开始释放，无需先碰桌。
-  完成仍须实际落地／获得合法货物支撑、全部机器人松开、实际位置符合范围。
-- 不增加速度门槛或静止时长要求。保留过程违规与恢复历史；禁止状态写入、焊接、回滚或重生。
+New policy runs use `terminal_outcome_v2`. Move every assembly from its own
+initial position toward the common GOAL; returning it to START is unnecessary.
+Controllers choose teams, grasp points, handover locations and schedules.
+Independent operations may overlap within role ownership and collision limits.
 
-规则唯一来源为`robofrontier/suite/relay_contract.py`，版本`relay-final-goal-50mm-v1`。
-`task.json`和`public-task.json`由此生成完整说明；不再追加版本更新条款。
-旧记录自身没有此版本标记时保持原判定，不能自动重命名为当前native通过。
+Final placement may include cargo contact and stacking. The complete assembly
+must fit inside GOAL with at most 50 mm outward geometric tolerance on each
+boundary, be released by all robots and actually supported by the table or
+accepted cargo. There is no extra speed threshold or stationary-duration test.
+A low release may begin when the lowest assembly part is at most 30 mm above
+the table; opening the gripper alone does not establish landing or completion.
 
-## 默认入口
+Collisions, drops, unsupported transfers and recovery violations remain process
+records. They are not an automatic veto on an otherwise valid terminal outcome.
+Airborne two-gripper support, receiving support before sender release, a real
+handover and sender-authorized recovery are process criteria; the current public
+overlay does not require a clean process history or an airborne handover for
+terminal success. Models may recover through ordinary robot actions. Reset,
+respawn, direct object-state writes, welds and history erasure are unavailable.
+See [shared START and scoring semantics](direct-start-terminal-scoring.md).
 
-唯一批次入口：`scripts/run_relay_nine_oracles.py`。
-输入为`configs/suites/frontier-relay.json`九项，运行配置为
-`configs/harness-frontier-v2-servo2.json`，不依赖某次旧run中的配置文件。
-默认无总时间截止，单动作期限、显式STOP和未知执行保护保留。
-单项执行由`run_relay_live_oracle.py`承接，默认流水与灵活交接；不需要安装运行时补丁。
+`robofrontier/suite/relay_contract.py` defines the base
+`relay-final-goal-50mm-v1` contract. `robofrontier/task_families.py` applies the
+new-run terminal overlay and freezes the corresponding public guidance. Do not
+publish the older base handover/process vetoes as the current policy completion
+rule. Old recordings retain their original contract and native verdict.
 
-只读输入检查，不启动物理任务／GPT：
+## Execution and reference code
+
+Use the [unified CLI](unified-cli.md) for native model runs and the
+[Oracle interface](oracle.md) for privileged references. Unified Oracle execution
+has a configurable 24-hour engineering limit from owner launch, separate from
+the policy's START clock. An Oracle monitor's engineering corrections are not
+an autonomous model result.
+
+Legacy `scripts/run_relay_nine_oracles.py` reads nine cases from
+`configs/suites/frontier-relay.json` and
+`configs/harness-frontier-v2-servo2.json`. Its old default has no total deadline;
+individual action deadlines, STOP and uncertain-result protection remain.
+`run_relay_live_oracle.py` handles individual reference executions. Local static
+input inspection invokes neither a model nor task physics:
 
 ```sh
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=. \
   .venv/bin/python -m scripts.run_relay_nine_oracles --check-inputs
 ```
 
-Oracle已经结束；整理过程没有重跑。新入口的静态／局部回归不等于
-从初态重新证明九项全程自主成功，也不能消除历史工程辅助标签。
-原任务保留预览就绪标记；公共加载与源绑定运行协议已合入，本轮没有启动GPT。
-当前入口见[GPT准备](gpt-policy.md)和`configs/task_families/current.json`；
-全厂采用每桌独立循环、20x/30fps，原Goal与native证据区别不变。
-
-## 代码职责
-
-| 路径 | 职责 |
+| Module, under `robofrontier/` unless stated | Responsibility |
 | --- | --- |
-| `suite/relay_contract.py` | 最终规则、任务投影、输入检查与默认路径 |
-| `suite/relay_oracle_v2.py`、`relay_pipeline.py` | 私有参考规划及并行执行前沿 |
-| `suite/relay_live_recovery.py` | 原现场类型化恢复，保留请求与执行事实 |
-| `suite/relay_user_goal_policy.py`、`relay_contact_escape.py`、`relay_donor_staging.py` | Goal释放、受限接触退出和可清空供方的正常路径 |
-| `suite/relay_observation_state.py` | 只读精确状态证据 |
-| `suite/relay_scene.py`、`relay_underslung.py`、`rigid_relay.py` | 当前几何及仍被使用的构建能力 |
-| `relay_video_motion.py`、`relay_motion_edit.py` | 背景无关运动判定、时间映射 |
-| `scripts/analyze_relay_motion.py` | 一次生成剪辑判定，不再另输出16fps旧版影片 |
-| `scripts/export_relay_edited.py` | 派生60Hz轨迹及20倍速／30fps简单背景视频；工厂视频使用Cycles |
+| `suite/relay_contract.py` | Base rules, projections, input checks and default native paths |
+| `suite/relay_oracle_v2.py`, `suite/relay_pipeline.py` | Private reference planning and parallel execution frontiers |
+| `suite/relay_live_recovery.py` | Typed legacy recovery with request/execution evidence |
+| `suite/relay_user_goal_policy.py`, `suite/relay_contact_escape.py`, `suite/relay_donor_staging.py` | Goal release, bounded contact escape and donor clearing |
+| `suite/relay_observation_state.py` | Privileged readonly state evidence |
+| `suite/relay_scene.py`, `suite/relay_underslung.py`, `suite/rigid_relay.py` | Geometry and retained builders |
+| `relay_video_motion.py`, `relay_motion_edit.py` | Background-independent motion analysis and time mapping |
+| `scripts/analyze_relay_motion.py` | Derive editing decisions; no additional old 16-fps export |
+| `scripts/export_relay_edited.py` | Derived 60-Hz tracks and 20x/30-fps simple-background videos; Factory video uses Cycles |
 
-## 数据与交接
+## Historical data and handoff
 
-所有数据位于主仓库共享`runs/`、`outputs/`，不随Git合并自动携带。
+The following local records are not included by Git clone and do not establish
+new current-source qualification:
 
-- 完成选择：`runs/oracle/relay-r16-38b5423-20261026-171651/USER-GOAL-ALL-NINE-COMPLETE.json`。
-- L1原记录：`runs/oracle/relay-nine-ab1abec-20261026-032833/`。
-- L2／L3原记录：`runs/oracle/relay-r16-38b5423-20261026-171651/`。
-- 视频与逐帧映射：`outputs/oracle/relay-20x-20261027/report.md`。
-- 独立剪辑轨迹：`outputs/oracle/relay-edited-tracks-20261027/`。
-- 保留依赖、原始任务和退役源码：`runs/engineering/relay-cleanup-20261027/manifest.json`。
+- Completion selection: `runs/oracle/relay-r16-38b5423-20261026-171651/USER-GOAL-ALL-NINE-COMPLETE.json`.
+- Level 1 originals: `runs/oracle/relay-nine-ab1abec-20261026-032833/`.
+- Levels 2/3 originals: `runs/oracle/relay-r16-38b5423-20261026-171651/`.
+- Videos/frame maps: `outputs/oracle/relay-20x-20261027/report.md`.
+- Independent edited tracks: `outputs/oracle/relay-edited-tracks-20261027/`.
+- Retained dependencies and retired-source manifest: `runs/engineering/relay-cleanup-20261027/manifest.json`.
 
-素材、原始60Hz流、外观事件、失败／恢复／控制修正hash、报告、视频均保留。
-详细媒体说明见[记录与回放](relay-recorded-video.md)，
-主session只需再读[合并交接清单](plans/suite-v2/relay-merge-handoff.md)。
+Original 60-Hz streams, appearance events, failure/recovery/control-correction
+hashes, reports and videos remain evidence. See [recording and replay](relay-recorded-video.md),
+[merge notes](plans/suite-v2/relay-merge-handoff.md) and the
+[current task-family entry](gpt-policy.md). Historical Factory presentations use
+independent per-table loops at 20x/30 fps; static neighboring tables do not imply
+simultaneous task completion.

@@ -34,7 +34,7 @@ recording is the authoritative complete trajectory and is never modified.
 ```sh
 python -m scripts.export_mosaic_edit_timelines \
   --folder outputs/oracle/mosaic-continuation-20261026/videos \
-  --output outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表
+  --output outputs/oracle/mosaic-continuation-20261026/videos/motion-edit-timelines
 
 python -m scripts.replay_motion_in_factory RECORDING_DIRECTORY \
   --factory MATCHING_FACTORY_DIRECTORY/scene.xml \

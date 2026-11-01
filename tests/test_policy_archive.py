@@ -37,7 +37,7 @@ class PolicyArchiveTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp); (root/'objects').mkdir()
             image=b'\xff\xd8\xff\x00same-image'; encoded=base64.b64encode(image).decode()
-            raw=(' { "text": "中文", "content" : [ '
+            raw=(' { "text": "\u4e2d\u6587", "content" : [ '
                  '{"type":"image","data":"'+encoded+'","mimeType":"image/jpeg"},'
                  '{"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"'+encoded+'"}},'
                  '{"type":"input_image","image_url":"data:image/jpeg;base64,'+encoded+'"}'
