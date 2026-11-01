@@ -61,6 +61,10 @@ If substantial experience outgrows the compact note, write an optional self-auth
 
 ## Active waiting and context
 
+Before proposing team finish, apply the continuation and finish criteria in this
+run's `public/inputs/policy-rules.md`. A bounded delegate returns its own scope
+through `return_task`; local completion does not finish the team task.
+
 Before directing a role or yourself to wait, review remaining work for an independently executable portion. Identify the blocked step, actual resource/missing evidence and next review milestone. Propose a specific scope change through the permitted route; explicit restrictions remain binding until changed.
 
 For Single/Adaptive Controllers, Coordinators and standing Workers, choose continued work, wait_events within the active turn, or a saved wait before ending a reply. Standing Workers remain available until team end. Adaptive delegates normally continue their bounded work through necessary tool waits and return_task when handing it back; ending a reply with a saved review is an explicit alternative, not a required phase. Whenever a role chooses yield waiting/available during an active run, supply a finite self-selected after_s based on expected progress and review cost. On review merge events, continue enabled work or propose a useful adjustment/request evidence. Reassess waiting rather than merely repeat that authorization is missing. Update pending proposals when facts or delay materially change the decision; elapsed time alone needs no chat message. Normal waiting is not failure.

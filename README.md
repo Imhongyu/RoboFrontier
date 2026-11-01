@@ -1,5 +1,17 @@
 # RoboFrontier
 
+## 任务时限、结束与录像
+
+标准任务默认从 START 起最多 24 小时。完成后可提前结束；未完成时应继续恢复，
+仅当公开证据表明无法完成时才主动 `finish`，并在 note 中说明原因和恢复判断。
+具体规则见 [共享策略说明](prompts/policy-rules.md)。运行时收尾检查与私有评分保持独立，
+接受 `finish` 不代表评分成功；正常回复结束和子任务返回也不等于结束整项任务。
+
+标准 benchmark 入口默认关闭实时 MP4，motion 和策略观察图仍保留，可离线渲染。
+工程测试可设置更短的外部停止时间，不会改写公开任务的冻结时限。
+模型在运行中持续推进，不因默认时限或估计剩余时间而提前结束未完成任务；计时和停止由宿主执行。
+修改后的策略规则用于新准备的批次；已有冻结批次不自动更新。
+
 > **运行数据库存储尚未验证：**运行时使用 SQLite WAL。不要将活跃的运行数据库放在 Lustre/NFS 等网络文件系统，或从 macOS 主机直接打开正在由 Docker 写入的数据库；节点本地临时目录与结果回传流程尚需验证。不要根据现有 Slurm 示例启动正式或多人共享批次，直到存储方案通过验证。参见 [SQLite WAL 文档](https://www.sqlite.org/wal.html)。
 
 > **Physics revision:** This branch uses the Transport and Dial rolling-friction 0.03 candidate. See [validation and limitations](docs/transport-cylinder-stability.md) before collecting results; results differ from the original R14 physics.
@@ -10,6 +22,7 @@ RoboFrontier 用 MuJoCo 多机械臂任务研究 GPT 的分工、规划与协作
 
 ## 当前入口
 
+- [Codex / Claude 调用编号、恢复、统计口径与验收](docs/harness-alignment.md)
 - [四类任务说明图谱 UI](outputs/task-atlas/v1-20261027/index.html)（[离线 ZIP](outputs/exports/task-atlas-four-families-20261027.zip)）
 - [各类任务与版本入口](docs/frontier-v2-environments.md)
 - [Codex CLI 多模型、并行运行与公开材料](docs/gpt-policy.md)
