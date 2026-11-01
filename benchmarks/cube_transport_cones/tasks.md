@@ -1,19 +1,22 @@
-# 任务清单：规则 v3 / seed 0
+# Legacy task catalog: rules v3 / seed 0
 
-大写字母是工位，小写字母是物料类型；箭头右侧依次对应槽位 1、2、3，不规定执行顺序。
-a～f 为红、蓝、绿、橙、紫、青方块；g～l 为同一顺序的六色圆锥。
-每个存在的工位初始三件对应类型；同色同形物品可互换。
-3～6 臂保留约定订单；7～12 臂在全场统计上拉平各最少交接距离的需求量。
-seed 1、2 的完整订单见 configs/tasks/cube_transport_cones 对应环境目录，汇总见 references/summary.csv。
-这份清单是人工查阅材料，策略启动仅应接收本次选定的任务文件。
+This historical offline series is separate from the current 36-case benchmark.
+See the [series guide](README.md) for its provenance and limitations.
 
-## 串行与并行计数
+Uppercase letters identify stations; lowercase letters identify material types. Entries to the right of each arrow specify slots 1, 2 and 3, not an execution order.
+Types a-f are red, blue, green, orange, purple and cyan cubes; g-l are cones in the same color order.
+Each present station starts with three items of its corresponding type. Items of the same color and shape are interchangeable.
+The 3-6-arm cases retain the agreed orders; 7-12-arm cases balance demand across minimum handover distances over the entire scene.
+Complete seed-1 and seed-2 orders are under the corresponding environment in `configs/tasks/cube_transport_cones`; see `references/summary.csv` for the summary.
+This catalog is for human review. A policy should receive only its assigned task file at startup.
 
-一个阶段是抓起并清区，或者放下并清区。一次工位内抓放有两个阶段；h 次交接有 h+1 次工位访问，因此总阶段数为 2×Σ(h+1)。
-串行每轮一个阶段；并行每轮可有多个互不冲突的阶段。工作总量并未减少。表中不是 MuJoCo 积分步、工具调用数或实际秒数。
-并行参考为已验证的可行上界；只有达到固定路线下界才证明该抽象模型下最优。未达到者，真实最优轮数介于下界与参考之间。
+## Serial and parallel counts
 
-| 臂数 | 串行阶段数 | 并行参考轮数 | 固定路线下界 | 参考加速比 |
+A phase is pick-and-clear or place-and-clear. One station visit has two phases; h handovers require h+1 visits, so the total is 2×Σ(h+1) phases.
+Serial execution performs one phase per round; parallel execution can perform several nonconflicting phases. Total work is unchanged. These counts are not MuJoCo integration steps, tool calls or elapsed seconds.
+The checked parallel reference is a feasible upper bound. Optimality in this abstract model is proven only when it meets the fixed-route lower bound; otherwise the optimum lies between the lower bound and the reference.
+
+| Arms | Serial phases | Parallel reference rounds | Fixed-route lower bound | Reference speedup |
 | ---: | ---: | ---: | ---: | ---: |
 | 3 | 38 | 16 | 16 | 2.375 |
 | 4 | 60 | 16 | 16 | 3.75 |
@@ -26,10 +29,10 @@ seed 1、2 的完整订单见 configs/tasks/cube_transport_cones 对应环境目
 | 11 | 230 | 32 | 26 | 7.188 |
 | 12 | 284 | 38 | 28 | 7.474 |
 
-下方给出当前 seed 0 的完整订单，以及固定参考路线下包含接力的各臂工作量。
+Below are the complete seed-0 orders and per-arm workloads, including relay work on the fixed reference routes.
 
 
-## 3 臂：line-03-v3-seed0
+## 3 arms: line-03-v3-seed0
 
 ```text
 A ← a, c, c
@@ -37,17 +40,17 @@ B ← b, a, c
 C ← a, b, b
 ```
 
-全场最少交接次数 → 需求数量：0 → 2, 1 → 4, 2 → 3。
+Scene-wide minimum handovers → demand count: 0 → 2, 1 → 4, 2 → 3.
 
-| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |
+| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |
 | --- | --- | --- | --- | ---: |
-| A | 红方块 | 绿方块 | 绿方块 | 10 |
-| B | 蓝方块 | 红方块 | 绿方块 | 16 |
-| C | 红方块 | 蓝方块 | 蓝方块 | 12 |
+| A | red cube | green cube | green cube | 10 |
+| B | blue cube | red cube | green cube | 16 |
+| C | red cube | blue cube | blue cube | 12 |
 
-本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。
+Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.
 
-## 4 臂：ring-04-v3-seed0
+## 4 arms: ring-04-v3-seed0
 
 ```text
 A ← b, c, c
@@ -56,18 +59,18 @@ C ← a, a, d
 D ← a, b, c
 ```
 
-全场最少交接次数 → 需求数量：0 → 1, 1 → 4, 2 → 7。
+Scene-wide minimum handovers → demand count: 0 → 1, 1 → 4, 2 → 7.
 
-| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |
+| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |
 | --- | --- | --- | --- | ---: |
-| A | 蓝方块 | 绿方块 | 绿方块 | 16 |
-| B | 蓝方块 | 橙方块 | 橙方块 | 14 |
-| C | 红方块 | 红方块 | 橙方块 | 14 |
-| D | 红方块 | 蓝方块 | 绿方块 | 16 |
+| A | blue cube | green cube | green cube | 16 |
+| B | blue cube | orange cube | orange cube | 14 |
+| C | red cube | red cube | orange cube | 14 |
+| D | red cube | blue cube | green cube | 16 |
 
-本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。
+Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.
 
-## 5 臂：ring-05-v3-seed0
+## 5 arms: ring-05-v3-seed0
 
 ```text
 A ← b, d, e
@@ -77,19 +80,19 @@ D ← c, c, e
 E ← a, b, c
 ```
 
-全场最少交接次数 → 需求数量：0 → 1, 1 → 6, 2 → 8。
+Scene-wide minimum handovers → demand count: 0 → 1, 1 → 6, 2 → 8.
 
-| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |
+| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |
 | --- | --- | --- | --- | ---: |
-| A | 蓝方块 | 橙方块 | 紫方块 | 14 |
-| B | 蓝方块 | 橙方块 | 橙方块 | 14 |
-| C | 红方块 | 红方块 | 紫方块 | 16 |
-| D | 绿方块 | 绿方块 | 紫方块 | 16 |
-| E | 红方块 | 蓝方块 | 绿方块 | 14 |
+| A | blue cube | orange cube | purple cube | 14 |
+| B | blue cube | orange cube | orange cube | 14 |
+| C | red cube | red cube | purple cube | 16 |
+| D | green cube | green cube | purple cube | 16 |
+| E | red cube | blue cube | green cube | 14 |
 
-本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。
+Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.
 
-## 6 臂：ring-06-v3-seed0
+## 6 arms: ring-06-v3-seed0
 
 ```text
 A ← c, d, e
@@ -100,20 +103,20 @@ E ← a, b, d
 F ← c, e, f
 ```
 
-全场最少交接次数 → 需求数量：0 → 2, 1 → 7, 2 → 4, 3 → 5。
+Scene-wide minimum handovers → demand count: 0 → 2, 1 → 7, 2 → 4, 3 → 5.
 
-| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |
+| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |
 | --- | --- | --- | --- | ---: |
-| A | 绿方块 | 橙方块 | 紫方块 | 16 |
-| B | 红方块 | 红方块 | 绿方块 | 18 |
-| C | 蓝方块 | 青方块 | 青方块 | 16 |
-| D | 蓝方块 | 橙方块 | 紫方块 | 14 |
-| E | 红方块 | 蓝方块 | 橙方块 | 16 |
-| F | 绿方块 | 紫方块 | 青方块 | 16 |
+| A | green cube | orange cube | purple cube | 16 |
+| B | red cube | red cube | green cube | 18 |
+| C | blue cube | cyan cube | cyan cube | 16 |
+| D | blue cube | orange cube | purple cube | 14 |
+| E | red cube | blue cube | orange cube | 16 |
+| F | green cube | purple cube | cyan cube | 16 |
 
-本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。
+Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.
 
-## 7 臂：ring-07-v3-seed0
+## 7 arms: ring-07-v3-seed0
 
 ```text
 A ← a, e, g
@@ -125,21 +128,21 @@ F ← c, e, g
 G ← b, d, e
 ```
 
-全场最少交接次数 → 需求数量：0 → 5, 1 → 5, 2 → 6, 3 → 5。
+Scene-wide minimum handovers → demand count: 0 → 5, 1 → 5, 2 → 6, 3 → 5.
 
-| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |
+| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |
 | --- | --- | --- | --- | ---: |
-| A | 红方块 | 紫方块 | 红圆锥 | 14 |
-| B | 红方块 | 蓝方块 | 红圆锥 | 12 |
-| C | 红方块 | 绿方块 | 青方块 | 12 |
-| D | 橙方块 | 橙方块 | 青方块 | 16 |
-| E | 蓝方块 | 绿方块 | 青方块 | 20 |
-| F | 绿方块 | 紫方块 | 红圆锥 | 18 |
-| G | 蓝方块 | 橙方块 | 紫方块 | 14 |
+| A | red cube | purple cube | red cone | 14 |
+| B | red cube | blue cube | red cone | 12 |
+| C | red cube | green cube | cyan cube | 12 |
+| D | orange cube | orange cube | cyan cube | 16 |
+| E | blue cube | green cube | cyan cube | 20 |
+| F | green cube | purple cube | red cone | 18 |
+| G | blue cube | orange cube | purple cube | 14 |
 
-本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。
+Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.
 
-## 8 臂：ring-08-v3-seed0
+## 8 arms: ring-08-v3-seed0
 
 ```text
 A ← a, b, e
@@ -152,22 +155,22 @@ G ← b, c, d
 H ← a, f, g
 ```
 
-全场最少交接次数 → 需求数量：0 → 5, 1 → 5, 2 → 4, 3 → 5, 4 → 5。
+Scene-wide minimum handovers → demand count: 0 → 5, 1 → 5, 2 → 4, 3 → 5, 4 → 5.
 
-| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |
+| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |
 | --- | --- | --- | --- | ---: |
-| A | 红方块 | 蓝方块 | 紫方块 | 18 |
-| B | 蓝方块 | 绿方块 | 红圆锥 | 16 |
-| C | 橙方块 | 紫方块 | 青方块 | 18 |
-| D | 橙方块 | 蓝圆锥 | 蓝圆锥 | 20 |
-| E | 红方块 | 紫方块 | 红圆锥 | 18 |
-| F | 绿方块 | 青方块 | 蓝圆锥 | 18 |
-| G | 蓝方块 | 绿方块 | 橙方块 | 18 |
-| H | 红方块 | 青方块 | 红圆锥 | 18 |
+| A | red cube | blue cube | purple cube | 18 |
+| B | blue cube | green cube | red cone | 16 |
+| C | orange cube | purple cube | cyan cube | 18 |
+| D | orange cube | blue cone | blue cone | 20 |
+| E | red cube | purple cube | red cone | 18 |
+| F | green cube | cyan cube | blue cone | 18 |
+| G | blue cube | green cube | orange cube | 18 |
+| H | red cube | cyan cube | red cone | 18 |
 
-本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。
+Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.
 
-## 9 臂：ring-09-v3-seed0
+## 9 arms: ring-09-v3-seed0
 
 ```text
 A ← a, c, f
@@ -181,23 +184,23 @@ H ← a, e, g
 I ← b, h, h
 ```
 
-全场最少交接次数 → 需求数量：0 → 5, 1 → 6, 2 → 6, 3 → 5, 4 → 5。
+Scene-wide minimum handovers → demand count: 0 → 5, 1 → 6, 2 → 6, 3 → 5, 4 → 5.
 
-| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |
+| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |
 | --- | --- | --- | --- | ---: |
-| A | 红方块 | 绿方块 | 青方块 | 18 |
-| B | 绿方块 | 橙方块 | 红圆锥 | 18 |
-| C | 绿方块 | 青方块 | 蓝圆锥 | 18 |
-| D | 橙方块 | 橙方块 | 绿圆锥 | 14 |
-| E | 蓝方块 | 蓝方块 | 绿圆锥 | 14 |
-| F | 紫方块 | 青方块 | 红圆锥 | 16 |
-| G | 红方块 | 紫方块 | 绿圆锥 | 18 |
-| H | 红方块 | 紫方块 | 红圆锥 | 22 |
-| I | 蓝方块 | 蓝圆锥 | 蓝圆锥 | 22 |
+| A | red cube | green cube | cyan cube | 18 |
+| B | green cube | orange cube | red cone | 18 |
+| C | green cube | cyan cube | blue cone | 18 |
+| D | orange cube | orange cube | green cone | 14 |
+| E | blue cube | blue cube | green cone | 14 |
+| F | purple cube | cyan cube | red cone | 16 |
+| G | red cube | purple cube | green cone | 18 |
+| H | red cube | purple cube | red cone | 22 |
+| I | blue cube | blue cone | blue cone | 22 |
 
-本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。
+Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.
 
-## 10 臂：ring-10-v3-seed0
+## 10 arms: ring-10-v3-seed0
 
 ```text
 A ← a, c, j
@@ -212,24 +215,24 @@ I ← d, d, h
 J ← a, g, j
 ```
 
-全场最少交接次数 → 需求数量：0 → 5, 1 → 6, 2 → 5, 3 → 5, 4 → 4, 5 → 5。
+Scene-wide minimum handovers → demand count: 0 → 5, 1 → 6, 2 → 5, 3 → 5, 4 → 4, 5 → 5.
 
-| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |
+| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |
 | --- | --- | --- | --- | ---: |
-| A | 红方块 | 绿方块 | 橙圆锥 | 16 |
-| B | 红方块 | 蓝方块 | 绿方块 | 18 |
-| C | 青方块 | 绿圆锥 | 橙圆锥 | 18 |
-| D | 青方块 | 蓝圆锥 | 绿圆锥 | 20 |
-| E | 紫方块 | 红圆锥 | 红圆锥 | 28 |
-| F | 蓝方块 | 青方块 | 绿圆锥 | 30 |
-| G | 蓝方块 | 紫方块 | 蓝圆锥 | 26 |
-| H | 绿方块 | 橙方块 | 紫方块 | 20 |
-| I | 橙方块 | 橙方块 | 蓝圆锥 | 14 |
-| J | 红方块 | 红圆锥 | 橙圆锥 | 14 |
+| A | red cube | green cube | orange cone | 16 |
+| B | red cube | blue cube | green cube | 18 |
+| C | cyan cube | green cone | orange cone | 18 |
+| D | cyan cube | blue cone | green cone | 20 |
+| E | purple cube | red cone | red cone | 28 |
+| F | blue cube | cyan cube | green cone | 30 |
+| G | blue cube | purple cube | blue cone | 26 |
+| H | green cube | orange cube | purple cube | 20 |
+| I | orange cube | orange cube | blue cone | 14 |
+| J | red cube | red cone | orange cone | 14 |
 
-本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。
+Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.
 
-## 11 臂：ring-11-v3-seed0
+## 11 arms: ring-11-v3-seed0
 
 ```text
 A ← f, g, j
@@ -245,25 +248,25 @@ J ← a, b, h
 K ← d, k, k
 ```
 
-全场最少交接次数 → 需求数量：0 → 6, 1 → 5, 2 → 5, 3 → 6, 4 → 6, 5 → 5。
+Scene-wide minimum handovers → demand count: 0 → 6, 1 → 5, 2 → 5, 3 → 6, 4 → 6, 5 → 5.
 
-| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |
+| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |
 | --- | --- | --- | --- | ---: |
-| A | 青方块 | 红圆锥 | 橙圆锥 | 16 |
-| B | 绿方块 | 橙方块 | 紫方块 | 18 |
-| C | 蓝方块 | 绿方块 | 红圆锥 | 22 |
-| D | 红方块 | 蓝圆锥 | 绿圆锥 | 22 |
-| E | 橙方块 | 紫方块 | 橙圆锥 | 22 |
-| F | 红圆锥 | 绿圆锥 | 橙圆锥 | 26 |
-| G | 蓝方块 | 绿方块 | 青方块 | 26 |
-| H | 青方块 | 蓝圆锥 | 紫圆锥 | 22 |
-| I | 红方块 | 紫方块 | 绿圆锥 | 20 |
-| J | 红方块 | 蓝方块 | 蓝圆锥 | 18 |
-| K | 橙方块 | 紫圆锥 | 紫圆锥 | 18 |
+| A | cyan cube | red cone | orange cone | 16 |
+| B | green cube | orange cube | purple cube | 18 |
+| C | blue cube | green cube | red cone | 22 |
+| D | red cube | blue cone | green cone | 22 |
+| E | orange cube | purple cube | orange cone | 22 |
+| F | red cone | green cone | orange cone | 26 |
+| G | blue cube | green cube | cyan cube | 26 |
+| H | cyan cube | blue cone | purple cone | 22 |
+| I | red cube | purple cube | green cone | 20 |
+| J | red cube | blue cube | blue cone | 18 |
+| K | orange cube | purple cone | purple cone | 18 |
 
-本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。
+Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.
 
-## 12 臂：ring-12-v3-seed0
+## 12 arms: ring-12-v3-seed0
 
 ```text
 A ← b, f, h
@@ -280,21 +283,21 @@ K ← c, k, k
 L ← d, i, j
 ```
 
-全场最少交接次数 → 需求数量：0 → 5, 1 → 6, 2 → 5, 3 → 5, 4 → 5, 5 → 5, 6 → 5。
+Scene-wide minimum handovers → demand count: 0 → 5, 1 → 6, 2 → 5, 3 → 5, 4 → 5, 5 → 5, 6 → 5.
 
-| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |
+| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |
 | --- | --- | --- | --- | ---: |
-| A | 蓝方块 | 青方块 | 蓝圆锥 | 26 |
-| B | 红圆锥 | 蓝圆锥 | 青圆锥 | 28 |
-| C | 蓝方块 | 绿圆锥 | 橙圆锥 | 26 |
-| D | 蓝方块 | 绿方块 | 红圆锥 | 24 |
-| E | 红方块 | 青方块 | 红圆锥 | 28 |
-| F | 紫方块 | 青方块 | 青圆锥 | 28 |
-| G | 红方块 | 绿方块 | 紫圆锥 | 20 |
-| H | 紫方块 | 紫方块 | 蓝圆锥 | 16 |
-| I | 橙方块 | 绿圆锥 | 橙圆锥 | 18 |
-| J | 红方块 | 橙方块 | 青圆锥 | 22 |
-| K | 绿方块 | 紫圆锥 | 紫圆锥 | 24 |
-| L | 橙方块 | 绿圆锥 | 橙圆锥 | 24 |
+| A | blue cube | cyan cube | blue cone | 26 |
+| B | red cone | blue cone | cyan cone | 28 |
+| C | blue cube | green cone | orange cone | 26 |
+| D | blue cube | green cube | red cone | 24 |
+| E | red cube | cyan cube | red cone | 28 |
+| F | purple cube | cyan cube | cyan cone | 28 |
+| G | red cube | green cube | purple cone | 20 |
+| H | purple cube | purple cube | blue cone | 16 |
+| I | orange cube | green cone | orange cone | 18 |
+| J | red cube | orange cube | cyan cone | 22 |
+| K | green cube | purple cone | purple cone | 24 |
+| L | orange cube | green cone | orange cone | 24 |
 
-本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。
+Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.

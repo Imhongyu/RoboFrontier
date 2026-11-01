@@ -1,22 +1,22 @@
-# line-03 启动说明（规则 v2）
+# Legacy line-03 startup guide (rules v2)
 
-先打开本目录 startup.json 中 initial_top_image 指向的带编号俯视图，核对各基座标签。
-本说明和图片描述初始化；执行后以新 RGB 和机器人本体观测为准。
+Open initial_top_image from startup.json in this directory and identify the labelled bases.
+This guide and preview describe initialization. After execution, use fresh RGB and robot observations.
 
-机器人 ID 与图中的大写基座标签一致。世界 +X 向东、+Y 向北、+Z 向上；俯视图上北右东。
-相邻关系：A—B, B—C。
+Robot IDs match the uppercase base labels. World +X is east, +Y north and +Z up; top views show north above and east right.
+Adjacent stations: A—B, B—C.
 
-| 工位 / robot_id | 安装侧 | 初始物料（各三件） |
+| Station / robot_id | Mounting side | Initial stock (three items each) |
 | --- | --- | --- |
-| A | 直线排列 | 红方块（a） |
-| B | 直线排列 | 蓝方块（b） |
-| C | 直线排列 | 绿方块（c） |
+| A | linear layout | red cube (a) |
+| B | linear layout | blue cube (b) |
+| C | linear layout | green cube (c) |
 
-读取本次指定的 seed 任务文件获取三个槽位的颜色＋形状要求。同类物品可互换；槽号不规定执行顺序。
-使用相邻工位交接，路线、分工、操作次序和并行安排由策略选择。
+Read the assigned seed task for the three slot color/shape requirements. Matching items are interchangeable; slot numbers do not prescribe action order.
+Use adjacent-station handovers. The policy chooses routes, allocation, action order and parallel execution.
 
-相机共 9 台：global、global_side 为两侧全局斜视，top 为俯视；每台另有 <ID>_front、<ID>_side。
-局部相机面向指定工位，也可能包含邻居。依据观测需要选择视角；固定相机几何见 startup.json。
-运行图像应注明相机名与仿真时间。静态预览不能代替运行观测。
+There are 9 cameras: global and global_side are opposing global oblique views, top is overhead, and each station also has <ID>_front and <ID>_side.
+Local views face the assigned station and may include neighbors. Choose views as needed; startup.json records fixed camera geometry.
+Label runtime images with camera name and simulation time. Static previews do not replace runtime observations.
 
-当前是离线资产包，尚未绑定运行服务；本说明不提供动作入口。
+This is an offline asset package, not a bound runtime. This guide provides no action entry point.

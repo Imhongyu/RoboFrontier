@@ -1046,3 +1046,40 @@ price, quota and funding-tier tables. Both documents are free of Han text, local
 Markdown links resolve, and `git diff --check` passes. This is a translation of
 historical research, not a fresh vendor-price audit or a paid preflight. No model
 profile, asset fingerprint or experiment was changed.
+
+## Legacy transport catalogs and generated startup guides
+
+All three retired Cube Transport series (v2 spheres, v3 cones, v4 cylinders)
+now have English guides, seed-0 catalogs and 30 English startup guides. They are
+explicitly separate from the current 36-case suite. Review found that the old
+v2/v3 reproduction instructions misleadingly described commands as generating
+those old shapes, although the maintained generator now targets v4 cylinders.
+The guides now identify that boundary, original generator archives, ignored
+run-report locations and the difference between historical recorded claims and
+new qualification. The generator's catalog text and startup title are English
+so regeneration preserves the language and Legacy designation.
+
+The source comparison verified all 30 displayed orders, 255 semantic/numeric
+table rows, 30 demand histograms, and every startup guide's station stock,
+numeric fields and adjacency. An independent output directory generated all
+ten sizes (3-12 arms) and 30 seed tasks. Every task JSON equals the existing
+source task; all actual MuJoCo load/support/spacing/endpoint-IK/initial-contact/
+one-second-settling checks passed. Generated cylinder startup/catalog sections
+match the translated checked-in guides. No previews were rendered, and none
+of the 5,169 checked source files under configs/benchmarks/vendor changed during
+generation. Original historical manifests and current release fingerprints were
+not rewritten.
+
+The original checkout's ten-test Cube Transport group produced eight passes
+and two errors because ignored historical `assets/label_A.png` files are absent.
+The same ten tests passed without skips against the newly generated isolated
+scene fixture, using original preview JSON metadata for its camera/label tests;
+this does not claim new preview-image rendering. Neither outcome qualifies old
+cone/sphere transport, multi-arm dynamics or current-suite physical candidates.
+Receipts, raw failure log, generated fixture and successful derived-fixture log
+are retained with the `legacy-transport-` prefix under the existing engineering
+evidence root. No model calls were made.
+
+The remaining tracked-text migration is 91 files /
+97,564 Han characters, recorded in
+`english-inventory-after-legacy-transport.json`. This remains an open release gate.

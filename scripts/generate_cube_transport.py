@@ -153,22 +153,22 @@ def generate(counts, render=True):
             write_json(task_path, task)
             if seed == 0:
                 kinds = {(o['color'], o['shape']): o['type_code'] for o in env['objects']}
-                task_overview += [f"## {count} 臂：{task['id']}", '', '```text']
+                task_overview += [f"## {count} arms: {task['id']}", '', '```text']
                 task_overview += [a+' ← '+', '.join(kinds[(g['requires']['color'], g['requires']['shape'])] for g in goals)
                                   for a, goals in task['orders'].items()]
-                task_overview += ['```', '', '全场最少交接次数 → 需求数量：'+
-                                  ', '.join(f'{h} → {v}' for h, v in task['distance_distribution']['hop_counts'].items())+'。', '']
+                task_overview += ['```', '', 'Scene-wide minimum handovers → demand count: '+
+                                  ', '.join(f'{h} → {v}' for h, v in task['distance_distribution']['hop_counts'].items())+'.', '']
             result = reference(env, task)
             replay_reference(env, task, result)
             result['schedule_replay_passed'] = True
             if seed == 0:
-                colors = {'red': '红', 'blue': '蓝', 'green': '绿', 'orange': '橙', 'purple': '紫', 'cyan': '青'}
-                task_overview += ['| 机械臂 | 槽 1 | 槽 2 | 槽 3 | 本臂参考执行阶段数 |',
+                colors = {'red': 'red', 'blue': 'blue', 'green': 'green', 'orange': 'orange', 'purple': 'purple', 'cyan': 'cyan'}
+                task_overview += ['| Arm | Slot 1 | Slot 2 | Slot 3 | Reference phases for this arm |',
                                   '| --- | --- | --- | --- | ---: |']
                 for a, goals in task['orders'].items():
-                    names = [colors[g['requires']['color']]+('方块' if g['requires']['shape'] == 'cube' else '圆柱') for g in goals]
+                    names = [colors[g['requires']['color']]+' '+g['requires']['shape'] for g in goals]
                     task_overview.append('| '+a+' | '+' | '.join(names)+' | '+str(result['arm_phase_load'][a])+' |')
-                task_overview += ['', '本臂阶段数包含接力工作；串行与该并行参考中执行总量相同，改变的是同时执行与等待。', '']
+                task_overview += ['', 'Arm phase counts include relay work. Serial and parallel references perform the same total work; overlap and waiting differ.', '']
             write_json(base/'references'/f"{task['id']}.json", result)
             rows.append({'environment': env['id'], 'arms': count, 'seed': seed,
                          'objects': 3*count, 'serial_phase_slots': result['serial_phase_slots'],
@@ -190,23 +190,25 @@ def generate(counts, render=True):
         'source_sha256': {name: hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in sources},
         'robot_source': json.loads((ROOT/'vendor/panda/SOURCE.json').read_text())})
     write_json(base/'validation/summary.json', summaries)
-    comparison = ['| 臂数 | 串行阶段数 | 并行参考轮数 | 固定路线下界 | 参考加速比 |',
+    comparison = ['| Arms | Serial phases | Parallel reference rounds | Fixed-route lower bound | Reference speedup |',
                   '| ---: | ---: | ---: | ---: | ---: |']
     comparison += [f"| {r['arms']} | {r['serial_phase_slots']} | {r['parallel_feasible_phase_slots']} | {r['lower_bound_phase_slots']} | {r['reference_speedup']} |"
                    for r in rows if r['seed'] == 0]
-    counting = ['## 串行与并行计数', '',
-                '一个阶段是抓起并清区，或者放下并清区。一次工位内抓放有两个阶段；h 次交接有 h+1 次工位访问，因此总阶段数为 2×Σ(h+1)。',
-                '串行每轮一个阶段；并行每轮可有多个互不冲突的阶段。工作总量并未减少。表中不是 MuJoCo 积分步、工具调用数或实际秒数。',
-                '并行参考为已验证的可行上界；只有达到固定路线下界才证明该抽象模型下最优。未达到者，真实最优轮数介于下界与参考之间。', '',
-                *comparison, '', '下方给出当前 seed 0 的完整订单，以及固定参考路线下包含接力的各臂工作量。', '', '']
+    counting = ['## Serial and parallel counts', '',
+                'A phase is pick-and-clear or place-and-clear. One station visit has two phases; h handovers require h+1 visits, so the total is 2×Σ(h+1) phases.',
+                'Serial execution performs one phase per round; parallel execution can perform several nonconflicting phases. Total work is unchanged. These counts are not MuJoCo integration steps, tool calls or elapsed seconds.',
+                'The checked parallel reference is a feasible upper bound. Optimality in this abstract model is proven only when it meets the fixed-route lower bound; otherwise the optimum lies between the lower bound and the reference.', '',
+                *comparison, '', 'Below are the complete seed-0 orders and per-arm workloads, including relay work on the fixed reference routes.', '', '']
     (base/'tasks.md').write_text('\n'.join([
-        '# 任务清单：规则 v4 / seed 0', '',
-        '大写字母是工位，小写字母是物料类型；箭头右侧依次对应槽位 1、2、3，不规定执行顺序。',
-        'a～f 为红、蓝、绿、橙、紫、青方块；g～l 为同一顺序的六色圆柱。',
-        '每个存在的工位初始三件对应类型；同色同形物品可互换。',
-        '3～6 臂保留约定订单；7～12 臂在全场统计上拉平各最少交接距离的需求量。',
-        f'seed 1、2 的完整订单见 configs/tasks/{COLLECTION} 对应环境目录，汇总见 references/summary.csv。',
-        '这份清单是人工查阅材料，策略启动仅应接收本次选定的任务文件。', '', *counting, *task_overview]))
+        '# Legacy task catalog: rules v4 / seed 0', '',
+        'This historical offline series is separate from the current 36-case benchmark.',
+        'See the [series guide](README.md) for its provenance and limitations.', '',
+        'Uppercase letters identify stations; lowercase letters identify material types. Entries to the right of each arrow specify slots 1, 2 and 3, not an execution order.',
+        'Types a-f are red, blue, green, orange, purple and cyan cubes; g-l are cylinders in the same color order.',
+        'Each present station starts with three items of its corresponding type. Items of the same color and shape are interchangeable.',
+        'The 3-6-arm cases retain the agreed orders; 7-12-arm cases balance demand across minimum handover distances over the entire scene.',
+        f'Complete seed-1 and seed-2 orders are under the corresponding environment in `configs/tasks/{COLLECTION}`; see `references/summary.csv` for the summary.',
+        'This catalog is for human review. A policy should receive only its assigned task file at startup.', '', *counting, *task_overview]))
     if render:
         sheet = Image.new('RGB', (1600, ((len(counts)+1)//2)*415), (243, 246, 249))
         draw = ImageDraw.Draw(sheet)

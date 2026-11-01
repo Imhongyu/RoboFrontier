@@ -1,93 +1,186 @@
-# Cube Transport 环境系列 v2
+# Legacy Cube Transport v2: cubes and spheres
 
-独立 MuJoCo 场景和离线任务包：三臂直线、四至十二臂环形，共十个规模、三十份订单。没有启动模型会话，也没有修改现有通信 Harness、运行服务或规划 Skill。**新场景尚未接入原先只支持直线基座的 pipeline 服务。**
+This historical offline MuJoCo series contains a three-arm line and four- to
+12-arm rings: ten sizes and 30 orders. It is separate from the current 36-case
+benchmark described in the [task atlas](../../docs/task-atlas.md). Its original
+publication launched no model sessions and changed no communication harness,
+runtime service or planning skill. These scenes were not connected to the old
+pipeline service, which only supported bases on a line. The current unified
+CLI does not select these legacy directories as benchmark cases.
 
-## 物料与订单
+## Materials and orders
 
-3～6 臂只用实心方块；7～12 臂复用六色并加入球体，没有条纹或圆点。A～F 分别初始持有红、蓝、绿、橙、紫、青方块，G～L 分别持有同一顺序的六色球体。每个工位三件同类型实物，每种存在的类型总供需都是三件，每台最终摆放三件。
+The 3-6-arm cases use solid cubes. The 7-12-arm cases reuse six colors and add
+spheres, with no stripe or dot patterns. Stations A-F initially hold red, blue,
+green, orange, purple and cyan cubes; G-L hold spheres in that same color order.
+Each station has three physical items of its type. Each present type has total
+supply and demand of three items; each station must finally receive three items.
 
-订单按颜色＋形状要求物料，同类实物完全可互换。任务文件没有目标 object_id 或来源限制；私有记录仍使用实体 ID 跟踪物理状态。单个实物只能匹配一个目标。槽位编号规定最终摆放位置，不规定执行顺序。路线、分工、调度和并行安排由策略决定。
+Orders specify color and shape. Matching physical items are interchangeable;
+tasks impose no target `object_id` or source restriction. Private records still
+use entity IDs to track physical state, and one item can match only one goal.
+Slot numbers determine final positions, not action order. The policy chooses
+routes, allocation, scheduling and parallel execution.
 
-3～6 臂 seed 0 保留已约定订单；三臂为 A←a,c,c，B←b,a,c，C←a,b,b。小规模的另外两个订单种子通过保持图距离的映射及槽位重排生成。7～12 臂按**全场所有需求**统计最少交接次数，最小化距离直方图各格数量的平方和；局部需求组合尽量多样，不要求每个工位有相同配方。
+Seed 0 retains the agreed 3-6-arm orders. The three-arm order is A receiving
+`a,c,c`, B receiving `b,a,c`, and C receiving `a,b,b`. The other two small-case
+order seeds use graph-distance-preserving mappings and slot permutations.
+For 7-12 arms, minimum handover distances are balanced across **all scene demand**
+by minimizing the sum of squared histogram counts. Local demand combinations
+are varied; stations need not have identical recipes.
 
-均衡器使用确定性随机搜索，并核对达到整数计数下界；偶数环的奇数跳需求总数必须是偶数，因此十臂不能六档各五件，允许最小整数偏差。这只证明需求分布达到所用均衡目标，不证明调度最优。
+The balancer uses deterministic random search and checks the integer count
+lower bound. On an even ring, the number of odd-hop demands must be even, so
+the ten-arm case cannot have five items in each of six distance bins; it allows
+the smallest integer imbalance. This proves the selected demand-balancing
+objective, not schedule optimality.
 
-每个规模三个订单种子，**仅改变订单，不改变初始几何或物体位置**，不是三个几何场景种子。完整 seed-0 清单见 [tasks.md](tasks.md)，全部种子及距离统计见 [references/summary.csv](references/summary.csv)。完成率和难度尚未通过模型标定。
+Each size has three order seeds. **Seeds change orders, not initial geometry or
+object positions.** See [tasks.md](tasks.md) for seed 0 and
+[references/summary.csv](references/summary.csv) for all seeds and distance counts.
+Model completion rates and difficulty were not calibrated by this publication.
 
-## 布局与视觉身份
+## Layout and visual identity
 
-环形四边数量按南、东、北、西排列：
+The ring's side counts are listed south, east, north, west:
 
-| 臂数 | 四边数量 |
+| Arms | Stations per side |
 | --- | --- |
-| 4 | 1、1、1、1 |
-| 5 | 2、1、1、1 |
-| 6 | 2、1、2、1 |
-| 7 | 2、2、2、1 |
-| 8 | 2、2、2、2 |
-| 9 | 3、2、2、2 |
-| 10 | 3、2、3、2 |
-| 11 | 3、3、3、2 |
-| 12 | 3、3、3、3 |
+| 4 | 1, 1, 1, 1 |
+| 5 | 2, 1, 1, 1 |
+| 6 | 2, 1, 2, 1 |
+| 7 | 2, 2, 2, 1 |
+| 8 | 2, 2, 2, 2 |
+| 9 | 3, 2, 2, 2 |
+| 10 | 3, 2, 3, 2 |
+| 11 | 3, 3, 3, 2 |
+| 12 | 3, 3, 3, 3 |
 
-工位从南侧开始沿周边编号，基座朝向桌内，角点不安装基座。环形桌面由四个共面实体板组成，中央留空，下有支撑。每站三个目标槽、两个暂存位，相邻工位一个容量为一的交接位置。邻接图定义允许的交接，不是完整运动避碰边界。
+Station numbering begins on the south side and follows the perimeter. Bases
+face inward and do not occupy corners. Four coplanar solid table strips surround
+an open center, with supports below. Each station has three goals and two parking
+positions. Each adjacent pair has a handover position of capacity one. The
+adjacency graph defines permitted handovers, not complete collision boundaries.
 
-浅天蓝地面和淡蓝远景、暖木色哑光桌面、深棕支撑。每站有放大的实体编号；预览把正向 A～L 标签放在独立边框，通过细引线指向基座，文字框完全位于场景渲染区域之外。**叠字只使用固定机器人基座，不投影物体真值。** 全局标签已检查完整、互不重叠且不覆盖渲染视口；标签可读性不代表模型已能可靠操作。另保存 -raw.png 原始图，可直接查看无叠加画面。
+The ground is light sky blue, the distant background pale blue, the matte table
+warm wood, and supports dark brown. Enlarged physical station IDs supplement
+upright A-L preview labels placed in a separate border with thin leaders to the
+bases. Label boxes stay outside the scene viewport. **Overlays use fixed robot
+base geometry only, not object ground truth.** Global labels were checked for
+completeness, overlap and viewport exclusion. Readable labels do not establish
+reliable model operation. Files ending `-raw.png` retain unannotated views.
 
-世界 +X 向东、+Y 向北、+Z 向上；本地 +X 向桌内、+Y 向机器人左侧。top 相机统一上北右东。每个场景的 startup.md / startup.json 自动给出编号、邻接、初始物料、相机和初始化俯视图；这些说明不包含运输方案。
+World +X is east, +Y north, +Z up; local +X is inward and +Y is robot-left.
+The top camera is north-up/east-right. Each scene's `startup.md` / `startup.json`
+lists IDs, neighbors, initial stock, cameras and its initial top image, without
+providing a transport solution.
 
-三臂场景是本系列新点位的直线版本，不是历史三臂实验的逐坐标复刻。直线与环形不能视为只改变机械臂数量的严格对照；六臂至七臂还同时改变了物体形状，解释规模效应需要同形状对照。
+The three-arm scene uses this series' new positions, not a coordinate-identical
+copy of the earlier three-arm experiment. Line versus ring is not a controlled
+comparison of arm count alone; six versus seven arms also changes object shapes.
+Interpreting scale effects requires same-shape controls.
 
-## 相机、初始化与观测
+## Cameras, initialization and observations
 
-每臂 front / side 两台固定局部斜视相机，加上 global / global_side 两台全局斜视与 top 俯视，共 2N+3 台，无腕部相机。局部视图可能包含邻居。原始渲染为 1280×900，带边框预览为 1536×1152，不缩放原始场景。相机标定使用原始分辨率；带边框像素需加上视口偏移 [128,126]，具体见图片 JSON 和 startup.json。文件明确标为初始化预览，不能代替后续现场观测。
+Each arm has fixed front/side oblique cameras. Two global oblique cameras and a
+top camera bring the total to 2N+3; there are no wrist cameras. Local views may
+include neighbors. Raw renders are 1280×900; bordered previews are 1536×1152
+without resizing the scene viewport. Calibration uses raw resolution; add the
+viewport offset `[128,126]` for bordered pixels. Image JSON and `startup.json`
+record the details. Initialization previews never replace live observations.
 
-启动时按所选任务提供对应的 startup.md、startup.json、带编号 top 图与单份 seed 订单，之后由策略选择相机。运行适配器还需要把正向编号、相机名和时间接到实时图像返回；目前叠字用于离线生成的预览，并未接入原运行服务或原生查看器。
+The historical startup contract supplied the selected `startup.md`, `startup.json`,
+labeled top image and one seed order, after which the policy chose cameras.
+A runtime adapter still needed to attach upright IDs, camera names and time to
+live image returns. These overlays were offline previews, not a connection to
+the original runtime or native viewer.
 
-初始物体位置允许公开；运行策略只应得到 RGB、机器人本体信息和动作状态。模拟文件、工程检查和数学参考含有真值，不应作为运行观测默认载入。仓库没有操作系统访问隔离，文件约定不能证明技术隔离。
+Initial object positions may be public. Runtime policies should receive RGB,
+robot proprioception and action state. Simulation files, engineering checks and
+mathematical references contain ground truth and must not enter default policy
+observations. File conventions alone are not OS-level access isolation.
 
-MJCF 含 initial keyframe，保存机器人、手指、自由物料和执行器目标。加载后必须应用它；默认 qpos0 不是准备好的姿态。查看八臂场景：
+MJCF includes an `initial` keyframe for robots, fingers, free items and actuator
+targets. Apply it after loading; default `qpos0` is not the prepared posture.
+The following historical viewer uses the generator's current cylinder collection,
+not this preserved v2 sphere collection; it does not reproduce v2 by itself:
 
 ```sh
 .venv/bin/mjpython -m scripts.view_cube_transport --count 8
 ```
 
-macOS 使用 mjpython；其他系统可用同环境 python。可选 --camera top。查看器只展示并运行物理，不连接策略、不录屏；实时运行性能没有标定。
+Use `mjpython` on macOS or the same environment's Python elsewhere. The viewer
+accepts `--camera top`, runs physics, connects no policy and records no video.
+Realtime performance was not calibrated.
 
-## 物理与完成判定
+## Published physics and completion rules
 
-桌高 0.4 m；方块边长 0.04 m、球半径 0.02 m，质量均为 0.05 kg，惯性由各自形状计算。重力 [0,0,-9.81]，步长 0.002 s，implicitfast / Newton / 100 次迭代。摩擦 [1,0.005,0.0001]、NoSlip 10、夹爪执行器强度与手指限位保持原设置。球是自由物体，没有吸附、固定关节、隐藏托槽或新增滚动阻力。
+The table is 0.4 m high. Cube edges are 0.04 m; sphere radius is 0.02 m; each item
+weighs 0.05 kg, with shape-derived inertia. Gravity is `[0,0,-9.81]`; the step is
+0.002 s, with implicitfast integration, Newton solving and 100 iterations.
+Friction `[1,0.005,0.0001]`, NoSlip 10, gripper actuator strength and finger limits
+retain the original settings. Spheres are free bodies, without attraction,
+fixed joints, hidden cradles or added rolling resistance. These legacy values
+are not the current suite's contact release; see [physics.md](../../docs/physics.md).
 
-完成要求按 task.completion 保存：每个槽匹配一件颜色＋形状正确的不同实物，XY 中心误差不超过 2 cm、Z 误差不超过 1 cm、线速度不超过 1 cm/s、有桌面支撑且已经脱离机器人，并持续一秒仿真时间。姿态和球的自转方向不计分。
+`task.completion` requires a different color/shape-matching item in every slot:
+XY center error at most 2 cm, Z error at most 1 cm, linear speed at most 1 cm/s,
+table support and release from all robots, continuously for one simulated second.
+Orientation and sphere spin direction are not scored.
 
-私有 evaluate_placement_window 在最终一秒的观测样本中做语义匹配，采样间隔至多 25 ms；缺少窗口或采样空洞不能算完成。对应实物需在整个窗口保持符合该槽要求，同类编号在不同执行之间可交换。瞬时 match_placement_sample 只作诊断，不能单独宣告完成。评估器已离线测试，仍需要后续运行适配器提供真实支撑、释放和运动样本，不向策略公开物体状态。
+Private `evaluate_placement_window` matches semantics over the final one-second
+sample window, with gaps at most 25 ms. A missing window or sampling gap cannot
+pass. Each matched item must satisfy its slot throughout the window; equivalent
+entity IDs can differ between executions. Instantaneous `match_placement_sample`
+is diagnostic only. Offline evaluator tests did not replace the need for actual
+support, release and velocity samples from a runtime adapter; object state is
+not exposed to the policy.
 
-## 工程检查与数学参考
+## Engineering checks and abstract references
 
-全部场景检查加载、标记处支撑和间距、初始化穿透、源点／目标／暂存／交接位在悬停与夹持高度的 IK 及终点穿透、一秒静置稳定性。IK 终点检查时队友在 home、物料在初始位置、夹爪打开，允许不足 1 mm 的接触穿入。它不是运动轨迹或并行避碰证明。
+Published checks cover loading, marked support/spacing, initial penetration,
+IK at source/goal/parking/handover hover and grip positions, endpoint contacts,
+and one-second settling. Endpoint IK uses peers at home, initial material
+positions and open grippers, allowing contact penetration below 1 mm. It is not
+a swept-path or concurrent collision proof.
 
-verify_transport_objects 另做三个已知位姿的真实接触参考：三臂 A 方块、七臂 G 球、十二臂 L 球。本地抓起、持握后放下并清退，检查双指接触、抬高、释放、桌面支撑和最后一秒稳定性。结果见 validation/object-fixtures.json。**这不是模型实验，也没有验证全部工位、交接运输或多臂同时运动。**
+`verify_transport_objects` added three known-pose physical references: a
+three-arm A cube, seven-arm G sphere and 12-arm L sphere. Local pickup, holding,
+release and retreat check bilateral finger contact, lift, support and stability
+in the final second; see `validation/object-fixtures.json`. **These are not model
+trials, and do not validate every station, full transport or simultaneous arms.**
 
-离线调度给同类物料任选内部实体作为见证，预选最少交接路径；环形等长时沿编号递增方向。h 次交接对应 h+1 次工位访问，每次有 pick-clear、place-clear 两个单位阶段。串行阶段数为 2×Σ(h+1)。并行参考使用至多 256 次无等待优先插入搜索，接收方在发送方放下后的下一阶段抓取。无等待只属于参考算法，不限制 Agent。
+Offline scheduling selects interchangeable entities as witnesses and chooses
+minimum-handover routes, breaking equal ring paths toward increasing IDs.
+A route with h handovers visits h+1 stations, each with pick-clear and place-clear
+phases. Serial work is `2×Σ(h+1)`. The parallel reference tries up to 256 no-wait
+priority insertions; receiving begins in the phase after sender placement.
+No-wait is a reference-algorithm choice, not a policy constraint.
 
-保存可行上界、固定路径下的负载／物料链下界及独立 replay 结果，只有上下界相等才标记 optimality_proven。**阶段数不是秒数或工具调用数**，参考忽略运动几何、推理、感知和通信时间，不代表实际系统已经达到的加速比。references 不属于策略默认上下文。
+Artifacts retain a feasible upper bound, fixed-route load/item-chain lower
+bounds and independent replay. `optimality_proven` is true only when bounds
+meet. **Phases are neither seconds nor tool calls.** Geometry, inference,
+perception and communication time are excluded; the reported ratio is not a
+measured physical speedup. References are not default policy context.
 
-## 文件与复现
+## Files and reproduction boundaries
 
 ```text
-configs/environments/cube_transport/<环境>/
+configs/environments/cube_transport/<environment>/
   environment.json / scene.xml / assets/
   startup.md / startup.json
-configs/tasks/cube_transport/<环境>/seed-0.json…seed-2.json
+configs/tasks/cube_transport/<environment>/seed-0.json ... seed-2.json
 benchmarks/cube_transport/
   manifest.json / tasks.md
-  previews/       编号预览、相机与标签元数据、总览
-  validation/     点位及稳定性、物体参考检查
-  references/     离线调度、下界与距离统计
-  history/v1-assets-20261021.tar.gz  修改前 v1 配置、参考及生成源码
+  previews/       Initial images, camera/label metadata and overview
+  validation/     Geometry, stability and local object-reference checks
+  references/     Abstract schedules, lower bounds and distance counts
+  history/v1-assets-20261021.tar.gz  Earlier v1 configs/references/generator
 ```
 
-Panda 网格共享 vendor/panda/assets，通过相对路径引用。复制整个仓库可保留可加载性；只复制 scene.xml 不够。
+Panda meshes use relative references into `vendor/panda/assets`; copying only
+`scene.xml` is insufficient. Historical generation archives are retained for
+reproduction. The commands below now target `cube_transport_cylinders`, not v2:
 
 ```sh
 .venv/bin/python -m scripts.generate_cube_transport
@@ -95,10 +188,22 @@ Panda 网格共享 vendor/panda/assets，通过相对路径引用。复制整个
 .venv/bin/python -m unittest tests.test_cube_transport -v
 ```
 
-生成器支持 --counts 4 8 12 与 --no-render；部分生成会把 manifest、汇总和总览限制到该子集，完整发布请不带参数重新生成。物体参考检查是单独命令，不在日常静态生成时执行。历史实验未改写；旧运行服务的二维基座、物体与实时观测适配仍待另行实现。
+The generator accepts `--counts 4 8 12` and `--no-render`. Partial generation
+limits its manifest, summary and overview to that subset. Generate every size
+for a complete offline publication. Local grasp verification is separate from
+static generation. Do not regenerate or rewrite historical experiment results.
 
-## 端到端程序参考
+## Later end-to-end program reference
 
-后续离散求解与真实接触执行保存在 `runs/program-transport-v2-20261021/`：CP-SAT 已为全部十个规模证明固定路线、单位阶段模型下的最优轮数，独立 replay 检查通过。原 references 仍保留此前可行上界，不把新结果误当连续物理最短耗时。
+The historical data root `runs/program-transport-v2-20261021/` recorded CP-SAT
+optimal round counts for all ten sizes under fixed routes and unit phases, with
+independent replay. Original `references/` retain earlier feasible upper bounds;
+these newer discrete proofs do not establish minimum continuous physical time.
+That ignored run directory is not guaranteed to exist in a fresh clone.
 
-该目录的 index.json / report.md 区分离散证明、物理验收、失败尝试与可播放视频。程序可以读取物体真值、调用连续执行器控制，并做运动预检查和释放前校正，是工程可行性参考；不能直接当作与 RGB Agent 信息／接口相同的性能基线。新增的球体接力仍须端到端验收，局部抓放成功不能替代整份订单完成证据。
+Its `index.json` / `report.md` distinguish discrete proofs, physical acceptance,
+failed attempts and playable videos. The program can use object ground truth,
+continuous controls, motion prechecks and release corrections; it is an
+engineering feasibility reference, not an RGB-policy-equivalent performance
+baseline. Sphere relay still needs full-order end-to-end acceptance; a local
+pick/place result cannot substitute for it.

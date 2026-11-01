@@ -119,7 +119,7 @@ def startup_context(env, model, data):
 
 
 def startup_markdown(env, context):
-    lines = [f'# {env["id"]} startup guide (rules v4)', '',
+    lines = [f'# Legacy {env["id"]} startup guide (rules v4)', '',
              'Open initial_top_image from startup.json in this directory and identify the labelled bases.',
              'This guide and preview describe initialization. After execution, use fresh RGB and robot observations.', '',
              'Robot IDs match the uppercase base labels. World +X is east, +Y north and +Z up; top views show north above and east right.',
