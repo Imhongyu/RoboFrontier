@@ -790,3 +790,79 @@ post-fix tests used the committed image with only the identified test files
 replaced inside disposable containers; no production image file or original
 run evidence was overwritten. Source changes will need a new committed image
 for exact-revision final acceptance.
+
+## Exact-revision Linux native standing acceptance
+
+After the test-boundary corrections, source
+`b0129eb665918c9353dfa6e52ccf31941ee55a87` was committed and built through the
+unified container command. Image `robofrontier:b0129eb66591` has that exact source
+label and image ID
+`sha256:ead76e49acd4898218dabaa075642d806a3d83491ec2767d709b01075d4515fb`.
+Full Claude discovery ran 175 tests, with zero failures/errors and eight skips,
+on both macOS (41.540 seconds) and the network-disabled Linux image (31.715
+seconds). These are 167 executed passing checks per platform, not 175 independent
+provider or physics qualifications. The corrected Linux run used the committed
+image unchanged, without the earlier test-file overlays. One preceding command
+used a mistyped image tag and failed before container creation; its separate log
+is retained and does not count as a test run.
+
+The opt-in standing-team physical smoke also passed in that exact Linux image:
+one test/two topology subcases, 45.552 seconds. Each used real MuJoCo Transport
+A04-D1 with OSMesa/llvmpipe, the native Claude CLI/MCP, and a synthetic loopback
+model. Both bound distinct sessions before START, delivered an actual image,
+completed Worker A's gripper action, exchanged messages, resumed bound roles,
+and stopped after 20 seconds from START with sealed worlds, no unresolved action
+IDs, and exited physical owners. The test container exited zero without OOM.
+There were no genuine provider calls and no claim of task-solving success.
+
+After that container was authoritatively stopped, its test data was copied as a
+23,674,591-byte gzip transport tar. A separate network-disabled container restored
+the unchanged original absolute paths onto local storage, then ran the production
+collector, ZIP archiver, atomic restore, and replay verifier. No live database
+was read across a container boundary. Both collections were complete:
+
+| Mode | Native role sessions | Verified files | Motion frames | ZIP bytes |
+| --- | ---: | ---: | ---: | ---: |
+| Controller + Worker | 5 | 527 | 1,179 | 7,076,133 |
+| Worker-Worker | 4 | 516 | 1,235 | 7,019,079 |
+
+Every collected file restored byte-for-byte. All states/timestamps and appearance
+events matched exactly; three sampled simple-scene images per recording matched
+pixel-for-pixel without physics integration. The exported sample JPEGs were also
+visually inspected. Both stopped containers and the transport copy remain
+retained. The verified ZIPs, hashes, replay samples/reports, and receipt were
+copied out only after the verification container exited zero. They are under
+`runs/engineering/main-integration-task-atlas-20261101/linux-standing-verified-b0129eb/`.
+Logs use the `linux-claude-regressions-b0129eb-exact`,
+`linux-standing-physics-b0129eb`, and `linux-standing-evidence-b0129eb` prefixes.
+These checks do not establish Factory replay of these particular new streams,
+NVIDIA rendering, subscription refresh, Slurm, x86_64, or real-model capacity.
+
+## English task and native execution guides
+
+Transport, Mosaic, and BEST5 Dial specifications are now English. They preserve
+geometry, numerical tolerances, historical qualification counts, edit/video
+provenance, and native script identities while distinguishing new policy
+terminal scoring from unchanged strict historical Oracle reports. Mosaic clearly
+selects R14/81 mm for new policy and unified Oracle runs; original R13 recordings
+keep their colors/source. Dial explicitly retains unlock-once completion and
+separates the device's READY indicator from harness startup. Historical
+Unicode-named artifact basenames are represented with exact JSON escapes rather
+than renaming original recordings or dropping their location information.
+
+The native Codex guide now leads to the unified Luna/high API defaults while
+labeling the retained native entry's Astra/parallel-9 defaults separately. It
+explains task-isolated homes, optional capability READY, safe request identities,
+JPEG observations, compressed motion, explicit render selection, API versus
+subscription qualification, and independent offline video quality. Its provider
+catalog table remains an explicitly dated 2026-10-28 snapshot, not a new ranking
+or availability assertion. The official OpenAI configuration and app-server
+references were fetched to confirm Responses-only provider configuration and
+source-kind filtering; canonical links are retained in the guide.
+
+The original four-family Oracle integration guide is now an explicitly dated
+English acceptance snapshot. Its 1,008-test result, asset scan, 48 pre-existing
+broken links, 36 source recordings, timing observations, and unfinished work
+remain historical facts rather than claims about the current larger suite.
+These documentation changes do not modify the asset lock, physics, public
+policy templates, evaluators, source motion, or archived compatibility hashes.

@@ -1,94 +1,139 @@
-# BEST5 旋钮：当前规格与合并交接
+# BEST5 Dial: current specification and preserved evidence
 
-旋钮家族为 R11 BEST5 九项。Oracle 证据已完成：八项程序 Oracle，八盘 L3 为辅助 Oracle。
-家族公开材料、源绑定运行协议和全厂多桌合成已合入；尚未启动正式GPT。
-当前用途统一见`configs/task_families/current.json`与[GPT准备](../gpt-policy.md)。
+The current Dial family is **R11 BEST5**, with nine cases selected through
+`configs/task_families/current.json`. Original Oracle evidence includes eight
+programmatic witnesses and one assisted eight-dial Level 3 witness. Their success
+is historical evidence for their frozen source, not automatic qualification of
+later physics or harness revisions. Use the [unified CLI](../unified-cli.md) for
+new policy experiments and the [Oracle entry](../oracle.md) for new privileged
+reference executions.
 
-## 唯一当前入口
+## Current catalogs and historical artifacts
 
-| 内容 | 路径 |
+| Content | Path |
 | --- | --- |
-| 九项模型目录表 | `configs/suites/dial-best5-r11.json` |
-| 规格、默认值与冻结证据登记 | `configs/task_families/dial/best5-r11.json` |
-| policy 专属指导 | `prompts/tasks/dial-best5.md` |
-| 公共整合请求 | `configs/task_families/dial/integration-requests.json` |
-| 当前审查包与进展感知剪辑 | `outputs/engineering/dial-family-current/` |
-| 已发布简单背景九视频 | `outputs/oracle/dial-nine-videos-20261027/` |
-| 已发布工厂九视频及对应场景 | `outputs/robo-factory/dial-best5-edited-10x-20261027/` |
+| Nine-case model catalog | `configs/suites/dial-best5-r11.json` |
+| Specification, defaults, frozen evidence registry | `configs/task_families/dial/best5-r11.json` |
+| Policy-specific guidance | `prompts/tasks/dial-best5.md` |
+| Original shared integration requests | `configs/task_families/dial/integration-requests.json` |
+| Historical review package and progress-aware edits | `outputs/engineering/dial-family-current/` |
+| Delivered nine simple-background videos | `outputs/oracle/dial-nine-videos-20261027/` |
+| Delivered nine Factory videos and matching scenes | `outputs/robo-factory/dial-best5-edited-10x-20261027/` |
 
-## 最终规则与默认
+Output/recording paths are preserved provenance, not contents of a plain clone.
+New checkouts restore current pinned policy assets through `robofrontier bootstrap`.
+The optional Factory recording bundle is a separate resource.
 
-| 盘数 | L1 机械臂数 | L2 机械臂数 | L3 机械臂数 |
+## Rules and completion
+
+| Dials | Level 1 arms | Level 2 arms | Level 3 arms |
 | --- | --- | --- | --- |
 | 4 | 4 | 8 | 8 |
 | 6 | 6 | 12 | 12 |
 | 8 | 8 | 16 | 16 |
 
-密码每位 1..5，0 无效，60 度一格；桌高 0.8m，白盘直径 0.3m。具体桌面轮廓、
-开孔、基座、计分板与相机按各 case 的冻结模型读取。L1 模块固定；L2/L3 要求独立
-蓝支撑、真实红抓持和整模块悬空；L3 为偏心 crank。完整规则取自该 case 的 task。
+Each secret symbol is 1..5; zero is invalid; detents are 60 degrees apart. The
+table is 0.8 m high and each white disk is 0.3 m in diameter. Read each frozen
+case for its actual tabletop outline, openings, bases, scoreboard, and cameras.
+Level 1 modules are fixed. Levels 2/3 require independent blue support, an actual
+red grasp, and the whole module airborne; Level 3 uses an eccentric crank.
+The complete eligibility conditions come from that case's public task.
 
-BEST 是历史完整有效输入的最大命中数，READY 表示当前输入资格。中间稳定配置
-也会自动结算；BEST 不变的新有效输入仍是尝试。成功锁存不会擦除过程违规。
-公开输入只提供允许的静态规格、RGB 和机器人反馈，不加入 Oracle 答案或实时物体真值。
+BEST is the highest match count among valid inputs in the episode. The device's
+READY indicates the current input's physical eligibility, not password correctness
+or the harness START gate. Stable intermediate configurations settle automatically;
+a new valid input remains an attempt even when BEST does not improve.
 
-家族原展示配置保留于`dial_pose_timeline.py::PRESENTATION`；当前全厂release规定
-原始记录60Hz、展示10倍速/30fps，每桌独立循环并复位外观。
-最新循环要求覆盖旧家族交接中的播完停止，原终态保留模式仍兼容。
+**Unlock once means complete.** Success is latched when the correct eligible input
+is achieved; later angle changes do not undo that solved state. This is the
+intentional Dial completion contract, unlike a final cube placement that can be
+disturbed. New policy `terminal_outcome_v2` reports solved/completion separately
+from process violations and retains strict compliance as an additional field.
+Unlocking does not erase collisions, support-loss records, or other events.
+Recorded violations do not themselves stop the policy. Historical evaluators
+and Oracle reports retain their original stricter pass criteria.
 
-## 审查与回放工具
+Public input contains permitted static specifications, RGB observations, and
+robot feedback. Oracle answers and live object truth are private. Initial
+prompts and shared roles/skills come from the frozen harness, not a historical
+review package's private evidence index.
 
-```bash
+The original family presentation settings remain in `dial_pose_timeline.py::PRESENTATION`.
+Current Factory presentation uses source motion at 60 Hz, **10x at 30 fps**, and
+independent per-station looping with appearance reset. Legacy hold-final-state
+is still supported. Presentation time is not a policy or physics deadline.
+
+## Review and replay tools
+
+```sh
 .venv/bin/python -m scripts.check_dial_family --output /absolute/NEW-review
 .venv/bin/python -m scripts.build_dial_policy_package --check-output /absolute/EXISTING-review/policy-review
 .venv/bin/python -m scripts.edit_dial_recording /absolute/attempt/motion --output /absolute/NEW-edit.json
 ```
 
-检查工具不创建 runtime、角色连接或模型会话。它绑定九项 report、资产、控制与
-裁判指纹；公共输入按源规格重新生成对照。历史报告和输入保持原始字节，不将
-`oracle_verified` 或旧状态字段批量改写。每次新审查选择新的输出目录。
+These tools do not create policy runtime, role connections, or model sessions.
+They bind reports, assets, controller/evaluator fingerprints, and regenerated
+public projections. Historical reports/inputs remain byte-identical; do not
+bulk-rewrite `oracle_verified` or old status fields. Use a new review directory.
 
-审查包的每项 `public/` 含 task、生成的 task-guide、family-guidance、相机标定、
-初始参考图及按需读取的 `table-geometry.json`。环形桌使用真实分块/网格，保留孔洞。
-私有证据索引只供工程审查。公共角色 prompt、Skill、harness 保持共享权威版本。
+Each review's public portion includes its task, generated task guide, family
+guidance, camera calibration, initial reference image, and optional
+`table-geometry.json`. Ring-shaped tables retain their real holes and segmented
+or mesh geometry. Private evidence indexes are engineering-only.
 
-```bash
+```sh
 .venv/bin/python -m scripts.render_dial_oracle /absolute/attempt \
   --edit /absolute/edit.json --output /absolute/NEW-views
 ```
 
-简单背景渲染使用冻结源与剪辑；工厂视频使用 `scripts.factory video` 的 Cycles 入口。
-历史的 Classic 工厂成片入口已停用，源帧和已发布视频保留。
+Simple-background rendering uses the frozen source and edit. Current
+[Factory commands](../factory.md) provide the complex-background Cycles path;
+`python -m scripts.factory video` remains the lower-level entry. The historical
+Classic final-video entry is retired; source frames and delivered videos remain.
 
-`run_best5_dial_batch.py` / `run_blind_dial_oracle.py` 是显式工程 Oracle 启动工具，
-统一使用 R11 与 `configs/harness-frontier-v2-servo2.json`；不传预算表示不限时。
-`commission_best5_dials.py` 是有明确诊断边界的局部工程工具，不作为完整任务证据。
-肩夹实验入口已退役；模型真实挡肩几何保留。历史读取器仅用于旧证据复核。
+`run_best5_dial_batch.py` and `run_blind_dial_oracle.py` are explicit Legacy
+engineering Oracle entries using R11 and `configs/harness-frontier-v2-servo2.json`.
+Their native no-budget behavior is not the unified Oracle's default 24-hour
+engineering deadline. `commission_best5_dials.py` is a bounded local diagnostic,
+not evidence of a full task. The shoulder-clamp experiment entry is retired,
+while real model shoulder geometry remains. Historical readers serve old evidence.
 
-## 数据级去静止与独立游标
+## Source edits and independent playback cursors
 
-`dial_motion_edit.py` 结合原始 qpos、动作进展、过程和外观事件分类。保留有效
-输入、支撑变化、失败、恢复、完成上下文和未知证据；对无有效驱动、中心不漂移的
-长期重复振荡进行多尺度判断。力设定不是实测接触力，分类不声称“实测力为零”。
-当前九条真实记录未确认可安全删除的大幅长期无进展振荡；该能力由独立样例验证。
+`dial_motion_edit.py` classifies original qpos, action progress, process events,
+and appearance events. It preserves valid inputs, support changes, failures,
+recovery, completion context, and unknown evidence. Multi-scale classification
+can detect long repeated oscillation without effective drive or center drift.
+A force setpoint is not measured contact force; classification does not prove
+zero force. The nine original recordings did not establish a large sustained
+oscillation segment safe to remove; that capability has independent fixtures.
 
-`DialReplayTrack.at(global_frame)` 返回本工位的源帧/源时间、原 float32 qpos 和
-累计外观变化。首次/回退的 `appearance_reset` 要求先恢复本工位 initial_rgba；
-不同工位游标互不影响。公共FactoryTimeline已实现全部工位更新后一次渲染，
-使用独立全局展示时钟与每桌循环。几何、事件和原始记录不改写。
+`DialReplayTrack.at(global_frame)` returns the station's source frame/time,
+original float32 qpos, and accumulated appearance changes. On first use or a
+backward cursor, `appearance_reset` requires restoring that station's initial
+RGBA before applying events. Stations' cursors remain independent. The shared
+Factory timeline updates all stations, then renders once under the independent
+presentation clock. Motion compression must preserve those states, timestamps,
+and events; it is separate from editorial interval removal.
 
-## 合并与证据保护
+## Integration and evidence preservation
 
-旋钮新增编辑和渲染实现均为 dial 命名；通用编辑模块未占用，两个通用渲染脚本
-恢复为 main 版本。必要公共修复仍以小补丁保留：GPU 姿态同步、工位变换与子集、
-执行终态所有权和未知围栏。主 session 按 integration-requests 整合，不覆盖整份文件。
+Dial-specific edit/render modules retain Dial names. The original integration
+requests avoided replacing generic rendering modules wholesale; shared changes
+cover GPU pose synchronization, station transforms/subsets, terminal-state
+ownership, and uncertain-operation fences. Review common ancestry and merge
+small changes rather than overwriting whole shared files with a family branch.
 
-`dial_best_oracle` 仍继承 `dial_hold_oracle → dial_oracle_v2 → dial_oracle` 的活跃
-持握/几何实现，并使用 `verify_floating_dial_oracle` 的几何函数；不要按名字删除。
-保留两批正式原始记录、失败/中断与恢复来源、配对私有输入、冻结源码及必要资产。
-已发布视频保留其真实 edit/scene/帧映射；当前新清单不冒充旧视频已经重渲染。
+`dial_best_oracle` still uses active holding/geometry implementations through
+`dial_hold_oracle -> dial_oracle_v2 -> dial_oracle` and geometry helpers in
+`verify_floating_dial_oracle`. Do not remove an implementation merely because
+its name looks old. Preserve both original recording batches, failed/interrupted
+attempts, recovery provenance, private pairings, frozen source, and required
+assets. Delivered videos keep their actual edit/scene/frame maps; new manifests
+do not imply that old videos were rerendered.
 
-历史过程在 [Oracle 记录](../history/dial-oracle-continuation-20261027.md)、
-[旧交接](../history/dial-oracle-handoff-20261026.md) 与
-[渲染历史](../history/dial-motion-render-history-20261027.md)。历史中的暂停、待办和
-旧路径描述不作为当前指令。验收明细以当前审查包和清理回执为准。
+Historical detail is in the [Oracle continuation](../history/dial-oracle-continuation-20261027.md),
+[old handoff](../history/dial-oracle-handoff-20261026.md), and
+[render history](../history/dial-motion-render-history-20261027.md). Their pauses,
+pending tasks, and local paths are historical, not current operator instructions.
+Use current review receipts and the integration ledger for acceptance scope.

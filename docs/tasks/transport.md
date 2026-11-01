@@ -1,51 +1,82 @@
-# Transport 任务
+# Transport: current specification and evidence
 
-当前默认物理规格为 **R14 半孔**，九项清单为
-`configs/suites/frontier-transport-r14.json`。规格与验收索引是
-`configs/task_families/transport/half-opening-r14.json`，GPT任务参考是
-`prompts/tasks/transport.md`。公共加载与源绑定运行协议已合入，GPT尚未启动；
-新入口见[GPT准备](../gpt-policy.md)，统一选择见`configs/task_families/current.json`。
+The current geometry is the **R14 half-opening** family, with nine cases in
+`configs/suites/frontier-transport-r14.json`. Specification and acceptance metadata
+are in `configs/task_families/transport/half-opening-r14.json`; policy guidance is
+`prompts/tasks/transport.md`. New experiments use the released entries selected
+by `configs/task_families/current.json` and the [unified CLI](../unified-cli.md).
+The current policy asset lock also identifies the rolling-friction revision;
+R14 geometry alone does not prove equality of all physical parameters.
 
-## 最终规格
+## Geometry and objectives
 
-| 规格 | 四臂 | 八臂 | 十二臂 |
+| Property | Four arms | Eight arms | Twelve arms |
 | --- | --- | --- | --- |
-| 每个等级目标数 | 12 | 24 | 36 |
-| 桌面外边长 | 1.938m | 2.720m | 3.536m |
-| 桌高 | 0.8m | 0.8m | 0.8m |
-| 中央桌孔长×宽 | 实心 | 0.476×0.476m | 0.833×0.833m |
+| Targets per level | 12 | 24 | 36 |
+| Outer table side | 1.938 m | 2.720 m | 3.536 m |
+| Table height | 0.8 m | 0.8 m | 0.8 m |
+| Central opening | Solid tabletop | 0.476 x 0.476 m | 0.833 x 0.833 m |
 
-桌面支撑由实际盒体定义，中央孔属于无支撑区域。公开任务包含支撑盒体、桌面高度、
-工作范围、机器人基座、静态相机安装标定、库存、订单、机构和完成条件。
-相机安装位姿声明 world 或 body 局部参考系，不能把活动相机的局部安装坐标当实时世界坐标。
+Real collision boxes define tabletop support; the central opening is unsupported.
+Public task inputs describe supports, table height, workspaces, robot bases,
+static camera mounts, stock identities, orders, mechanisms, and completion rules.
+Camera mounts specify world or body-local frames. A moving camera's local mount
+coordinates are not its current world pose.
 
-物料是60mm方块或直径／高度60mm圆柱。白板为143×396mm，目标中心间距120mm，
-84mm颜色／形状图案表示身份。双金属片厚×宽×长为2.5×12×24mm、中心距24mm；
-插接盲槽开口4.5×15mm、深26mm，板厚32mm。插槽与中央桌孔是不同结构。
+Materials are 60 mm cubes or cylinders with 60 mm diameter and height. Each white
+board is 143 x 396 mm, target-center pitch is 120 mm, and an 84 mm color/shape cue
+identifies each target. Paired metal blades are 2.5 x 12 x 24 mm, spaced 24 mm
+center-to-center. Their blind sockets have 4.5 x 15 mm openings and 26 mm depth;
+the board is 32 mm thick. These sockets are distinct from the central table hole.
 
-- L1：正确来源身份的物体完整落在目标允许占位范围内，释放、直立且稳定。
-- L2：固定白板；两金属片完整插入对应真实盲槽，物体落座、释放且稳定。
-- L3：相同插口位于被动 z／roll／pitch 弹簧板，按板的当前局部参考系判断插入与落座。
+- **Level 1:** place the correctly identified stock object entirely inside its
+  permitted target footprint, upright, released, and stable.
+- **Level 2:** use the fixed white board; fully insert both blades into the real
+  matching blind sockets, seat the object, release it, and leave it stable.
+- **Level 3:** use the same sockets on a passive z/roll/pitch spring board. Judge
+  insertion and seating in the board's current local frame.
 
-全部目标均需连续稳定1s，并满足过程合规。容差由家族配置的 `acceptance` 和冻结裁判
-绑定。来源和白板字母表示库存与订单，机械臂没有永久所有权；空中交接、稳定桌面暂存、
-等待与独立任务并行均可自主选择。接收支撑建立后再释放，并保护已完成目标。
+Each goal requires one continuous simulation second of qualification. Numeric
+position, insertion, orientation, and support tolerances come from the bound
+family acceptance settings and frozen evaluator. Do not substitute Relay's
+50 mm goal-region tolerance for Transport's placement/socket requirements.
 
-## 证据与就绪状态
+Stock/board letters identify inventory and orders, not permanent robot ownership.
+The policy chooses airborne handovers, stable tabletop staging, waiting, and
+parallel work. Establish receiving support before release and protect completed
+placements. End-point IK alone does not establish collision-free transit.
 
-九项原 R13 独立完整物理见证通过216/216，三项冻结程序、六项工程辅助。
-证据索引为 `configs/task_families/transport/r13-qualified.json`；原报告、失败记录、
-计时、冻结执行器和完整60Hz状态流保留。
+New policy runs use `terminal_outcome_v2`: completion is reported independently
+of collisions, drops, and other process events. The stricter process-compliant
+result remains separately available. A recorded violation does not by itself
+stop the policy or prevent it from attempting recovery. Frozen historical
+Oracle evaluators retain their original criteria; their reports are not rewritten.
 
-R14是新的真实碰撞场景，已编译并核对仅桌面开孔变化。六项有孔源轨迹的1,998,263个
-状态没有接触新增桌面材料；该几何兼容检查没有推进物理时间。
-**R14没有新的完整物理执行结果**，原场景保持preview和原资格标记。
-新run使用单独的`prepared_policy_trial`协议，不修改原Oracle结论；见[GPT准备](../gpt-policy.md)。
+## Historical evidence and current qualification
 
-## 构建与资产恢复
+The original nine R13 independent physical witnesses passed 216/216 placements:
+three frozen-program and six engineering-assisted runs. Their reports, failures,
+timings, executors, and full 60 Hz motion remain preserved under the index
+`configs/task_families/transport/r13-qualified.json`.
 
-新包只生成可审阅的家族资料，不创建运行、角色、凭证或GPT会话。输出须为新目录。
-R14资产由绑定的Oracle冻结来源复制，具有独立inode；已有资产校验失败时停止，不覆盖。
+The original R14 release compiled the changed collision geometry and checked
+that it differed only in the table openings. In six opening-bearing recordings,
+1,998,263 source states did not contact newly added tabletop material. That
+geometric compatibility check advanced no physics and was not a new full R14
+execution. Later rolling-friction assets and commissioning attempts have their
+own fingerprints and evidence. Historical qualification must not be inherited
+by a changed scene, controller, or contact candidate. Current integration
+acceptance and outstanding full-task gates are in the
+[integration ledger](../development/unified-main.md) and [Oracle guide](../oracle.md).
+
+## Restore current assets or build a review package
+
+For a new checkout, run `robofrontier bootstrap`. It restores the pinned released
+assets without requiring historical Oracle folders. Policy preparation also
+verifies needed assets automatically; no model is called during preparation.
+
+The following retained builder is for historical family reconstruction/review,
+not the normal fresh-clone bootstrap:
 
 ```sh
 PYTHONPATH=. .venv/bin/python scripts/build_transport_policy_package.py --assets-only
@@ -53,42 +84,61 @@ PYTHONPATH=. .venv/bin/python scripts/build_transport_policy_package.py \
   --output outputs/transport-r14-review-001 --no-previews
 ```
 
-`--assets-only` 适用于合并后已有R14元数据、尚未物化Git忽略资产的checkout。
-完整构建可为尚未存在的场景生成静态预览；`--no-previews` 省略预览。
-公共 `build_frontier_v2.py` 尚未注册本类R14，请使用本类入口。
+It requires its bound source assets, copies them with independent inodes, and
+refuses drifted existing assets. A full review build uses a new output directory
+and can generate initial previews; `--no-previews` omits them. It creates no
+policy roles, credentials, sessions, or physical run. The retained
+`build_frontier_v2.py` does not select this R14 family; use the current registry
+for new policy runs and this family-specific builder for historical review.
 
-## 源剪辑与工厂播放
+## Source edits and Factory replay
 
-`robofrontier/suite/transport_motion_edit.py` 直接读取原始60Hz状态、动作和过程事件；
-`transport_motion_signals.py` 提供运动信号与可选画面核验函数。生成入口为
-`scripts/edit_transport_recordings.py`，格式为 `robofrontier.transport-source-edit.v1`。
+`robofrontier/suite/transport_motion_edit.py` consumes original states, actions,
+and process events; `transport_motion_signals.py` provides motion signals and
+optional visual checks. `scripts/edit_transport_recordings.py` writes
+`robofrontier.transport-source-edit.v1` edits without changing the original stream.
+Current readers also accept compressed motion; see [evidence storage](../evidence-storage.md).
 
-整桌任一机械臂、夹爪或物体存在有效运动，整桌片段保留。静止及只有无进展反复晃动的
-等待会被去除，包括明显、长周期晃动；慢速定向运动、连续转动、真实落物过渡、动作边界
-与任务进展保留。判定来自状态和事件，不要求先渲染视频；原轨迹保持完整。
+Retain a whole-table interval whenever an arm, gripper, or object has meaningful
+motion. Editorial classification removes idle intervals and repetitive motion
+without progress, including large long-period oscillation, while preserving slow
+directed motion, continuous rotation, actual falling transitions, action
+boundaries, and progress. It uses source states/events rather than requiring a
+prior render. Editorial interval removal is separate from lossless evidence
+compression: the full original timeline remains available.
 
-播放规格：**20倍速、30fps**。每桌有独立有效时间，通过
-`TransportEdit.at_video_time(T,speed=20)` 查询原帧和原时间。各桌更新后绘制同一工厂帧。
-**当前工厂每桌独立循环。** 源级剪辑、各自倍速与外观复位已接入公共多桌绘制。
-此规则覆盖旧交接的播完停止；原单桌播放器仍可选择保留终态。
-整工位允许刚体平移和绕竖直轴旋转；相对布局与尺寸保持源兼容。
+The family presentation is **20x at 30 fps**. Each station has an independent
+active-time cursor through `TransportEdit.at_video_time(T, speed=20)`. Update all
+stations before drawing one Factory frame. Current multi-station presentation
+loops each station independently and resets its appearance. The Legacy
+single-station player can still hold its final state. Rigid station translation
+and rotation about the vertical axis are allowed; internal geometry and scale
+must remain source-compatible.
 
-R14已经是最终半孔，渲染比例相对R14来源为1。原Oracle录制绑定R13，显示同样最终孔
-尺寸时相对其来源为0.5。公共渲染器已区分两种来源，避免对R14重复减半。
+R14 already contains the half-size central opening: its source-relative opening
+scale is 1. Historical R13 recordings used a 0.5 opening display scale. The
+renderer distinguishes those sources instead of halving an R14 opening again.
+Use each recording's frozen geometry and contact parameters, not a replacement
+scene with a familiar family name. See the [Factory workflow](../factory.md).
 
-## 持久交付
+## Preserved delivery locations
 
-以下路径相对仓库数据根；本worktree的 `runs/` 与 `outputs/` 链接到主仓库。
+These are historical paths relative to their original data root, not files
+promised by a fresh Git clone. Historical worktrees sometimes linked `runs/` and
+`outputs/` to another checkout; new execution does not require those symlinks.
 
-| 内容 | 路径 |
+| Artifact | Historical path |
 | --- | --- |
-| 最终公开任务包及家族审计 | `outputs/oracle/transport-continuation-20261026/transport-policy-r14-release/` |
-| 当前源原生剪辑与生成器快照 | `outputs/oracle/transport-continuation-20261026/transport-source-edits-v2/` |
-| 原始物理见证与全部尝试 | `runs/oracle/transport-continuation-20261026/full/` |
-| 已交付20倍速正反面18部视频 | `outputs/oracle/transport-continuation-20261026/motion-only-20x/` |
-| 九项正面视频入口 | `outputs/oracle/transport-continuation-20261026/全部九项任务视频/` |
+| Public family release and audit | `outputs/oracle/transport-continuation-20261026/transport-policy-r14-release/` |
+| Source-native edits and generator snapshot | `outputs/oracle/transport-continuation-20261026/transport-source-edits-v2/` |
+| Original physical witnesses and all attempts | `runs/oracle/transport-continuation-20261026/full/` |
+| Eighteen 20x front/rear videos | `outputs/oracle/transport-continuation-20261026/motion-only-20x/` |
 
-已交付视频使用其审核过的剪辑，所依赖的 `motion-timelines/` 与 `motion-only-nine/audit-v4/`
-仍保留。当前源原生剪辑保留1,096,132状态、跳过1,035,753状态，供后续工厂使用；
-其20x／30fps预计九项正面总时长约15分14秒，尚未重渲这套视频。
-一次性旧剪辑／发布脚本与历史计划已归档；历史路径和共享合并事项见交接。
+The historical nine-front-video shortcut is under the same continuation output;
+its original basename, expressed as a JSON Unicode escape for an English-only
+source document, is `"\u5168\u90e8\u4e5d\u9879\u4efb\u52a1\u89c6\u9891"`.
+Previously delivered videos retain their reviewed edits, `motion-timelines/`,
+and `motion-only-nine/audit-v4/`. The source-native edit retained 1,096,132 states
+and skipped 1,035,753 for presentation, projecting about 15 minutes 14 seconds
+across nine front views at 20x/30 fps. That calculation did not itself rerender
+the videos. One-off builders and prior plans remain historical provenance.

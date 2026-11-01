@@ -1,29 +1,66 @@
-# 用 Codex CLI 运行模型基准
+# Native Codex policy execution
 
-入口是 `python -m scripts.benchmark`。Linux 配置与数据准备见[服务器指南](server-benchmark.md)。一个 Desktop 主会话可以执行这个命令并查询状态；实际策略团队由独立的 Codex CLI `app-server` 进程运行，不依赖 Desktop 主聊天一直占用工具轮次。现有 Desktop 固定调度器仍可使用。
+For new experiments, use the [unified CLI](unified-cli.md) and its versioned TOML.
+This guide explains the native Codex path and the retained
+`python -m scripts.benchmark` interface. See the [Linux guide](server-benchmark.md)
+for environment choices, and the [multi-model handoff](multimodel-handoff.md) for
+the original branch handoff. Claude has a separate native runner and
+[component map](claude-codex-parity.md).
 
-跨机器交接、当前价格、Level/最少臂筛选及可复制的调度 prompt 见[多模型交接指南](multimodel-handoff.md)。
+An outer Desktop session, another coding agent, or a shell can invoke and monitor
+the command. The measured policy runs in independent native Codex app-server
+sessions; an outer chat does not have to remain inside a tool turn. The manager
+performs engineering operations, not private task strategy or physical recovery.
 
-每个模型／任务组合拥有独立 run、MuJoCo 世界、SQLite、连接、策略会话和工作笔记。默认 adaptive；只由 Controller 自行选择任务内 fork 范围，宿主不规划抓放路线。9／36 指并行任务数，同一批次同一Dial题目在各模型间共享新生成的私有密码，仍使用独立世界与工作笔记。任务内分身可能增加模型请求并发，不能把任务数当作厂商配额保证。
+Each model/case has an independent run, MuJoCo world, SQLite state, authenticated
+connections, policy history, and work notes. Adaptive is the default: only its
+Controller decides when and how to delegate within the task. The host does not
+choose grasp/placement routes. Single, Controller + Worker, and Worker-Worker
+have their own authority and initial-role contracts. New runs use explicit
+[direct START](unified-cli.md#startup-in-all-four-modes); capability `ready` does
+not require a waiting turn.
 
-## 模型与 API
+Parallelism counts whole tasks. Adaptive delegates and standing Workers add
+model requests within each task. For a shared prepared multi-model batch, each
+Dial case uses the same newly sampled private puzzle across models, with
+independent worlds and work notes. A new batch samples a new puzzle. Task
+parallelism is not a provider quota guarantee.
 
-配置在 `configs/models.json`，默认 `astra`（`gpt-6-astra/high`），另有 `luna`（`gpt-6-luna/high`）。所有配置只作为该 CLI 子进程的参数，不修改用户全局 Codex 默认模型或登录。
+## Model catalog and authentication
 
-截至 2026-10-28 的官方文档：
+Profiles are in `configs/models.json`. The unified default is `luna`,
+`gpt-6-luna/high`, through `OPENAI_API_KEY`. The retained native CLI still defaults
+to its historical `astra` selection and parallelism; do not confuse that with
+the unified TOML. Process-local model/provider settings do not overwrite the
+user's global Codex defaults or sign-in.
 
-| 厂商 | 当前旗舰／相关型号 | 视觉任务使用 | 官方依据 |
-| --- | --- | --- | --- |
-| DeepSeek | V4 Pro；最新视觉版 V4.1 Flash | `deepseek-flash`；Pro 仅文本 | [型号与能力](https://api-docs.deepseek.com/quick_start/pricing/)、[Codex 接入](https://api-docs.deepseek.com/quick_start/agent_integrations/codex/) |
-| 千问 | Qwen3.8-Max | 固定快照 `qwen3.8-max-0902` | [视觉能力](https://help.aliyun.com/zh/model-studio/vision-model)、[Responses](https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-responses) |
-| 智谱 | GLM-5.3 仅文本；GLM-5.3-Flash 为原生多模态 | `glm-5.3-flash` 候选，须验证该模型／账号的 Responses 图像与工具支持 | [旗舰](https://docs.bigmodel.cn/cn/guide/models/text/glm-5.3)、[视觉版](https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash)、[Responses](https://docs.bigmodel.cn/cn/guide/develop/responses/introduction) |
-| Kimi | Kimi K3.1 Pro | `kimi-k3.1-pro` | [型号](https://platform.kimi.com/docs/guide/kimi-k3-1-pro-quickstart)、[Codex 接入](https://platform.kimi.com/docs/guide/codex-kimi) |
+The following is the **2026-10-28 catalog/documentation snapshot**, retained for
+provenance rather than a current model ranking or provider availability promise:
 
-旗舰是厂商定位，不是我们的实测排名。纯文本型号不会被偷偷加上另一个视觉模型后混入同一成绩。订阅或 Coding Plan 不代表具有本基准所需的按量 API 权限；具体模型、Responses、图片和工具支持以账号实际预检为准。
+| Provider | Catalog vision candidate | Original documentation |
+| --- | --- | --- |
+| DeepSeek | `deepseek-flash`; the referenced V4 Pro was text-only, with V4.1 Flash identified as the visual candidate | [Model/pricing documentation](https://api-docs.deepseek.com/quick_start/pricing/), [Codex integration](https://api-docs.deepseek.com/quick_start/agent_integrations/codex/) |
+| Qwen | Fixed `qwen3.8-max-0902` snapshot | [Vision](https://help.aliyun.com/zh/model-studio/vision-model), [Responses](https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-responses) |
+| Zhipu | `glm-5.3-flash` native-multimodal candidate; the referenced GLM-5.3 was text-only | [Text model](https://docs.bigmodel.cn/cn/guide/models/text/glm-5.3), [Vision candidate](https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash), [Responses](https://docs.bigmodel.cn/cn/guide/develop/responses/introduction) |
+| Kimi | `kimi-k3.1-pro` | [Model guide](https://platform.kimi.com/docs/guide/kimi-k3-1-pro-quickstart), [Codex integration](https://platform.kimi.com/docs/guide/codex-kimi) |
 
-复制仓库的 `.env.example` 为 `.env`，填入需要的凭证；benchmark 读取该文件，已有进程环境变量优先。文件只解析字面赋值，不执行 shell。`.env` 不纳入 Git。密钥只通过对应环境变量进入 CLI：`DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY`、`ZAI_API_KEY`、`KIMI_API_KEY`。不要写入仓库或聊天。千问另设 `DASHSCOPE_BASE_URL`，填写你在官方控制台得到的工作空间／地域地址，例如 `https://你的WorkspaceId.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`。
+A provider's flagship label is not our measured ranking. A text-only model is
+not silently combined with a different vision model under one score. A coding
+subscription does not establish the pay-as-you-go API permissions, image support,
+Responses transport, or tools required here. Verify the actual account/profile
+through preflight; catalog configuration alone is not qualification.
 
-底层等价的 Codex provider 配置如下，实际 benchmark 会自动按进程生成，无需覆盖全局配置：
+Use the ignored local `.env` or process environment. Existing environment values
+take precedence. Literal `.env` parsing executes no shell. The provider variables
+include `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `ZAI_API_KEY`, and `KIMI_API_KEY`.
+Qwen additionally reads `DASHSCOPE_BASE_URL` for the actual workspace/region
+endpoint supplied by the provider, for example
+`https://YOUR_WORKSPACE_ID.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`.
+Never commit keys, put them in model JSON or command arguments, or share them in
+chat. Use `benchmark_handoff init-env` to create a private template if absent.
+
+For a third-party provider, the native process-local configuration has this
+shape; the harness generates it rather than replacing global configuration:
 
 ```toml
 [model_providers.deepseek]
@@ -33,86 +70,153 @@ env_key = "DEEPSEEK_API_KEY"
 wire_api = "responses"
 requires_openai_auth = false
 supports_websockets = false
-
-[model_providers.kimi]
-name = "Kimi"
-base_url = "https://api.moonshot.cn/v1"
-env_key = "KIMI_API_KEY"
-wire_api = "responses"
-requires_openai_auth = false
-supports_websockets = false
-
-[model_providers.zhipu]
-name = "Zhipu"
-base_url = "https://open.bigmodel.cn/api/v1"
-env_key = "ZAI_API_KEY"
-wire_api = "responses"
-requires_openai_auth = false
-supports_websockets = false
-
-[model_providers.qwen]
-name = "Qwen"
-base_url = "https://你的WorkspaceId.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
-env_key = "DASHSCOPE_API_KEY"
-wire_api = "responses"
-requires_openai_auth = false
-supports_websockets = false
 ```
 
-Codex 当前只支持 `wire_api="responses"`。支持 OpenAI Chat Completions 不等于支持 Codex；若某账号只有 Chat API，不能把 `wire_api` 改成 `chat` 来解决。[OpenAI 配置说明](https://learn.chatgpt.com/docs/config-file/config-reference)
+The retained Kimi endpoint is `https://api.moonshot.cn/v1` with `KIMI_API_KEY`;
+Zhipu uses `https://open.bigmodel.cn/api/v1` with `ZAI_API_KEY`; Qwen uses the
+operator's workspace endpoint and `DASHSCOPE_API_KEY`. The matching catalog,
+provider address, image modalities, tool mode, and context settings are frozen.
+Simply changing `-m` or having a Chat Completions endpoint does not prove that
+Codex can receive images or call robot tools. The supported runner uses Responses;
+changing `wire_api` to `chat` is not a compatibility fix. See the
+[official configuration reference](https://developers.openai.com/codex/config-reference/).
 
-第三方模型还需要正确的本地模型 catalog，声明图片输入、工具模式和上下文。脚本自动生成并绑定；不能只改 `-m` 后就认定图片已经传入。现有配置含文档能力，不代表已通过外部 API 测试。
+Native subscription profiles use Codex's own authentication rather than pretending
+a subscription credit is an API key. The isolated API-home path does not clone
+OAuth state. Concurrent subscription refresh/isolation remains a separate
+qualification boundary; see the current unified authentication guidance.
 
-## 预检、准备与启动
+## Preflight, preparation, and launch
+
+Prefer the unified commands, which use current TOML defaults:
 
 ```sh
-# 查看配置；不调用模型
+.venv/bin/robofrontier bootstrap
+.venv/bin/robofrontier plan
+.venv/bin/robofrontier doctor
+# Billable provider compatibility check, separately authorized.
+.venv/bin/robofrontier preflight --confirm-spend
+.venv/bin/robofrontier prepare --output runs/policy/NEW_BATCH
+.venv/bin/robofrontier run runs/policy/NEW_BATCH
+```
+
+Use the explicit Linux CPU or macOS native renderer when appropriate; the default
+is Linux NVIDIA. A prepared batch keeps its frozen backend. Preparation calls
+no model, starts no physical world, and requires a new output directory.
+
+The retained native interface is useful for reproducing its original workflows:
+
+```sh
 .venv/bin/python -m scripts.benchmark models
-
-# 真实 API 小预检：图片辨色、函数工具、手动上下文压缩、fork及分身工具；会消耗少量 API 额度
+# Billable: images, tools, manual compaction and native fork checks.
 .venv/bin/python -m scripts.benchmark preflight --models astra
-# 配好各自环境变量后，可用 --models deepseek qwen glm kimi
-
-# 冻结全新输入；不启动模型或物理。可同时给多个 --models
-.venv/bin/python -m scripts.benchmark prepare --models astra --families mosaic --output runs/policy/my-mosaic-batch
-# 不指定 --families／--cases 则每个模型准备全部36项
-
-# 真正开始；不能恢复或重建曾启动过的物理世界
-.venv/bin/python -m scripts.benchmark run runs/policy/my-mosaic-batch --parallel 9
-# 全36项可用 --parallel 36，实际受本机与厂商配额限制
-.venv/bin/python -m scripts.benchmark status runs/policy/my-mosaic-batch
-.venv/bin/python -m scripts.benchmark stop runs/policy/my-mosaic-batch
+.venv/bin/python -m scripts.benchmark prepare --models astra \
+  --families mosaic --output runs/policy/NEW_NATIVE_BATCH
+.venv/bin/python -m scripts.benchmark run runs/policy/NEW_NATIVE_BATCH --parallel 9
+.venv/bin/python -m scripts.benchmark status runs/policy/NEW_NATIVE_BATCH
+.venv/bin/python -m scripts.benchmark stop runs/policy/NEW_NATIVE_BATCH
 ```
 
-run 会检查预检结果与实际模型、provider 地址、上下文、effort、生成的模型 catalog 和 Codex CLI 版本一致。修改执行源码／冻结输入后必须重新 prepare。preflight 是小样本接口兼容性检查，包含手动 compact 和 fork 后继续调用工具；它不验证自动 compact 阈值、完整 272K 窗口或机器人任务成绩。
+Omitting family/case filters prepares all 36 cases per selected model. The native
+entry accepts up to 36 task slots, but local CPU, memory, disk, rendering, native
+sessions, delegates, and provider capacity remain real bounds. Prepare a new
+batch after changing execution source or frozen inputs; never restart a previously
+started physical world to reuse its result directory.
 
-任务版本继续由 `configs/task_families/current.json` 选择：本发布清单的 GPT Mosaic 是 R14，Oracle 展示仍使用自己的 R13 冻结录制。其他 worktree 的新草案不会自动进入此清单。`scripts.tasks` 的纯准备／来源检查入口仍保留；正式 CLI 启动使用 benchmark 入口生成的包。
+Execution checks the compatibility receipt against the actual profile, provider
+address, context, effort, generated model metadata, and native CLI version. The
+full check exercises image/tool round trips, manual compaction, and inherited
+fork history followed by tools. It does not establish the complete context window,
+automatic compaction threshold, provider's internal model identity, task ability,
+or long-term stability. A smoke-only receipt does not qualify a scored run.
 
-## 时间、容量错误与上下文
+The current release selects policy Mosaic R14. Historical Oracle/Factory
+recordings retain their frozen R13 source colors. Unified new Oracle executions
+select current released scenes independently. Another worktree's R15 draft does
+not silently enter this registry or replace historical evidence.
 
-从 START 起每项最多24小时，包括模型思考、工具、通信、fork 和容量等待。仿真服务自己执行截止：禁止新动作、请求制动、保存截止时评估、封存60Hz记录。停止后的稳定不能算作准时成功。Codex 宿主不再施加从进程创建起算的固定截止；物理进程连接仍有独立的工程启动检查；Slurm 作业时限覆盖启动、实验和收尾。已结束的运行不会循环重开。
+## Time, capacity recovery, and context
 
-已明确失败、属于容量／速率限制的模型轮次，等待至少10秒，在没有未解决物理调用时续接同一会话；不重发机械臂动作、不重置物理、不延长期限。身份／配额不足／普通任务错误不当作容量错误盲目循环。创建、fork 或投递回执未知时保留现场并停止自动重试。原调用编号的客户端恢复规则保持不变。
+The public default is 24 hours from each task's persisted START, including policy
+reading, reasoning, tools, communication, fork setup, and capacity waits. The
+physical service enforces its deadline: bar new actions, request braking, evaluate
+the cutoff, and seal recording. Settling after the deadline is not timely success.
+The host does not add a second fixed deadline from process creation. Startup
+readiness and an operator's engineering stop are separate. Slurm allocations
+must cover startup and cleanup as well as task execution. Ended worlds never
+silently restart.
 
-统一请求 `model_context_window=272000`、`model_auto_compact_token_limit=245000`。模型必须原生支持这个窗口，且有足够输出／系统空间；配置数值不会扩大服务端窗口。CLI catalog 的95%有效窗口预留仍可能使显示值约为258400。第三方各自的压缩行为、tokenizer 和 effort 档位需记录，不能把同名 effort 当作相同计算预算。厂商滚动别名可能升级，结果要保留实际返回型号与日期。
+Explicit failed capacity/rate-limited turns wait at least ten seconds and can
+continue the same native session only under the safe runtime conditions. They
+do not replay robot motion, reset the world, or extend the deadline. Authentication,
+quota exhaustion, and ordinary task errors are not blindly retried as capacity
+errors. Unknown creation/fork/send acknowledgements retain evidence and stop
+automatic replay. For uncertain physical operations, query the original request
+ID; a new ordinary request normally omits the outer `call_id` so the host assigns
+it. Querying an old job uses that old action ID inside `data.call_id`.
 
-## 图像、动作与后续工厂展示
+The catalog requests a 272,000-token context window and 245,000-token automatic
+compaction threshold. Settings do not enlarge the provider's real context.
+System/output reservations and the native catalog's effective-window allowance
+can change the displayed available size; the historical 95% example was about
+258,400 tokens. Preserve the actual requested/reported values, tokenizer,
+compaction behavior, effort, response model identity, and date. Equal effort
+names do not establish equal computation across providers or engines.
 
-正式 CLI 包使用简单任务场景，按需通过 MuJoCo OpenGL Classic 返回策略所选相机的真实 RGB。机器人工具同时返回 JSON 与选定图片；路径不等于已经查看图片。隐藏服务不持续绘制预览，也默认不编码实时视频，避免36项一起占满渲染资源。
+## Images, motion, and later video
 
-从 START 到结束的物理状态由原记录器按60Hz保存，包含机械臂与物体运动，以及材质事件；不会因为没有截图就丢动作。记录器在物理子步采样，60Hz之外的更高频变化受采样带宽限制。静止／细抖动裁剪只产生派生剪辑，不覆盖原流。之后可以离线以30fps在工厂 Cycles 中渲染 top/front，完全独立于模型取图。
+The policy receives real selected-camera RGB through MuJoCo and its explicit
+OpenGL backend. Tools return JSON and selected image content; a file path alone
+does not prove the model saw an image. Current observations use JPEG
+896 x 560 at quality 85. Hidden service operation does not continuously draw a
+preview; real-time video encoding is optional and disabled by default.
 
-## 会话与 Desktop
+The recorder samples physical state at 60 Hz, independently of screenshots,
+including arm/object motion and appearance events. Sampling at physical substeps
+does not preserve arbitrary changes above that bandwidth. Current float32/XOR
+compression retains states and timestamps; old streams remain readable. Removing
+idle or unproductive intervals is an editable presentation derivative and does
+not overwrite the original evidence. Native session collection externalizes
+image payloads into shared objects for portable archives; it does not change
+what was sent to the API. See [evidence storage](evidence-storage.md).
 
-CLI 宿主使用持久化的原生 thread/start、turn/start、thread/fork；绑定真实 session ID，按父ID、ordinal 与历史哈希验证 fork。一个初始任务会话保持全新，只有任务内 delegate 可以继承它自己的历史。
+Later [Factory rendering](factory.md) replays recorded motion without dynamics,
+with independent 30 fps/1080p or configured output quality. It need not use the
+model-observation resolution. Each recording uses matching frozen geometry,
+parameters, appearance events, and edits.
 
-会话保存在同一 CODEX_HOME，且有可读标题。status 输出每个任务／角色的 thread ID、真实观测状态；可用匹配 provider 配置的 CLI resume 查看。独立 app-server 的实时状态属于该宿主，不能把 Desktop 显示的 notLoaded 推断为停止，也不要在它运行时手工续轮。Desktop 列表可能按来源、provider、登录与项目过滤；目前未验收它自动显示全部第三方会话及实时状态，不改写 Desktop 私有数据库来伪造分身。官方 thread/list 也默认只列交互来源，审计时须显式包含 appServer／exec 等来源。[OpenAI App Server](https://learn.chatgpt.com/docs/app-server)
+## Native sessions and Desktop
 
-本机真实 CLI 的离线协议检查支持工具往返、返回图片与同边界 fork，使用本地 Responses stub，外部模型调用为0：
+The host uses native `thread/start`, `turn/start`, and `thread/fork`, binds real
+session IDs, and verifies fork lineage through parent ID, source ordinal, and
+history hashes. Initial task sessions are clean; only an authorized in-task
+delegate inherits its own Controller's allowed current-task history.
+
+New API runs isolate Codex homes per task. That task's Controller, snapshots,
+and delegates share its home to retain native lineage. Different tasks have
+different homes. The resolved home is recorded in `<run>/codex-home.json`;
+original transcripts are under its `sessions/` directory. Legacy shared-home
+runs keep their recorded location. Collection preserves the relevant native
+traces without exporting authentication/config/state databases.
+
+Status reports native IDs and observed states. A separate Desktop's `notLoaded`
+label does not establish that an app-server stopped. Do not manually start a
+competing turn in a live task's session. Desktop visibility can depend on source,
+provider, sign-in, and project filters; automatic visibility of every third-party
+session is not qualified, and the host does not forge Desktop private databases.
+When auditing native `thread/list`, include the relevant app-server/exec sources
+rather than assuming the interactive default covers every session. See the
+[official app-server guide](https://developers.openai.com/codex/app-server/).
+
+Local real-CLI checks use a synthetic Responses service without external billing:
 
 ```sh
-.venv/bin/python -m scripts.check_codex_cli --output runs/engineering/my-cli-protocol-check
+.venv/bin/python -m scripts.check_codex_cli --output runs/engineering/NEW_CLI_CHECK
 .venv/bin/python -m scripts.check_codex_snapshot
 ```
 
-当前工程未启动正式策略试验，未凭离线检查声称第三方厂商 API 已验收。物理／文件证据边界依旧是角色协议和工具认证，不是防恶意策略的操作系统隔离。
+A passed offline check is evidence for its exact protocol/version, not acceptance
+of every external provider or a formal task score. Current check scope is in the
+integration ledger. Role permissions and authenticated tools define the benchmark
+interface; they are not a claim of operating-system containment against malicious
+policy code.

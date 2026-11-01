@@ -1,99 +1,139 @@
-# Mosaic：当前任务规格与交付入口
+# Mosaic: current specification and delivery
 
-Mosaic有九项任务：4、6、8臂分别对应6×12、9×18、12×24图案，各包含L1/L2/L3。
-所有目标格都要由不同的正确颜色方块同时满足释放、位置、朝向和稳定条件。
+Mosaic has nine cases: 4, 6, or 8 arms with 6 x 12, 9 x 18, or 12 x 24 patterns,
+each at Levels 1, 2, and 3. All target cells must simultaneously contain distinct
+correctly colored cubes satisfying release, placement, orientation, and stability.
 
-## 用途与默认版本
+## Current selection and Legacy sources
 
-| 用途 | 场景版本 | 状态 |
-|---|---|---|
-| GPT简单背景仿真 | R14，附近混色供料 | 九项输入、公开材料与源绑定运行协议已接入；未启动GPT |
-| Oracle及其工厂展示 | R13，原供料颜色 | 九项完整Oracle与独立记录审计通过，1566/1566格 |
-| GPT轨迹的工厂展示 | 该GPT run冻结的R14场景 | 消费GPT自己的记录与剪辑表，当前尚无新GPT运行 |
+New policy and unified Oracle executions select the current **R14** released
+scene through `configs/task_families/current.json`. R14 uses locally mixed stock
+colors and an **81 mm** grid pitch. The R15 draft is not the default or a substitute
+asset. New Factory imports use the actual policy/Oracle recording's own frozen
+scene, source hashes, motion, and events.
 
-`configs/task_families/mosaic/delivery.json`是日常交付入口，默认purpose为gpt；
-`selection.json`声明两种用途的registry。R13和R14的颜色身份不同，绑定到各自
-scene/recording hash。两者使用共同的执行、记录和刚体回放能力。
+Historical purpose files, including `configs/task_families/mosaic/delivery.json`
+and `selection.json`, retain their original R13 Oracle/R14 future-policy split
+for provenance. They do not override unified new-run selection. The nine original
+complete Oracle witnesses and their Factory recordings use R13 stock colors;
+their independent audits covered 1,566/1,566 cells. Preserve those recordings
+with their original source instead of replaying their poses into R14 colors.
+New R14 Oracle attempts have separate qualification; the old success does not
+transfer automatically. See [Oracle execution](../oracle.md) and the
+[integration ledger](../development/unified-main.md).
 
-R14只改变初始供料颜色/RGB。方块位置和数量、各颜色总数、目标图案、机器人、
-桌面、相机和物理参数均与对应R13保持一致。同尺度三个等级使用相同供料配色。
-每臂最近供料中约70%–73%有不同同色目标格的同臂取放采样几何证据；这描述
-设计可用性，实际分工、交接次数、完整载荷路径和并行效率由运行决定。
+At its original release, R14 changed stock color identities/RGB only: stock
+positions/count, total color inventory, target pattern, robots, tabletop, cameras,
+and geometry matched R13. Current rolling-friction assets are a separate physical
+revision identified by the release lock. Three levels at one scale share a stock
+color arrangement. Sampling found same-arm pick/place geometry to different
+same-color goals for about 70%-73% of each arm's nearby stock; this is design
+availability evidence, not a required assignment, complete carrying path,
+handover count, or parallel-efficiency result.
 
-## 静态规格
+## Static specification
 
-| 机械臂 | 图案/各等级目标数 | 桌面外尺寸（宽×深，m） |
-|---|---|---|
-| 4 | 6×12 / 72 | 2.465×2.66175 |
-| 6 | 9×18 / 162 | 3.0725×3.41125 |
-| 8 | 12×24 / 288 | 3.68×3.3435 |
+| Arms | Pattern and goals per level | Outer table width x depth |
+| --- | --- | --- |
+| 4 | 6 x 12 / 72 | 2.465 x 2.66175 m |
+| 6 | 9 x 18 / 162 | 3.0725 x 3.41125 m |
+| 8 | 12 x 24 / 288 | 3.68 x 3.3435 m |
 
-桌高0.8m，方块边长60mm，格距81mm。使用case自身公布的基座、工作范围及相机
-标定。L1的局部口袋几何是桌面的一部分，外尺寸不代表整个外轮廓都是连续支持面。
+Table height is 0.8 m, cube side 60 mm, and grid pitch 81 mm. Use the case's
+published bases, workspaces, and camera calibration. Level 1 pockets are part
+of the real table; an outer bounding rectangle does not imply continuous support.
 
-颜色为cream `#FFF4DA`、navy `#173F73`、coral `#F03F5B`、sage `#16A16E`。
-目标矩阵与参考图已经世界北向上：第1行在+Y、第1列在−X，直接使用提供的图案。
-背景色格也计入目标。供料source标签只描述库存来源，不建立独占所有权。
+The palette is cream `#FFF4DA`, navy `#173F73`, coral `#F03F5B`, and sage `#16A16E`.
+The target matrix/reference image is already north-up: row 1 lies toward +Y and
+column 1 toward -X. Background-colored cells are goals too. Stock-source labels
+identify inventory origin without exclusive arm ownership.
 
-- L1：80mm净开口的方口袋，深20mm；检查完整旋转投影和坐底。
-- L2：3mm红色印刷线；方块仍依靠实际接触放稳。
-- L3：没有可见网格，声明的目标图案和坐标系仍有效。
+- **Level 1:** square pockets with 80 mm clear openings, 20 mm deep; evaluate the
+  full rotated cube footprint and actual seating.
+- **Level 2:** 3 mm printed red lines; cubes still need real stable support.
+- **Level 3:** no visible grid; the declared pattern and coordinate system remain
+  the placement reference.
 
-## 完成条件
+## Completion and process reporting
 
-| 条件 | 当前判据 |
-|---|---|
-| 覆盖 | 每格一个不同的正确颜色方块，全部格最终同时合格 |
-| 释放 | 方块与机器人几何没有距离≤0.2mm的接触 |
-| 稳定 | 线速度<0.01m/s、角速度<0.1rad/s，连续1个仿真秒 |
-| 朝向 | 方块轴对齐误差≤8°，包含自身90°对称等价 |
-| L2/L3位置 | xy中心误差≤5mm，z中心误差≤3mm |
-| L1位置 | 完整旋转投影位于口袋净开口内，余量0.3mm；底面误差≤0.8mm，并有≤0.2mm坐底接触 |
-| 过程 | 无评测过程违规；失败与合法恢复保留原记录 |
+| Condition | Bound criterion |
+| --- | --- |
+| Coverage | One distinct correctly colored cube per cell; every cell simultaneously qualified |
+| Release | No cube/robot contact at distance <= 0.2 mm |
+| Stability | Linear speed < 0.01 m/s and angular speed < 0.1 rad/s for one continuous simulation second |
+| Orientation | Cube-axis alignment error <= 8 degrees, including its 90-degree symmetry equivalents |
+| Level 2/3 position | xy center error <= 5 mm; z center error <= 3 mm |
+| Level 1 position | Full rotated footprint inside the pocket with 0.3 mm margin; bottom-height error <= 0.8 mm; seating contact <= 0.2 mm |
+| Process | Report collisions, drops, recovery, and strict compliance independently from current policy completion |
 
-位置、抓持偏移、开爪和撤离分别判断。端点IK不能证明完整运动路径或并行无碰撞；
-之后碰触成品可能使完成资格失效。只通过执行器和真实接触改变在线世界，策略
-从允许的RGB、本体状态及动作反馈决策。
+New policy `terminal_outcome_v2` reports the terminal placement outcome even
+when process violations were recorded. It retains a separate strict result;
+a violation does not itself stop the agent. Frozen historical Oracle evaluations
+keep their stricter original semantics. Cube position, grasp offset, release,
+and retraction are separate checks. Later contact can invalidate a completed
+placement. End-point IK alone does not verify a complete safe or concurrent path.
+The online policy changes the world through authorized actuators and real
+contacts, using permitted RGB, proprioception, and action feedback.
 
-## 日常命令
+## Current preparation and retained family commands
+
+Run `robofrontier bootstrap` to restore the pinned current assets, then use
+[unified preparation](../unified-cli.md). Historical family auditing/review remains:
 
 ```sh
-# 默认检查R14的全部九项，不创建run或调用模型。
 python -m scripts.mosaic
 python -m scripts.mosaic check --purpose oracle
-# 复查全部原始动作块及本次整理保护清单。
 python -m scripts.mosaic check --verify-recorded-chunks --verify-protected
-# 导出新的审查包；目录必须不存在，不重建几何、不改已有包。
 python -m scripts.mosaic package --output outputs/policy-packages/NEW
 ```
 
-现有R14包为`outputs/policy-packages/mosaic-r14-local-colours-20261027`，其中
-`previews/index.html`包含九张配色图和18张真实初态截图；示意图中间彩格是目标
-参考。R13包为`outputs/policy-packages/mosaic-r13-20261027`。
+The default family check inspects its R14 policy entries without creating a run
+or calling a model. Its explicit `--purpose oracle` inspects Legacy R13 witnesses;
+it is not the current unified Oracle scene selector. Package output must be new;
+this is a review export, not a geometry rebuild or policy launch.
 
-GPT公开材料只有对应版本的任务、目标图、任务prompt与一份Mosaic操作skill。
-R14使用`prompts/tasks/mosaic-r14.md`；共用skill位于
-`.agents/skills/mosaic-r13/SKILL.md`，保留已绑定的文件身份，适用于两版共同几何。
-R13 prompt及构建代码保留为原审查包的版本依据。私有配对、关节见证、Oracle
-真值/动作/修复经验和工程manifest不进入新policy上下文。
+The historical R14 package is
+`outputs/policy-packages/mosaic-r14-local-colours-20261027`; its `previews/index.html`
+contains nine color diagrams and eighteen real initial screenshots. Colored
+cells in the diagrams are the target reference. The R13 review package is
+`outputs/policy-packages/mosaic-r13-20261027`.
 
-## 视频、去静止与工厂
+Public policy material contains the corresponding task, target image, task
+prompt, and Mosaic skill. R14 uses `prompts/tasks/mosaic-r14.md`; the shared
+`.agents/skills/mosaic-r13/SKILL.md` keeps its historical filename and describes
+the common geometry. Its name does not select R13 for a new run. Old prompts
+and builders remain provenance for their review packages. Private pairings,
+joint witnesses, Oracle truth/actions/recovery experience, and engineering
+manifests must not enter a new policy's context.
 
-主视频目录为`outputs/oracle/mosaic-continuation-20261026/videos`，当前九项为
-30倍速、30fps。原始记录60Hz；精确输出帧映射和全采样率保留区间在同目录
-`轨迹剪辑时间表/`。旧倍速、原完整时间线及所有原始轨迹继续保留。
+## Video, source edits, and Factory
 
-已交付剪辑可跨背景复用：从原始记录取选中状态，不重新求解物理。需要整体
-平移/水平旋转工位，保持内部相对几何与尺寸。GPT未来记录也按自己的冻结场景、
-事件与剪辑表迁移，不使用Oracle的配对或时间表代替。
+Historical videos are under `outputs/oracle/mosaic-continuation-20261026/videos`,
+with nine current-at-delivery videos at **30x, 30 fps** from original 60 Hz motion.
+Their exact frame maps and full-rate retained intervals live in the original
+edit subdirectory. Its historical basename, represented as JSON Unicode escapes,
+is `"\u8f68\u8ff9\u526a\u8f91\u65f6\u95f4\u8868"`. Earlier speed variants, full
+timelines, and original motion remain retained; this page does not claim they
+were rerendered with later physics or colors.
 
-多桌展示合同：各桌独立跳过自己的无用区间，采用各自倍速；同帧更新所有工位
-后统一渲染30fps。每桌完成后独立回到原起点循环，重置外观；此最新要求覆盖旧交接
-的播完停止。Mosaic的30倍速只控制展示，不改变物理时间或其他家族默认值。
+Presentation edits can be reused across backgrounds by reading selected original
+states without advancing physics. Move a whole station rigidly in the horizontal
+plane while preserving internal geometry and dimensions. Each new policy
+recording uses its own source scene, events, and edit table, not an Oracle's
+pairings or timing as an assumed replacement. Compressed and Legacy motion
+readers share this replay contract; see [Factory](../factory.md).
 
-公共多桌时钟与源级去静止已接入。统一release采用新station-edit.v2，原交付时间表
-与135个候选/5段慢移动的历史审查继续保留。分类保护定向运动与语义事件，
-记录缺少完整实测接触力，不能推断实际零力。见[工厂说明](../robo-factory.md)。
+Each station independently skips its own unneeded intervals and uses its own
+playback speed. Update all stations before rendering one 30 fps frame. Current
+multi-station presentation loops each station to its own beginning and resets
+appearance. Legacy hold-final-state remains readable. Mosaic's 30x affects only
+presentation, not physics time or another family's playback speed.
 
-资产物化、共享门禁、提示材料加载和合并顺序见
-[合并交接](../plans/suite-v2/mosaic-merge-handoff.md)。
+The shared timeline and source-level editing use `station-edit.v2`. Original
+edit tables and the historical review of 135 candidates/five slow-motion
+segments remain preserved. Classification protects directed movement and semantic
+events; missing measured contact-force data cannot establish zero force. See
+[Factory design](../robo-factory.md). The
+[Legacy merge handoff](../plans/suite-v2/mosaic-merge-handoff.md) records the
+original asset materialization, public-input loading, and shared merge gates;
+its pending-state statements do not override current integration evidence.
