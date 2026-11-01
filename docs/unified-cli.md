@@ -33,6 +33,10 @@ For queue execution, use the frozen, node-local [Slurm submission flow](slurm.md
 It has a separate `[slurm]` section in the same TOML and does not copy active
 SQLite databases to shared storage. Real-cluster acceptance remains pending.
 
+For Linux Docker or Docker Desktop, use the [container command flow](docker.md).
+It builds committed source and keeps active runtime/session data in plain local
+Docker volumes. Verified stopped ZIPs are exported back to the worktree.
+
 ## Defaults and precedence
 
 The repository's `robofrontier.toml` contains the defaults. A partial user TOML
@@ -74,6 +78,9 @@ physics steps, or model turns. It is not a provider rate-limit guarantee.
 | `evidence.auto_collect` | Collect stopped native sessions, motion and audit evidence after the supervisor exits |
 | `evidence.auto_archive` | Create a verified portable ZIP from that collection |
 | `evidence.delete_sources` | Must remain false; automatic destructive cleanup is not implemented |
+| `container.workspace` | Separate persistent Docker volumes for this checkout/workspace |
+| `container.image` | Optional image tag; its source revision must match the checkout commit |
+| `container.memory_gib` / `cpus` | Optional container resource limits; zero adds no quota |
 
 This first configuration schema covers policy execution, evidence and Slurm
 resource requests. Factory editing, GPU device selection and Oracle recovery still use

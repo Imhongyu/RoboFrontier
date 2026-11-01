@@ -23,6 +23,7 @@ SCHEMA = {
     'slurm': {'partition': str, 'account': str, 'qos': str, 'gpus': int,
               'cpus_per_task': int, 'memory_gib': int, 'time_limit_s': int,
               'stop_warning_s': int, 'scratch_root': str},
+    'container': {'image': str, 'workspace': str, 'memory_gib': int, 'cpus': float},
 }
 
 
@@ -118,6 +119,13 @@ def validate_configuration(config):
     for field in ('partition', 'account', 'qos'):
         if slurm[field] and not fullmatch(r'[A-Za-z0-9_.-]+', slurm[field]):
             raise ValueError('Invalid slurm.' + field)
+    container = config['container']
+    if not fullmatch(r'[a-z0-9][a-z0-9_.-]{0,63}', container['workspace']):
+        raise ValueError('Invalid container.workspace')
+    if container['image'] and not fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/@-]{0,255}', container['image']):
+        raise ValueError('Invalid container.image')
+    if container['memory_gib'] < 0 or not math.isfinite(container['cpus']) or container['cpus'] < 0:
+        raise ValueError('Container resource limits must be finite and nonnegative')
 
 
 def rendering_environment(device, system, base):

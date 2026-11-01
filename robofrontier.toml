@@ -44,3 +44,9 @@ memory_gib = 128                      # A resource request, not a measured capac
 time_limit_s = 90000                  # Allocation lifetime, separate from the task clock
 stop_warning_s = 600                 # Stop and collect before allocation expiry
 scratch_root = ""                    # Empty requires the node's SLURM_TMPDIR
+
+[container]
+image = ""                           # Empty selects a tag from the committed source revision
+workspace = "default"                # Persistent local Docker volumes, separate from host Codex state
+memory_gib = 0                       # 0 adds no limit beyond the Docker daemon/allocation
+cpus = 0.0                           # 0 adds no CPU quota

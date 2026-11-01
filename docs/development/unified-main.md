@@ -167,3 +167,25 @@ The runtime group passed 55 tests; the configuration/compatibility group passed
 18 tests; six further profile/bootstrap checks passed. Fourteen native host tests
 and all 24 existing dispatcher scenarios passed. These are overlapping groups,
 not a count of unique release tests. No model inference was used.
+
+## Unified Docker implementation
+
+The `container` command builds committed source through `git archive`, verifies
+the image's source-revision label, creates persistent plain local Docker volumes,
+and invokes the same native command-line interface. Image construction installs
+both native CLIs, locked dependencies and pinned assets without model inference.
+The entry checks runtime filesystem locality. API task homes and native sessions
+remain separate from the host's existing authentication directories.
+
+The wrapper reads a prepared batch's frozen renderer before requesting a GPU,
+forwards only selected provider credential variable names, monitors JSON, and
+requests orderly stop on interruption. A still-live/disconnected container is
+retained for review. After closure, automatic evidence ZIPs are copied to the
+host and verified against the terminal command's SHA-256. Native session/auth
+volumes are never removed automatically. Explicit native authentication commands
+are available without cloning the host's Desktop/Keychain credentials.
+
+The focused container/configuration/Slurm group passed 31 offline tests.
+Real-image build, CPU rendering, native sandbox behavior and provider/subscription
+lifecycle acceptance remain outstanding; no paid test was started. This stage
+does not establish 36-task resource capacity or Linux NVIDIA qualification.

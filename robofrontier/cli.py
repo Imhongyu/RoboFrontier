@@ -195,6 +195,8 @@ def run(batch, *, engineering=False):
         result['collection_complete'] = json.loads((output/'collection.json').read_text())['complete']
         if config['evidence']['auto_archive']:
             result['archive'] = str(archive_collection(output, output.with_suffix('.zip')))
+            with Path(result['archive']).open('rb') as stream:
+                result['archive_sha256'] = hashlib.file_digest(stream, 'sha256').hexdigest()
     return result
 
 
@@ -220,6 +222,7 @@ def archive_collection(collection, output):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, help='Partial TOML overriding repository defaults')
+    parser.add_argument('--result-file', type=Path, help='Write the terminal command result as atomic JSON')
     sub = parser.add_subparsers(dest='command', required=True)
     for name in ('config', 'plan', 'prepare', 'preflight', 'slurm-submit'):
         p = sub.add_parser(name)
@@ -260,15 +263,27 @@ def main(argv=None):
     p.add_argument('--output', type=Path, required=True)
     p = sub.add_parser('demo', help='Legacy interactive single-arm application')
     p.add_argument('arguments', nargs=argparse.REMAINDER)
+    p = sub.add_parser('container', help='Run the native CLI in persistent local Docker volumes')
+    p.add_argument('arguments', nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
+    def emit(value):
+        if args.result_file:
+            from .run_setup import write_json
+            write_json(args.result_file, value)
+        _print(value)
     try:
+        if args.command == 'container':
+            from .container_runtime import execute
+            report = execute(args.arguments, load_configuration(args.config))
+            emit(report)
+            return report['exit_code']
         if args.command == 'demo':
             from .app import main as demo
             sys.argv = [sys.argv[0], *args.arguments]
             return demo()
         if args.command == 'bootstrap':
             from scripts.benchmark_handoff import setup_assets
-            _print(setup_assets())
+            emit(setup_assets())
             return 0
         if args.command in ('config', 'plan', 'prepare', 'preflight', 'slurm-submit'):
             overrides = {}
@@ -282,29 +297,29 @@ def main(argv=None):
                 overrides['render'] = {'device': args.render}
             config = load_configuration(args.config, overrides)
             if args.command == 'config':
-                _print(config)
+                emit(config)
             elif args.command == 'plan':
-                _print(plan(config))
+                emit(plan(config))
             elif args.command == 'preflight':
                 report = preflight(config, confirm_spend=args.confirm_spend,
                                    smoke_only=args.smoke_only, max_budget_usd=args.max_budget_usd)
-                _print(report)
+                emit(report)
                 return 0 if report.get('passed') else 2
             elif args.command == 'slurm-submit':
                 from scripts.benchmark import load_env
                 from .slurm_job import submit
                 load_env(ROOT/'.env')
-                _print(submit(config, args.output, queue=args.queue, engineering=args.engineering))
+                emit(submit(config, args.output, queue=args.queue, engineering=args.engineering))
             else:
-                _print({'batch': str(prepare(args.output, config)), 'model_calls': 0})
+                emit({'batch': str(prepare(args.output, config)), 'model_calls': 0})
         elif args.command == 'run':
             from scripts.benchmark import load_env
             load_env(ROOT/'.env')
-            _print(run(args.batch, engineering=args.engineering))
+            emit(run(args.batch, engineering=args.engineering))
         elif args.command == 'status':
             # Read the supervisor's atomic snapshot, never open a writer's SQLite.
             snapshot = args.batch/'engineering-status.json'
-            _print(json.loads((snapshot if snapshot.is_file() else args.batch/'batch.json').read_text()))
+            emit(json.loads((snapshot if snapshot.is_file() else args.batch/'batch.json').read_text()))
         elif args.command == 'stop':
             batch = json.loads((args.batch/'batch.json').read_text())
             folder = args.batch.resolve()
@@ -314,14 +329,14 @@ def main(argv=None):
             (folder/'STOP').touch()
             for path in paths:
                 (path/'STOP').touch()
-            _print({'stop_requested': True, 'note': 'Inspect status and final sealing outcome'})
+            emit({'stop_requested': True, 'note': 'Inspect status and final sealing outcome'})
         elif args.command == 'collect':
-            _print({'collection': str(collect(args.batch, args.output))})
+            emit({'collection': str(collect(args.batch, args.output))})
         elif args.command == 'archive':
-            _print({'archive': str(archive_collection(args.collection, args.output))})
+            emit({'archive': str(archive_collection(args.collection, args.output))})
         elif args.command == 'extract':
             from .evidence_zip import unpack
-            _print(unpack(args.archive, args.output))
+            emit(unpack(args.archive, args.output))
         return 0
     except (ValueError, OSError, KeyError) as error:
         parser.exit(2, 'robofrontier: ' + str(error) + '\n')
