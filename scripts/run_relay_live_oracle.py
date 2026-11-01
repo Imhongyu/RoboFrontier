@@ -11,6 +11,19 @@ class CommissionComplete(Exception):pass
 def total_stop_requested(elapsed,limit,explicit_stop=False):
     return bool(explicit_stop or (limit>0 and elapsed>limit))
 
+
+def attempt_with_recovery(trial, operation, recovery):
+    """A terminal owner stop is never an invitation to repair or keep stepping."""
+    from robofrontier.suite.oracle import ReferenceStopped
+    try:
+        return operation()
+    except (ReferenceStopped, KeyboardInterrupt, CommissionComplete):
+        raise
+    except Exception as error:
+        if trial.monitor.violations:
+            raise
+        return recovery.wait_for_repair(error)
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--case',required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--scene',type=Path);p.add_argument('--harness',type=Path);p.add_argument('--wall-s',type=float,default=0.,help='Optional explicit total limit;0(default) means no total deadline');p.add_argument('--frozen',action='store_true')
@@ -53,8 +66,12 @@ def main():
     t=Trial(a.scene,out,controller_cfg=load_harness(a.harness),sources=sources,record_hz=60.)
     relay_pipeline.install_motion_metrics(t)
     t.live_preview=True;t.abort_on_process_violation=True
-    t.stop_requested=lambda:total_stop_requested(time.monotonic()-t.started,a.wall_s,(out/'STOP').exists() or (out.parent/'STOP').exists())
-    signal.signal(signal.SIGTERM,lambda *_:(_ for _ in ()).throw(ReferenceStopped('Explicit process stop')))
+    stopped=[False]
+    t.stop_requested=lambda:total_stop_requested(time.monotonic()-t.started,a.wall_s,stopped[0] or (out/'STOP').exists() or (out.parent/'STOP').exists())
+    def request_stop(*_):
+        stopped[0]=True
+        raise ReferenceStopped('Explicit process stop')
+    signal.signal(signal.SIGTERM,request_stop)
     ref.STAGE_SEARCH_WALL_S=120.
     report=dict(case_id=a.case,passed=False,commissioning_only=bool(a.commission_transfers),git_commit=manifest['git_commit'],source_worktree=manifest['worktree'],scope='Bounded physical handover commissioning; not full task success' if a.commission_transfers else 'One complete canonical episode, including any retained forward recovery history',execution_mode='pure_program',phases=[],handovers=[],handover_protocol='qualified-members-v2' if a.flexible else 'whole-pair-v1')
     report['task_contract_sha256']=hashlib.sha256((a.scene/'task.json').read_bytes()).hexdigest()
@@ -76,20 +93,20 @@ def main():
             t.check_stop()
             pending=[ident for ident,s in t.monitor.result()['payloads'].items() if not s['completed']]
             try:
-                if a.pipeline:relay_pipeline.solve(t,flexible=a.flexible,terminal_observer=phase,handover_observer=handover)
-                else:ref.solve(t,payload_ids=pending[:1] if a.commission_transfers else pending,terminal_observer=phase,allow_partial_handover=a.flexible,handover_observer=handover)
+                def operation():
+                    if a.pipeline:return relay_pipeline.solve(t,flexible=a.flexible,terminal_observer=phase,handover_observer=handover)
+                    return ref.solve(t,payload_ids=pending[:1] if a.commission_transfers else pending,terminal_observer=phase,allow_partial_handover=a.flexible,handover_observer=handover)
+                outcome=attempt_with_recovery(t,operation,recovery)
+                if outcome=='complete':break
             except CommissionComplete:
                 t.wait(.5);report['evaluation']=t.monitor.result();report['unresolved_robot_actions']=[r for r,v in t.arms.items() if v.job is not None]
                 report['unit_passed']=bool(not t.monitor.violations and not report['unresolved_robot_actions'] and any(row['retained'] for row in report['handovers']))
                 break
-            except Exception as error:
-                if t.monitor.violations:raise
-                outcome=recovery.wait_for_repair(error)
-                if outcome=='complete':break
         t.wait(.5);report['evaluation']=t.monitor.result();report['unresolved_robot_actions']=[r for r,v in t.arms.items() if v.job is not None]
         report['passed']=bool(report['evaluation']['task_success'] and not report['unresolved_robot_actions'])
     except (Exception,KeyboardInterrupt) as error:
         report.update(error=repr(error),evaluation=t.monitor.result(),unresolved_robot_actions=[r for r,v in t.arms.items() if v.job is not None])
+        report['interrupted']=isinstance(error,(ReferenceStopped,KeyboardInterrupt))
     finally:
         report['payload_motion']=t.relay_motion_metrics
         report['scheduling']='reviewed-owner-from-canonical-start' if a.owner_start else 'rolling-payload-frontier' if a.pipeline else 'sequential-payloads'

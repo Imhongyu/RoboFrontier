@@ -368,3 +368,20 @@ bindings, current R14 selection, configuration/Factory regressions, source
 snapshot/manifest integrity tests and direct standing-team START. No model was
 called. Actual native physical smoke runs are the next qualification step;
 this entry alone is not a full physical witness.
+
+The first actual CLI smoke launched each current minimum-arm Level 1 native
+Oracle with a 15-second engineering elapsed limit and 10-second cleanup grace.
+Transport, Mosaic and Dial produced stopped native reports without forced
+termination. Transport and Mosaic retained unresolved in-flight actions rather
+than pretending to have sealed them. None is a task success. Relay exposed a
+native stop/recovery bug: its recoverable-error catch intercepted
+`ReferenceStopped`, entered live repair and continued stepping until the
+supervisor killed it. The original forced-stop directory is retained without a
+fabricated report under `runs/engineering/main-integration-oracle-cli-20261101`.
+
+The Relay entry now latches an owner stop and propagates terminal stop and
+commissioning-boundary exceptions past recoverable repair. Ordinary forward
+repair and process-violation rejection are unchanged. The focused stop/recovery,
+Relay batch and unified Oracle group passed 37 tests in 14.800 seconds. A new
+physical attempt is required to verify native shutdown; the first trial is
+never resumed or rewritten.
