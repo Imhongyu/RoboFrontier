@@ -288,8 +288,13 @@ def main(argv=None):
                 return 0 if report.get('passed') or report.get('commissioning_passed') else 1
             return 0
         if args.command == 'factory':
+            from contextlib import redirect_stdout
             from .factory_workflow import execute
-            emit(execute(args))
+            # Native exporters can print progress. Keep the unified command's
+            # stdout as one machine-readable result; diagnostics use stderr.
+            with redirect_stdout(sys.stderr):
+                report = execute(args)
+            emit(report)
             return 0
         if args.command == 'container':
             from .container_runtime import execute

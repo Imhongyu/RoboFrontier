@@ -57,6 +57,20 @@ class FactoryWorkflowTests(unittest.TestCase):
                            '--output', self.root/'preview'])
         self.assertEqual(bundle.read(result['plan'])['jobs'][0]['frames'], 3)
 
+    def test_import_progress_keeps_stdout_as_one_json_result(self):
+        def noisy_import(*args, **kwargs):
+            print(json.dumps({'stage': 'export_blender', 'physics_stepped': False}))
+            return {'status': 'verified', 'data_root': str(self.root/'imported')}
+
+        diagnostics = io.StringIO()
+        with patch.object(server, 'import_motion', side_effect=noisy_import), \
+                contextlib.redirect_stderr(diagnostics):
+            result = self.cli(['import-motion', self.root/'closed-recording',
+                               '--output', self.root/'imported'])
+        self.assertEqual(result['status'], 'verified')
+        self.assertEqual(result['model_calls'], 0)
+        self.assertIn('export_blender', diagnostics.getvalue())
+
     def test_promo_filter_error_precedes_installation_and_output_creation(self):
         with patch.object(bundle, 'setup') as install, contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit):
