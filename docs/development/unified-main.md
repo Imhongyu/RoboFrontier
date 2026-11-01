@@ -64,3 +64,18 @@ Luna's offscreen capture and capture timing are retained. Factory server's
 array-based diagnostic Factory replay is retained, because it avoids requiring
 production Cycles video rendering for pixel/FK comparisons. Luna's additional
 call-ID query/uncertain-result tests are retained alongside Codex error tests.
+
+## Initial regression inventory
+
+The first full discovery run executed 1,272 tests in 118 seconds: 25 were
+skipped, 179 errored, and one failed. This is a diagnostic inventory, not a
+passing release gate. Most errors request historical scene/workstation assets
+outside the current 36-case policy bundle. Other findings include missing Oracle
+extras and script import paths, two synthetic robot fixtures missing their image
+profile, a Factory fixture missing table metadata, and an outdated source
+compatibility receipt. Do not update a provenance receipt merely to turn a test
+green; verify the claimed equivalence first, or withdraw that claim.
+
+The targeted engine/role/protocol checks are separate from this legacy inventory.
+No live model calls were made by these checks. Claude's scored-run qualification
+remains closed until its native lifecycle has passed the required real checks.

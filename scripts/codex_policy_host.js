@@ -217,7 +217,7 @@ ${startupProtocol==='ready_barrier_v1' ? '先阅读公开任务和自己的角�
         mcp__codex_app__fork_thread:async p=>createNativeFork(p)};
       return await runMetaDispatcher({runDir:this.run,python:this.python,cwd:this.cwd,tools,
         startWhenReady:true,observationSource:'codex.app-server',onEvent:e=>this.event(e),
-        createSnapshot:p=>createNativeFork(p,true),
+        createSnapshot:async p=>JSON.parse((await createNativeFork(p,true)).content[0].text),
         stopRequested:()=>this.stopRequested()});
     } finally {
       this.stopped=true;

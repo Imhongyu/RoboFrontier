@@ -23,6 +23,37 @@ def occupancy(intervals, start, end):
             'overlap_seconds':sum(value for key,value in durations.items() if key>=2)}
 
 
+def model_evidence(directory, actor, thread, config, codex_home=None):
+    if config.get('engine', 'codex') == 'claude':
+        # CLI reports are useful observations but do not establish the effective
+        # provider model or rule out remapping and auxiliary requests.
+        turns=[]
+        evidence=Path(directory)/'private/evidence'
+        for path in evidence.glob('*-summary.json'):
+            try:
+                data=json.loads(path.read_text())
+                if data.get('actor') != actor or data.get('session_id') != thread or not thread:
+                    continue
+                summary=(data.get('record') or {}).get('summary') or {}
+                turns.append({'turn_id':data.get('turn_id'), 'reported_model':summary.get('reported_model'),
+                              'status':data.get('status')})
+            except (OSError, ValueError, AttributeError, TypeError):
+                continue
+        return {'thread_id':thread, 'turns':turns, 'verified':False,
+                'source':'claude_host_reported_model_not_provider_identity'}
+    turns=[]
+    paths=native_codex_sessions(directory, thread, codex_home)
+    for path in paths:
+        with path.open() as stream:
+            for line in stream:
+                if '"turn_context"' not in line:continue
+                record=json.loads(line)
+                if record.get('type')=='turn_context':
+                    value=record['payload'];turns.append({k:value.get(k) for k in ('turn_id','model','effort')})
+    return {'thread_id':thread,'turns':turns,
+            'verified':bool(turns) and all(t['model']==config['model'] and t['effort']==config['effort'] for t in turns)}
+
+
 def export(directory, codex_home=None):
     directory=Path(directory).resolve();output=directory/'private/outputs'
     manifest=directory/'private/inputs/manifest.json'
@@ -45,17 +76,7 @@ def export(directory, codex_home=None):
     models={}
     for actor,agent in agents.items():
         if agent['kind']=='manager':continue
-        thread=agent['thread_id'];turns=[]
-        paths=native_codex_sessions(directory, thread, codex_home)
-        for path in paths:
-            for line in path.open():
-                # Avoid decoding image payloads and unrelated model content.
-                if '"turn_context"' not in line:continue
-                record=json.loads(line)
-                if record.get('type')=='turn_context':
-                    value=record['payload'];turns.append({k:value.get(k) for k in ('turn_id','model','effort')})
-        models[actor]={'thread_id':thread,'turns':turns,
-                       'verified':bool(turns) and all(t['model']==config['model'] and t['effort']==config['effort'] for t in turns)}
+        models[actor]=model_evidence(directory, actor, agent['thread_id'], config, codex_home)
     evaluation_path=output/'evaluation.json'
     evaluation=json.loads(evaluation_path.read_text()) if evaluation_path.exists() else None
     metric_evaluation=evaluation
@@ -80,6 +101,11 @@ def export(directory, codex_home=None):
                                 if e['kind']=='TOOL_RETURN' and e['details'].get('op')=='wait_events')),
             'async_actions':async_actions,
             'interpretation':'Action overlap covers active tool executions, excluding idle pose/grasp holding. It does not establish independent useful work or an architecture advantage.'}
+    if config.get('engine', 'codex') == 'claude':
+        # The current Claude launcher only admits unqualified engineering
+        # drafts. An evaluation is meaningful evidence, not qualification.
+        report.update(engine='claude', benchmark_qualified=False,
+                      qualification_reason='Claude engineering execution is not qualified for formal benchmark results')
     if isinstance(metric_evaluation,dict) and 'metrics' in metric_evaluation:
         report['task_metrics']={**metric_evaluation['metrics'],
             'robot_action_count':sum('started_sim_s' in a for a in actions.values()),
@@ -94,6 +120,8 @@ def export(directory, codex_home=None):
            f"墙钟：{report['wall_seconds']} 秒；动作：{sum(report['actions_by_arm'].values())}；消息：{len(messages)}。",'',
            f"实际模型设置核验：{report['all_requested_models_verified']}；固定输入变更：{report['changed_inputs']}。",'',
            '动作重叠不包含空闲保持；需结合任务进展与视频解释，一次试点不支持架构优劣结论。']
+    if config.get('engine', 'codex') == 'claude':
+        lines[2:2]=['Claude 工程运行：未取得正式 benchmark 资格，不能作为正式跑分结果。','']
     if 'task_metrics' in report:
         lines+=['',f"任务指标：{report['task_metrics']}。"]
     (output/'report.md').write_text('\n'.join(lines)+'\n')

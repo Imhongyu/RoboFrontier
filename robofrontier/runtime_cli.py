@@ -46,6 +46,16 @@ def fork_provenance(parent, child):
             'source_sha256':hashlib.sha256(json.dumps(prefix,sort_keys=True).encode()).hexdigest()}
 
 
+def native_fork_provenance(store, parent, child):
+    """Dispatch lineage verification to the evidence format of this run's engine."""
+    engine=store.get('config').get('engine','codex')
+    if engine=='claude':
+        from .claude.provenance import fork_provenance as claude_provenance
+        # One isolated Claude config directory per run, shared by every role session.
+        return claude_provenance(parent,child,store.path.parents[1]/'claude-config')
+    return fork_provenance(parent,child)
+
+
 def execute(store, op, data, owner, now):
     cfg=store.get('config')
     if op=='seal':
@@ -55,21 +65,29 @@ def execute(store, op, data, owner, now):
     if op=='snapshot':
         return {'lifecycle':store.get('lifecycle'),'paused':store.get('dispatch_paused',False),
                 'dispatcher_health':store.get('dispatcher_health',{}),
-                'config':{k:cfg[k] for k in ('poll_interval_s','session_observation_ttl_s','model','effort')},
+                'config':{**{k:cfg[k] for k in ('poll_interval_s','session_observation_ttl_s','model','effort')},
+                          'engine':cfg.get('engine','codex')},
                 'agents':{a:{k:x for k,x in v.items() if k!='note'} for a,v in store.agents().items()},
                 'delegations':Delegations(store).active() if cfg['topology']=='adaptive' else [],
                 'pending':{a:store.pending(a) for a,v in store.agents().items() if v['kind']!='manager'}}
     if op=='delegate-snapshot-bind':
+        if cfg.get('engine','codex') != 'codex':
+            raise ValueError('Claude adaptive delegation is not yet qualified')
         d=Delegations(store);key=data['id'];thread_id=data['thread_id']
         with store.transaction():
             store.lease(owner,now,cfg['manager_lease_s'])
             d.snapshot_created(key,thread_id,owner)
-        provenance=fork_provenance(d.batch(key)['source_thread_id'],thread_id)
+        provenance=native_fork_provenance(store,d.batch(key)['source_thread_id'],thread_id)
         with store.transaction():
             store.lease(owner,time.time(),cfg['manager_lease_s'])
             d.snapshot_bind(key,thread_id,provenance,owner)
         return {'recorded':True}
     if op=='delegate-bind':
+        # Matching transcript prefixes alone do not authenticate a native fork.
+        # Claude adaptive delegation stays closed until creation and role binding
+        # can be verified together by the trusted host.
+        if cfg.get('engine') == 'claude':
+            raise ValueError('Claude adaptive delegation is not yet qualified')
         # Commit identity before reading platform files: a failed check must
         # not erase a native fork that already exists.
         d=Delegations(store);key=data['id']
@@ -79,7 +97,7 @@ def execute(store, op, data, owner, now):
         batch=d.batch(key)
         if not batch.get('snapshot_thread_id') or not batch.get('snapshot_provenance'):
             raise ValueError('Verified delegation snapshot required')
-        provenance=fork_provenance(batch['snapshot_thread_id'],data['thread_id'])
+        provenance=native_fork_provenance(store,batch['snapshot_thread_id'],data['thread_id'])
         with store.transaction():
             store.lease(owner,time.time(),cfg['manager_lease_s'])
             d.bind(key,data['actor'],data['thread_id'],provenance,owner)
@@ -126,11 +144,14 @@ def execute(store, op, data, owner, now):
                 store.put('dispatcher_health',health)
         return {'observed':len(data['observations'])}
     if op=='request-start':
-        from contextlib import redirect_stderr
         from .pipeline_client import client_call
         connection=store.path.parent/'connections'/f"{cfg['manager']}.json"
-        with (store.path.parent/'admin-client.log').open('a') as log, redirect_stderr(log):
-            return client_call(connection,'start',{},'start-'+__import__('hashlib').sha256(store.get('run_id').encode()).hexdigest()[:24])
+        call_id='start-'+__import__('hashlib').sha256(store.get('run_id').encode()).hexdigest()[:24]
+        # Multiple benchmark runs share this Python process. Redirecting global
+        # sys.stderr here would cross-wire logs and restore closed streams.
+        with (store.path.parent/'admin-client.log').open('a') as log:
+            print('call_id='+call_id,file=log,flush=True)
+        return client_call(connection,'start',{},call_id,log_call_id=False)
     if op=='plan':return {'commands':Scheduler(store).plan(owner,now)}
     if op=='claim':return {'command':Scheduler(store).claim(data['wake_id'],owner,now)}
     if op=='dispatch-result':

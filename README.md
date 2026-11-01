@@ -16,6 +16,9 @@
 模型在运行中持续推进，不因默认时限或估计剩余时间而提前结束未完成任务；计时和停止由宿主执行。
 修改后的策略规则用于新准备的批次；已有冻结批次不自动更新。
 
+Claude 工程入口默认不设单轮、整任务美元上限，也不设正常策略轮次超时；
+费用记录照常保留。可显式启用预算，详见 [Claude 交接说明](docs/claude-handoff.md)。
+
 > **运行数据库存储尚未验证：**运行时使用 SQLite WAL。不要将活跃的运行数据库放在 Lustre/NFS 等网络文件系统，或从 macOS 主机直接打开正在由 Docker 写入的数据库；节点本地临时目录与结果回传流程尚需验证。不要根据现有 Slurm 示例启动正式或多人共享批次，直到存储方案通过验证。参见 [SQLite WAL 文档](https://www.sqlite.org/wal.html)。
 
 > **Physics revision:** This branch uses the Transport and Dial rolling-friction 0.03 candidate. See [validation and limitations](docs/transport-cylinder-stability.md) before collecting results; results differ from the original R14 physics.
@@ -37,6 +40,8 @@ RoboFrontier 用 MuJoCo 多机械臂任务研究 GPT 的分工、规划与协作
 - [各类任务与版本入口](docs/frontier-v2-environments.md)
 - [Codex CLI 多模型、并行运行与公开材料](docs/gpt-policy.md)
 - [多模型 worktree 交接、本机小测与调度 prompt](docs/multimodel-handoff.md)
+- [Claude Code 工程版交接与当前验证范围](docs/claude-handoff.md)；
+  [Claude 工程批次主 session prompt](prompts/claude/engineering-manager.md)
 - [Linux 服务器策略基准准备](docs/server-benchmark.md)
 - [最终视频、数据保留与目录](docs/repository-layout.md)
 - [本次合并、数据保全与验收](docs/oracle-integration.md)

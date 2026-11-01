@@ -11,12 +11,17 @@ from .tool_errors import CallIdConflict
 
 from .sqlite_busy import BUSY_TIMEOUT_SECONDS, begin_immediate
 
-from .sqlite_busy import BUSY_TIMEOUT_SECONDS, begin_immediate
-from .tool_errors import CallIdConflict
-
 
 def packed(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
+
+
+# Native session status is accepted only from the observer of the run's own engine.
+# A run without an `engine` setting is a Codex run.
+SESSION_SOURCES = {
+    'codex': ('codex.wait_threads', 'codex.app-server'),
+    'claude': ('claude.host',),
+}
 
 
 class RuntimeStore:
@@ -462,8 +467,9 @@ class RuntimeStore:
             return len(rows)
 
     def observe_session(self, actor, status, turn_id, observed_at, source, turn_status=None):
-        if source not in ('codex.wait_threads', 'codex.app-server') or status not in ('idle', 'active', 'notLoaded', 'error', 'needsAttention'):
-            raise ValueError('Use an actual Codex status observation')
+        engine = self.get('config').get('engine', 'codex')
+        if source not in SESSION_SOURCES.get(engine, ()) or status not in ('idle', 'active', 'notLoaded', 'error', 'needsAttention'):
+            raise ValueError('Use an actual native session status observation for engine ' + str(engine))
         with self.transaction():
             self.update_agent(actor, session_status=status, session_turn=turn_id,
                               session_turn_status=turn_status, session_observed_at=observed_at)

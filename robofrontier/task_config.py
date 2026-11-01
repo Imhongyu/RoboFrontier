@@ -149,6 +149,8 @@ def load_harness(path=None):
         raise ValueError('Use Meta and Controller; legacy Coordinator is accepted for frozen runs')
     if c['topology'] not in ('hierarchical','peer','centralized','adaptive'):
         raise ValueError('Unknown topology')
+    if c.get('engine','codex') not in ('codex','claude'):
+        raise ValueError('Unknown policy engine')
     if c.get('startup_protocol', 'ready_barrier_v1') not in ('ready_barrier_v1', 'direct_controller_v2'):
         raise ValueError('Unknown startup protocol')
     if c.get('startup_protocol') == 'direct_controller_v2' and c['topology'] not in ('adaptive', 'centralized'):
