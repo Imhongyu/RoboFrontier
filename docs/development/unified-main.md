@@ -36,7 +36,7 @@ these fields from Git history or the repository owner.
 - [ ] Isolate task runtime state, verify Codex initialization/authentication, and stage Slurm SQLite state on node-local storage.
 - [ ] Preserve shared START, scoring, safe call-ID and stop semantics across native engines.
 - [ ] Keep R14 as the Mosaic default; validate recommended physical candidates before publishing changed assets.
-- [ ] Verify automatic pinned policy-asset installation from a fresh checkout.
+- [x] Verify automatic pinned policy-asset installation from a fresh checkout.
 - [ ] Verify old and compressed motion, image references, evidence restore and frozen-source Factory replay.
 - [ ] Integrate qualified Oracle functionality without exposing private solutions to policies.
 - [ ] Publish English-only current content, task atlas, editable full video project, detailed README and documentation.
@@ -450,3 +450,85 @@ full historical discovery gate. Its log is
 `/tmp/robofrontier-unified-oracle-final-regressions.log`. The policy/Factory asset
 locks and scene files were unchanged, `main` remains at `c8b4137`, and none of
 these integration commits has been pushed or merged into main.
+
+
+## All-family current compressed-motion Factory acceptance
+
+Four actual new native engineering recordings were imported through the unified
+Factory CLI, using their own frozen inputs. A read-only all-frame audit checked
+5,274 Mosaic, 759 Transport, 1,765 Dial and 1,716 Relay frames (9,514 total).
+Imported float32 states and timestamps were bit-exact; original chunks, events
+and assets were unchanged. Factory playback had zero dynamic/control dimensions
+and performed no physics steps. Every mapped geometry's pose matched within
+5.1e-15 metres, and all three Dial appearance events were retained and applied.
+
+Each imported case also produced a three-frame, 320 x 180, one-sample Cycles CPU
+preview. All four MP4 files were fully decoded and inspected. This validates
+new compressed-motion background import, all-frame pose/appearance replay and
+small CPU renders; it does not qualify complete videos, NVIDIA, Slurm or task
+success. Mosaic is a two-goal partial commissioning recording; the other three
+recordings retain their failed/interrupted status. Evidence is under
+`runs/engineering/main-integration-factory-new-motion-20261101/`.
+
+The first import exposed a CLI presentation defect: exporter progress and the
+final result both went to stdout. The completed first import was retained.
+The unified Factory entry now routes exporter progress to stderr and emits one
+JSON result on stdout. A regression reproduced the previous parse failure;
+subsequent native imports parsed successfully without regenerating Mosaic.
+
+## Isolated operational physics and final failed-state retention
+
+The committed `scripts.commission_transport_contacts` entry compares compiled
+models before running a selected reference operation. Only declared contact-cone
+and selected cylinder rolling changes are permitted. Candidate fingerprints
+include the cone; old metadata and qualification are not silently inherited.
+The released source and all declared asset hashes remain unchanged.
+
+Actual side-cylinder pickup/lift, full-route handovers and socket operations
+were compared for released, elliptic/30 mm and elliptic/1 mm variants. The 1 mm
+candidate and released control both completed a local direct socket placement.
+The maintained candidate command additionally verified post-release settling
+and retained goal acceptance. Long multi-handover operations failed at different
+finite planning/contact gates in all three variants; none qualifies a complete
+Transport task or proves the candidate universally better. No candidate was
+published as the new default. See [physics commissioning](../physics.md).
+
+A five-second maintained trial retained a typed `ReferenceStopped` and its last
+measured pose. A separate ordinary finite planning failure exposed an older
+recording gap: its last event could follow the last cadence sample. Oracle
+closure now captures the measured final state on an ordinary error as well as
+an interruption, without stepping physics or replaying an action. Failed status
+remains failed. The regression checks exact float32 final pose, event coverage
+and unchanged live controls/state. A new actual failed trial retained all 1,126
+frames and covered all 21 event timestamps. Original failed recordings were
+never rewritten. Evidence is under
+`runs/engineering/main-integration-physics-20261101/`.
+
+The final focused integration group passed 106 tests in 28.045 seconds, including
+motion, stop/recovery, all four Oracle entries, direct standing-team START,
+configuration, Factory, snapshots and contact commissioning. These overlapping
+regression groups are not a passing full historical discovery run.
+
+## Fresh checkout and automatic asset repair
+
+A new shallow local clone of committed integration source `caa341b` installed
+with `uv sync --locked --extra oracle`, without copying the original environment,
+authentication or assets. Bootstrap restored 3,467 files with zero reused files
+from the pinned archive, whose SHA-256 was verified. Every expected scene/Panda
+asset hash was then checked.
+
+One ignored Relay label was deliberately moved out of this fresh fixture.
+The ordinary unified `prepare` command restored it automatically and prepared
+all 36 tasks. Every frozen input verified; defaults were Codex/Luna/high,
+Adaptive, 36 concurrent slots, a 0.3-second initial launch interval and 86,400
+seconds per task. On this Mac the explicit renderer was `native`. No environment
+file, model calls or native model session transcripts were created. The actual
+native doctor also passed CLI/sandbox, a 64 x 64 RGB render and a CPU physics
+step. The clone remained clean.
+
+The detailed receipt is
+`runs/engineering/main-integration-fresh-clone-20261101/verification.json`.
+This is local clean-checkout/bootstrap/preparation evidence, not GitHub branch
+publication, provider compatibility, concurrent subscription refresh, 36-task
+resource capacity, Linux NVIDIA or Slurm qualification. The policy and Factory
+release locks remain unchanged, and integration has not been merged into main.

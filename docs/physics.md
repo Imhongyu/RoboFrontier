@@ -24,12 +24,14 @@ contacts, not infer them solely from a geometry's friction string.
 
 A friction triple describes sliding, torsional and rolling resistance. Sliding
 friction is dimensionless; torsional and rolling friction have length units in
-MuJoCo. `0.001` means 1 mm of rolling-friction length, not a generic coefficient
+MuJoCo. See the official [contact model and friction units](https://mujoco.readthedocs.io/en/stable/computation/#condim).
+`0.001` means 1 mm of rolling-friction length, not a generic coefficient
 of 0.001. Larger resistance can reduce motion but can also impede intended
 rolling and alter grasp/release behavior. Increasing every friction number is
 not a general physical fix.
 
-`condim=6` allows three translational and three rotational contact dimensions.
+`condim=6` allows three translational and three rotational contact dimensions
+(with different solver representations for elliptic and pyramidal cones).
 It does not attach an object to the table or guarantee that it will stop.
 The friction cone, contact geometry, solver tolerance, NoSlip settings, actuator
 contact and explicit pair overrides also matter. NoSlip is a numerical solver

@@ -262,10 +262,10 @@ software rendering. Commit the executor before preparation. The `[oracle]`
 engineering clock includes planning/review time and is separate from a model
 benchmark's START clock. The [Oracle guide](docs/oracle.md) documents native
 recovery, evidence and the distinction between commissioning and full success.
-New full physical Oracle qualification,
-all-family compressed-motion background replay, the tracked
-English task atlas and the editable full-length English video project remain open
-gates. Existing Oracle intervention records and historical source identities must
+All four families have passed current compressed-motion Factory import and
+all-frame replay checks, with small CPU video previews. New full physical Oracle
+qualification, the tracked English task atlas and the editable full-length English
+video project remain open gates. Existing Oracle intervention records and historical source identities must
 be preserved; assisted execution is not automatically an autonomous benchmark.
 
 ## Repository map
