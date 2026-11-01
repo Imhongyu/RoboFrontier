@@ -1,5 +1,5 @@
 # Shared defaults for new runs. Secrets belong in the environment or .env.
-schema_version = 2
+schema_version = 3
 
 [policy]
 engine = "codex"                     # codex | claude
@@ -66,3 +66,10 @@ samples = 64
 duration_s = 0.0                     # 0 preserves the full reviewed timeline; positive values cap a preview
 import_speedup = 1.0                 # Applies only to a newly imported closed recording
 parallel = 1                        # Slurm render array concurrency, independent of benchmark parallelism
+
+[oracle]
+wall_limit_s = 86400.0              # Engineering elapsed time from owner launch, including planning and pauses
+stop_grace_s = 120.0                # Cleanup allowance after STOP/deadline; not extra task execution time
+mosaic_planning_workers = 1         # Independent scratch planners; 0 uses available CPUs
+mosaic_physics_workers = 0          # Opt-in MuJoCo worker threads in the single live world
+mosaic_max_goals = 0                # 0 attempts the full task; positive is explicitly partial commissioning

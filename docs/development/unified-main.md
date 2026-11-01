@@ -341,3 +341,30 @@ CLI against a local synthetic model endpoint and actual MuJoCo. Its early-finish
 path produced an incomplete evaluation, sealed evidence and the English
 unqualified-engineering report. This does not qualify a real provider, adaptive
 delegation or formal Claude scoring. None of these checks used paid inference.
+
+## Unified native Oracle workflow
+
+The CLI now exposes `oracle plan`, `prepare`, `run`, `status` and `stop` for the
+existing Transport full-order, Mosaic R14, Relay live-pipeline and blind Dial
+entries. It selects current released task scenes rather than the historical
+`oracle` recording inventory, and pins source, harness/catalog, scene assets,
+effective settings and dependency versions before one single-use launch.
+Fresh Dial puzzles are evaluator-only; an optional explicit codebook remains
+private and never becomes a solver input. Native typed recovery, evaluator
+gates, intervention records and full-versus-commissioning scope are retained.
+
+Schema version 3 adds a separate Oracle section. Frozen version 1/2 settings
+remain exact and are validated without adding fields or changing their hashes.
+The Oracle engineering elapsed limit includes launch/planning/review pauses and
+is separate from the policy START clock. STOP and the deadline signal the
+existing owner, followed by bounded process-group cleanup. Input mutation,
+single-use replay, unknown actions, child writers and partial commissioning
+cannot silently qualify as a clean full success. Monitoring uses atomic JSON,
+not another process's SQLite database.
+
+The focused checks passed 41 tests in 18.706 seconds, including actual
+subprocess stop/deadline and leftover-writer tests, the four native command
+bindings, current R14 selection, configuration/Factory regressions, source
+snapshot/manifest integrity tests and direct standing-team START. No model was
+called. Actual native physical smoke runs are the next qualification step;
+this entry alone is not a full physical witness.

@@ -28,6 +28,9 @@ SCHEMA = {
     'factory': {'data_root': str, 'asset_lock': str, 'source': str, 'device': str,
                 'blender': str, 'mode': str, 'views': list, 'width': int, 'height': int,
                 'samples': int, 'duration_s': float, 'import_speedup': float, 'parallel': int},
+    'oracle': {'wall_limit_s': float, 'stop_grace_s': float,
+               'mosaic_planning_workers': int, 'mosaic_physics_workers': int,
+               'mosaic_max_goals': int},
 }
 
 
@@ -77,11 +80,12 @@ def load_configuration(path=None, overrides=None):
 
 def validate_configuration(config):
     version = config.get('schema_version')
-    if type(version) is not int or version not in (1, 2):
+    if type(version) is not int or version not in (1, 2, 3):
         raise ValueError('Unsupported configuration schema_version')
-    # Version 1 frozen policy batches remain exact. Do not append new Factory
-    # defaults to an already-hashed experiment configuration.
-    _validate_shape(config, {k: v for k, v in SCHEMA.items() if version == 2 or k != 'factory'})
+    # Older frozen configurations remain exact. Do not append new Factory or
+    # Oracle defaults to an already-hashed experiment configuration.
+    _validate_shape(config, {k: v for k, v in SCHEMA.items()
+                            if (version >= 2 or k != 'factory') and (version >= 3 or k != 'oracle')})
     def choice(section, field, allowed):
         if config[section][field] not in allowed:
             raise ValueError(f'Invalid {section}.{field}: choose from {", ".join(map(str, allowed))}')
@@ -134,7 +138,7 @@ def validate_configuration(config):
         raise ValueError('Invalid container.image')
     if container['memory_gib'] < 0 or not math.isfinite(container['cpus']) or container['cpus'] < 0:
         raise ValueError('Container resource limits must be finite and nonnegative')
-    if version == 2:
+    if version >= 2:
         factory = config['factory']
         choice('factory', 'source', ('release', 'imported'))
         choice('factory', 'device', ('OPTIX', 'CUDA', 'METAL', 'CPU'))
@@ -153,6 +157,14 @@ def validate_configuration(config):
             value = factory[field]
             if not math.isfinite(value) or value < 0 or (field == 'import_speedup' and value == 0):
                 raise ValueError('Invalid factory.'+field)
+    if version >= 3:
+        oracle = config['oracle']
+        for field in ('wall_limit_s', 'stop_grace_s'):
+            if not math.isfinite(oracle[field]) or oracle[field] <= 0:
+                raise ValueError('oracle.'+field+' must be positive and finite')
+        for field in ('mosaic_planning_workers', 'mosaic_physics_workers', 'mosaic_max_goals'):
+            if oracle[field] < 0:
+                raise ValueError('oracle.'+field+' must be nonnegative')
 
 
 def rendering_environment(device, system, base):

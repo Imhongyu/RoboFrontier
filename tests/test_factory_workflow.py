@@ -128,6 +128,7 @@ class FactoryWorkflowTests(unittest.TestCase):
         import hashlib
         config = deepcopy(load_configuration())
         del config['factory']
+        del config['oracle']
         config['schema_version'] = 1
         validate_configuration(config)
         write_json(self.root/'effective-config.json', config)

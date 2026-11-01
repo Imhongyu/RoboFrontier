@@ -244,9 +244,22 @@ Factory has a unified configuration/command entry:
 The `[factory]` section controls its independent video/device settings; prepared
 plans freeze the effective configuration. See the [Factory guide](docs/factory.md)
 for closed-recording import, full tour, CPU/GPU rendering and queue submission.
-Oracle options have not yet been folded into the unified TOML. The
-[Oracle guide](docs/oracle.md) documents the curated native R14 runner and its
-privileged recovery/evidence boundaries. Full Oracle integration,
+Native Oracle planning, frozen preparation and bounded supervision also have a
+unified entry:
+
+```sh
+.venv/bin/robofrontier oracle plan --level 1 --min-arms
+.venv/bin/robofrontier oracle prepare --cases mosaic-a04-6x12-d1 \
+  --output runs/oracle/my-r14-check --mosaic-max-goals 2
+.venv/bin/robofrontier oracle run runs/oracle/my-r14-check
+```
+
+Use `--render native` during preparation on macOS or `--render cpu` for Linux
+software rendering. Commit the executor before preparation. The `[oracle]`
+engineering clock includes planning/review time and is separate from a model
+benchmark's START clock. The [Oracle guide](docs/oracle.md) documents native
+recovery, evidence and the distinction between commissioning and full success.
+New full physical Oracle qualification,
 all-family compressed-motion background replay, the tracked
 English task atlas and the editable full-length English video project remain open
 gates. Existing Oracle intervention records and historical source identities must

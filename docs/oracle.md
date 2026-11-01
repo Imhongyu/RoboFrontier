@@ -5,10 +5,85 @@ evaluator. It is separate from both native policy engines and their controllers.
 An Oracle result is not an LLM benchmark result. A successful historical witness
 does not qualify a changed scene, controller, solver or physics release.
 
-This guide documents the current native entries. Oracle preparation, resource
-settings and supervision have not yet been folded into the unified TOML/CLI.
-The root configuration's policy deadline must not be assumed to configure a
-native Oracle command. That integration remains an explicit acceptance gate.
+The unified CLI prepares single-use, host-local executions of the four existing
+native entries. It freezes current released scenes by identity, Python source,
+harness, catalog, effective settings and dependency versions. It does not load
+historical recording folders as the default scene or inherit their success.
+Legacy native entries remain available with their original timing semantics.
+
+## Unified preparation and supervision
+
+```sh
+.venv/bin/robofrontier oracle plan --level 1 --min-arms
+.venv/bin/robofrontier oracle prepare --cases mosaic-a04-6x12-d1 \
+  --output runs/oracle/r14-two-goals --render native \
+  --mosaic-planning-workers 4 --mosaic-max-goals 2 --wall-limit-s 600
+.venv/bin/robofrontier oracle run runs/oracle/r14-two-goals
+```
+
+Plan is read-only. Prepare installs the pinned policy assets when needed and
+verifies the selected task, workstation and every asset without advancing
+physics. It requires exactly one selected case and a clean committed checkout.
+Use another output directory for another attempt. Source is copied before native
+execution; later edits to this checkout do not change its Python imports. Frozen
+scene paths remain host-local and are reverified before launch. Re-prepare on a
+new host instead of editing a prepared execution's absolute paths.
+
+`oracle run` reads the frozen configuration, ignoring later operator TOML edits.
+The `[oracle]` wall limit defaults to 86,400 seconds of engineering elapsed time
+from launching the native owner, including scene initialization, planning and
+review pauses. It is not policy START and is not a model performance comparison.
+The supervisor persists launch/deadline timestamps and uses a monotonic elapsed
+clock while running. It does not impose a second native wall deadline. After a
+stop it sends SIGTERM to the existing owner, allowing `stop_grace_s` (default
+120 seconds) for the native owner's cleanup/reporting. An unresponsive process
+group is then forcibly killed and retained as incomplete evidence. Cleanup time
+does not authorize more task execution.
+
+Other native algorithm options keep their reviewed defaults. The configuration
+contains Mosaic scratch-planning and physics-thread counts and an explicit
+commissioning goal limit. Transport uses the full-order solver; Relay keeps its
+rolling pipeline; Dial keeps its isolated blind BEST-only solver. These are
+privileged references, not interchangeable policy agents.
+
+Dial preparation samples a fresh uniform nonzero symbol per dial, just as policy
+preparation does. An explicit `--codebook /path/to/puzzle.json` can instead freeze
+an evaluator-only puzzle with exactly `{"code_symbols": [...]}`. The private file
+is mode 0600 under a mode 0700 directory. Only its path and checksum enter launch
+metadata; symbols are not put in the solver command or public task. The native
+evaluator and solver remain separate processes. Historical private puzzles are
+not required for a new execution and are not recreated as historical witnesses.
+
+From another terminal:
+
+```sh
+.venv/bin/robofrontier oracle status runs/oracle/r14-two-goals
+.venv/bin/robofrontier oracle stop runs/oracle/r14-two-goals
+```
+
+Status reads atomic JSON and an owner lock, never a live SQLite database. STOP
+is consumed by the supervisor, so differences between native stop-file locations
+do not affect this interface. A stop before launch prevents launch. Every claimed
+execution is single-use even after an error; the command never restarts an
+uncertain world or blindly replays its last actions. If a supervisor is killed,
+its native child can outlive it: inspect the recorded PID before collection.
+An unheld owner lock alone is not proof that all writers have stopped.
+
+The execution directory retains `oracle.json`, `effective-config.json`,
+`oracle-status.json`, `oracle.log`, `private/` frozen inputs/source and `trial/`
+native actions, motion, evaluator/report and recovery files. `passed` requires
+a successful full native report, a completed task, a clean process exit and no
+unresolved actions. Partial commissioning has its own flag; a completed object
+layout does not erase a stricter native Oracle rejection. The native report
+retains all process events and assistance history. Policy auto-collection flags
+do not collect this directory, and a raw Oracle directory is not a policy
+collection input. Preserve it until its owner and children have stopped; the
+closed `trial/motion` directory can then be imported by Factory.
+
+The supervisor also terminates children left in the execution's process group
+after a native owner exits. Such an abnormal exit cannot establish a clean
+Oracle success, even if an owner wrote a successful report before leaving its
+writers behind. Forced termination preserves evidence; it is not clean sealing.
 
 ## Install and select inputs
 

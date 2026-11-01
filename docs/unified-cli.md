@@ -51,9 +51,9 @@ overrides its named settings; explicit CLI options override those settings.
 Unknown fields, incorrect types, non-finite intervals and invalid limits are
 errors. Credentials belong in `.env` or the environment, never in TOML.
 
-New settings use `schema_version=2`, which adds the independent Factory section.
-Frozen version 1 policy configurations remain version 1 and retain their exact
-hashes; no new Factory defaults are appended to them. New partial user TOML files
+New settings use `schema_version=3`, with independent Factory and Oracle sections.
+Frozen version 1 and 2 configurations retain their exact shapes and hashes;
+new sections are not appended to archived configurations. New partial user TOML files
 can omit the version to inherit the current schema. A frozen configuration is
 evidence, not an operator settings template to overwrite.
 
@@ -102,12 +102,18 @@ physics steps, or model turns. It is not a provider rate-limit guarantee.
 | `factory.data_root` / `asset_lock` / `source` | Pinned release installation or an explicitly imported closed-recording bundle |
 | `factory.import_speedup` | Speed for a newly imported recording only; existing release edits remain intact |
 | `factory.parallel` | Render array concurrency, independent of benchmark task concurrency |
+| `oracle.wall_limit_s` | Engineering elapsed limit from native owner launch, including planning and pauses; independent of policy START |
+| `oracle.stop_grace_s` | Cleanup allowance after a stop request before forced process-group termination |
+| `oracle.mosaic_planning_workers` / `mosaic_physics_workers` | Scratch endpoint processes / optional threads in the one live Mosaic world |
+| `oracle.mosaic_max_goals` | 0 attempts the full Mosaic task; positive limits are partial commissioning |
 
-The current schema covers policy execution, evidence, Slurm resources and
-Factory replay/render preparation. See the [Factory guide](factory.md) for
-the factory subcommands. Editorial camera/title/subtitle changes and Oracle
-recovery still use their native configuration until those integration gates
-are complete. They are not silently interpreted as unsupported TOML options.
+The current schema covers policy execution, evidence, Slurm resources,
+Factory replay/render preparation and native Oracle supervision. See the
+[Factory guide](factory.md) and [Oracle guide](oracle.md) for their subcommands.
+Editorial camera/title/subtitle changes and typed live Oracle recovery retain
+their native files and interfaces. They are not interpreted as unsupported TOML
+options. The policy evidence auto-collection flags apply to policy batches, not
+to a native Oracle directory.
 
 ## Startup in all four modes
 
