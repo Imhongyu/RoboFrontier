@@ -32,7 +32,7 @@ class PolicyProbeTests(unittest.TestCase):
 
     def fixture(self,root):
         run=Path(root)/'run';prepare_run(run);service=RuntimeService(run,BudgetWorld,fake_capture)
-        for actor in ('Coordinator','A','B','C'):
+        for actor in ('Controller','A','B','C'):
             service.store.update_agent(actor,ready=True,thread_id=actor)
         service.store.start();return run,service
 

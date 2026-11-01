@@ -22,6 +22,12 @@ test('direct bootstrap names shared rules and does not promise all drop counters
   assert.doesNotMatch(prompt,/碰撞、掉落和交接等过程事件单独记录/);
   assert.match(prompt,/不需要等待另一条 START/);
 });
+test('standing roles use the existing readiness barrier and read their work after wake',()=>{
+  const prompt=PolicyHost.prototype.bootstrap.call({run:'/tmp/test-run',wallLimit:36000},'A','ready_barrier_v1');
+  assert.match(prompt,/调用 robot ready/);
+  assert.match(prompt,/调用 robot work/);
+  assert.doesNotMatch(prompt,/实验已经 START，计时已开始/);
+});
 test('capacity recovery resumes a started task without a READY barrier',async()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'capacity-retry-'));
   try {

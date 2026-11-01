@@ -149,7 +149,7 @@ class SceneTopologyContractTests(unittest.TestCase):
                 ok(call(owner,'move',{'robot':'A','wait':False,**p}));s.world.complete('A');s.pump()
             if mode=='hierarchical':
                 self.assertIn('error',call('A','send',{'to':['B'],'text':'route test'})['result'])
-                ok(call('A','send',{'to':['Coordinator'],'text':'route test'}))
+                ok(call('A','send',{'to':['Controller'],'text':'route test'}))
             elif mode=='peer':ok(call('A','send',{'to':['B'],'text':'route test'}))
             elif mode=='adaptive':
                 pending=call('Controller','delegate',{'scopes':[{'robots':['A'],'goal':'offline only','done_when':'synthetic return'}]},'batch')
@@ -168,5 +168,5 @@ class SceneTopologyContractTests(unittest.TestCase):
             s.pump();self.assertEqual(s.store.actions()['unsettled']['status'],'uncertain')
             self.assertEqual(s.store.get('lifecycle'),'recovery_required')
             self.assertIn('error',call(owner,'gripper',{'robot':'A','state':'open'})['result'])
-            self.assertIn('error',call('Coordinator' if mode=='hierarchical' else owner,'finish')['result'])
+            self.assertIn('error',call('Controller' if mode=='hierarchical' else owner,'finish')['result'])
         finally:s.close()

@@ -42,7 +42,7 @@ RoboFrontier 用 MuJoCo 多机械臂任务研究 GPT 的分工、规划与协作
 - [本次合并、数据保全与验收](docs/oracle-integration.md)
 - [架构、目录与运行数据](docs/architecture.md)
 - [Meta 操作说明](docs/meta-runbook.md)
-- [Coordinator／Worker／Controller Skill](.agents/skills/robot-collaboration/SKILL.md)
+- [Controller／Worker Skill](.agents/skills/robot-collaboration/SKILL.md)
 - [Harness 验收范围](docs/harness-v2-verification.md)
 - [工厂展示与渲染](docs/robo-factory.md)
 - [服务器工厂：数据下载、Slurm、重试和结果目录](docs/factory-server.md)

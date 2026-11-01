@@ -215,7 +215,7 @@ class RuntimeStore:
                 sender['kind'] == 'coordinator' and all(self.agent(t)['kind'] == 'worker' for t in to)
                 or sender['kind'] == 'worker' and to == [cfg['coordinator']]
             ):
-                raise ValueError('Tree topology requires Coordinator <-> Worker')
+                raise ValueError('Tree topology requires Controller <-> Worker')
             if cfg['topology']=='adaptive' and not (
                 actor=='Controller' and all(self.agent(t)['kind']=='delegate' for t in to)
                 or sender['kind']=='delegate' and to==['Controller']):

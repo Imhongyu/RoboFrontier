@@ -2,7 +2,7 @@
   "schema_version": 1,
   "topology": "hierarchical",
   "manager": "Meta",
-  "coordinator": "Coordinator",
+  "coordinator": "Controller",
   "model": "gpt-6-luna",
   "effort": "xhigh",
   "poll_interval_s": 2.0,

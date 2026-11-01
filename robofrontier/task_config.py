@@ -145,8 +145,8 @@ def public_task(task):
 def load_harness(path=None):
     c = json.loads(Path(path or DEFAULT_HARNESS).read_text())
     if c.get('gripper_position_servo','legacy') not in ('legacy','pd1000-v1'):raise ValueError('Unknown hand position-servo profile')
-    if c['manager'] != 'Meta' or c['coordinator'] != 'Coordinator':
-        raise ValueError('Use explicit Meta / Coordinator role boundary')
+    if c['manager'] != 'Meta' or c['coordinator'] not in ('Controller', 'Coordinator'):
+        raise ValueError('Use Meta and Controller; legacy Coordinator is accepted for frozen runs')
     if c['topology'] not in ('hierarchical','peer','centralized','adaptive'):
         raise ValueError('Unknown topology')
     if c.get('startup_protocol', 'ready_barrier_v1') not in ('ready_barrier_v1', 'direct_controller_v2'):

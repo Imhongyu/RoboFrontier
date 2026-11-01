@@ -1,6 +1,6 @@
 # Meta 操作说明：当前 Harness
 
-Meta 是当前 research 会话，只做工程管理和固定调度。任务团队由配置选择 Coordinator＋Workers、Peer、Single 或 adaptive Controller＋临时分身。目录、持久化归属和上下文规则见 [架构说明](architecture.md)；任务通信和工具协议只维护在 [Skill](../.agents/skills/robot-collaboration/SKILL.md) 的参考文件中。
+Meta 是当前 research 会话，只做工程管理和固定调度。任务团队由配置选择 Controller＋Workers、Peer、Single 或 adaptive Controller＋临时分身。目录、持久化归属和上下文规则见 [架构说明](architecture.md)；任务通信和工具协议只维护在 [Skill](../.agents/skills/robot-collaboration/SKILL.md) 的参考文件中。
 
 正式试验的初始策略角色使用干净的新会话，不 fork 含工程 Oracle 解法或历史试验答案的 research 会话。Adaptive 运行期分身仅继承本次干净 Controller 的历史；经验跨运行复用须按实验协议声明。公共输入不复制工程参考脚本、成功抓点、私有过程日志或 Oracle 路线。
 
@@ -20,7 +20,7 @@ uv run python scripts/check_harness.py --report runs/engineering-check.json
 ## 获得实验授权后的启动
 
 1. 使用新 run。显式启动 `uv run python -m robofrontier.pipeline --run-dir runs/NEW`，一个服务拥有一个 MuJoCo 世界。启动前校验输入和源码；准备时没有世界。
-2. 创建授权的独立 Coordinator/Worker 会话，使用本次角色文件，READY 后 yield。模型按配置请求，实际设置另外核实；requested 不是 verified。
+2. 创建授权的独立 Controller/Worker 会话，使用本次角色文件，READY 后 yield。模型按配置请求，实际设置另外核实；requested 不是 verified。
 3. 用 Meta 连接的 bind 操作绑定真实 thread ID，启动下面的固定循环。全部 READY、已绑定、平台状态新鲜且 idle 才 START；服务再次校验。START 给所有任务角色中性继续状态，不分配动作或任务顺序。
 4. 循环只按已记录条件通知，不解释业务内容，不分配任务或操作机械臂。停止条件为结束、中断、暂停、故障或明确停止请求。
 
@@ -42,10 +42,10 @@ await dispatcher({runDir:RUN_DIRECTORY,python:PYTHON,cwd:REPOSITORY,tools,startW
 
 ## 固定调度与故障
 
-- active 会话不续轮，不 steer、不取消工具。任务角色的工具结果附带有界收件；START 后按当前模式选择工作边界。Single/Adaptive Controller、Coordinator 和常驻 Worker 可持续工作、wait_events 或保存后结束本轮；Adaptive 分身正常执行有边界的委派后 return_task，主动保存的定时等待只是可选延续。Agent 选择等待总期限，客户端用原编号处理 HTTP 分片，分片不强制业务超时；Codex 工具宿主仍按自身机制让出和续等。
+- active 会话不续轮，不 steer、不取消工具。任务角色的工具结果附带有界收件；START 后按当前模式选择工作边界。Controller 和常驻 Worker 可持续工作、wait_events 或保存后结束本轮；Adaptive 分身正常执行有边界的委派后 return_task，主动保存的定时等待只是可选延续。Agent 选择等待总期限，客户端用原编号处理 HTTP 分片，分片不强制业务超时；Codex 工具宿主仍按自身机制让出和续等。
 - 项目 API 返回自带收件；本地 Python/图像分析、进程查询或原生只读工具须经冻结 helper 的 roleStep，在所选操作结束后刷新一次自己的收件。它不改计算结果、不重放动作、不打断原生轮次。直接使用裸 Codex 工具没有项目收件 hook，不能宣称所有原生工具自动注入；审计要检查角色是否遵循统一入口。
 - 原生会话 idle 后，发给本角色的消息、系统事件、到期的自选检查或保存的 continuing/working 工作可以触发一次合并通知；正常非阻塞动作仍在运行不单独阻止续轮。阻塞动作及未知结果仍需原有结果/恢复处理，同臂动作互斥保持。
-- 自报 available 产生 Coordinator 状态事件；工具完成、会话 idle、自报可用与真实任务成功分别记录。
+- 自报 available 产生 Controller 状态事件；工具完成、会话 idle、自报可用与真实任务成功分别记录。
 - 发送前复核状态，claim 通知并去重。通知不含任务解法；收件和启动新轮均不表示业务接受。
 - 发送结果未知时不盲目重发；核对真实会话及 wake_id。现有小型 lease 防止误开两个管理循环。
 - 原生检查与发送不是原子接口，实验要求独占调度；外部输入应记录为干预并暂停核实。
@@ -74,7 +74,7 @@ seal 暂停新增动作，等待已有执行结算，通过原服务获取最后
 
 配置 topology=adaptive 时，启动只有 Controller 的新运行。Controller 经 delegate 提交有边界的工作范围；Meta 不选择范围、机械臂或顺序。分发器先从 Controller 创建不执行任务的快照会话，再从该快照创建整批分身。快照 ID 在读取原生 lineage 前持久保存；验证 Controller→快照及快照→各分身的 parent/ordinal/hash，确认所有分身同一边界后才授权。Controller 指定的各自范围仍由宿主分别发送，首次输入显式固定本轮 model/effort；原生 fork 默认档位不能当作继承证据。
 
-初始任务会话用Main/Coordinator/Worker加运行标识命名。分发器在分身身份确认、首次指令投递后，尽力设为Fork [所控机械臂]+短身份+运行标识；多臂范围自然显示A+B等。命名只是界面元数据，工具缺失、错误或超过短期限只记录，不暂停任务、不改变控制权，也不重试创建会话。
+初始任务会话用Main/Controller/Worker加运行标识命名。分发器在分身身份确认、首次指令投递后，尽力设为Fork [所控机械臂]+短身份+运行标识；多臂范围自然显示A+B等。命名只是界面元数据，工具缺失、错误或超过短期限只记录，不暂停任务、不改变控制权，也不重试创建会话。
 
 SQLite 保存委派、快照和分身身份与机器人控制权，不新增数据库。连接为运行时状态；原始 roles.json 仅描述初始角色。主会话等待 delegate 工具结果期间原生历史仍可能变化，快照固定同批来源，不等待主会话 idle；物理继续。建立并发送分身任务后即返回，完成事件按到达交付。分身 return_task 交回范围，团队 finish 仍只由 Controller 提出。
 

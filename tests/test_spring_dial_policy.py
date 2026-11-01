@@ -122,7 +122,7 @@ class SpringPolicyTests(unittest.TestCase):
                         call('Meta','bind',dict(actor=actor,thread_id='native-'+actor))
                         svc.store.observe_session(actor,'idle','ready',time.time(),'codex.wait_threads')
                     self.assertTrue(call('Meta','start')['started'])
-                    authority='Controller' if mode in ('centralized','adaptive') else 'Coordinator' if mode=='hierarchical' else 'A'
+                    authority='Controller' if mode in ('centralized','adaptive') else 'Controller' if mode=='hierarchical' else 'A'
                     svc.world.feed([180]*4)
                     self.assertEqual(svc.world.sampler.game.queries,1)
                     observation=call(authority,'observe',{'cameras':['board']})

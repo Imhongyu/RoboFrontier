@@ -25,7 +25,7 @@ class PipelineTests(unittest.TestCase):
         self.service.pump()
         return job
     def start(self):
-        for actor in ('Coordinator','A','B','C'):
+        for actor in ('Controller','A','B','C'):
             self.call(actor,'ready')
             self.call('Meta','bind',{'actor':actor,'thread_id':'thread-'+actor})
             self.service.store.observe_session(actor,'idle','turn-'+actor,time.time(),'codex.wait_threads')
@@ -33,7 +33,7 @@ class PipelineTests(unittest.TestCase):
     def test_no_action_before_start_and_no_meta_business_or_motion(self):
         self.assertIn('error',self.call('A','move',{'target_m':[1,2,3]})['result'])
         self.assertIn('error',self.call('Meta','send',{'to':['A'],'text':'x'})['result'])
-        self.assertIn('error',self.call('Coordinator','gripper',{'state':'close'})['result'])
+        self.assertIn('error',self.call('Controller','gripper',{'state':'close'})['result'])
         self.assertEqual(self.service.world.executed,[])
 
     def test_worker_cannot_select_another_robot_and_admin_pause_releases_wait(self):
@@ -52,7 +52,7 @@ class PipelineTests(unittest.TestCase):
     def test_active_idle_yield_requires_self_selected_review_deadline(self):
         self.assertTrue(self.call('A','yield',{'state':'waiting','note':'READY gate'})['result']['saved'])
         self.start()
-        for actor in ['A','Coordinator']:
+        for actor in ['A','Controller']:
             result=self.call(actor,'yield',{'state':'available','note':'Waiting on team progress'})['result']
             self.assertIn('after_s',result.get('error',''))
             result=self.call(actor,'yield',{'state':'waiting','note':'Review uncertain progress','after_s':23})['result']
@@ -67,9 +67,9 @@ class PipelineTests(unittest.TestCase):
         self.service.world.complete('A');self.service.pump()
         saved=self.call('A','yield',{'state':'available','note':'Local work complete; available for team work.','after_s':23})['result']
         self.assertTrue(saved['saved'])
-        notice=self.call('Coordinator','inbox')['result']['system_events']
+        notice=self.call('Controller','inbox')['result']['system_events']
         self.assertTrue(any(e['event']=='worker_self_reported_available' and e['worker']=='A' for e in notice))
-        message=self.call('Coordinator','send',{'to':['A'],'text':'New team work within your robot scope.'})['result']
+        message=self.call('Controller','send',{'to':['A'],'text':'New team work within your robot scope.'})['result']
         boundary=self.call('A','work',ack=saved.get('delivery_id'))['result']
         self.assertIn(message['message_id'],[m['message_id'] for m in boundary['messages']])
         self.assertEqual(boundary['work']['kind'],'worker')
@@ -83,7 +83,7 @@ class PipelineTests(unittest.TestCase):
         facts={'adapter':'synthetic','robots':['A','B','C'],'capabilities':'test fixture'}
         self.service.world.robot_facts=Mock(return_value=facts)
         self.service.capture=Mock(side_effect=AssertionError('READY must not take a fresh observation'))
-        for actor in ('Coordinator','A','B','C'):
+        for actor in ('Controller','A','B','C'):
             result=self.call(actor,'ready')['result']
             self.assertTrue(result['ready']);self.assertEqual(result['robot_facts'],facts)
         self.assertEqual(self.service.world.robot_facts.call_count,4)
@@ -92,9 +92,9 @@ class PipelineTests(unittest.TestCase):
     def test_unavailable_robot_summary_cannot_register_a_false_ready(self):
         def missing(cfg):raise ValueError('Unsupported robot facts')
         self.service.world.robot_facts=missing
-        result=self.call('Coordinator','ready')['result']
+        result=self.call('Controller','ready')['result']
         self.assertIn('error',result)
-        self.assertFalse(self.service.store.agent('Coordinator')['ready'])
+        self.assertFalse(self.service.store.agent('Controller')['ready'])
     def test_read_only_screening_can_compute_while_mail_and_actions_progress(self):
         self.start()
         self.service.world.robot_model=lambda cfg:{'model_id':'fake-model','robots':{},'scope':'fake robot geometry'}
@@ -104,12 +104,12 @@ class PipelineTests(unittest.TestCase):
             yield None
             yield {'assessment':'no_conflict_found','source_state_id':'old-state','advisory_only':True}
         self.service.world.check_motion=samples
-        self.assertIn('robot_model',self.call('Coordinator','robot_model')['result'])
-        checking=self.call('Coordinator','check_motion',{},'preview')
+        self.assertIn('robot_model',self.call('Controller','robot_model')['result'])
+        checking=self.call('Controller','check_motion',{},'preview')
         self.assertFalse(checking['done'].is_set())
-        self.assertIs(checking,self.service.accept('Coordinator','check_motion',{},'preview'))
+        self.assertIs(checking,self.service.accept('Controller','check_motion',{},'preview'))
         self.assertIn('error',self.call('Meta','check_motion',{})['result'])
-        self.service.accept('B','send',{'to':['Coordinator'],'text':'screening notification'},'screen-mail')
+        self.service.accept('B','send',{'to':['Controller'],'text':'screening notification'},'screen-mail')
         action=self.call('A','gripper',{'state':'open','wait':False})
         self.assertEqual(action['result']['execution_status'],'running')
         self.assertTrue(checking['done'].is_set())
@@ -147,7 +147,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(pending['result']['motion_check']['assessment'],'unknown')
     def test_tree_routing_and_batch_receipt(self):
         self.assertIn('error',self.call('A','send',{'to':['B'],'text':'x'})['result'])
-        for text in ('one','two'):self.call('Coordinator','send',{'to':['A'],'text':text})
+        for text in ('one','two'):self.call('Controller','send',{'to':['A'],'text':text})
         a=self.call('A','inbox')['result'];b=self.call('A','inbox')['result']
         self.assertEqual([m['text'] for m in a['messages']],['one','two'])
         self.assertEqual(a['delivery_id'],b['delivery_id'])
@@ -157,7 +157,7 @@ class PipelineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Unknown delivery'):
             self.call('B','work',ack=a['delivery_id'])
     def test_ready_gate_is_actual_idle_observation(self):
-        for a in ('Coordinator','A','B','C'):self.call(a,'ready')
+        for a in ('Controller','A','B','C'):self.call(a,'ready')
         self.assertIn('error',self.call('Meta','start')['result'])
         self.assertFalse(self.service.started)
     def test_parallel_arms_same_arm_exclusion_and_idempotent_retry(self):
@@ -212,7 +212,7 @@ class PipelineTests(unittest.TestCase):
     def test_notes_deadline_and_mail_survive_without_recreating_a_world(self):
         self.start()
         self.call('A','yield',{'state':'waiting','note':'await assigned dependency','after_s':50})
-        self.call('Coordinator','send',{'to':['A'],'text':'new fact'})
+        self.call('Controller','send',{'to':['A'],'text':'new fact'})
         deadline=self.service.store.agent('A')['next_check']
         self.service.close()
         worlds=[]
@@ -236,7 +236,7 @@ class PipelineTests(unittest.TestCase):
         self.assertFalse((output/'runtime.json').exists())
         self.assertFalse(list(self.path.rglob('*.npz')))
         self.assertFalse((self.path/'private/checkpoints').exists())
-        self.call('Coordinator','finish',{'note':'fake finish'})
+        self.call('Controller','finish',{'note':'fake finish'})
         self.assertTrue((output/'events.jsonl').is_file())
         self.assertTrue((output/'runtime.json').is_file())
 
@@ -255,7 +255,7 @@ class PipelineTests(unittest.TestCase):
     def test_finish_checks_integrity_and_never_reports_tampered_run_as_valid(self):
         self.start()
         (self.path/'public/inputs/task.json').write_text('{}')
-        result=self.call('Coordinator','finish',{'note':'fake finish'})['result']
+        result=self.call('Controller','finish',{'note':'fake finish'})['result']
         self.assertIn('error',result)
         self.assertFalse(self.service.store.get('integrity_valid'))
         self.assertEqual(self.service.store.get('lifecycle'),'recovery_required')
@@ -264,7 +264,7 @@ class PipelineTests(unittest.TestCase):
     def test_corrupt_manifest_is_an_integrity_failure_not_a_successful_finish(self):
         self.start()
         (self.path/'private/inputs/manifest.json').write_text('{')
-        result=self.call('Coordinator','finish',{})['result']
+        result=self.call('Controller','finish',{})['result']
         self.assertIn('error',result)
         self.assertFalse(self.service.store.get('integrity_valid'))
         self.assertEqual(self.service.store.get('lifecycle'),'recovery_required')
@@ -277,7 +277,7 @@ class PipelineTests(unittest.TestCase):
 
     def test_inbox_race_on_yield_is_preserved(self):
         self.start()
-        self.call('Coordinator','send',{'to':['A'],'text':'arrived just before yield'})
+        self.call('Controller','send',{'to':['A'],'text':'arrived just before yield'})
         result=self.call('A','yield',{'state':'waiting','note':'wait'})['result']
         self.assertEqual(result['messages'][0]['text'],'arrived just before yield')
         self.assertEqual(self.service.store.pending('A')['messages'],1)
@@ -288,8 +288,8 @@ class PipelineTests(unittest.TestCase):
             def set(event):
                 self.assertFalse(service.store.db.in_transaction)
                 super().set()
-        self.call('Coordinator','send',{'to':['A'],'text':'prior message'})
-        job=service.accept('A','send',{'to':['Coordinator'],'text':'reply'},'atomic-reply')
+        self.call('Controller','send',{'to':['A'],'text':'prior message'})
+        job=service.accept('A','send',{'to':['Controller'],'text':'reply'},'atomic-reply')
         job['done']=ReceiptEvent();service.pump()
         self.assertTrue(job['done'].is_set())
     def test_executor_fault_is_uncertain_and_cannot_be_replayed(self):
@@ -303,18 +303,18 @@ class PipelineTests(unittest.TestCase):
         self.assertIn('error',self.call('A','gripper',{'state':'open'})['result'])
     def test_finish_closes_team_but_not_a_success_claim(self):
         self.start()
-        self.assertTrue(self.call('Coordinator','finish',{'note':'test only'})['result']['ended'])
+        self.assertTrue(self.call('Controller','finish',{'note':'test only'})['result']['ended'])
         self.assertIn('error',self.call('A','move',{'target_m':[1,2,3]})['result'])
         evaluation=json.loads((self.path/'private/outputs/evaluation.json').read_text())
         self.assertIn('fake',evaluation['scope'])
 
     def test_coordinator_gets_mail_at_tool_return_inside_active_turn(self):
         self.start()
-        self.call('A','send',{'to':['Coordinator'],'text':'new opportunity'})
-        result=self.call('Coordinator','team')['result']
+        self.call('A','send',{'to':['Controller'],'text':'new opportunity'})
+        result=self.call('Controller','team')['result']
         self.assertEqual(result['messages'][0]['text'],'new opportunity')
-        self.call('Coordinator','work',ack=result['delivery_id'])
-        self.assertEqual(self.service.store.pending('Coordinator')['messages'],0)
+        self.call('Controller','work',ack=result['delivery_id'])
+        self.assertEqual(self.service.store.pending('Controller')['messages'],0)
 
     def test_team_separates_old_note_from_fresh_execution_without_new_checkpoint(self):
         from unittest.mock import patch
@@ -323,7 +323,7 @@ class PipelineTests(unittest.TestCase):
             self.call('B','checkpoint',{'state':'waiting','note':'waiting for authority'})
         with patch('robofrontier.runtime_store.time.time',return_value=200):
             self.call('B','gripper',{'state':'close','wait':False},'accepted-new-work')
-        team=self.call('Coordinator','team')['result']
+        team=self.call('Controller','team')['result']
         worker=team['workers']['B']
         self.assertEqual(worker['work']['note'],'waiting for authority')
         self.assertEqual(worker['work']['saved_at'],100)
@@ -332,7 +332,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(worker['execution']['started_at'],200)
         self.assertNotIn('thread_id',worker)
         self.service.world.complete('B');self.service.pump()
-        worker=self.call('Coordinator','team')['result']['workers']['B']
+        worker=self.call('Controller','team')['result']['workers']['B']
         self.assertEqual(worker['execution']['status'],'completed')
         self.assertGreater(worker['execution']['finished_at'],worker['execution']['started_at'])
         self.assertEqual(worker['work']['saved_at'],100)
@@ -341,7 +341,7 @@ class PipelineTests(unittest.TestCase):
         from unittest.mock import patch
         self.start()
         with patch('robofrontier.runtime_service.time.monotonic',return_value=0):
-            wait=self.call('Coordinator','wait_events',{'timeout_s':120},'long-wait')
+            wait=self.call('Controller','wait_events',{'timeout_s':120},'long-wait')
         self.assertFalse(wait['done'].is_set())
         with patch('robofrontier.runtime_service.time.monotonic',return_value=31):
             self.service.pump()
@@ -368,17 +368,17 @@ class PipelineTests(unittest.TestCase):
         waiting=self.call('A','wait_events',{'timeout_s':30})
         self.assertFalse(waiting['done'].is_set())
         self.assertFalse(self.service.store.db.in_transaction)
-        self.call('Coordinator','send',{'to':['B'],'text':'unrelated'})
+        self.call('Controller','send',{'to':['B'],'text':'unrelated'})
         self.assertFalse(waiting['done'].is_set())
         for text in ('first','second'):
-            self.service.accept('Coordinator','send',{'to':['A'],'text':text},'mail-'+text)
+            self.service.accept('Controller','send',{'to':['A'],'text':text},'mail-'+text)
         self.service.pump()
         self.assertTrue(waiting['done'].is_set())
         self.assertEqual([m['text'] for m in waiting['result']['messages']],['first','second'])
         # A message before registration also returns immediately.
         again=self.call('A','wait_events',{'timeout_s':30},ack=waiting['result']['delivery_id'])
         self.assertFalse(again['done'].is_set())
-        self.call('Coordinator','send',{'to':['A'],'text':'third'})
+        self.call('Controller','send',{'to':['A'],'text':'third'})
         self.assertEqual(again['result']['messages'][0]['text'],'third')
 
     def test_wait_timeout_rewait_and_start_gate(self):
@@ -393,7 +393,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(self.call('A','wait_events',{'timeout_s':0})['result']['wait_status'],'timeout')
         again=self.call('A','wait_events',{'timeout_s':30})
         self.assertFalse(again['done'].is_set())
-        self.call('Coordinator','finish',{})
+        self.call('Controller','finish',{})
         self.assertEqual(again['result']['wait_status'],'ended')
 
     def test_async_motion_can_communicate_wait_and_retry_without_duplicate_execution(self):
@@ -402,7 +402,7 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(job['done'].is_set())
         self.assertEqual(job['result']['execution_status'],'running')
         self.assertEqual(self.service.store.call('async-A')['status'],'running')
-        self.assertNotIn('error',self.call('A','send',{'to':['Coordinator'],'text':'planning while moving'})['result'])
+        self.assertNotIn('error',self.call('A','send',{'to':['Controller'],'text':'planning while moving'})['result'])
         self.assertIn('error',self.call('A','gripper',{'state':'open','wait':False})['result'])
         waiting=self.call('A','wait_events',{'call_ids':['async-A'],'timeout_s':30})
         self.assertFalse(waiting['done'].is_set())
@@ -415,8 +415,8 @@ class PipelineTests(unittest.TestCase):
         self.assertIn('error',self.call('B','wait_events',{'call_ids':['async-A']})['result'])
 
     def test_late_report_is_audited_but_cannot_reopen_finished_world(self):
-        self.start();self.call('Coordinator','finish',{'note':'fake'})
-        report=self.call('C','send',{'to':['Coordinator'],'text':'late completion report'})['result']
+        self.start();self.call('Controller','finish',{'note':'fake'})
+        report=self.call('C','send',{'to':['Controller'],'text':'late completion report'})['result']
         self.assertNotIn('error',report);self.assertTrue(report['run_ended'])
         self.assertIn('error',self.call('C','gripper',{'state':'close'})['result'])
         events=json.loads((self.path/'private/outputs/runtime.json').read_text())['events']
@@ -446,7 +446,7 @@ class PipelineTests(unittest.TestCase):
                 call('Meta','bind',{'actor':actor,'thread_id':'peer-'+actor},'bind-'+actor)
                 service.store.observe_session(actor,'idle','turn-'+actor,time.time(),'codex.wait_threads')
             call('Meta','start',{},'start')
-            self.assertNotIn('Coordinator',service.roles)
+            self.assertNotIn('Controller',service.roles)
             a=call('A','wait_events',{'timeout_s':30},'wait-A')
             b=call('B','wait_events',{'timeout_s':30},'wait-B')
             call('C','send',{'to':['B'],'text':'cooperation request'},'peer-message')

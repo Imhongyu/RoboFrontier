@@ -150,11 +150,11 @@ class PolicyHost {
       this.event({event:'capacity_retry',thread_id:id,failed_turn_id:t.id});
     }
   }
-  bootstrap(actor) {
+  bootstrap(actor, startupProtocol='direct_controller_v2') {
     return `执行新的独立 RoboFrontier 试验。运行目录：${this.run}。当前身份 ${actor}。
 先读取本 run 的 public/inputs/common.md、policy-rules.md、task.json、roles/${actor}.md、skill/SKILL.md、skill/references/tools.md、communication.md 与 adaptive.md（仅 adaptive）。只读取本任务公开输入、自己的工作笔记和被允许的图像。
 CLI 传输说明：使用本会话的 robot 工具，op/data 与冻结 Skill 的角色 API 完全相同；新请求省略外层 call_id，响应中的 call_id 是该次请求编号；job 的 data.call_id 填原动作编号，新的 job 请求仍省略外层 call_id。结果未确认时只能用原外层编号和相同 op/data 重试同一请求，不能换编号重放动作。views 明确选择本次返回的相机图像。robot 工具自动绑定自己的连接，返回完整 JSON 和真实 RGB。它等价于 Desktop 的 robotTool，无需装载 functions.exec 或 role_tools.js。做本地图像分析等非机器人工作后，用 robot inbox 刷新收件，等价于 roleStep。路径不是看过图片。
-实验已经 START，计时已开始。先阅读任务并查看公开初始图或 robot observe，然后自行决定计划和机器人动作。可调用 robot ready 获取能力与限制，调用后继续执行，不需要等待另一条 START。任务内可按 adaptive 规则通过 robot delegate 请求 fork；不要直接管理会话。
+${startupProtocol==='ready_barrier_v1' ? '先阅读公开任务和自己的角色说明，调用 robot ready；按角色说明保存等待状态并结束本轮。团队 START 后收到续轮通知时，调用 robot work 读取工作状态，按自己的角色继续执行。不要直接管理会话。' : '实验已经 START，计时已开始。先阅读任务并查看公开初始图或 robot observe，然后自行决定计划和机器人动作。可调用 robot ready 获取能力与限制，调用后继续执行，不需要等待另一条 START。任务内可按 adaptive 规则通过 robot delegate 请求 fork；不要直接管理会话。'}
 本次评分版本 terminal_outcome_v2：完成由当前任务公布的条件决定；任务支持的过程事件按各自检测规则单独报告，记录不自动否决完成。发生问题后可自行观察、恢复并继续。Relay 的最终目标是实际释放并支撑在 GOAL 容差内，空中交接记录不作为最终完成门槛。
 运行期间遵守 policy-rules.md 的持续执行规则：未完成时持续观察、行动和恢复，不因默认时限或估计剩余时间而提前收尾。时间上限由宿主执行；收到暂停、停止、run_ended 或预算结束通知时立即停止新工作。完成或确实无法恢复时，按任务规则和真实工具证据决定是否 finish。
 不读取 Oracle、其他试验、私有场景/XML、私有评估或工程源码；不修改代码、物理或 harness，不重启世界；不从工程主会话继承答案。自己的连接仅用于认证。所有经验仅属于本次 run。`;
@@ -175,6 +175,7 @@ CLI 传输说明：使用本会话的 robot 工具，op/data 与冻结 Skill 的
         await sleep(1000);
       }
       const roles=read(path.join(this.run,'public/inputs/roles.json')).roles;
+      const startupProtocol=read(path.join(this.run,'private/inputs/harness.json')).startup_protocol || 'ready_barrier_v1';
       for (const [actor,info] of Object.entries(roles)) {
         if (info.kind==='manager') continue;
         const result=await this.rpc.call('thread/start',{model:this.launch.model,modelProvider:this.launch.provider,
@@ -187,12 +188,12 @@ CLI 传输说明：使用本会话的 robot 工具，op/data 与冻结 Skill 的
         const conn=path.join(this.run,'private/state/connections/Meta.json');
         await execFileAsync(this.python,['-m','robofrontier.pipeline_client','--quiet','--connection',conn,
           '--call-id','bind-'+actor,'bind','--data',JSON.stringify({actor,thread_id:id})],{cwd:this.cwd});
-        if (read(path.join(this.run,'private/inputs/harness.json')).startup_protocol !== 'direct_controller_v2')
-          throw new Error('CLI host requires direct_controller_v2');
-        const started=await this.admin('request-start');
-        if (!started.started) throw new Error('Direct START was not confirmed');
-        this.event({event:'direct_start',actor,thread_id:id});
-        await this.send(id,this.bootstrap(actor));
+        if (startupProtocol === 'direct_controller_v2') {
+          const started=await this.admin('request-start');
+          if (!started.started) throw new Error('Direct START was not confirmed');
+          this.event({event:'direct_start',actor,thread_id:id});
+        } else if (startupProtocol !== 'ready_barrier_v1') throw new Error('Unknown startup protocol');
+        await this.send(id,this.bootstrap(actor,startupProtocol));
       }
       const wrap=value=>({content:[{type:'text',text:JSON.stringify(value)}]});
       const createNativeFork=async (p,isSnapshot=false)=>{

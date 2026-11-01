@@ -18,7 +18,7 @@ class SetupTests(unittest.TestCase):
         try:
             self.assertEqual(store.get('lifecycle'),'prepared')
             self.assertEqual(store.agent('Meta')['kind'],'manager')
-            self.assertEqual(store.agent('Coordinator')['kind'],'coordinator')
+            self.assertEqual(store.agent('Controller')['kind'],'coordinator')
             self.assertTrue(all(v['thread_id'] is None for v in store.agents().values()))
             self.assertEqual(store.actions(),{})
         finally:store.close()
@@ -99,8 +99,20 @@ class SetupTests(unittest.TestCase):
             run=prepare_run(self.root/topology,p,c)
             roles=json.loads((run/'public/inputs/roles.json').read_text())['roles']
             self.assertEqual(sum(v['kind']=='worker' for v in roles.values()),6)
-            self.assertEqual('Coordinator' in roles,topology=='hierarchical')
+            self.assertEqual('Controller' in roles,topology=='hierarchical')
             self.assertEqual((run/'public/inputs/skill/SKILL.md').read_bytes(),skill)
             self.assertEqual(verify_inputs(run),[])
+
+    def test_hierarchical_controller_name_and_legacy_config(self):
+        for name in ('Controller', 'Coordinator'):
+            with self.subTest(name=name):
+                cfg=load_harness();cfg['topology']='hierarchical';cfg['coordinator']=name
+                config=self.root/(name+'.json');config.write_text(json.dumps(cfg))
+                run=prepare_run(self.root/('run-'+name),harness_path=config)
+                roles=json.loads((run/'public/inputs/roles.json').read_text())
+                self.assertEqual(roles['coordinator'],'Controller')
+                self.assertEqual(roles['roles']['Controller']['kind'],'coordinator')
+                self.assertTrue((run/'public/inputs/roles/Controller.md').exists())
+                self.assertEqual(verify_inputs(run),[])
 
 if __name__=='__main__':unittest.main()

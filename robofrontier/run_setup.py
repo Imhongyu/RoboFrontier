@@ -32,6 +32,8 @@ def prepare_run(directory, task_path=None, harness_path=None, private_puzzle_pat
     if directory.exists():
         raise ValueError('Choose a new run directory; existing runs are never overwritten')
     task, cfg = load_task(task_path), load_harness(harness_path)
+    # New runs use one public name; already frozen runs keep their original ID.
+    cfg['coordinator'] = 'Controller'
     # Freeze new-run defaults; absent fields in already prepared runs remain legacy.
     cfg.setdefault('observation_image_profile', DEFAULT_PROFILE)
     image_profile = observation_profile(cfg)
