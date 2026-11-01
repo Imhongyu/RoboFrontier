@@ -118,7 +118,10 @@ not the current host TOML default, when starting an existing batch.
 
 Claude runs remain engineering drafts. Select an actual Claude profile in TOML,
 perform its explicitly budgeted preflight, then pass run --engineering.
-Permanent-worker Claude modes and formal scored qualification remain closed.
+All four Claude topologies have native engineering entries, including persistent
+Controller + Worker and Worker-Worker sessions. See the
+[standing-team guide](claude-standing-teams.md). Formal scored qualification
+remains closed; local synthetic-provider checks do not qualify a real provider.
 
 Keep batch/output paths relative to runs/. Those paths refer to persistent
 container storage. They are not ordinary host paths while the task is running.

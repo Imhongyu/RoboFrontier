@@ -1,25 +1,46 @@
-# 工程入口
+# Engineering command index
 
-从仓库根使用`.venv/bin/python -m scripts.<名称>`。
+Use the unified `robofrontier` command for new experiments. Start with the root
+[README](../README.md), [configuration guide](../docs/unified-cli.md), and
+[component map](../docs/claude-codex-parity.md). The unified CLI selects a native
+Codex or Claude runner; it does not turn one engine into the other.
 
-| 入口 | 用途 |
+For a lower-level module, run `.venv/bin/python -m scripts.MODULE` from the
+repository root. Keep existing module names when reproducing historical evidence.
+
+| Entry | Purpose and scope |
 | --- | --- |
-| `benchmark models/plan/preflight/prepare/run/status/stop` | Codex CLI 多模型、等级/最少臂选择、API小测与完整预检、并发与24小时截止 |
-| `benchmark_handoff doctor/init-env/assets/restore` | 交接环境检查、私有.env创建与按SHA校验的运行资产导出/恢复 |
-| `check_codex_cli` | 使用本地Responses stub验证真实CLI工具、图片与fork；无外部模型调用 |
-| `curate_repository` | 生成并校验数据清理计划，按冻结来源保护原始流 |
-| `tasks list/check/prepare/prepare-batch` | 当前36项的版本、输入审计与独立GPT准备 |
-| `factory build/video/poses` | 底层构建、公共姿态导出与 Cycles 视频；须显式提供匹配源。新机器优先使用 factory_server |
-| `factory_server setup/doctor/prepare/submit/run/status/import-motion` | 独立 R14 工厂数据、Linux GPU 作业数组、可校验收尾和新 benchmark motion 渲染；见 [交接说明](../docs/factory-server.md) |
-| `restore_scene_assets` | 按原SHA恢复忽略的场景资产，拒绝覆盖漂移资产 |
-| `check_harness` | 全部离线Python/JS/文档与协议回归 |
-| `check_oracle_preservation` | 保护清单与冻结Oracle绑定校验 |
-| `export_factory_blender`、`render_factory_blender` | Cycles离线出片、固定机位重复帧与源姿态抽样比较 |
-| `check_factory_blender_instances` | Blender内验证真实实例几何、运动和独立变色 |
+| `robofrontier config/plan/bootstrap/prepare` | Resolve public TOML settings, select current released tasks, restore pinned assets, and freeze new inputs without calling a model |
+| `robofrontier doctor/preflight/run/status/stop` | Check local prerequisites; explicitly authorize provider checks; execute and monitor the selected native engine; request an orderly stop |
+| `robofrontier collect/archive/extract` | Collect stopped native sessions and task evidence, create a verified deduplicated ZIP, and verify/extract it |
+| `robofrontier container` | Build committed source and execute with persistent local Docker volumes |
+| `robofrontier slurm-submit` | Freeze a submission and optionally queue node-local execution with verified stage-out |
+| `robofrontier factory/oracle` | Replay frozen motion in Factory, or explicitly run privileged reference execution; neither is a policy benchmark launch |
+| `benchmark models/plan/preflight/prepare/run/status/stop` | Native Codex interface retained for compatibility, with model selection, task filters, provider checks, concurrency, and START-based task limits |
+| `claude_benchmark` | Native Claude draft, provider-check, and explicitly unqualified engineering interface; see the [Claude guide](../docs/claude-handoff.md) |
+| `benchmark_handoff doctor/init-env/assets/restore` | Inspect handoff prerequisites, create a private local environment file, and export/restore assets with SHA verification |
+| `check_codex_cli` | Exercise the real Codex CLI's tools, images, and forks against a local Responses stub, without external model calls |
+| `curate_repository` | Plan and verify data cleanup while protecting frozen source recordings |
+| `tasks list/check/prepare/prepare-batch` | Audit current release selection and inputs, or use the retained lower-level preparation interface |
+| `factory build/video/poses` | Low-level scene construction, public pose export, and Cycles video; requires an explicitly matching source |
+| `factory_server setup/doctor/prepare/submit/run/status/import-motion` | Restore independent R14 Factory data, prepare Linux render arrays, import new benchmark motion, and verify outputs; see the [server guide](../docs/factory-server.md) |
+| `restore_scene_assets` | Restore ignored historical scene assets by their original SHA; refuse to overwrite drifted files |
+| `check_harness` | Run the offline Python, JavaScript, documentation, and protocol regression inventory; historical fixtures may require separate assets |
+| `check_oracle_preservation` | Check the preservation manifest and frozen Oracle source bindings |
+| `export_factory_blender`, `render_factory_blender` | Export and render Cycles scenes, reuse fixed-camera frames, and compare sampled source poses |
+| `check_factory_blender_instances` | Check actual Blender instance geometry, motion, and independent color changes |
+| `build_task_atlas` | Build, verify, or package the public 36-task visual atlas without policy inference |
 
-`create_pipeline_run`保留用于旧任务/显式配置；`meta_dispatcher.js`是冻结Meta执行器。
-家族构建、审核和Oracle脚本保留其原名以支持历史证据、测试和可复现性。它们不负责
-选择当前GPT版本。不要把带oracle、commission、probe的脚本当成正式GPT启动入口。
+`create_pipeline_run` remains a Legacy interface for historical tasks and
+explicit configurations. `meta_dispatcher.js` executes frozen Meta operations;
+it is not an autonomous task-solving agent.
 
-迁移工具`archive_worktree_dependencies`保留归档回执；`prepare_factory_edits`
-产生新源剪辑版本，不修改原录制或历史剪辑。
+Family builders, audits, and Oracle scripts keep their historical names for
+provenance, tests, and reproducibility. A name containing `oracle`, `commission`,
+or `probe` does not make that script a scored policy entry or select the current
+released task version.
+
+`archive_worktree_dependencies` preserves migration receipts.
+`prepare_factory_edits` creates new source edit versions without modifying the
+original recording or previous edits. Do not modify frozen inputs or delete
+source evidence merely to make a preparation or archive check pass.

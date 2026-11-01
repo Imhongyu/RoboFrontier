@@ -215,17 +215,39 @@ class BatchTests(unittest.TestCase):
         self.assertFalse(status_batch(self.root)['supervisor_live'])
 
     def test_real_supervisor_process_loss_preserves_claim_and_does_not_replay(self):
+        self._assert_supervisor_loss(publish_starting=True)
+
+    def test_supervisor_loss_before_starting_snapshot_preserves_claim(self):
+        self._assert_supervisor_loss(publish_starting=False)
+
+    def _assert_supervisor_loss(self, *, publish_starting):
+        from unittest.mock import patch
+        from robofrontier.run_setup import write_json
         ctx = multiprocessing.get_context('fork')
         entered = ctx.Event()
+        publication = ctx.Event()
         def runner(run, *args, **kwargs):
             (Path(run)/'private/state/claude-engineering-claim.json').write_text('{}')
             entered.set()
             time.sleep(30)
             return {'status':'finished', 'reason':'world_ended'}
-        process = ctx.Process(target=self.run_case, args=(runner, 1))
+        def publish(path, data):
+            starting = data['jobs'][0]['status'] == 'starting'
+            if starting and not publish_starting:
+                # Hold the actual publication seam, not the worker thread.
+                publication.set()
+                time.sleep(30)
+            write_json(path, data)
+            if starting:
+                publication.set()
+        def supervise():
+            with patch('robofrontier.claude.engineering_batch.write_json', publish):
+                self.run_case(runner, 1)
+        process = ctx.Process(target=supervise)
         process.start()
         try:
             self.assertTrue(entered.wait(10), 'Test supervisor did not start its fake job')
+            self.assertTrue(publication.wait(10), 'Test did not reach its publication boundary')
             self.assertTrue(status_batch(self.root)['supervisor_live'])
             process.terminate()
             process.join(10)
@@ -234,7 +256,7 @@ class BatchTests(unittest.TestCase):
             self.assertEqual(status['status'], 'supervisor_lost_needs_review')
             self.assertFalse(status['supervisor_live'])
             self.assertTrue((self.root/'engineering-claim.json').exists())
-            self.assertEqual(status['jobs'][0]['status'], 'starting')
+            self.assertEqual(status['jobs'][0]['status'], 'starting' if publish_starting else 'queued')
             self.assertTrue(status['runs'][0]['claim_record_present'])
             self.assertTrue(all(not run['claim_record_present'] for run in status['runs'][1:]))
             self.assertTrue(stop_batch(self.root)['stop_requested'])

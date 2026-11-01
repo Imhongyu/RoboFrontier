@@ -6,11 +6,12 @@ from pathlib import Path
 import shutil
 import tempfile
 import threading
+import time
 import unittest
 import uuid
 
 from PIL import Image
-from robofrontier.claude.provenance import fork_provenance
+from robofrontier.claude.provenance import fork_provenance, history, transcript_rows
 from robofrontier.claude.runner import run_turn
 from robofrontier.claude.session_host import ClaudeSessionHost
 from scripts import claude_offline_probe as probe
@@ -49,6 +50,26 @@ class ForkBoundaryTests(unittest.TestCase):
                 host=ClaudeSessionHost(run,'Controller',profile,env,turn_timeout=45)
                 host.send('Call robot observe tool.')
                 self.assertTrue(entered.wait(25),'Parent did not reach the blocked MCP call')
+                # MCP delivery can precede native transcript creation/flush.
+                # Match production fork_setup's persisted-history boundary:
+                # entering the HTTP handler alone does not make resume safe.
+                recorded = False
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    try:
+                        rows = history(transcript_rows(run/'private/claude-config', host.session_id), host.session_id)
+                    except ValueError:
+                        rows = []
+                    for row in rows:
+                        for block in (row.get('message') or {}).get('content', []):
+                            if (isinstance(block, dict) and block.get('type') == 'tool_use'
+                                    and block.get('name') == 'mcp__robot__robot'
+                                    and block.get('input', {}).get('op') == 'observe'):
+                                recorded = True
+                    if recorded:
+                        break
+                    time.sleep(.05)
+                self.assertTrue(recorded, 'Parent MCP boundary was not persisted in native history')
                 child=str(uuid.uuid4())
                 record=run_turn(profile,profile['model'],profile['effort'],'unused',
                     'This is a no-tools setup turn. Reply READY.',run,env,session_id=child,

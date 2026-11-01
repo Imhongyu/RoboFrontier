@@ -49,12 +49,14 @@ The coordinating Controller does not acquire standing Workers' action authority.
 Single explicitly selects the robot for each command and can move independent
 arms concurrently. Adaptive may alternate between no delegates and several
 concurrent delegates in one task. Using no delegates does not change its
-configured topology. Claude permanent-worker modes and formal scored execution
-remain closed pending qualification; a shared schema does not establish support.
+configured topology. All four modes have native Claude engineering entries;
+standing teams bind one persistent native session per initial role. Their local
+CLI/MCP and MuJoCo checks use a synthetic provider, so formal scored execution
+remains closed. See [Claude standing teams](claude-standing-teams.md).
 
 ## Direct START and clocks
 
-New Codex Single/Adaptive runs use `direct_controller_v2`; standing teams use
+New Codex and Claude Single/Adaptive runs use `direct_controller_v2`; standing teams use
 `direct_team_v3`. The host creates and binds all initial roles to distinct native
 sessions, requests one persisted START, then supplies an explicit started prompt
 to every role. Initial reading and observations count toward the task clock.

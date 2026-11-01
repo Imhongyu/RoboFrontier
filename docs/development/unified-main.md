@@ -92,9 +92,10 @@ an explicit qualification gap; credentials are never cloned automatically.
 
 The native CLI wrapper can plan, bootstrap assets, prepare Codex runs or Claude
 engineering drafts, explicitly preflight providers, run, read atomic status,
-request stop, collect, ZIP, extract and restore evidence. Claude permanent-worker
-modes and formal scored execution remain closed. Factory commands now share
-the versioned configuration; Oracle integration remains pending. Slurm staging has
+request stop, collect, ZIP, extract and restore evidence. All four Claude modes
+now have native engineering entries; formal scored execution remains closed.
+Factory and Oracle commands share the versioned configuration, with their
+scoped acceptance evidence recorded below. Slurm staging has
 its own settings and entry, with real-cluster qualification still outstanding.
 
 Six real Codex 0.165.0 app-servers were initialized in independent cold homes and
@@ -740,3 +741,52 @@ resource implications, clock semantics, recovery, evidence and reproducible test
 commands. Formal scored Claude execution, genuine provider lifecycle/ability,
 all-family/all-scale standing physical checks and cluster/subscription
 qualification remain open; no release lock or production physics changed.
+
+## Linux image and publication-boundary checks
+
+The committed `849b5c1ea10502baebbc85d4265fc59a9e932440` source built successfully
+through the unified container command. Image `robofrontier:849b5c1ea105` carries
+that exact revision label; its image ID is
+`sha256:51d42e40eab7bc0fbd4111103f2bd1cf1e2c8f62097319bc1d5530e5696a242b`.
+The build used no model calls. A network-disabled Linux aarch64 container passed
+native Claude CLI and actual RGB doctor checks with Mesa llvmpipe. This does not
+qualify NVIDIA, x86_64, a real provider, Slurm or 36-task execution capacity.
+
+Actual unified `prepare` commands in that image prepared four minimum-arm Level 1
+cases for each engine/topology combination: 32 independent frozen runs across
+Codex/Claude and Single/Adaptive/Controller + Worker/Worker-Worker. Every input
+manifest verified; CPU rendering, JPEG observations, 24-hour public task limits,
+0.3-second startup spacing and the corresponding direct-start protocols matched.
+No model or physical world was started by these preparations.
+
+The first Linux selected group exposed a process-loss test race: the fake worker
+had entered before the supervisor's `starting` JSON publication. Killing the
+supervisor then legitimately retained `queued` in its last published snapshot.
+The test now controls the actual publication seam and exercises both sides of
+it. Both cases preserve run/batch claims, report the lost supervisor, support
+STOP, and refuse replay. All 18 engineering-batch tests passed on macOS and
+Linux after this change. Production supervision was not altered.
+
+The initial Linux full Claude discovery ran 175 tests with one failure and eight
+skips. Its standalone native-fork test attempted resume immediately after an MCP
+HTTP handler was entered, before the native parent history was guaranteed to be
+written. Production delegation already waits for its recorded pending-tool
+boundary in `fork_setup._pending_history`. The standalone test now also requires
+its actual observe tool-use row in the native transcript before creating a fork.
+The corrected native test passed on macOS (1.465 seconds) and Linux (1.340 seconds).
+The initial failing logs remain retained; a complete post-fix discovery is still
+required before claiming that whole Linux group passes.
+
+The engineering index and Linux policy guide are now English and lead to the
+unified CLI, pinned bootstrap, explicit render backends, node-local execution,
+credential isolation and stopped evidence collection. Stale permanent-Worker
+unavailability statements in the current architecture, Docker, Slurm and manager
+guides were updated to the implemented engineering capability, retaining the
+formal qualification boundary. Historical interfaces are explicitly Legacy.
+
+Local evidence uses the `linux-`, `supervisor-publication-` and `fork-boundary-`
+prefixes under `runs/engineering/main-integration-task-atlas-20261101/`. Linux
+post-fix tests used the committed image with only the identified test files
+replaced inside disposable containers; no production image file or original
+run evidence was overwritten. Source changes will need a new committed image
+for exact-revision final acceptance.
