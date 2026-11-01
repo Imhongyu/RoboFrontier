@@ -29,6 +29,12 @@ uv sync --locked
 用 OPTIX，显式 CUDA 可作为另一选项；Mac 用 METAL，CPU 仅供显式诊断。
 缺少指定 GPU 后端时失败，不会静默切换 CPU。本仓库不分发集群驱动或复制其他机器的 `.venv`。
 
+Blender 的系统动态库也必须在计算节点可用；登录节点能启动不代表计算节点能启动。
+本次实机遇到过缺少 `libxkbcommon.so.0`，补充对应系统库后设备检查才通过。
+可以由管理员安装相应系统包，或使用站点提供的用户态库目录并设置
+`LD_LIBRARY_PATH=/path/to/site-libs:${LD_LIBRARY_PATH:-}`；该环境随 submit 传入作业。
+先在 GPU 分配内运行 doctor，再提交长批次；不需要也不应修改源场景来解决系统库错误。
+
 ```sh
 .venv/bin/python -m scripts.factory_server setup
 ```
@@ -68,6 +74,13 @@ Mosaic 的 a06-d3、a08-d3 展示复用对应 d2 记录，并保留 `recorded_ca
 
 ```sh
 .venv/bin/python -m scripts.factory_server doctor --device OPTIX
+```
+
+从登录节点排队检查时使用计算分区，例如：
+
+```sh
+srun --partition YOUR_GPU_PARTITION --gres gpu:1 --cpus-per-task 4 \
+  --mem 16G --time 00:20:00 .venv/bin/python -m scripts.factory_server doctor --device OPTIX
 ```
 
 登录节点没有 GPU 时，不能用其检查结果推断计算节点 GPU 可用；可先用 `--device CPU`

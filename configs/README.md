@@ -3,6 +3,7 @@
 | 路径 | 含义 |
 | --- | --- |
 | `task_families/current.json` | 四类任务、GPT/Oracle用途、公开材料及源剪辑的统一选择 |
+| `factory-assets.json` | 独立 R14 工厂交接数据的 Release、分卷大小及 SHA256；不更改 benchmark 资产选择 |
 | `task_families/<family>/public/` | 可交给新策略的已审查静态材料 |
 | `harnesses/policy.json` | 新GPT准备的默认共享控制与协作配置 |
 | `backgrounds/robo_factory.json` | 工厂外观、布局与资源复用 |
