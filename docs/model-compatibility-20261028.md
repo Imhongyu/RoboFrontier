@@ -1,148 +1,184 @@
-# 八家中国视觉模型：Codex 适配、缓存价格与并发限制
+# Historical snapshot: eight Chinese vision providers and Codex compatibility
 
-核查日期：2026-10-28，Asia/Hong_Kong。采用厂商官方来源，针对本项目的机器人
-截图、动态函数工具、多轮工具结果、长历史、压缩与 fork 流程。以下是普通实时按量
-API，不混用 Coding Plan、M Plan、Token Plan、Step Plan、Batch 或第三方转发价格。
-未调用付费推理、未读取密钥、未验证当前账户私有配额。
+Recorded review date: **2026-10-28, Asia/Hong_Kong**. This English edition retains
+the original source links, numerical tables, uncertainties and engineering
+judgments. It does not reverify current vendor prices, model availability or
+private account quotas. The original research used vendor sources for robot
+images, dynamic function tools, multi-turn tool results, long history,
+compaction and fork. It considered ordinary realtime pay-as-you-go APIs, not
+Coding Plan, M Plan, Token Plan, Step Plan, Batch or third-party resale prices.
+It made no paid inference calls, read no keys and checked no private quota.
 
-## 适配评价与当前工程状态
+## Recorded compatibility assessment
 
-“适配程度”评价的是接入证据与工程改造量，不是机器人成功率排名。
-当前配置只有 Kimi、Qwen、GLM、DeepSeek 四家；新增四家尚未加入运行配置。
-这八家均没有在本交接工作树完成真实 API preflight，不能称为已端到端跑通。
+Compatibility meant integration evidence and required engineering, not robot
+success rate. The four configured Chinese providers were Kimi, Qwen, GLM and
+DeepSeek; the other four were candidates. None of these eight had completed a
+real API preflight in that handoff checkout. The table is a dated assessment,
+not a claim that current code or an account supports every listed model.
 
-| 模型 | Codex 接入评价 | 本 Harness 的状态与待验证点 |
+| Model | Recorded Codex integration assessment | State and checks identified in the snapshot |
 | --- | --- | --- |
-| `kimi-k3.1-pro` | 高：厂商有原生 Responses + Codex 指南 | 已有 `kimi` profile；验证图片工具回传、长程续轮、压缩/fork、实际 reasoning 参数。[官方接入](https://platform.kimi.com/docs/guide/codex-kimi) |
-| `deepseek-flash` | 高：厂商有原生 Responses + Codex 指南 | 已有 `deepseek` profile；当前别名是 V4.1-Flash-1017，支持视觉，不能替换为当前不支持视觉的 V4 Pro。[官方接入](https://api-docs.deepseek.com/quick_start/agent_integrations/codex/)、[型号](https://api-docs.deepseek.com/quick_start/pricing/) |
-| `MiniMax-M3.1-Flash` | 高：有详细 Codex 模型目录配置 | 尚未配置；按官方声明 text/image、reasoning 支持；支持 low/medium/high/xhigh/max，不支持 none。工具循环与图像结果仍须测。[官方接入](https://platform.minimax.cn/docs/m-plan/codex) |
-| `qwen3.8-max-0902` | 较高：有 Responses 图片、函数接口 | 已有 `qwen` profile；需要账户地域/workspace 对应地址；Session 缓存需另加 header；超约80%上下文可能自动截断。[官方接口](https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-responses) |
-| `glm-5.3-flash` | 较高：有 Responses 图片、函数接口 | 已有 `glm` profile；Responses 地址为 `/api/v1`，不是 Chat 的 `/api/paas/v4`。核实账户可用型号与多模态工具结果。[官方接口](https://docs.bigmodel.cn/cn/guide/develop/responses/introduction) |
-| `doubao-seed-2-1-pro-260915` | 较高，但需区分订阅与按量端点 | 尚未配置；厂商 Codex 指南用 Coding Plan 端点，不能据此把订阅配额套入按量 API。多轮保留 reasoning 加密内容，测试完整请求历史。[官方 Codex](https://docs.volcengine.com/docs/ark/coding-plan-personal-ai-codex?lang=zh)、[深度思考](https://docs.volcengine.com/docs/ark/deep-thinking?lang=zh) |
-| `mimo-v2.6-pro` | 官方支持强，但当前模板存在明确差异 | 尚未配置；官方目录 `use_responses_lite=true`，当前 Harness 强制 false。厂商提示 custom 工具需要 lite，必须先核对动态工具路径。[官方指南](https://mimo.mi.com/docs/en-US/tokenplan/integration/codex-configuration)、[官方目录](https://example-files.cnbj1.mi-fds.com/example-files/configs/model-catalogs.json) |
-| `step-5-preview` | 有官方接入，但机器人流程适配有待验证 | 尚未配置；Codex 教程用 Step Plan，普通按量也有 `/v1/responses`。按量文档只承诺 function、tool_choice=auto、字符串工具结果；未证明图片工具回传与 custom/freeform 支持。[官方 Codex](https://platform.stepfun.com/docs/zh/guides/developer/integrations/codex.md)、[按量 Responses](https://platform.stepfun.com/docs/zh/api-reference/responses/responses-create.md) |
+| `kimi-k3.1-pro` | Strong: native Responses and a Codex guide | Existing `kimi` profile; verify image tool returns, long continuation, compaction/fork and actual reasoning parameters. [Guide](https://platform.kimi.com/docs/guide/codex-kimi) |
+| `deepseek-flash` | Strong: native Responses and a Codex guide | Existing `deepseek` profile; recorded alias V4.1-Flash-1017 had vision, unlike the recorded V4 Pro listing. [Guide](https://api-docs.deepseek.com/quick_start/agent_integrations/codex/), [model source](https://api-docs.deepseek.com/quick_start/pricing/) |
+| `MiniMax-M3.1-Flash` | Strong: detailed Codex model catalog instructions | Not configured; declared text/image and reasoning support with low/medium/high/xhigh/max, excluding none. Tool loops and image results still required tests. [Guide](https://platform.minimax.cn/docs/m-plan/codex) |
+| `qwen3.8-max-0902` | Relatively strong: Responses images/functions | Existing `qwen` profile; account region/workspace URL required. Session cache needed a header; context above approximately 80% could be automatically truncated. [Interface](https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-responses) |
+| `glm-5.3-flash` | Relatively strong: Responses images/functions | Existing `glm` profile; Responses used `/api/v1`, not Chat's `/api/paas/v4`. Verify account model access and multimodal tool results. [Interface](https://docs.bigmodel.cn/cn/guide/develop/responses/introduction) |
+| `doubao-seed-2-1-pro-260915` | Relatively strong, with subscription/pay-as-you-go endpoint distinctions | Not configured; the Codex guide used a Coding Plan endpoint, which did not establish pay-as-you-go quota. Preserve encrypted reasoning across turns and test full history. [Codex](https://docs.volcengine.com/docs/ark/coding-plan-personal-ai-codex?lang=zh), [reasoning](https://docs.volcengine.com/docs/ark/deep-thinking?lang=zh) |
+| `mimo-v2.6-pro` | Strong official support, but a declared catalog difference | Not configured; the vendor catalog used `use_responses_lite=true` while the generated provider configuration forced false. Custom tools reportedly needed lite, requiring dynamic-tool verification first. [Guide](https://mimo.mi.com/docs/en-US/tokenplan/integration/codex-configuration), [catalog](https://example-files.cnbj1.mi-fds.com/example-files/configs/model-catalogs.json) |
+| `step-5-preview` | Official integration, with robot workflow compatibility unverified | Not configured; Codex instructions used Step Plan. Ordinary pay-as-you-go also exposed `/v1/responses`, with documented function, `tool_choice=auto` and string tool results; image returns/custom/freeform were not established. [Codex](https://platform.stepfun.com/docs/zh/guides/developer/integrations/codex.md), [Responses](https://platform.stepfun.com/docs/zh/api-reference/responses/responses-create.md) |
 
-这些评价不承诺八家采用相同协议子集。OpenAI 支持自定义 provider、环境变量密钥与
-请求头，但服务商是否实现具体图片/工具字段仍由其接口决定。
-[Codex 配置文档](https://learn.chatgpt.com/docs/config-file/config-advanced)
+The providers were not assumed to implement the same protocol subset. Custom
+provider/environment/header configuration did not make every image/tool field
+valid at a vendor endpoint. The snapshot linked the
+[Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-advanced).
 
-工程审计基于 [launch_config](../scripts/benchmark.py)、[模型配置](../configs/models.json)、
-[模型目录模板](../configs/codex-model-template.json) 和 [preflight](../scripts/codex_preflight.js)：
+The engineering audit referenced [launch configuration](../scripts/benchmark.py),
+[profiles](../configs/models.json), [catalog seed](../configs/codex-model-template.json)
+and [preflight](../scripts/codex_preflight.js). Those files can evolve; consult
+Git history for the version behind this dated record. The raw catalog seed is
+not the generated provider catalog: launch overrides must be inspected too.
 
-- 当前 smoke 检查是用户附图 → 函数调用 → 文本工具结果；完整检查再加手动压缩和 fork。
-  **尚未实测供应商接受工具返回的图片，并据此继续动作**。离线 stub 验证不能代替这项。
-- 当前模板没有显式声明 `supports_reasoning_summaries=true` 或对应配置强制项。
-  MiMo/MiniMax 指南指出该标记关系到是否发送 `reasoning.effort`；应检查实际请求，
-  不能只凭本地 `high/max` 标签认定推理强度已经生效。
-- 当前每请求上下文预算272,000，自动压缩阈值245,000；不是每轮一定发送272K。
-  尚未压测完整窗口或自动压缩行为。
+The original gaps were:
 
-建议接入顺序属于工程判断：先验证已有四家；新增优先 MiniMax；MiMo 先处理 lite
-与动态工具兼容；Doubao 核对按量端点；Step 先攻克图片工具结果。最终任务能力只能
-通过同一冻结输入、相同预算与记录完整 usage 的实验比较。
+- Smoke checked user-attached image, function call and a text tool result; full
+  preflight added manual compaction and fork. It did not establish that a real
+  provider accepted an image returned by a tool and then continued acting. An
+  offline stub was not a substitute.
+- The configuration did not explicitly declare
+  `supports_reasoning_summaries=true` or force the corresponding option. The
+  MiMo/MiniMax guides related that flag to sending `reasoning.effort`; actual
+  requests needed inspection rather than trusting a local high/max label.
+- The recorded context budget was 272,000 and automatic compaction threshold
+  245,000. This did not mean every turn sent 272K tokens. Full-window loading and
+  automatic compaction under load were not stress-tested.
 
-## 普通按量价格
+The proposed engineering order was to verify the existing four, then prioritize
+MiniMax; resolve MiMo lite/dynamic tools; distinguish Doubao pay-as-you-go
+endpoints; and first establish Step image-tool returns. This was an engineering
+judgment, not a model-quality ranking. Task ability needed identical frozen
+inputs, comparable budgets and complete usage evidence.
 
-单位：每 **1,000,000 tokens**。除 DeepSeek 单独标明美元外，其余为中国端人民币；
-不做汇率换算。图片编码以及推理输出也可能产生费用。
+## Recorded pay-as-you-go prices
 
-| 模型／地域 | 未缓存输入 | 缓存命中输入 | 输出 | 官方价格 |
+Prices are per **1,000,000 tokens**. DeepSeek is USD; all other rows are the
+recorded China-region CNY prices. No exchange-rate conversion is implied.
+Image encoding and reasoning/output tokens could also incur charges.
+
+| Model / region | Uncached input | Cache-hit input | Output | Source |
 | --- | ---: | ---: | ---: | --- |
-| Kimi K3.1 Pro／中国 | ¥13 | ¥1.30 | ¥68 | [Kimi](https://platform.kimi.com/) |
-| Qwen3.8-Max-0902／北京 | ¥12 | ¥1.5 隐式；¥1 显式 | ¥36 | [Qwen](https://help.aliyun.com/zh/model-studio/qwen3-8-max) |
-| GLM-5.3-Flash／中国 | ¥0.8 | ¥0.23 | ¥2.8 | [智谱](https://docs.bigmodel.cn/cn/guide/start/pricing) |
-| DeepSeek Flash／非高峰 | US$0.15 | US$0.003 | US$0.60 | [DeepSeek](https://api-docs.deepseek.com/quick_start/pricing/) |
-| DeepSeek Flash／高峰 | US$0.30 | US$0.006 | US$1.20 | [DeepSeek](https://api-docs.deepseek.com/quick_start/pricing/) |
-| Doubao Seed 2.1 Pro **260915**／北京 | ¥6 | ¥1.20 | ¥30 | [方舟](https://docs.volcengine.com/docs/ark/model-pricing?lang=zh) |
-| MiMo V2.6 Pro／中国 | ¥3 | ¥0.025 | ¥6 | [MiMo](https://mimo.mi.com/docs/pricing) |
-| MiniMax M3.1 Flash／中国 | ¥1 | ¥0.10 | ¥4 | [MiniMax](https://platform.minimax.cn/docs/pricing/overview.md) |
-| Step 5 Preview／中国 | ¥7 | ¥0.70；合资格老用户¥0.35 | ¥20 | [StepFun](https://platform.stepfun.com/docs/zh/guides/pricing/details.md) |
+| Kimi K3.1 Pro / China | CNY 13 | CNY 1.30 | CNY 68 | [Kimi](https://platform.kimi.com/) |
+| Qwen3.8-Max-0902 / Beijing | CNY 12 | CNY 1.5 implicit; CNY 1 explicit | CNY 36 | [Qwen](https://help.aliyun.com/zh/model-studio/qwen3-8-max) |
+| GLM-5.3-Flash / China | CNY 0.8 | CNY 0.23 | CNY 2.8 | [Zhipu](https://docs.bigmodel.cn/cn/guide/start/pricing) |
+| DeepSeek Flash / off-peak | USD 0.15 | USD 0.003 | USD 0.60 | [DeepSeek](https://api-docs.deepseek.com/quick_start/pricing/) |
+| DeepSeek Flash / peak | USD 0.30 | USD 0.006 | USD 1.20 | [DeepSeek](https://api-docs.deepseek.com/quick_start/pricing/) |
+| Doubao Seed 2.1 Pro **260915** / Beijing | CNY 6 | CNY 1.20 | CNY 30 | [Ark](https://docs.volcengine.com/docs/ark/model-pricing?lang=zh) |
+| MiMo V2.6 Pro / China | CNY 3 | CNY 0.025 | CNY 6 | [MiMo](https://mimo.mi.com/docs/pricing) |
+| MiniMax M3.1 Flash / China | CNY 1 | CNY 0.10 | CNY 4 | [MiniMax](https://platform.minimax.cn/docs/pricing/overview.md) |
+| Step 5 Preview / China | CNY 7 | CNY 0.70; eligible existing users CNY 0.35 | CNY 20 | [StepFun](https://platform.stepfun.com/docs/zh/guides/pricing/details.md) |
 
-DeepSeek 高峰：周一至周五香港09:00–12:00、14:00–18:00，中国公共假期除外。
-其余时间适用非高峰价。[时段规则](https://api-docs.deepseek.com/quick_start/pricing/)
+Recorded DeepSeek peak hours were Monday-Friday Hong Kong 09:00-12:00 and
+14:00-18:00, excluding Chinese public holidays; other times were off-peak.
+[Time rules](https://api-docs.deepseek.com/quick_start/pricing/).
 
-Step 缓存老用户条件：2026-10-14 00:30 北京时间前已通过普通按量 API 调用过
-Step 5 Preview；不是只要注册较早即可。[调价公告](https://platform.stepfun.com/docs/zh/announcements/step-5-preview-price-adjustment.md)
+The recorded Step existing-user discount required a previous ordinary
+pay-as-you-go Step 5 Preview call before 2026-10-14 00:30 Beijing time, not merely
+an old registration. [Announcement](https://platform.stepfun.com/docs/zh/announcements/step-5-preview-price-adjustment.md).
 
-这里不套用旧型号的长度加价：Doubao 260915 输入0–1024K同价，旧260628是256K；
-MiMo V2.6 Pro 没有列长上下文加价；MiniMax M3 的512K阶梯不属于 M3.1 Flash。
-[方舟型号](https://docs.volcengine.com/docs/ark/model-list?lang=zh)、
-[MiMo 价格](https://mimo.mi.com/docs/pricing)、
-[MiniMax 价格](https://platform.minimax.cn/docs/pricing/overview.md)
+No older model's context surcharge was copied into this table: the recorded
+Doubao 260915 rate covered 0-1024K input, versus older 260628's 256K; MiMo V2.6
+Pro listed no long-context surcharge; MiniMax M3's 512K tier was not M3.1 Flash.
+[Ark model list](https://docs.volcengine.com/docs/ark/model-list?lang=zh),
+[MiMo pricing](https://mimo.mi.com/docs/pricing),
+[MiniMax pricing](https://platform.minimax.cn/docs/pricing/overview.md).
 
-## 缓存写入、存储与生效条件
+## Recorded cache writing, storage and activation
 
-| 厂商 | 写入／存储与期限 | 当前 Harness 的边界 |
+| Provider | Writing/storage/TTL | Harness limitation identified in the snapshot |
 | --- | --- | --- |
-| Kimi | 自动前缀缓存，默认5分钟，支持1小时；首页写入¥13/M未注明TTL，1小时 Pro 写入价本次未核实 | 普通输入、写入、读取 token 互斥，同一 token 不重复收¥13+¥13。[缓存计费](https://platform.kimi.com/docs/guide/context-caching) |
-| Qwen | 隐式自动、期限不固定；显式创建¥15/M、命中¥1/M，5分钟命中续期 | 未配置 Session header，仍可能命中隐式缓存。`x-dashscope-session-cache: enable` 才开启 Session；该型号优先显式缓存。[缓存](https://help.aliyun.com/zh/model-studio/context-cache)、[Session](https://help.aliyun.com/zh/model-studio/compatibility-with-openai-responses-api) |
-| GLM | 自动隐式缓存；存储限时免费；未公布固定TTL，没有单列写入价 | 建议重复前缀≥500 tokens；检查真实 usage。[缓存](https://docs.bigmodel.cn/cn/guide/capabilities/cache)、[计费](https://docs.bigmodel.cn/cn/guide/start/pricing) |
-| DeepSeek | 自动缓存；未单列写入/存储费用；不活跃缓存通常数小时至数天清理 | best effort，不保证每次命中或固定TTL。[缓存](https://api-docs.deepseek.com/guides/kv_cache/) |
-| Doubao | 隐式自动，存储免费；显式存储¥0.017/M tokens/小时，不足1小时按1小时，最长7天 | 新增输入按普通输入价；显式需配置 `caching`，与隐式互斥。[缓存](https://docs.volcengine.com/docs/ark/context-cache?lang=zh) |
-| MiMo | 缓存写入限时免费；未公布固定TTL或单独存储价 | 不能承诺永久免费。[定价](https://mimo.mi.com/docs/pricing) |
-| MiniMax | 自动前缀缓存，输入≥512 tokens；新增输入普通价，没有单列写入/存储项 | 未公布固定TTL，只有实际命中才能按缓存价计算。[缓存](https://platform.minimax.cn/docs/api-reference/text-prompt-caching.md) |
-| Step | 自动前缀缓存，256-token块；首次写入计普通输入价，无额外缓存购买费 | LRU淘汰，无固定TTL；相同图片/视频、工具及结果可参与缓存。[缓存](https://platform.stepfun.com/docs/zh/guides/developer/prompt-cache.md) |
+| Kimi | Automatic prefix caching; default five minutes, one-hour option; displayed CNY 13/M writing did not specify TTL and one-hour Pro writing was not verified | Ordinary input/write/read categories were mutually exclusive, not CNY 13 + CNY 13 for the same token. [Billing](https://platform.kimi.com/docs/guide/context-caching) |
+| Qwen | Automatic implicit cache with no fixed TTL; explicit creation CNY 15/M, hits CNY 1/M and five-minute hit renewal | No Session header configured, although implicit hits could still occur. `x-dashscope-session-cache: enable` activated Session; this model preferred explicit caching. [Cache](https://help.aliyun.com/zh/model-studio/context-cache), [Session](https://help.aliyun.com/zh/model-studio/compatibility-with-openai-responses-api) |
+| GLM | Automatic implicit cache; temporarily free storage; no fixed TTL or separate writing price published | Repeated prefixes of at least 500 tokens were recommended; actual usage needed inspection. [Cache](https://docs.bigmodel.cn/cn/guide/capabilities/cache), [billing](https://docs.bigmodel.cn/cn/guide/start/pricing) |
+| DeepSeek | Automatic cache; no separate writing/storage fee; inactive entries usually cleared after hours to days | Best effort, without guaranteed hits or fixed TTL. [Cache](https://api-docs.deepseek.com/guides/kv_cache/) |
+| Doubao | Automatic implicit cache with free storage; explicit storage CNY 0.017/M tokens/hour, rounding up to one hour, maximum seven days | New input charged at ordinary input rate; explicit mode required `caching` and was mutually exclusive with implicit mode. [Cache](https://docs.volcengine.com/docs/ark/context-cache?lang=zh) |
+| MiMo | Cache writing temporarily free; no published fixed TTL or separate storage price | Permanent free writing was not established. [Pricing](https://mimo.mi.com/docs/pricing) |
+| MiniMax | Automatic prefix cache for at least 512 input tokens; new input at ordinary rate, no separate writing/storage line | No fixed TTL published; only actual hits justified cached pricing. [Cache](https://platform.minimax.cn/docs/api-reference/text-prompt-caching.md) |
+| Step | Automatic prefix cache in 256-token blocks; first write at ordinary input price, no extra cache purchase | LRU eviction, no fixed TTL; identical images/videos, tools and results could participate. [Cache](https://platform.stepfun.com/docs/zh/guides/developer/prompt-cache.md) |
 
-以上八家均未找到适用于本表公共按量 API 的明确“缓存 token 不计 TPM”保证。
-不能把价格折扣代入 TPM，也不能把专属 PTU、吞吐预留或订阅折算套过来。
-实际命中应查原始响应 usage；仅看到相同系统提示词不能证明有缓存折扣。
+The review found no explicit general guarantee for these public pay-as-you-go
+APIs that cached tokens did not count toward TPM. A price discount was not a TPM
+discount; dedicated PTU/reserved throughput/subscription terms were not applied.
+Actual hits required original response usage, not merely matching system text.
 
-## RPM、TPM 与同时请求数
+## Recorded RPM, TPM and simultaneous requests
 
-RPM=每分钟请求数，TPM=每分钟 token 配额，“并发请求”=同时尚未结束的请求。
-“未公布/未核实”不表示无限，也不代表当前账户必然获得表中基线。
+RPM is requests per minute; TPM is the token rate quota; simultaneous requests
+are outstanding requests that have not finished. Unpublished/unverified does not
+mean unlimited or guarantee that an account receives a listed baseline.
 
-| 模型／普通按量账户 | 同时请求数 | RPM | TPM | 额度范围与来源 |
+| Model / ordinary pay-as-you-go account | Simultaneous requests | RPM | TPM | Scope and source |
 | --- | ---: | ---: | ---: | --- |
-| Kimi K3.1 Pro | 按充值等级，数值未核实 | 同左 | 同左，另有TPD | 用户级，全部模型/Key共享；公开动态表本次不可读取，以控制台为准。[官方](https://platform.kimi.com/docs/pricing/limits) |
-| Qwen3.8-Max-0902／北京 | 未公布 | 未给数字 | **1,500,000** | 主账号+模型，所有workspace/Key共享；三个月消费档的该快照基线相同。[官方](https://help.aliyun.com/zh/model-studio/quota-management) |
-| GLM-5.3-Flash | 账户等级+模型，以控制台为准 | 未公布 | 未公布 | 不使用论坛数字或 Coding Plan 项目数替代。[官方](https://docs.bigmodel.cn/cn/api/rate-limit) |
-| DeepSeek Flash | **2,500/账户** | 未公布 | 未公布 | 从发出到响应结束，所有Key共享；超额429。[官方](https://api-docs.deepseek.com/quick_start/rate_limit/) |
-| Doubao 260915／北京 | 未公布，低充值可能受限 | **500** | **1,000,000** | 主子账号及同模型接入点共享；公开最大值不构成容量保障。[模型表](https://docs.volcengine.com/docs/ark/model-list?lang=zh)、[FAQ](https://docs.volcengine.com/docs/ark/modelark-faq?lang=zh) |
-| MiMo V2.6 Pro | 未公布数字 | **100** | **10,000,000** | 同账号同模型全部Key合计。[官方](https://mimo.mi.com/docs/en-US/quick-start/model) |
-| MiniMax M3.1 Flash／免费 | 未公布 | **20** | **1,000,000** | 主子账号共享。[官方](https://platform.minimax.cn/docs/guides/rate-limits.md) |
-| MiniMax M3.1 Flash／充值 | 未公布 | **200** | **10,000,000** | TPM含输入+输出，可申请提高。[官方](https://platform.minimax.cn/docs/guides/rate-limits.md) |
-| Step 5 Preview／V0个人 | **5** | **100** | **500,000** | 其他充值档见下表。[官方](https://platform.stepfun.com/docs/zh/guides/pricing/rate-limits.md) |
+| Kimi K3.1 Pro | Funding tier; figures unverified | Same | Same, plus TPD | User-wide across models/keys; the dynamic table could not be read in the review. Consult the console. [Source](https://platform.kimi.com/docs/pricing/limits) |
+| Qwen3.8-Max-0902 / Beijing | Unpublished | No figure given | **1,500,000** | Main account + model, shared by workspaces/keys; the recorded three-month-spending tiers had the same snapshot baseline. [Source](https://help.aliyun.com/zh/model-studio/quota-management) |
+| GLM-5.3-Flash | Account tier + model; console authoritative | Unpublished | Unpublished | Forum figures/Coding Plan project counts were not substituted. [Source](https://docs.bigmodel.cn/cn/api/rate-limit) |
+| DeepSeek Flash | **2,500/account** | Unpublished | Unpublished | From request issuance through response completion, all keys shared; exceeding quota returned 429. [Source](https://api-docs.deepseek.com/quick_start/rate_limit/) |
+| Doubao 260915 / Beijing | Unpublished; low funding could limit it | **500** | **1,000,000** | Shared across main/subaccounts and same-model endpoints; a public maximum was not a capacity guarantee. [Models](https://docs.volcengine.com/docs/ark/model-list?lang=zh), [FAQ](https://docs.volcengine.com/docs/ark/modelark-faq?lang=zh) |
+| MiMo V2.6 Pro | No figure published | **100** | **10,000,000** | Same-account/same-model aggregate across keys. [Source](https://mimo.mi.com/docs/en-US/quick-start/model) |
+| MiniMax M3.1 Flash / free | Unpublished | **20** | **1,000,000** | Shared by main/subaccounts. [Source](https://platform.minimax.cn/docs/guides/rate-limits.md) |
+| MiniMax M3.1 Flash / funded | Unpublished | **200** | **10,000,000** | TPM included input/output; increases could be requested. [Source](https://platform.minimax.cn/docs/guides/rate-limits.md) |
+| Step 5 Preview / V0 individual | **5** | **100** | **500,000** | Other funding tiers below. [Source](https://platform.stepfun.com/docs/zh/guides/pricing/rate-limits.md) |
 
-千问固定快照不能套用滚动别名 `qwen3.8-max` 的500/1000/2000万TPM。
-不同地域也不能混用额度；例如其部分海外/全球部署另列30,000 RPM、150,000 TPM。
-[型号地域表](https://help.aliyun.com/zh/model-studio/qwen3-8-max)
+The fixed Qwen snapshot did not inherit the rolling `qwen3.8-max` alias's
+5/10/20-million TPM tiers. Regions also differed: some overseas/global deployments
+listed 30,000 RPM and 150,000 TPM separately.
+[Regional model source](https://help.aliyun.com/zh/model-studio/qwen3-8-max).
 
-Step 中国个人账户按累计现金充值分级，代金券不计入；企业联系商务。
-平台可随负载调整，账户需要实名认证。[官方限流](https://platform.stepfun.com/docs/zh/guides/pricing/rate-limits.md)
+Recorded Step individual tiers used cumulative cash funding, excluding vouchers;
+enterprises contacted sales. Limits could change with load and accounts required
+identity verification. [Rate-limit source](https://platform.stepfun.com/docs/zh/guides/pricing/rate-limits.md).
 
-| Step 等级 | 累计现金充值人民币 | 同时请求 | RPM | TPM |
+| Step tier | Cumulative cash funding, CNY | Simultaneous requests | RPM | TPM |
 | --- | --- | ---: | ---: | ---: |
 | V0 | <100 | 5 | 100 | 500,000 |
-| V1 | 100–499 | 20 | 400 | 2,000,000 |
-| V2 | 500–1,999 | 30 | 600 | 3,000,000 |
-| V3 | 2,000–9,999 | 40 | 800 | 4,000,000 |
-| V4 | ≥10,000 | 130 | 2,600 | 13,000,000 |
+| V1 | 100-499 | 20 | 400 | 2,000,000 |
+| V2 | 500-1,999 | 30 | 600 | 3,000,000 |
+| V3 | 2,000-9,999 | 40 | 800 | 4,000,000 |
+| V4 | >=10,000 | 130 | 2,600 | 13,000,000 |
 
-## 怎样把限额转成实验并行数
+## Interpreting quotas for experiment concurrency
 
-一个 Level 1 任务内部可能产生多个 Codex 会话。四任务、四条 CLI 进程、四个机械臂、
-四个同时 API 请求是四种不同计数；不能从API并发额度直接推出可开多少实验。
+One Level 1 task can create multiple native Codex sessions. Four tasks, four CLI
+processes, four robot arms and four simultaneous API requests are different
+counts. An API connection quota alone cannot determine experiment concurrency.
 
-工程建议是按供应商账户统一限制同时请求，并对 RPM/TPM 做预算与429退避。
-当前代码主要限制任务并行度，不应把它宣传成已经实现账户级API限流。
-多个任务各自重试也可能一起冲击共享限额；增加同账户Key通常不能扩容。
+The recorded engineering recommendation was account-wide request admission,
+RPM/TPM budgeting and 429 backoff. The harness primarily limited task concurrency;
+it did not implement a complete account-wide API limiter. Independent task
+retries could jointly hit a shared limit. More keys for the same account usually
+did not create more quota.
 
-可粗估 `每分钟请求数 ≤ min(RPM, TPM / 每请求计入限流的平均token)`，
-同时请求数还取决于响应耗时。实际供应商可能预扣最大输出、按秒限制或动态限流，
-因此这不是吞吐承诺；Kimi 与 Doubao 尤其要核实预扣规则。
-[Kimi](https://platform.kimi.com/docs/introduction)、
-[Doubao](https://docs.volcengine.com/docs/ark/activation-management?lang=en)、
-[Qwen](https://help.aliyun.com/zh/model-studio/rate-limit)
+A rough bound was `requests/minute <= min(RPM, TPM / mean rate-counted tokens per request)`.
+Simultaneous requests also depended on response duration. Providers could
+pre-reserve maximum output, enforce per-second limits or adjust quotas, so this
+was not a throughput promise. Kimi and Doubao reservation rules needed explicit
+checks. [Kimi](https://platform.kimi.com/docs/introduction),
+[Doubao](https://docs.volcengine.com/docs/ark/activation-management?lang=en),
+[Qwen](https://help.aliyun.com/zh/model-studio/rate-limit).
 
-例如假设每次请求计入限流100K tokens，500K TPM只能支持约5次请求/分钟，
-即使账户标称100 RPM也不能按100 RPM调度。这是算术示例，不是实测token用量。
+For example, at an assumed 100K rate-counted tokens/request, 500K TPM supported
+approximately five requests/minute even with a nominal 100 RPM allowance. This
+was arithmetic, not measured benchmark token usage.
 
-建议先每家单任务完成图片工具回传、continuation、压缩/fork检查，再测四项最少臂
-Level 1，记录每轮token、延迟、cache hit与429后逐步加并行。Step V0 的5连接与
-500K TPM尤其需要注意；其他未公布连接数的厂商也不能直接承诺12任务稳定并行。
-选型时，GLM/MiniMax 的人民币输入和输出价格低；MiMo 的命中输入价格低，但仍
-要合计未命中、输出、缓存写入与实际成功率。DeepSeek 保留美元报价单独核算。
+The proposed sequence was one task/provider to verify image-tool returns,
+continuation and compaction/fork, then four minimum-arm Level 1 tasks while
+recording turn tokens, latency, cache hits and 429s before increasing concurrency.
+The recorded Step V0 five connections/500K TPM especially needed consideration;
+unpublished connection limits at other vendors did not establish stable 12-task
+operation. GLM/MiniMax's recorded CNY input/output prices were low and MiMo's hit
+price was low, but comparison still needed misses, output, cache writes and
+actual success. DeepSeek's USD billing remained separate. These are historical
+judgments, not current model recommendations.
 
-操作步骤见[交接指南](multimodel-handoff.md)。本次只更新研究资料，不改变默认模型、
-CLI配置、正式实验或前一个 Harness session 的运行状态。
+See the [handoff guide](multimodel-handoff.md) for current commands. This edition
+changes research text only, not profiles, CLI configuration, formal experiments
+or an earlier Harness session's running state.

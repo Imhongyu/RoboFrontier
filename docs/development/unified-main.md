@@ -1028,3 +1028,21 @@ English scans and local Markdown link checks passed for these edited guides.
 No execution semantics, asset fingerprints or archived evidence changed. The
 remaining tracked-text migration is 130 files/119,355 Han characters, captured
 in `english-inventory-after-slurm-guides.json`; this remains an open release gate.
+
+## Dated provider research translation
+
+The four-profile pricing and eight-provider compatibility research snapshots are
+now English. Both retain the original 2026-10-28 review date, distinguish recorded
+figures from current account access/pricing, and point to current handoff commands.
+The compatibility guide distinguishes the raw Codex catalog seed's lite/code-mode
+fields from the native launcher's effective Responses/function-tool overrides.
+It does not claim that offline configuration proves real-provider image/tool,
+compaction or fork compatibility.
+
+The verification receipt `english-provider-snapshot-verification.json` under the
+existing engineering evidence root compares the edits against their HEAD source:
+all 14 and 41 distinct source URLs are preserved, as are numeric cells in the
+price, quota and funding-tier tables. Both documents are free of Han text, local
+Markdown links resolve, and `git diff --check` passes. This is a translation of
+historical research, not a fresh vendor-price audit or a paid preflight. No model
+profile, asset fingerprint or experiment was changed.
