@@ -1677,3 +1677,16 @@ rather than changing the current 24-hour/terminal-outcome protocol. Numeric toke
 and non-text Python ASTs are identical; no previews, models or worlds were run.
 The comparison is in `english-preview-batch-verification.json`. Remaining tracked
 English migration: 23 files / 60,692 Han characters.
+
+## English Mosaic review and color-design history
+
+The original Mosaic review-package and supply-color design records now use
+English. They retain every numerical value, source path and local specification
+link, with the explanatory document described in prose rather than retaining a
+Chinese display filename. Original scorer/hold-final requirements remain dated
+history and explicitly defer to later terminal-outcome/looping rules. Design
+geometry, private matching evidence and sampled reachability remain distinct
+from full paths, parallel safety, model scores and revised Oracle qualification.
+No source assets or evidence were changed. The comparison receipt is
+`english-mosaic-design-verification.json`. Remaining English migration is
+21 tracked files / 57,911 Han characters.
