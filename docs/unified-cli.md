@@ -110,8 +110,11 @@ physics steps, or model turns. It is not a provider rate-limit guarantee.
 The current schema covers policy execution, evidence, Slurm resources,
 Factory replay/render preparation and native Oracle supervision. See the
 [Factory guide](factory.md) and [Oracle guide](oracle.md) for their subcommands.
-Editorial camera/title/subtitle changes and typed live Oracle recovery retain
-their native files and interfaces. They are not interpreted as unsupported TOML
+Editorial camera/title/subtitle inputs use the
+[project commands](factory-editorial.md): `factory project`,
+`factory prepare --project`, and `factory edit-video`. These specialized project
+files and typed live Oracle recovery retain their native interfaces. They are
+not interpreted as unsupported TOML
 options. The policy evidence auto-collection flags apply to policy batches, not
 to a native Oracle directory.
 

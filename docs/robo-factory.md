@@ -116,8 +116,12 @@ Exports use a fixed 30 fps. Camera time is independent of each desk's source
 clock. Fixed cameras and custom editing are supported.
 
 Those camera paths were a filming basis; their dated acceptance did not include
-a narrated, subtitled full presentation. The current full editable English promo
-has its own delivery gate. An existing historical MP4 alone does not satisfy it.
+a narrated, subtitled full presentation. The current
+[editable English project](factory-editorial.md) now provides frozen camera
+waypoints, SRT titles/subtitles, font/license and style, with verified CPU preview
+and full historical-movie text processing. Full newly rendered current-source
+movie acceptance remains separate. An existing historical MP4 alone does not
+establish its scene identity or satisfy that delivery gate.
 
 Production offline Factory rendering uses Cycles. The old Classic Factory-video
 entry is retired; interactive inspection and simple policy observations still

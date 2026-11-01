@@ -1,105 +1,217 @@
-# 下一阶段：三臂连续运输与自主工作循环
+# Legacy plan: three-arm transport and autonomous work loops
 
-本文保留 2026-10-20/21 三臂阶段的计划与历史进展，不是当前四臂拼图的启动配置。当前通用接口与准备流程以 [架构说明](architecture.md)、[Meta runbook](meta-runbook.md) 和本次 task.json 为准。
+This is the 2026-10-20/21 plan and its historical progress, not the current
+36-task configuration or a new-run instruction. In particular, the READY/START
+handshake described below belongs to that experiment. New unified runs use the
+direct-START protocol. Consult the current [architecture](architecture.md),
+[runbook](meta-runbook.md), assigned public task and
+[collaboration skill](../.agents/skills/robot-collaboration/SKILL.md).
+The historical coordinating role was named `Coordinator`; current naming uses
+Controller. The role descriptions below use Controller for readability without
+renaming original session IDs or stored evidence.
 
-状态：A任务/算法、B物理参考、C离线交互检查已完成，模型对照尚未完成。三臂九方块配置、工具边界合并收件、wait_events及可选非阻塞动作已接入；工程结果见 验收记录（历史产物已退役：`../runs/autonomous-loop-engineering-20261020/report.md`）。沿用当前三台 Panda，不增加第四臂。运行协议以 [Meta runbook](meta-runbook.md) 和 [共享 Skill](../.agents/skills/robot-collaboration/SKILL.md) 为准。
+## Historical progress
 
-trial04模型试点在用户暂停后封存，未完成任务；效率诊断（历史产物已退役：`../runs/trial04-efficiency-audit-20261020/report.md`）确认批量屏障、工具间隔及陈旧笔记问题。针对性修复（历史产物已退役：`../runs/efficiency-fixes-20261020/report.md`）已接入时间标记/独立执行事实、可选结果与图像同次交付和Agent总等待期限。随后trial05重跑仍出现本区准备随交接条件一起等待，复盘（历史产物已退役：`../runs/trial05-concurrency-audit-20261020/report.md`）定位为依赖与授权粒度问题；运行在用户暂停后发生进程退出，已登记中断。
+Task/algorithm work (A), physical reference work (B), and offline interaction
+checks (C) were completed; the model comparison remained incomplete. Three-arm,
+nine-block configuration, tool-boundary inbox batching, `wait_events` and optional
+nonblocking actions were connected. The engineering report is a retired artifact
+at `../runs/autonomous-loop-engineering-20261020/report.md`. This phase kept the
+three existing Panda robots and did not add a fourth arm.
 
-本次规则修订（历史产物已退役：`../runs/dependency-boundaries-20261020/review.md`）只替换现有Skill与角色/通信指导，使条件绑定到实际依赖步骤，保留权限、安全与准备净收益约束；没有修改Harness或再启动试验。下一步先验证短场景中的实际行为，不能用文字检查证明并行改善。
+Trial04 was sealed after a user-requested pause without completing the task.
+The retired `../runs/trial04-efficiency-audit-20261020/report.md` identified batch
+barriers, tool intervals and stale notes. Targeted fixes in
+`../runs/efficiency-fixes-20261020/report.md` added timestamps/independent execution
+facts, optional same-return delivery of results and images, and a total agent
+waiting deadline. Trial05 still waited for handover conditions before preparing
+its own region. The retired `../runs/trial05-concurrency-audit-20261020/report.md`
+identified dependency/authorization granularity. Its process exited after the
+user paused it and was recorded as interrupted.
 
-2026-10-21：纸面规划检查显示模型会利用显式提供的独立空间与依赖，但不是闭环提速证据。当前补充通用运动证据规则、robot_model 与 check_motion；后者只做只读、有限时域的名义跨臂采样检查，未覆盖连续时间、负载、桌面和动力学误差，不执行候选动作。本轮只做离线工程验证，不恢复旧世界或启动实验。
+The rules revision in the retired
+`../runs/dependency-boundaries-20261020/review.md` changed only the skill and
+role/communication guidance: conditions attached to actual dependent steps while
+preserving authority, safety and preparation-value constraints. It changed no
+harness and started no experiment. A short behavioral test was still needed;
+text inspection could not demonstrate better parallelism.
 
-trial06 已用最新接口真实运行并复现全局串行，按用户要求暂停封存，九目标未完成；诊断（历史产物已退役：`../runs/pipeline-coordinator-nine-20261021-trial06/private/outputs/efficiency-audit/report.md`）记录了零运输重叠、单臂检查及授权间隔。策略输入修订（历史产物已退役：`../runs/coordination-objective-fixes-20261021/report.md`）仅补充任务效率/仿真背景、资源互斥范围、队友证据和决策分组指导，尚无新的模型行为验证。下一步先做短真实运输验证，不直接再跑完整九目标。
+On 2026-10-21, paper planning showed that the model used explicitly supplied
+independent spaces/dependencies. This was not closed-loop speed evidence.
+General motion-evidence rules, `robot_model` and `check_motion` were added.
+The last performs read-only, finite-horizon nominal cross-arm sampling. It does
+not execute candidate actions or cover continuous time, payload, table contact
+or dynamics errors. This work was offline engineering, not old-world recovery.
 
-启动上下文已补充现有 READY 的 robot_facts，实现与离线验证（历史产物已退役：`../runs/robot-facts-context-20261021/report.md`）记录了实际基座/TCP 界限与能力摘要、通用 Skill 和精简 Coordinator Prompt；没有新会话或物理试验，尚未验证模型行为改善。
+Trial06 used the new interface and again exhibited global serial execution. It
+was paused/sealed at the user's request without completing nine goals. The
+retired `../runs/pipeline-coordinator-nine-20261021-trial06/private/outputs/efficiency-audit/report.md`
+recorded zero transport overlap, single-arm checks and authorization gaps.
+Input changes in `../runs/coordination-objective-fixes-20261021/report.md` added
+only task-efficiency/simulation context, resource-exclusion scope, teammate
+evidence and grouped decisions. No new behavioral improvement was demonstrated.
+The next proposed step was short real transport rather than another full trial.
 
-## 1. 已有证据与本次目标
+READY's existing `robot_facts` startup context was also expanded. The retired
+`../runs/robot-facts-context-20261021/report.md` recorded actual base/TCP bounds,
+capability summaries, a shared skill and a shorter coordinating prompt. No new
+session or physical trial established a model improvement.
 
-试验02（历史产物已退役：`../runs/pipeline-coordinator-20261020-trial02/private/outputs/report.md`） 和 试验03（历史产物已退役：`../runs/pipeline-coordinator-20261020-trial03/private/outputs/report.md`） 均完成六槽目标，但运输阶段两臂动作重叠均为零。策略更新后消息57→42、Coordinator轮次56→41，墙钟20分44秒→26分52秒；不能把提示文字、唤醒频率或并发峰值当作效率改善证据。样本各一次，不支持总体因果结论。
+## Evidence and the proposed comparison
 
-目标分两部分验证：环境是否真实提供可利用的流水窗口；Agent是否会主动前瞻、提前准备并使用这些窗口。二者分开验收。
+Trial02 and Trial03 completed all six goals but had zero overlapping two-arm
+transport. The retired reports are:
 
-## 2. 固定下一项任务
+- `../runs/pipeline-coordinator-20261020-trial02/private/outputs/report.md`
+- `../runs/pipeline-coordinator-20261020-trial03/private/outputs/report.md`
 
-来源按开局区域定义，转运经过别的区域不改变来源。初始物料位置与最终目标槽分开，本地件也需要一次取放。
+After a policy update, messages changed from 57 to 42 and coordinating-role
+turns from 56 to 41, while wall time changed from 20m44s to 26m52s. Prompt text,
+wake frequency and peak concurrency were not evidence of greater efficiency.
+One sample per condition supported no general causal conclusion.
 
-| 臂 | 初始物料 | 最终三个目标 | 来源要求 |
+The proposed checks separated whether the environment provided usable pipeline
+windows from whether an agent anticipated/prepared work and exploited them.
+
+## Fixed three-arm task
+
+Origin was defined by the initial region; passing through another region did
+not change origin. Initial stock and final slots were separate, so a local part
+still required a pick/place.
+
+| Arm | Initial stock | Three final slots | Origin requirement |
 | --- | --- | --- | --- |
-| A | 三个红块 | 一红、两绿 | 一本地、两个C来源 |
-| B | 三个蓝块 | 一蓝、一红、一绿 | 一本地、一个A来源、一个C来源 |
-| C | 三个绿块 | 一红、两蓝 | 一个A来源、两个B来源 |
+| A | Three red blocks | One red, two green | One local, two from C |
+| B | Three blue blocks | One blue, one red, one green | One local, one from A, one from C |
+| C | Three green blocks | One red, two blue | One from A, two from B |
 
-颜色编码开局来源，不加图案、堆叠或装配。相邻区域可达桌面允许暂放，位置由策略选择；没有预设运输顺序、固定交接点或自动运输程序。共享区域空出、夹爪空闲和最终订单完成是不同事实。
+Color encoded initial origin. There were no patterns, stacks or assemblies.
+Reachable shared table areas permitted temporary placement chosen by policy.
+No transport order, fixed handover point or automatic transport program was
+prescribed. A free shared region, an empty gripper and a finished order remained
+different facts.
 
-可复现资源搜索已实现于 scripts/check_transport_schedule.py：本地2次、A→B两次、A→C三次、B→C四次、C→A六次、C→B两次，共19次取放。每次拆成等时的取并清区、放并清区，串行38时隙，最优并行16；A/B/C负载分别10/16/12阶段，B的16阶段给出下界，存在16阶段方案达到它。每个相邻暂放区域容量一件或两件均可达到16。
+The reproducible search in `scripts/check_transport_schedule.py` used 19
+pick/place operations: local 2, A-to-B 2, A-to-C 3, B-to-C 4, C-to-A 6 and
+C-to-B 2. Each operation had equal-duration pick-and-clear and place-and-clear
+phases: 38 serial slots versus an achievable optimum of 16. Arm A/B/C workloads
+were 10/16/12 phases; B's 16 gave a matching lower bound. Shared-area capacity
+of either one or two parts could achieve 16.
 
-这是资源模型最优值，假设抓取成功、阶段结束已全臂清区且独立区域运动可分离；不包含真实轨迹时长、碰撞、推理、通信和观察。不能直接承诺真实2.375倍加速。
+This resource model assumed successful grasps, full-arm clearance after each
+phase and separable motion in independent regions. It omitted real trajectory,
+collision, inference, communication and observation costs. It did not promise a
+physical 2.375-times speedup.
 
-## 3. 角色自主性与边界
+## Role autonomy and authority
 
-- Meta：环境、版本、监控、固定传输/必要续轮和审计；不选物料、不分配任务、不代操机械臂。
-- Coordinator：全局滚动规划、分工与授权范围；可以在Worker工作时继续规划。是否继续、等待或结束本轮由它决定。
-- 层级Worker：本地前瞻、执行、独立准备与改进建议；遵守授权及Coordinator路由。
-- Peer Worker：还需与相关队友主动发现需求、协商优先级和维护承诺；不等待Meta分工，不要求全体对每步投票。
+- Meta managed environment, versions, monitoring, fixed transport/necessary
+  continuation and audit. It selected no parts, assigned no policy work and
+  controlled no robot.
+- Controller maintained rolling global plans, assignments and authorization
+  scope, and could plan while workers acted. It chose when to continue, wait or
+  end its own turn.
+- Hierarchical workers anticipated local work, executed within authority,
+  prepared independent steps and proposed improvements through Controller routing.
+- Peer workers identified needs, negotiated priority and maintained commitments
+  directly with affected teammates. They did not await Meta assignments or need
+  every peer's vote on every step.
 
-通信仍用现有一种消息格式；原则在 [通信参考](../.agents/skills/robot-collaboration/references/communication.md)，不另建任务专用协议。Agent决定计划、前瞻深度、等待对象和检查期限；Harness不推断业务含义或生成调度方案。
+The plan retained one message format and the
+[shared communication principles](../.agents/skills/robot-collaboration/references/communication.md).
+Agents chose plans, anticipation depth, waiting dependencies and check deadlines.
+The harness did not interpret business meaning or produce task schedules.
+Ending a reply did not leave the team. Ordinary waiting did not justify immediate
+fault recovery; saved continuation work, relevant events or a deadline did.
 
-结束回复不等于退出团队。正常等待不应被当作故障立即唤醒；明确保存的继续工作、相关事件或期限才提供续轮依据。
+Both modes let every agent choose continued work, event waiting or saved-state
+turn completion. The harness supplied reliable continuation without choosing the
+cadence. In the hierarchy, effective authorization could cover multiple actions;
+a condition-change report was not inherently another approval request. New
+approval depended on scope and actual changes, not a mandatory per-object ritual.
+Peers negotiated commitments for supply, relay, spatial occupancy and changed
+plans with affected workers, without a coordinating role or unrelated voters.
 
-实现时必须保留以下区别：
+An advance plan/authorization did not automatically execute. Conditional action
+queues were deferred: after an event, the agent checked conditions and issued an
+action, so model response cost remained.
 
-- 两种模式都由每个Agent选择继续工作、事件等待，或保存状态后结束本轮。Harness提供这些选项和可靠续轮，不替它选择工作节奏。
-- 层级模式中Coordinator决定授权范围；Worker在有效范围内自主执行和准备，报告可以只告知条件变化，不自动新增一次审批。需要新授权的情形由已有范围及实际变化决定，不把每个动作或每件物料统一设成重新请示。
-- Peer模式中承诺由受影响的Workers协商，包含供料、接力、空间占用及计划变化；没有Coordinator代为分工，也不要求无关角色同意。
-- 提前给出计划或授权不等于自动执行。暂不做条件动作队列；事件到达后，Agent核对当前条件，再调用动作，因此仍有模型响应成本。
+## Minimal interaction changes
 
-## 4. 最小交互改造，按需递进
+The historical proposal allowed multiple decision cycles inside one native turn
+without requiring either one reply per cycle or one endless turn. Bounded event
+batches arrived at tool returns or explicit reads. New messages queued during
+processing instead of steering each one or cancelling a physical tool.
 
-### 基础改造
+Optional `wait_events` waited for relevant messages, execution events or an
+agent-chosen check deadline. It did not block the simulation thread or hold a
+long database transaction. Existing IDs, receipts and deduplication protected
+the read-then-sleep wake race. Saved notes/continuation restored missing context
+without forcing a complete reread of history/images on every turn.
 
-- 允许一个原生轮次包含多个决策周期，取消任务进行中“每个周期必须结束回复”的约定；也不反向强制永远保持一轮。
-- Coordinator与Worker在工具返回或主动读取时取得有界事件批次；处理期间新消息排队，不逐条steer，不取消物理工具。
-- 增加可选择的wait_events：等待相关消息、执行事件或Agent自选检查期限。等待不阻塞仿真主线程，不长持数据库事务；复用编号、回执及去重，解决读后入睡的漏唤醒竞态。
-- 维持工作笔记及必要续轮，缺少上下文时恢复；复用有效上下文，不强制每轮重读全部记录和视图。
+For this historical experiment only, the existing READY/START gate remained:
+it required READY plus actual idle. Entering an active wait before START could
+deadlock that handshake, so autonomous loops began afterward. This is superseded
+for new direct-START runs and must not be copied into their startup prompts.
 
-先保持READY/START启动门有效。当前门要求READY且真实idle；若START前直接进入active事件等待会互锁，最小方案先保留启动阶段握手，START后启用自主循环。
+Optional `wait:false` let a worker plan/communicate while its arm moved. It kept
+original action IDs, same-arm exclusion and explicit status. Running could not
+be cached as completed, unknown results could not be replayed automatically, and
+observation/communication did not authorize a conflicting second arm action.
 
-### 已加入的可选能力与暂不加入的能力
+Automatic conditional language/actions remained out of scope. No private object
+truth released a natural-language condition. Independent background scheduling
+had not gained write authority over Desktop sessions; Meta's fixed bridge could
+carry the existing connection but did not prove continuation after its own host
+exited. The plan reused the established native session/model framework.
 
-动作可选 wait:false 非阻塞提交，使Worker能在本臂运动期间规划或通信。保持原动作编号、同臂互斥和明确状态；running不能缓存成completed，未知结果不能自动重放。允许观察/通信不代表允许同一臂同时执行第二条冲突动作。
+## Proposed implementation and acceptance order
 
-暂不加入自动条件动作队列。事件到达后仍由Agent判断并发出动作，不自动解释自然语言条件或用私有物体真值放行。
-
-独立后台调度尚未接通桌面会话写入权；当前Meta工具单元可承载固定桥接，但不能宣称退出该宿主后仍能续轮。先复用已验证接入，不重新实现Codex会话与模型执行框架。
-
-## 5. 实施与验收顺序
-
-| 阶段 | 产物与通过标准 |
+| Stage | Artifact and acceptance |
 | --- | --- |
-| A：任务与算法检查 | 新任务配置、来源/数量与颜色守恒校验、可复现资源搜索和见证方案回放；结果明确标注模型假设 |
-| B：物理可行性 | 三目标槽/臂、物料与暂放位置的可达性、夹爪空间和全臂路径核验；参考程序用相同动作API跑通完整订单，并实际出现跨区运输与补料重叠 |
-| C：离线交互检查 | 假会话/假执行器验证事件批次、等待竞态、超时与续等、主动结束后恢复、忙闲区别、未知动作、权限、START及收尾；未实现的工具不提前写入可执行角色指令 |
-| D：同任务真实比较 | 固定新三臂任务、物理/观测/控制与模型，对比原轮次式和新工作循环；模型继续请求gpt-6-luna/xhigh并核实实际设置，顺序和具体授权由Agent决定 |
-| E：拓扑比较 | 再在同一任务和工具条件下比较严格层级与Peer；单Agent条件后续接入，不能用不同任务直接比较架构 |
+| A: task/algorithm | New task, origin/count/color conservation, reproducible resource search and witness replay with explicit model assumptions |
+| B: physical feasibility | Three slots per arm; stock/staging reachability, gripper space and full-arm paths; a reference executor using the same action interface completes the order with real transport/restocking overlap |
+| C: offline interaction | Synthetic sessions/executors check bounded batches, wait races, deadlines/re-wait, resume after turn end, busy/idle, unknown actions, authority, START and cleanup; unimplemented tools must not appear in runnable role instructions |
+| D: real same-task comparison | Fix three-arm task, physics/observations/controls/model; compare old turn cadence with autonomous loops; request and verify Luna/xhigh; let agents choose order/authorization |
+| E: topology comparison | Compare hierarchy and peers on that same task/tools; add single-agent later rather than compare architectures on different tasks |
 
-参考程序只证明环境和接口允许并行；其预编排方案不放进任务Prompt，不作为同等信息下LLM应达到的时间承诺。研究者可使用工程真值核验，策略端沿用公开初始信息、RGB、本体状态及执行反馈，无动态物体真值入口。
+The reference executor only demonstrated that environment/interfaces permitted
+parallel work. Its schedule was not placed in policy prompts or treated as a
+time target guaranteed to an equally informed LLM. Researchers could use
+engineering truth for verification; policy retained public initial information,
+RGB, proprioception and execution feedback without dynamic object truth.
 
-A/B物理设计与C交互工程可分别推进；真实Agent实验应在两条验收均通过后进行。一次试点用于定位问题，后续重复和变换初始布局才支持更强结论。
+A/B design and C interaction engineering could proceed separately. Real-agent
+experiments required both acceptances first. One pilot diagnosed problems;
+repetition and changed layouts were needed for stronger conclusions.
 
-## 6. 记录与判读
+## Required evidence and interpretation
 
-- 九个目标、开局来源、释放和最终清场；独立评估与Agent声明分开。
-- START到团队finish墙钟、各臂动作、失败/重试/无效搬运；动作completed不等于抓取成功。
-- 实际动作重叠，分开本地与运输阶段；模型并行思考、动作并发峰值和持续运输并行分别报告。
-- 消息创建→交付→决策/授权→下一动作的延迟；查询、重复确认、前瞻提议及被拒请求，避免将全部静止时间归咎于调度。
-- 推理/观察和工具执行开销、视频丢帧及裁剪误差。源码、Prompt、Skill、任务与参数按run冻结。
-- 收尾竞态单独核验：试验03中C完成报告晚于团队finish而被拒绝；不能归类为越权或物理失败，也不能静默漏记。
+- Nine goals, initial origins, release and final clearance; independent evaluation
+  separate from agent claims.
+- START-to-team-finish wall time, each arm's actions and failures/retries/useless
+  moves; action completion was not proof of grasp success.
+- Actual action overlap, separately for local/transport phases; distinguish
+  parallel model thinking, peak concurrent actions and sustained transport overlap.
+- Message creation-to-delivery-to-decision/authorization-to-next-action latency;
+  queries, repeated confirmations, anticipation and rejected requests. Do not
+  attribute all stillness to the dispatcher.
+- Reasoning/observation/tool costs, video frame loss and trimming error; freeze
+  source, prompts, skill, tasks and parameters per run.
+- Cleanup races: Trial03 rejected C's completion report after team finish. This
+  was not an authority or physical failure and could not be silently omitted.
 
-沿用 [目录和状态归属](architecture.md)：SQLite存唯一运行状态，各角色一份工作笔记；输入固定、状态更新、输出留证据。旧run不迁移、不改写；当前物理重启恢复仍不在范围内。
+The [architecture](architecture.md) assigned one authoritative SQLite runtime
+state and one note per role, with fixed inputs and retained evidence. Old runs
+were neither migrated nor rewritten. Physical restart recovery remained outside
+this phase. The intended order was to prove safe executable parallel work, then
+assess whether agents used it. B was the workload bottleneck; reasonable A/C
+idle time was not failure. Keeping every arm permanently busy was not the goal.
 
-先验证存在安全可执行的并行工作，再评价Agent是否利用。B是工作量瓶颈，A/C合理空闲不等于失败；不用“四臂/三臂永远满负荷”作为目标。
+## Historical exclusions
 
-## 7. 本阶段不扩展
-
-不增加机器人数量、DoF、VLA、复杂物体或多种任务；不引入隐藏规划器、自动条件语言、大量消息类别、向量记忆或多份plan/todo副本；不先重做独立桌面调度器。四臂双向批量运输保留为后续任务家族扩展。
+This phase added no robots, degrees of freedom, VLA, complex objects or multiple
+task families. It added no hidden planner, automatic conditional language,
+large message taxonomy, vector memory or duplicate plan/todo stores, and did
+not first rebuild an independent Desktop scheduler. Four-arm bidirectional
+batch transport was deferred as a later family extension.

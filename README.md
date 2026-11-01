@@ -266,9 +266,11 @@ engineering clock includes planning/review time and is separate from a model
 benchmark's START clock. The [Oracle guide](docs/oracle.md) documents native
 recovery, evidence and the distinction between commissioning and full success.
 All four families have passed current compressed-motion Factory import and
-all-frame replay checks, with small CPU video previews. New full physical Oracle
-qualification and the editable full-length English video project remain open
-gates. The tracked [English task atlas](docs/task-atlas/index.html) includes current
+all-frame replay checks, with small CPU video previews. The editable
+[full-length English video project](docs/factory-editorial.md) is tracked and has
+passed CPU preview and media round trips. A complete newly rendered current-source
+movie and new full physical Oracle qualification remain open gates. The tracked
+[English task atlas](docs/task-atlas/index.html) includes current
 public task contracts and 72 regenerated initial views; its [guide](docs/task-atlas.md)
 provides verification and offline ZIP commands. Existing Oracle intervention records and historical source identities must
 be preserved; assisted execution is not automatically an autonomous benchmark.

@@ -1010,3 +1010,21 @@ metadata. Logs and the four-task plan are retained under the existing engineerin
 evidence root with `luna-slurm-migration-` and `luna-l3-unified-` prefixes.
 This remains offline submission/staging acceptance, not real Slurm allocation,
 provider capacity or NVIDIA qualification.
+
+## Historical loop plan and editorial guide alignment
+
+The three-arm 2026-10-20/21 work-loop plan is now English and explicitly Legacy.
+It retains all trial outcomes, retired evidence locations, stock/origin rules,
+19-operation/38-phase/16-slot resource result, bottleneck assumptions, authority
+boundaries, deferred features and acceptance stages. Its READY/START gate is
+clearly historical and superseded for new direct-START runs. Old coordinating
+role IDs are not renamed in evidence. The root README, native Factory guide,
+Factory overview and unified configuration guide now distinguish the implemented
+editable project from the still-open full newly rendered current-source movie.
+They also distinguish raw-frame cleanup after successful Cycles encoding from
+a subsequent subtitle failure, which retains the raw movie and failed attempt.
+
+English scans and local Markdown link checks passed for these edited guides.
+No execution semantics, asset fingerprints or archived evidence changed. The
+remaining tracked-text migration is 130 files/119,355 Han characters, captured
+in `english-inventory-after-slurm-guides.json`; this remains an open release gate.
