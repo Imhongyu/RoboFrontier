@@ -866,3 +866,25 @@ broken links, 36 source recordings, timing observations, and unfinished work
 remain historical facts rather than claims about the current larger suite.
 These documentation changes do not modify the asset lock, physics, public
 policy templates, evaluators, source motion, or archived compatibility hashes.
+
+## Full-length Factory movie audit and remaining editorial work
+
+The preserved `factory-promo-r14.mp4` under the original Factory worktree's
+`outputs/robo-factory/promo-r14-427210/` was inspected without modification. Its
+134,315,571 bytes have SHA-256
+`9c83e1d0ad17c3f6d4a7ed4b7d806322160f5d61d1e58e2471f0d3b300b86f96`.
+ffprobe confirms H.264, 1920 x 1080, 30 fps, 6,315 frames, and 210.500 seconds.
+Four derived inspection JPEGs at 0, 16, 66, and 162 seconds are retained in
+`runs/engineering/main-integration-task-atlas-20261101/promo-audit/`, with the
+media receipt. Opening and Dial samples were visually inspected.
+
+That delivery folder contains the full movie and a preview, not a complete
+editable editorial project with title/subtitle sources and a source-bound camera
+plan. A filename containing R14 does not establish that every source scene or
+contact parameter matches the current release. The existing full movie remains
+historical evidence; it has not been relabeled as a newly rendered current
+release. Native promo generation already exports camera plans, pose frames,
+source clock traces, reset events, and hashes. The remaining work is to expose
+editable English titles/subtitles and camera controls through a reproducible
+source-bound project and verify the full-length deliverable. This audit is not
+that implementation or final-video acceptance.
