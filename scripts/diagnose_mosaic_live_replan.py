@@ -5,6 +5,7 @@ reference module with measured parked robot/object poses in a scratch mirror.
 This checks logical graph consistency, not future physical manipulation safety.
 """
 import argparse
+import ast
 import hashlib
 import importlib.util
 import json
@@ -15,6 +16,21 @@ import numpy as np
 
 from robofrontier.run_setup import write_json
 from scripts.plan_mosaic_repair_pick import observed_trial
+
+
+def cache_status(source, angles, edges):
+    """Predict stale angle keys after the frozen executor rebuilds its graph."""
+    missing=[sorted(key) for key in angles if key not in edges]
+    expected=ast.parse(
+        "trial.mosaic_angled_edges={key:value for key,value in "
+        "getattr(trial,'mosaic_angled_edges',{}).items() if key in edges}"
+    ).body[0]
+    module=ast.parse(source)
+    solves=[node for node in module.body if isinstance(node,ast.FunctionDef) and node.name=='solve']
+    prunes_stale_angles=(len(solves)==1 and any(
+        ast.dump(node,include_attributes=False)==ast.dump(expected,include_attributes=False)
+        for node in solves[0].body))
+    return missing, prunes_stale_angles, [] if prunes_stale_angles else missing
 
 
 def inspect(a):
@@ -46,14 +62,19 @@ def inspect(a):
     except ValueError:
         mode='augmented';neighbors,edges=reference.buffer_graph(t,neighbors,edges)
         jobs=reference.assign_supply(t,remaining,coverage,pickups,neighbors,available_objects=available)
-    missing=[sorted(key) for key in angles if key not in edges]
+    # Some frozen executors explicitly prune stale angle metadata after
+    # constructing the next graph.  Evaluate their effective cache rather
+    # than rejecting a state solely because the *old* graph had extra keys.
+    missing,prunes_stale_angles,effective_missing=cache_status(original.read_text(),angles,edges)
     result=dict(scope='Read-only logical cache consistency prediction from actual parked poses; no request, dynamics or task success certificate',
         world_id=o['world_id'],review_id=o['review_id'],source_sim_s=o['sim_time_s'],
         observation_sha256=hashlib.sha256(payload).hexdigest(),archived_reference_sha256=hashlib.sha256(original.read_bytes()).hexdigest(),
         source_observed_robots=o['robots'],source_observed_objects=o['objects'],matching_mode=mode,
         remaining=len(remaining),matched_jobs=len(jobs),old_angled_keys=[sorted(k) for k in angles],
         proposed_keys=[sorted(k) for k in edges],missing_old_angled_keys=missing,
-        cache_consistent=not missing,wall_s=time.monotonic()-began)
+        source_prunes_stale_angles=prunes_stale_angles,
+        effective_missing_angled_keys=effective_missing,
+        cache_consistent=not effective_missing,wall_s=time.monotonic()-began)
     write_json(directory/'review/engineering'/f'{a.id}-replan.json',result)
     print(json.dumps({k:v for k,v in result.items() if k not in ('source_observed_robots','source_observed_objects')}),flush=True)
 

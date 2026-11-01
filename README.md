@@ -244,8 +244,10 @@ Factory has a unified configuration/command entry:
 The `[factory]` section controls its independent video/device settings; prepared
 plans freeze the effective configuration. See the [Factory guide](docs/factory.md)
 for closed-recording import, full tour, CPU/GPU rendering and queue submission.
-Oracle options have not yet been folded into the unified TOML. Curated Oracle
-integration, all-family compressed-motion background replay, the tracked
+Oracle options have not yet been folded into the unified TOML. The
+[Oracle guide](docs/oracle.md) documents the curated native R14 runner and its
+privileged recovery/evidence boundaries. Full Oracle integration,
+all-family compressed-motion background replay, the tracked
 English task atlas and the editable full-length English video project remain open
 gates. Existing Oracle intervention records and historical source identities must
 be preserved; assisted execution is not automatically an autonomous benchmark.

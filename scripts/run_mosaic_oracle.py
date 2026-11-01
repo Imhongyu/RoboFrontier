@@ -5,6 +5,7 @@ never inject a fault. Recovery requests are private engineering input, not a
 policy API, and external decisions are recorded as privileged assistance.
 """
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -14,6 +15,10 @@ import subprocess
 import sys
 import time
 
+# A shared virtual environment can contain an editable install of a different
+# worktree.  Bind this entrypoint to its own checkout before importing it.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from robofrontier.run_setup import load_harness,write_json
 from robofrontier.suite.v2 import ROOT
 from robofrontier.suite.oracle import Trial,ReferenceStopped
@@ -21,25 +26,54 @@ from robofrontier.suite.mosaic_run import MosaicReview,run_reference,require_kno
 from robofrontier.suite.source_snapshot import reexec_entry,MARKER
 
 
+def configure_physics_threads(trial, workers):
+    """Opt-in engine-internal workers, configured before physical steps."""
+    if workers < 0:
+        raise ValueError('Physics workers must be nonnegative')
+    if workers:
+        import mujoco
+        mujoco.mju_threadpool(trial.data, workers)
+    return dict(engine_worker_threads=workers, scope='Single physical world; opt-in MuJoCo internal thread pool')
+
+
+def selected_scene(catalog_path, case_id):
+    """Bind shared case IDs to the declared revision before creating a world."""
+    catalog=json.loads(Path(catalog_path).read_text())
+    matches=[c for c in catalog['cases'] if c['id']==case_id]
+    if len(matches)!=1:raise ValueError('Select exactly one known Mosaic case')
+    case=matches[0]
+    if case['family']!='mosaic':raise ValueError('Mosaic cases only')
+    scene=ROOT/case['directory']
+    task=json.loads((scene/'task.json').read_text())
+    scene_hash=hashlib.sha256((scene/'scene.xml').read_bytes()).hexdigest()
+    if task['id']!=case['id'] or task['family']!='mosaic' or task['scene_sha256']!=scene_hash:
+        raise ValueError('Catalog, task and physical scene identity do not match')
+    revision=case.get('scene_revision')
+    if type(revision) is not int or (catalog.get('scene_revision') is not None and catalog['scene_revision']!=revision):
+        raise ValueError('Catalog must explicitly identify the selected scene revision')
+    if task.get('scale',{}).get('scene_revision')!=revision:
+        raise ValueError('Catalog and task scene revisions do not match')
+    return case, scene_hash, revision
+
+
 def run(args):
     overall_started=time.monotonic()
-    catalog=json.loads(args.catalog.read_text())
-    case=next(c for c in catalog['cases'] if c['id']==args.case)
-    if case['family']!='mosaic':raise ValueError('Mosaic cases only')
+    case,scene_hash,revision=selected_scene(args.catalog,args.case)
+    scene=ROOT/case['directory']
     concurrency=None
     if args.concurrency_source:
+        from robofrontier.suite.mosaic_equivalence import check_prefix_candidate
+        from robofrontier.suite.provenance import bundle_manifest
+        equivalent=check_prefix_candidate(args.concurrency_source,scene)
+        if not equivalent['equivalent_for_command_candidate']:
+            raise ValueError('Concurrency source task and physical input equivalence failed: '+str(equivalent['differences']))
         from robofrontier.suite.mosaic_concurrency import build_plan
         concurrency=build_plan(args.concurrency_source)
         if concurrency['case_id']!=case['id']:
-            from robofrontier.suite.mosaic_equivalence import check
-            from robofrontier.suite.provenance import bundle_manifest
-            equivalent=check(args.concurrency_source,ROOT/case['directory'])
-            if not equivalent['equivalent_for_command_candidate']:
-                raise ValueError('Cross-case concurrency requires exact L2/L3 physical equivalence')
             concurrency['source_case_id']=concurrency['case_id']
             concurrency['case_id']=case['id']
-            concurrency['physical_equivalence']=equivalent
-            concurrency['target_scene_bundle_sha256']=bundle_manifest(ROOT/case['directory'])['sha256']
+        concurrency['physical_equivalence']=equivalent
+        concurrency['target_scene_bundle_sha256']=bundle_manifest(scene)['sha256']
     replay=None
     streaming=None
     if args.streaming_source:
@@ -57,9 +91,12 @@ def run(args):
             'private-reference/l2-report.json':(args.equivalent_replay_source/'report.json').read_bytes()})
     trial=Trial(ROOT/case['directory'],args.output,seed=0,record_hz=60,
         controller_cfg=load_harness(args.harness),sources=sources)
+    physics_threads=configure_physics_threads(trial,args.physics_workers)
     trial.live_preview=True;trial.abort_on_process_violation=True
+    trial.mosaic_planning_workers=args.planning_workers
     process_identity=dict(pid=os.getpid(),case_id=case['id'],output=str(trial.directory),
-        frozen_root=str(ROOT),git_commit=os.environ.get('ROBOFRONTIER_MOSAIC_COMMIT'),started_unix_s=time.time())
+        frozen_root=str(ROOT),git_commit=os.environ.get('ROBOFRONTIER_MOSAIC_COMMIT'),started_unix_s=time.time(),
+        physics_threads=physics_threads)
     write_json(trial.directory/'process.json',dict(process_identity,phase='running'))
     budget_hit=lambda:((args.wall_s is not None and time.monotonic()-overall_started>=args.wall_s) or
         (args.sim_s is not None and trial.time>=args.sim_s) or
@@ -67,12 +104,14 @@ def run(args):
     trial.stop_requested=lambda:budget_hit() or (trial.directory/'STOP').exists()
     def stop(signum,frame):raise ReferenceStopped('External owner stop requested')
     signal.signal(signal.SIGTERM,stop)
-    report=dict(case_id=case['id'],passed=False,scope='R13 privileged physical Mosaic Oracle',
+    report=dict(case_id=case['id'],scene_revision=revision,source_scene_sha256=scene_hash,
+        passed=False,scope=f'R{revision} privileged physical Mosaic Oracle',
         commissioning_only=args.max_goals is not None,declared_review_after_goals=args.review_after,declared_goal_ids=args.goal_id,
-        git_commit=os.environ.get('ROBOFRONTIER_MOSAIC_COMMIT'),
+        git_commit=os.environ.get('ROBOFRONTIER_MOSAIC_COMMIT'),physics_threads=physics_threads,
         budgets=dict(wall_s=args.wall_s,simulation_s=args.sim_s,action_batches=args.action_batches,
             review_wall_s=args.review_wall_s,max_reviews=args.max_reviews),
-        motion_profile=dict(loaded_joint_speed_rad_s=args.loaded_speed))
+        motion_profile=dict(loaded_joint_speed_rad_s=args.loaded_speed),
+        planning_workers=args.planning_workers)
     def on_enter(review):
         trial.snapshot(f'review-{review.epoch:03d}')
         if args.auto_resume_reviews and str(review.history[-1]['error']).endswith('Declared commissioning review boundary'):
@@ -170,11 +209,13 @@ def run(args):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--case',default='mosaic-a04-6x12-d1');p.add_argument('--output',required=True,type=Path)
-    p.add_argument('--catalog',type=Path,default=ROOT/'configs/suites/frontier-mosaic-r13.json')
+    p.add_argument('--catalog',type=Path,default=ROOT/'configs/suites/frontier-mosaic-r14.json')
     p.add_argument('--harness',type=Path,default=ROOT/'configs/harness-frontier-v2-servo2.json')
     p.add_argument('--wall-s',type=float);p.add_argument('--sim-s',type=float)
     p.add_argument('--action-batches',type=int);p.add_argument('--review-wall-s',type=float)
     p.add_argument('--max-reviews',type=int);p.add_argument('--loaded-speed',type=float,default=.20)
+    p.add_argument('--planning-workers',type=int,default=0,help='Independent endpoint planning processes; 0 uses available CPUs')
+    p.add_argument('--physics-workers',type=int,default=0,help='Opt-in MuJoCo internal worker threads; 0 disables the pool')
     p.add_argument('--max-goals',type=int);p.add_argument('--review-after',nargs='*',type=int,default=[])
     p.add_argument('--goal-id',action='append')
     p.add_argument('--concurrency-source',type=Path)
@@ -197,6 +238,8 @@ def main():
     if a.streaming_source and (a.concurrency_source or a.equivalent_replay_source or a.goal_id or a.review_after):
         p.error('Streaming is a separate canonical execution mode; only declared max-goals commissioning may limit it')
     if a.stream_prefix_goals<1:p.error('Positive source prefix size required')
+    if a.planning_workers<0:p.error('Planning workers must be nonnegative')
+    if a.physics_workers<0:p.error('Physics workers must be nonnegative')
     if a.finish_after_source and not a.streaming_source:p.error('Source-prefix handoff requires --streaming-source')
     if any(v is not None and (not math.isfinite(v) or v<=0) for v in (a.wall_s,a.sim_s,a.review_wall_s,a.action_batches,a.max_reviews,a.loaded_speed)):
         p.error('Positive finite budgets and speed required')

@@ -1,14 +1,28 @@
+import json
 from pathlib import Path
+import tempfile
 import unittest
 import mujoco
 from robofrontier.suite.mosaic_equivalence import check,compare_models,check_prefix_candidate
 
 ROOT=Path(__file__).resolve().parents[1]
-SOURCE=ROOT/'configs/environments/mosaic/frontier-v2-r13-mosaic-a04-6x12-d2'
-TARGET=ROOT/'configs/environments/mosaic/frontier-v2-r13-mosaic-a04-6x12-d3'
+SOURCE=ROOT/'configs/environments/mosaic/frontier-v2-r14-mosaic-a04-6x12-d2'
+TARGET=ROOT/'configs/environments/mosaic/frontier-v2-r14-mosaic-a04-6x12-d3'
 
 
 class MosaicEquivalenceTests(unittest.TestCase):
+    def test_same_case_changed_stock_colours_rejects_source_commands(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            target=Path(temporary)
+            (target/'scene.xml').write_bytes((SOURCE/'scene.xml').read_bytes())
+            (target/'assets').symlink_to(SOURCE/'assets',target_is_directory=True)
+            task=json.loads((SOURCE/'task.json').read_text())
+            task['objects'][0]['color']='different-stock-colour'
+            (target/'task.json').write_text(json.dumps(task))
+            result=check_prefix_candidate(SOURCE,target)
+            self.assertFalse(result['equivalent_for_command_candidate'])
+            self.assertFalse(result['checks']['complete_same_case_task'])
+
     def test_same_case_prefix_gate_requires_identical_compiled_inputs(self):
         result=check_prefix_candidate(SOURCE,SOURCE)
         self.assertTrue(result['equivalent_for_command_candidate'])

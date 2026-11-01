@@ -292,3 +292,22 @@ receipts still need explicit installation/Legacy treatment. Current 36-case
 asset verification is separate and must not be used to claim that this full
 suite passed. Raw diagnostic output remains in local engineering artifacts;
 the historical asset/evidence gates remain open.
+
+## Curated R14 Oracle implementation
+
+The integration extracts the R14 endpoint-worker, checkout-binding and
+revision-aware runner changes through `a49880f`, plus the archived-executor cache
+diagnostic correction from `76d87ed`. It does not merge the Oracle branch's R15
+assets/selectors, balanced/direct-nearest source experiments or experimental
+review scope refinement. The native Mosaic default is now explicitly R14; a
+selected task's own revision must also agree with its catalog before a world is
+constructed. Policy release inputs and locks are unchanged by this curation.
+
+The focused group passed 98 tests, including actual serial/parallel endpoint
+equivalence on the current R14 scene, frozen imports, source color mismatch,
+worker errors, same-owner recovery and uncertain-action handling. Existing
+equivalence tests now use the installed R14 scenes rather than missing R13
+assets; their physical-array and task-contract assertions are retained.
+`docs/oracle.md` documents native execution, assistance, evidence, stop and timing
+boundaries. Unified Oracle configuration/supervision and new full physical
+witnesses remain pending; these tests are not scored or full-case results.

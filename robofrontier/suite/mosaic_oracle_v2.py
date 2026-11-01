@@ -774,9 +774,15 @@ def goal_endpoint_candidates(trial):
     """
     from copy import copy
     trial.mosaic_goal_tilted_coverage={}
-    try:return helpers.goal_coverage(trial)
-    except RuntimeError as error:
-        if not str(error).startswith('No candidate goal approach/seat/withdraw endpoints '):raise
+    workers=getattr(trial,'mosaic_planning_workers',1)
+    if workers != 1:
+        from .mosaic_parallel import nominal_goal_coverage
+        result=nominal_goal_coverage(trial,workers)
+        if result is not None:return result
+    else:
+        try:return helpers.goal_coverage(trial)
+        except RuntimeError as error:
+            if not str(error).startswith('No candidate goal approach/seat/withdraw endpoints '):raise
     result={};axes=[np.array(v,dtype=float) for v in ((1,0,0),(-1,0,0),(0,1,0),(0,-1,0))]
     for goal in trial.task['goals']:
         proxy=copy(trial);proxy.task=dict(trial.task,goals=[goal])
@@ -1044,7 +1050,11 @@ def solve(trial, max_goals=None, goal_ids=None, motion_profile=None, resume=Fals
         return dict(reference_placed=len(protected),total_goals=len(trial.task['goals']),commissioning_only=False,resumed=resume)
     neighbors, _ = helpers.graph(trial.env)
     coverage = goal_endpoint_candidates(trial)
-    pickups = pickup_endpoint_candidates(trial)
+    if getattr(trial,'mosaic_planning_workers',1) != 1:
+        from .mosaic_parallel import pickup_coverage
+        pickups = pickup_coverage(trial,trial.mosaic_planning_workers)
+    else:
+        pickups = pickup_endpoint_candidates(trial)
     from ..run_setup import write_json
     write_json(trial.directory / 'coverage.json', dict(
         scope='Endpoint candidates only; actual motion and contact remain unproven',
