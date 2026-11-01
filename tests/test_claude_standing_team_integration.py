@@ -12,12 +12,16 @@ from test_claude_adaptive_integration import StubModel
 from test_claude_standing_team import standing_fixture
 from robofrontier.claude.session_host import ClaudeSessionHost
 
+POST_IDLE_PROMPT = 'RF_NATIVE_POST_IDLE_MAIL'
+POST_IDLE_MESSAGE = 'Synthetic post-idle milestone from A'
+
 
 class StandingModel(StubModel):
     requests = []
 
     steps = {}
     steps_lock = threading.Lock()
+    post_idle_sent = set()
 
     def choose_tool(self, names, text, blocks, has_result):
         if not names:
@@ -33,6 +37,11 @@ class StandingModel(StubModel):
         # a bounded per-role script instead of treating the last block as an RPC
         # boundary; that assumption caused the first fixture to loop on inbox.
         with self.steps_lock:
+            if actor == 'A' and POST_IDLE_PROMPT in messages and actor not in self.post_idle_sent:
+                self.post_idle_sent.add(actor)
+                payload, _ = self.message(actor, hierarchical)
+                payload['data']['text'] = POST_IDLE_MESSAGE
+                return payload, 'toolu_post_idle_send'
             step = self.steps.get(actor, 0)
             self.steps[actor] = step+1
         if actor == 'A' and step == 0:
@@ -66,6 +75,8 @@ class StandingNativeIntegrationTests(unittest.TestCase):
                 with self.subTest(topology=topology), standing_fixture(
                         topology, factory=ClaudeSessionHost, endpoint=f'http://127.0.0.1:{model.server_port}',
                         env=env) as (policy, service, _):
+                    recipient = 'Controller' if topology == 'hierarchical' else 'B'
+                    idle_at_probe_send = []
                     class World(http.server.BaseHTTPRequestHandler):
                         def log_message(self, *args): pass
                         def do_POST(self):
@@ -73,6 +84,8 @@ class StandingNativeIntegrationTests(unittest.TestCase):
                             if self.path != '/op' or service.tokens.get(data['actor']) != self.headers.get('X-Token'):
                                 self.send_error(403); return
                             with service.lock:
+                                if data['op'] == 'send' and data['data'].get('text') == POST_IDLE_MESSAGE:
+                                    idle_at_probe_send.append(policy.hosts[recipient].observe()['status'] == 'idle')
                                 job = service.accept(data['actor'], data['op'], data['data'], data['call_id'], data.get('ack_delivery'))
                                 service.pump()
                                 for actor in list(service.world.running): service.world.complete(actor)
@@ -87,12 +100,15 @@ class StandingNativeIntegrationTests(unittest.TestCase):
                     world = http.server.ThreadingHTTPServer(('127.0.0.1', 0), World)
                     threading.Thread(target=world.serve_forever, daemon=True).start()
                     try:
-                        StandingModel.steps.clear()
+                        with StandingModel.steps_lock:
+                            StandingModel.steps.clear()
+                            StandingModel.post_idle_sent.clear()
                         for actor in service.tokens:
                             path = policy.run/'private/state/connections'/(actor+'.json')
                             data = json.loads(path.read_text()); data['url'] = f'http://127.0.0.1:{world.server_port}'
                             path.write_text(json.dumps(data))
                         policy.bind_and_bootstrap()
+                        sessions = {actor:host.session_id for actor,host in policy.hosts.items()}
                         deadline = time.monotonic()+45
                         while time.monotonic() < deadline:
                             result = policy.cycle()
@@ -100,7 +116,7 @@ class StandingNativeIntegrationTests(unittest.TestCase):
                             roles = [v for v in service.store.agents().values() if v['kind'] != 'manager']
                             if (all(h.observe()['status'] == 'idle' for h in policy.hosts.values()) and
                                     all('Synthetic standing milestone' in a['note'] for a in roles) and
-                                    service.store.db.execute("SELECT count(*) FROM wakes WHERE status IN ('sent','observed')").fetchone()[0]):
+                                    not any(service.store.pending(recipient)[key] for key in ('messages','signals'))):
                                 break
                             time.sleep(.05)
                         self.assertFalse(service.store.get('dispatch_paused', False),
@@ -108,6 +124,44 @@ class StandingNativeIntegrationTests(unittest.TestCase):
                         self.assertTrue(all(h.observe()['status'] == 'idle' for h in policy.hosts.values()))
                         agents = {a:v for a,v in service.store.agents().items() if v['kind'] != 'manager'}
                         self.assertTrue(all('Synthetic standing milestone' in a['note'] for a in agents.values()))
+                        self.assertFalse(any(service.store.pending(recipient)[key] for key in ('messages','signals')))
+                        # Bootstrap mail may all be handled while recipients are
+                        # active. Create a distinct native send after verified
+                        # idle, then require receipt and resume on the same ID.
+                        prior_turn = policy.hosts[recipient].observe()['turn_id']
+                        prior_wakes = {row[0] for row in service.store.db.execute(
+                            "SELECT id FROM wakes WHERE actor=?", (recipient,))}
+                        bootstrap_wakes = service.store.db.execute(
+                            "SELECT count(*) FROM wakes WHERE status IN ('sent','observed')").fetchone()[0]
+                        bootstrap_pending = {actor:{key:service.store.pending(actor)[key]
+                                                    for key in ('messages','signals')} for actor in policy.hosts}
+                        ack = policy.hosts['A'].send(POST_IDLE_PROMPT)
+                        self.assertEqual(ack['threadId'], sessions['A'])
+                        deadline = time.monotonic()+45
+                        def probe_received():
+                            return service.store.db.execute(
+                                "SELECT count(*) FROM messages m JOIN receipts r ON m.seq=r.seq "
+                                "WHERE m.sender='A' AND m.text=? AND r.actor=? AND r.acked=1",
+                                (POST_IDLE_MESSAGE, recipient)).fetchone()[0]
+                        while time.monotonic() < deadline:
+                            result = policy.cycle()
+                            if result['paused']: break
+                            if (probe_received() and all(h.observe()['status'] == 'idle' for h in policy.hosts.values())
+                                    and policy.hosts[recipient].observe()['turn_id'] != prior_turn):
+                                break
+                            time.sleep(.05)
+                        self.assertFalse(service.store.get('dispatch_paused', False),
+                                         {a:h.observe() for a,h in policy.hosts.items()})
+                        self.assertEqual(idle_at_probe_send, [True])
+                        self.assertTrue(probe_received())
+                        self.assertTrue(all(h.observe()['status'] == 'idle' for h in policy.hosts.values()))
+                        self.assertNotEqual(policy.hosts[recipient].observe()['turn_id'], prior_turn)
+                        self.assertEqual({actor:host.session_id for actor,host in policy.hosts.items()}, sessions)
+                        resumed = [json.loads(row['value']) for row in service.store.db.execute(
+                            "SELECT id,value FROM wakes WHERE actor=? AND status IN ('sent','observed')", (recipient,))
+                                   if row['id'] not in prior_wakes]
+                        self.assertTrue(resumed)
+                        self.assertTrue(all(row['thread_id'] == sessions[recipient] for row in resumed))
                         self.assertTrue(service.store.db.execute("SELECT count(*) FROM wakes WHERE status IN ('sent','observed')").fetchone()[0])
                         self.assertTrue(service.world.executed)
                         self.assertEqual(service.world.executed[0][0], 'A')
@@ -122,6 +176,13 @@ class StandingNativeIntegrationTests(unittest.TestCase):
                         else:
                             self.assertNotIn('Controller', service.store.agents())
                             self.assertTrue(any(m == ['B'] for m in messages))
+                        if os.environ.get('ROBOFRONTIER_NATIVE_TEST_RECEIPTS') == '1':
+                            print('STANDING_NATIVE_RECEIPT '+json.dumps({
+                                'topology':topology, 'bootstrap_wakes':bootstrap_wakes,
+                                'bootstrap_pending':bootstrap_pending, 'post_idle_wakes':len(resumed),
+                                'idle_at_native_send':idle_at_probe_send, 'recipient_acked':bool(probe_received()),
+                                'same_sessions':{actor:host.session_id for actor,host in policy.hosts.items()} == sessions,
+                                'scope':'Native CLI/MCP with synthetic loopback model/world; no real provider inference'}))
                     finally:
                         policy.stop()
                         world.shutdown(); world.server_close()

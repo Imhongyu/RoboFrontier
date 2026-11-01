@@ -1838,3 +1838,28 @@ future main-session responsibilities remain historical, without performing
 cleanup or reopening old instructions. All numeric tokens and local links were
 checked in `english-relay-cleanup-verification.json`. Remaining English migration:
 eight tracked files / 33,097 Han characters.
+
+## Native idle-mail continuation and independent discovery v4
+
+The independent Linux clone at `89ddc46` installed all 45,141 pinned v4 fixture
+files, then ran 1,522 Python checks: one failure, zero errors and 17 conditional
+skips. JavaScript and documentation checks passed. Both actual Mosaic review
+packages also passed with physical stepping prohibited. The original full-run
+failure remains in `linux-isolated-results-v4`; it is not a passing receipt.
+
+The sole failure required an idle-session wake after bootstrap, although all
+bootstrap messages can legitimately arrive while the native recipients are
+already active. Repeated diagnostics captured exactly that condition: zero
+bootstrap wakes and no pending mail or signals. The test now waits for idle,
+sends a distinct message through the actual native sender and MCP transport,
+and requires the idle recipient to acknowledge it, start a new turn and retain
+its original session. Existing routing, gripper execution and session-file
+assertions remain. Production dispatch code is unchanged.
+
+Both hierarchical and peer topologies passed once on macOS and Linux, then
+three additional iterations per platform. Every post-idle message reached an
+idle recipient, produced a new wake on the same session and was acknowledged.
+Receipts are in `claude-standing-post-idle-{mac,linux}-v{1,2}.log`. These tests
+use real native CLIs and MCP with synthetic loopback model/world endpoints;
+they make no real-provider inference and do not open Claude scored execution.
+Complete discovery of the committed test correction remains required.
