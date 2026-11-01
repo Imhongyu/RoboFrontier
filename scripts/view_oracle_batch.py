@@ -10,8 +10,8 @@ from urllib.parse import urlparse
 FAMILIES=('transport','mosaic','relay','dial')
 PAGE='''<!doctype html><meta charset="utf-8"><title>RoboFrontier Oracle</title>
 <style>body{font:17px system-ui;background:#eef2f5;color:#203342;margin:28px}main{display:grid;grid-template-columns:1fr 1fr;gap:22px}article{padding:18px;background:white;border-radius:14px}img{width:100%;min-height:120px;background:#dce4e9}pre{white-space:pre-wrap;font:14px system-ui}h1{font-size:28px}</style>
-<h1>Oracle · 四类任务</h1><p>真实简单背景物理执行；工厂仅离线回放。画面约每五秒更新，规划阶段可能更久。</p><main id="cards"></main><script>
-const families=['transport','mosaic','relay','dial'];for(const f of families)cards.innerHTML+=`<article><h2>${f}</h2><pre id="s-${f}">等待</pre><img id="i-${f}"></article>`;
+<h1>Oracle | Four task families</h1><p>Live simple-scene physics; Factory is offline playback only. Saved frames update about every five seconds; planning can take longer.</p><main id="cards"></main><script>
+const families=['transport','mosaic','relay','dial'];for(const f of families)cards.innerHTML+=`<article><h2>${f}</h2><pre id="s-${f}">Waiting</pre><img id="i-${f}"></article>`;
 async function update(){let data=await(await fetch('/status')).json();for(const f of families){document.getElementById('s-'+f).textContent=JSON.stringify(data[f],null,2);if(data[f].image)document.getElementById('i-'+f).src='/image/'+f+'?t='+Date.now()}}update();setInterval(update,5000);
 </script>'''
 

@@ -200,8 +200,8 @@ def render_case(folder, output, factory_renderer=None, play=None, fps=30, speed=
                 for name,pixels in images.items():
                     image=Image.fromarray(pixels);draw=ImageDraw.Draw(image)
                     draw.rectangle((10,10,1268,77),fill='#f3f5f7')
-                    draw.text((22,16),f'{case} · '+('工厂背景' if name=='factory' else '简单背景')+' · 20倍速 · 30fps',font=font,fill='#1d3449')
-                    draw.text((22,46),f'原始仿真 {stamp:.3f}s | 同一60Hz轨迹、同一去静止剪辑；砝码独摆等待已删除',font=font,fill='#35516a')
+                    draw.text((22,16),f'{case} · '+('Factory background' if name=='factory' else 'Simple background')+' · 20x · 30fps',font=font,fill='#1d3449')
+                    draw.text((22,46),f'Source simulation {stamp:.3f}s | Same 60Hz track/edit; weight-only waits removed',font=font,fill='#35516a')
                     encoders[name].stdin.write(image.tobytes())
                     if n==0:image.save(output / f'{name}-first.png')
                     if n==len(indices)-1:image.save(output / f'{name}-last.png')

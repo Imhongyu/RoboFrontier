@@ -260,14 +260,14 @@ class Pilot:
         self.state["verification"] = report
         write_json(self.directory / "verification.json", report)
         self._event("VERIFICATION", "driver", {"passed": report["passed"], "checks": checks})
-        rows = ["# Codex 双会话通信测试", "", f"全部通过：{report['passed']}", "",
-                "本轮未连接机械臂；后台工作为真实计时的独立模拟任务。",
-                "会话创建与空闲唤醒由当前研发会话的 Codex 应用工具调度，不是无人值守后台守护程序。", "",
-                "## 检查", ""]
+        rows = ["# Codex two-session communication pilot", "", f"All checks passed: {report['passed']}", "",
+                "No robot connection; background work is an independently timed dummy task.",
+                "Native session creation and idle wakeups are driven by the research Codex application tools, not an unattended daemon.", "",
+                "## Checks", ""]
         rows += [f"- {'PASS' if ok else 'FAIL'} — {name}" for name, ok in checks.items()]
-        rows += ["", "## 会话", ""]
-        rows += [f"- {a}：{v['thread_id']}；实际模型 {v['verified_model']}；实际推理档 {v['verified_effort']}" for a, v in self.state["agents"].items()]
-        rows += ["", "## 完整时间线", "", "| 序号 | UTC 时间 | 来源 | 事件 | 详情 |", "|---|---|---|---|---|"]
+        rows += ["", "## Sessions", ""]
+        rows += [f"- {a}: {v['thread_id']};observed model {v['verified_model']};observed reasoning effort {v['verified_effort']}" for a, v in self.state["agents"].items()]
+        rows += ["", "## Complete timeline", "", "| Sequence | UTC time | Actor | Event | Details |", "|---|---|---|---|---|"]
         rows += [f"| {e['seq']} | {e['timestamp']} | {e['actor']} | {e['kind']} | {json.dumps(e['details'], ensure_ascii=False).replace('|', '/')} |" for e in events]
         (self.directory / "report.md").write_text("\n".join(rows) + "\n")
         export_dashboard(self.directory, self.snapshot())

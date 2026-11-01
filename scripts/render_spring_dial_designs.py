@@ -51,7 +51,7 @@ def main():
         card.paste(Image.open(directory/'preview-board.png'), (0, 112))
         draw = ImageDraw.Draw(card)
         draw.text((48, 28), f'{index:02d}  {details["title"]}', font=font, fill=(75, 57, 43))
-        draw.text((48, 77), '棕色桌面 · 红色旋钮 · 橙色指针',
+        draw.text((48, 77), 'Brown table | Red knobs | Orange pointers',
                   font=ImageFont.truetype(font_path, 22), fill=(130, 113, 97))
         card.save(output/f'design-{index:02d}.png')
         thumbnails.append(card.resize((640, 506), Image.Resampling.LANCZOS))

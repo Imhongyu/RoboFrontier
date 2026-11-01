@@ -1326,3 +1326,27 @@ Evidence is under `runs/engineering/main-integration-task-atlas-20261101/`:
 `task-atlas-refreshed-offline.zip` record the completed checks and delivery.
 This is presentation/provenance acceptance, not new task physics or provider
 qualification. The complete Factory render remains user-deferred.
+
+## Saved-run viewer and legacy display language
+
+The optional local policy batch viewer now reads only existing batch JSON, saved
+runtime snapshots and recorded images/video. The previous implementation could
+instantiate RuntimeStore and create a SQLite database just by opening the page;
+an actual HTTP fixture reproduced that behavior before the change. The new
+viewer opens no SQLite database, performs no writes and starts no model or world.
+It supports both engine metadata layouts, repeated cases across profiles, stale
+or absent snapshots, JPEG MIME types and existing-video Range requests. Its UI
+labels the batch state as saved metadata, not proof of a live process. Usage and
+namespace limits are documented in `docs/local-viewer.md`.
+
+Seven legacy analysis/generation/viewer scripts also have English display text.
+Their non-text Python ASTs are unchanged; no generator or renderer was executed.
+The literal-Han inventory is now 64 tracked files / 80,990 characters. The
+English-only release gate therefore remains open.
+
+Seven HTTP/viewer regressions and four mailbox regressions passed after the
+final UI wording change. Earlier full protocol runs with the viewer module
+included passed 206 Python checks on both Mac and Linux, plus 28 dispatcher
+checks. Evidence is under
+`runs/engineering/main-integration-task-atlas-20261101/`; these are offline
+protocol checks, not new model or task qualification.
