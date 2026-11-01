@@ -205,7 +205,9 @@ after the allocation ends, so verify the shared results and their hashes before
 releasing an allocation manually. If stage-out fails, preserve the reported
 node-local directory and ask the site administrator about its retention policy.
 
-The legacy scripts/slurm_luna_cpu.sh now exits with these migration instructions
-instead of creating active databases in shared storage or making hidden paid
-preflight calls.
+The legacy `scripts/slurm_luna_cpu.sh` and `scripts/slurm_luna_l3_max_test.sh`
+exit with migration instructions instead of creating active databases in shared
+storage or making hidden paid preflight calls. The four-task engineering
+selection is available as [`luna-l3-cpu.toml`](../configs/examples/luna-l3-cpu.toml);
+copy it to an untracked site TOML and review the allocation settings first.
 

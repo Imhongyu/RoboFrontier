@@ -970,3 +970,43 @@ physics, asset fingerprints, task selection or startup behavior.
 The remaining tracked-text English inventory is 133 files/126,853 Han characters,
 recorded in `english-inventory-after-editorial.json`. Repository-wide English
 migration remains unfinished.
+
+## Luna/Slurm handoff migration and remaining legacy entry closure
+
+The Luna CPU and multi-model handoff guides are now English and lead to current
+unified commands. They distinguish the unpublished integration from the original
+Codex/Luna branches, task-isolated API state from the native Luna batch home,
+unified parallel-36 defaults from native parallel-9 defaults, START task time
+from allocation time, explicit paid preflight from model-free preparation, and
+stopped evidence from unsafe cross-filesystem live SQLite inspection. Historical
+source commit, CLI pin, archive name/hash, offline bundle behavior, multi-profile
+Dial comparison, native compatibility entries, and worktree/PR instructions are
+retained with clear scope. They do not claim current provider prices or model
+compatibility from the dated research tables.
+
+Review found that `scripts/slurm_luna_l3_max_test.sh`, unlike the already retired
+general Luna sbatch entry, still created `runs/tmp` in the shared checkout and
+automatically ran paid preflight/execution. That remaining unsafe legacy path
+now exits with migration instructions before writing runtime state. Both retired
+scripts are regression-tested by executing them with synthetic Slurm variables
+in an empty directory: they exit 2, describe the node-local replacement, start
+no model/simulator, and leave the directory empty.
+
+The equivalent new explicit selection is
+[`configs/examples/luna-l3-cpu.toml`](../../configs/examples/luna-l3-cpu.toml):
+Luna/high/adaptive, CPU rendering, parallel 4, four maximum-arm Level 3 cases,
+3,600 seconds per task and a 7,200-second Slurm allocation ceiling. The actual
+unified plan confirmed Transport 12, Mosaic 8, Relay 16 and Dial 16 arms, with
+zero model calls and no simulator. The sample retains the existing scene
+qualification labels and does not change the 36-task/24-hour root defaults.
+Operators must review inherited CPU/memory/site resource requests before queueing.
+
+The combined Slurm/Luna group passed all 26 tests on macOS (0.736 seconds) and
+Linux aarch64 (0.286 seconds). Linux used the existing dependency image and the
+current checkout mounted read-only, with networking disabled. Both shell scripts
+and all shell blocks in the rewritten guides parse. Local Markdown links resolve;
+the Level 2 minimum-arm values were independently checked against current task
+metadata. Logs and the four-task plan are retained under the existing engineering
+evidence root with `luna-slurm-migration-` and `luna-l3-unified-` prefixes.
+This remains offline submission/staging acceptance, not real Slurm allocation,
+provider capacity or NVIDIA qualification.

@@ -1,160 +1,230 @@
-# Luna CPU benchmark：Linux / Slurm 交接
+# Luna CPU execution on Linux and Slurm
 
-**暂不要在 Lustre/NFS 上运行或提交此脚本：**运行数据库使用 SQLite WAL，目前节点本地存储与结果回传方案尚未验证。macOS Docker 测试中，活跃数据库从宿主机访问后出现损坏；具体原因尚待复现。参见 [SQLite WAL 文档](https://www.sqlite.org/wal.html)。下列 Slurm 命令仅保留为待验证的格式，不能视作可安全运行的交接方案。
+This guide describes the unified `integration/unified-main` checkout. It has
+not yet replaced the published default branch. Start with the [unified CLI](unified-cli.md)
+and use the [Slurm staging guide](slurm.md) for queue execution. The native
+`scripts.luna_cpu` wrapper remains a compatibility entry, with different Codex
+home behavior; it is not the new cluster submission mechanism.
 
-本分支使用 **GPT-6 Luna、high、OpenAI API Key、adaptive**。默认选择全部 36 项、最多 36 项并发，每项开始后限时 86400 秒（24 小时）。Controller 可自行增减子代理，模型请求并发可能高于任务数。没有监督模型的主 session 也可以通过命令运行；运行会产生 API 费用。当前任务资产是 **Mosaic R14**。
+New-run defaults select Luna/high, official OpenAI API authentication, adaptive
+organization, all 36 R14 task selections and 36 requested concurrent task hosts.
+CPU rendering is an explicit override of the unified Linux NVIDIA default.
+MuJoCo dynamics always use CPU; Linux CPU images use Mesa OSMesa/llvmpipe.
+Adaptive delegates may create more native sessions/model requests than tasks.
+No outer LLM session is needed to prepare, launch, monitor, stop or collect.
 
-任务预算从持久化的 START 时间开始计算；Codex 宿主不再额外施加从进程创建起算的固定 24 小时截止。可用 `--wall-limit-s 43200` 准备 12 小时任务。物理连接启动仍有工程超时，Slurm 的 `--time` 覆盖准备、运行和收尾。物理世界意外中断后不能自动重启。正式集群批次仍受上方数据库存储方案验证限制。
+A task's default 86,400-second limit starts at its persisted START, separately
+for every task. The host does not impose another fixed 24 hours from process
+creation. The initial launch interval is 0.3 seconds. Startup timeout, scheduler
+allocation lifetime and cleanup allowance are separate. A 36-task capacity or
+long-running provider qualification has not been demonstrated on your cluster.
 
-36 项持续并发尚未在目标 Linux 服务器验证。运行前确认 CPU、内存、磁盘、API 额度及费用预算；全部任务并发不等于它们一定同时开始或一定成功。后台保持完整记录不等于自动备份。
+## Install and verify
 
-## 1. 获取代码并准备环境
-
-取得本分支后，代码和只读资产可按集群规定准备；活跃运行数据库暂不可放在 Lustre/NFS，待节点本地运行与结果回传流程验证。不要将大型数据写入有配额的 home。准备 Python 3.12、Node.js、Codex CLI、Mesa OSMesa（Debian/Ubuntu 的 `libosmesa6`），并确认允许 Codex Linux sandbox 使用所需用户命名空间。依赖和网络环境由集群管理员决定。
+Use Python 3.12, the locked uv environment, Node.js, and Codex CLI. The integration
+checks use Codex 0.165.0; this is a reproducibility pin, not a latest-version
+claim. Linux CPU rendering needs Mesa OSMesa and an operating environment that
+supports the native Codex sandbox. Configure software according to the site's
+rules; a site may not provide Docker or permit installing system packages.
 
 ```sh
-cd /path/to/your/lustre/directory
-git clone --branch codex/luna-cpu https://github.com/changxuanfan/robofrontier.git robofrontier-luna
-cd robofrontier-luna
-python3.12 -m venv .venv
-.venv/bin/pip install .
+uv sync --locked --extra oracle
 npm install --prefix "$PWD/.codex-tools" @openai/codex@0.165.0
 export PATH="$PWD/.codex-tools/node_modules/.bin:$PATH"
 cp .env.example .env
 chmod 600 .env
-# 在 .env 中自行填写 OPENAI_API_KEY，不要提交、发消息或打印密钥。
+# Edit OPENAI_API_KEY locally; do not print or commit its value.
+.venv/bin/robofrontier bootstrap
+.venv/bin/robofrontier doctor --render cpu
 ```
 
-自动获取并验证 GitHub Release 的 R14 资产（约 186 MB），恢复后再次校验各资产；已有正确资产则直接复用：
+Do not replace an existing `.env` with the template. On Debian-family systems,
+`libosmesa6` supplies the relevant software GL library. Doctor checks local CLI,
+sandbox and actual rendering prerequisites without calling a model. Native
+macOS does not support this OSMesa mode: use `--render native` for Mac rendering,
+or use the [Linux container flow](docker.md) for CPU OSMesa.
+
+Policy bootstrap automatically restores the approximately 186 MB pinned archive,
+checks its SHA-256, and verifies referenced assets. The package is
+`policy-assets-rolling003-20261029.tar.gz` in the
+[handoff-20261028 release](https://github.com/changxuanfan/RoboFrontier/releases/tag/handoff-20261028),
+SHA-256 `1bb7420c38c44b7e2f469d3789a1c0096a4f5cf6d377894d1ae2c1b0a8de2d31`.
+Release and asset upload dates need not match. Correct installed files are reused;
+`already_complete` does not imply a new download/cache file. A conflicting file
+or wrong package fails verification rather than being approximated or relabeled.
+For an offline machine, transfer the pinned package and run:
 
 ```sh
-.venv/bin/python -m scripts.luna_cpu setup-assets
-.venv/bin/python -m scripts.luna_cpu doctor
+.venv/bin/python -m scripts.benchmark_handoff setup-assets \
+  --archive /path/to/policy-assets-rolling003-20261029.tar.gz
 ```
 
-`setup-assets` 也可不通过 Luna 包装器独立使用：`python -m scripts.benchmark_handoff setup-assets`。离线机器可先从 [Release](https://github.com/changxuanfan/robofrontier/releases/tag/handoff-20261028) 下载 `policy-assets-rolling003-20261029.tar.gz`，再传 `setup-assets --archive /path/to/policy-assets-rolling003-20261029.tar.gz`。脚本固定检查发布包 SHA-256、任务发布清单和所有文件；不同内容或损坏时停止，不覆盖已有不同资产。缓存放在忽略 Git 的 `runs/asset-cache/`。下载需要网络，离线资产要由用户提前传入。与 Release 清单不匹配的其他分支不能使用本版本配置。
+The separate multi-gigabyte Factory recording package is not needed for policy
+execution. API credentials are local per user; a local SSH driver does not
+implicitly transmit its environment to a remote machine.
 
-本分支锁定的资产包 SHA-256 为 `1bb7420c38c44b7e2f469d3789a1c0096a4f5cf6d377894d1ae2c1b0a8de2d31`。Release 日期和资产上传日期可以不同；不要自行换用其他包或修改校验值。`setup-assets` 报 `already_complete` 表示文件已完整，不一定会下载或创建缓存；缺失时才下载并校验。若报网络错误，使用上面的离线方式；若报 SHA 或目标文件不一致，保留报错并核对分支和包，不要忽略校验。
+## Configure and run without Slurm
 
-## 2. 在 Slurm 排队
+Create an operator TOML on a filesystem local to the executing machine:
 
-准备阶段执行 `setup-assets`，以便计算节点无法联网 GitHub 时仍可复用资产。以下仅是提交格式，资源数值是**示例，不是 36 项所需配置**；请根据集群规则、排队限制和测试结果修改。任务预算从 START 开始。Slurm 作业时限还必须留出预检、启动和收尾时间，过短会中断任务。
+```toml
+# luna-cpu-site.toml
+[render]
+device = "cpu"
+
+[slurm]
+gpus = 0
+```
+
+The root defaults supply Luna/high, adaptive, 36 tasks, 36 concurrent slots and a
+24-hour task clock. For a 12-hour task, set `batch.task_wall_limit_s = 43200.0` in
+the appropriate `[batch]` table. The scheduler allocation must also cover setup,
+execution and stage-out. This task clock is not a monetary cap.
 
 ```sh
-sbatch --partition=YOUR_PARTITION --cpus-per-task=YOUR_CPUS --mem=YOUR_MEMORY \
-  --time=YOUR_JOB_TIME scripts/slurm_luna_cpu.sh
+.venv/bin/robofrontier --config luna-cpu-site.toml plan
+.venv/bin/robofrontier --config luna-cpu-site.toml preflight --confirm-spend
+.venv/bin/robofrontier --config luna-cpu-site.toml prepare \
+  --output runs/policy/luna-all-36
+.venv/bin/robofrontier run runs/policy/luna-all-36
+```
+
+Only run a paid preflight/execution with the account owner's authorization. A
+small smoke receipt does not replace the required complete provider receipt.
+Preparation itself freezes inputs and calls no model. Use a new output directory
+for each batch. A changed CLI/model/provider/configuration needs a matching new
+preflight. The foreground runner waits for its batch; it is not detached merely
+because a chat tool returned. Use an appropriate persistent process/job manager.
+
+For a small Level 1 engineering selection, add `--level 1 --min-arms --parallel 4`
+to `prepare` and inspect the four-task plan first. Change task duration in TOML,
+not by editing a frozen task or altering source hashes.
+
+```sh
+.venv/bin/robofrontier status runs/policy/luna-all-36
+.venv/bin/robofrontier stop runs/policy/luna-all-36
+```
+
+The 24 hours are a maximum, not a requirement to keep a completed task alive.
+Controller may finish after completion or a publicly justified unrecoverable
+state, once actions/delegates are resolved. Finish triggers evaluation; a claim
+of success alone cannot pass the scorer. Incomplete or interrupted tasks retain
+that outcome. No automatic physical-world restart or replay follows a crash.
+
+## Queue on Slurm
+
+Active SQLite WAL files, Codex homes/sessions, temporary data, observations and
+motion must live on verified **node-local storage**, not Lustre/NFS. Shared
+storage can hold the committed source, read-only assets and stopped stage-out
+packages. Do not write large data into quota-limited home directories. The
+[Slurm guide](slurm.md) specifies node-local filesystem checks, descendant-process
+tracking, API credential handling, stop warnings and verified stage-out. Real
+allocation, x86_64/NVIDIA and site-specific capacity qualification remain open.
+
+From the Linux login node, after the explicit preflight and site resource review:
+
+```sh
+.venv/bin/robofrontier --config luna-cpu-site.toml slurm-submit \
+  --output runs/submissions/luna-all-36
+.venv/bin/robofrontier --config luna-cpu-site.toml slurm-submit \
+  --output runs/submissions/another-luna-all-36 --queue
 squeue -u "$USER"
 ```
 
-作业启动后脚本检查 / 恢复资产，运行环境 doctor，进行**付费模型预检**，然后启动**付费任务**。输出默认是 `runs/policy/luna-slurm-<Slurm作业ID>/`；Slurm 标准输出默认由站点配置决定（通常在提交目录的 `slurm-<作业ID>.out`）。不设置 GPU 申请，OSMesa / llvmpipe 用 CPU 渲染，MuJoCo 物理用 CPU。使用 `scancel JOB_ID` 取消作业时可能中断尚未写完的数据。
+The first example only freezes a submission. The second freezes a different new
+submission and explicitly queues it. Do not reuse the same output directory to
+submit a second experiment. The snapshot pins committed source, settings,
+launcher and verified assets. It does not rely on later checkout edits. Resource
+requests are not proof that 36 tasks plus delegates fit available memory/API
+limits. Slurm time includes setup and cleanup, independently of task START.
 
-脚本可通过环境变量覆盖：`RF_BATCH_OUTPUT`、`RF_WALL_LIMIT_S`、`RF_PARALLEL`。例如小额工程测试可设 `RF_WALL_LIMIT_S=600 RF_PARALLEL=4`，但并发 4 默认仍会选 36 项；若只想跑 4 个最简单 Level 1 任务，使用下面手动命令的 `--level 1 --min-arms`。集群对环境变量传递有不同配置，请确认 `sbatch --export` 的站点规则。
+Both old sbatch files, `scripts/slurm_luna_cpu.sh` and
+`scripts/slurm_luna_l3_max_test.sh`, exit with migration instructions. They do not
+create shared active databases or run a hidden paid preflight. Their old
+`RF_BATCH_OUTPUT`, `RF_WALL_LIMIT_S` and `RF_PARALLEL` workflow is retired.
 
-### Level 3 最大臂工程测试（四项并行）
+### Four maximum-arm Level 3 tasks
 
-独立的测试入口选择每类 Level 3 中臂数最大的一个：Transport 12 臂、Mosaic 8 臂、Relay 16 臂、Dial 16 臂。固定并行 4 项、每项 START 后最多 3600 秒，使用 Luna high、adaptive 和 CPU 渲染。允许提前完成；各项启动时间可能不同，加上环境准备、付费预检、收尾和排队，整个 Slurm 作业需要超过一小时。测试产生 API 费用；任务数为 4 不表示模型请求数最多为 4。此测试用于工程验证，不证明 36 项并行或正式计分已通过。
-
-在仓库根目录、完成上面的环境和资产准备后提交（资源参数按站点要求填写；时限应覆盖准备、最长任务和收尾）：
+Copy [`configs/examples/luna-l3-cpu.toml`](../configs/examples/luna-l3-cpu.toml) to
+an untracked site TOML and review partition/account/CPU/memory/scratch settings:
 
 ```sh
-sbatch --partition=YOUR_PARTITION --cpus-per-task=YOUR_CPUS --mem=YOUR_MEMORY \
-  --time=YOUR_JOB_TIME scripts/slurm_luna_l3_max_test.sh
-squeue -u "$USER"
+cp configs/examples/luna-l3-cpu.toml l3-cpu-site.toml
+.venv/bin/robofrontier --config l3-cpu-site.toml plan
 ```
 
-默认批次为 `runs/policy/luna-l3-max-test-<Slurm作业ID>/`，可用 `RF_BATCH_OUTPUT` 指定未存在的其他路径。这个脚本固定四项和一小时，不使用 `RF_PARALLEL` 或 `RF_WALL_LIMIT_S`。请勿将 Slurm 时限设为恰好一小时，否则准备和收尾可能使作业被提前终止。可用下节的 `status`、`usage`、`performance`、`stop` 和 `collect` 查询或收集这个批次；不要分享包含密钥或任务私有数据的目录。
+| Family | Task | Arms |
+| --- | --- | ---: |
+| Transport | `transport-a12-d3` | 12 |
+| Mosaic | `mosaic-a08-12x24-d3` | 8 |
+| Relay | `relay-a16-d3` | 16 |
+| BEST5 Dial | `dial-best5-n08-d3` | 16 |
 
-将下面的 `JOB_ID` 替换为 `sbatch` 返回的数字；在仓库根目录使用与计算节点相同的共享路径：
+The example requests exactly these four tasks, parallel 4, Luna/high/adaptive,
+CPU observations, one hour per task after START, and a two-hour Slurm allocation
+ceiling. Other resource requests inherit the root defaults until you edit them;
+they are not measured requirements. For a 30-minute task cap, set
+`batch.task_wall_limit_s = 1800.0`. Keep setup/stage-out allowance in the allocation.
+Use the same explicit preflight and `slurm-submit --queue` flow as above. This
+engineering selection is not a replacement for the 36-task/24-hour defaults.
+
+## Evidence and resource metrics
+
+New unified API runs isolate task-native Codex state; the batch records actual
+home/session paths. The native Luna compatibility wrapper instead records its
+batch home in `codex-home.json`, generally under
+`.codex-luna/<batch-name>-<path-hash>/sessions/`. Neither location is the shared
+server user's default `~/.codex` unless explicitly configured that way. Docker
+uses persistent local volumes and exports stopped results; inspect that flow's
+own recorded paths rather than guessing a host path.
+
+`private/outputs/codex-host.jsonl` contains host scheduling/tool/timing events,
+not the complete native session. Native `<session-id>.jsonl` traces retain model
+turn evidence. Motion, frozen source, process events and referenced JPEGs have
+separate output paths. Realtime MP4 is off by default; later offline video can
+use another resolution/background. The [evidence guide](evidence-storage.md)
+explains compression, image references, collection manifests, verified ZIPs,
+restore and provenance. Collection copies originals; it does not silently delete
+source evidence or turn engineering errors into model failures.
+
+Inspect metrics in the same execution context, using stopped evidence when a
+command opens SQLite. Do not read a live container database from the Mac host,
+or an active node database across a shared mount. Native compatibility commands
+include `scripts.luna_cpu usage`, `performance` and `collect`. Usage deduplicates
+recorded responses and reports missing traces; it is not the provider bill.
+Completed-response TPM is not a provider admission/rate-limit counter. Model
+turn duration includes tool waits; action and model intervals overlap and must
+not be summed as disjoint cost/time categories. Owner counters are not a complete
+continuous CPU/RSS profiler. Where configured, Slurm can report:
 
 ```sh
-squeue -j JOB_ID
-cat slurm-JOB_ID.out # 若站点配置了其他输出路径，以站点配置为准
-.venv/bin/python -m scripts.luna_cpu status runs/policy/luna-l3-max-test-JOB_ID
-.venv/bin/python -m scripts.luna_cpu usage runs/policy/luna-l3-max-test-JOB_ID
 sacct -j JOB_ID --format=JobID,State,Elapsed,AllocCPUS,MaxRSS,TotalCPU
 ```
 
-批次关闭后执行以下命令收集运行数据和关联的 Controller / 子代理 session；输出的 `collection.json` 应检查缺失项，再单独备份整个收集目录。若 Slurm 抢占或取消，检查任务状态和日志，不要将中断当作正常失败或成功。
+Site accounting determines metric scope. Inspect missing sessions/evaluations,
+unsealed outcomes and stage-out receipts before sharing a collected package.
+A backup is a separately retained verified copy, not merely an ignored run folder.
+
+## Native compatibility commands
+
+For a local Linux filesystem and an existing compatible environment, the native
+wrapper retains `setup-assets`, `doctor`, `preflight`, `prepare`, `submit`, `run`,
+`status`, `stop`, `usage`, `performance`, `collect`, and `l3-max-test`. Its profiles
+include `luna`, `openlux-luna` and `openlux-terra`; changing profile changes the
+required API key and provider preflight. It does not stage live state to Slurm
+scratch. Prefer the unified entry for new task-isolated/concurrent deployments.
+
+The following remains a model-free way to inspect the legacy L3 preparation:
 
 ```sh
-.venv/bin/python -m scripts.luna_cpu collect runs/policy/luna-l3-max-test-JOB_ID --output runs/exports/luna-l3-max-test-JOB_ID
+.venv/bin/python -m scripts.luna_cpu l3-max-test --prepare-only \
+  --output runs/policy/legacy-l3-draft
 ```
 
-不通过 Slurm 时，独立执行（预检和任务都会调用付费 API）：
-
-```sh
-.venv/bin/python -m scripts.luna_cpu preflight --output runs/policy/luna-l3-max-test
-.venv/bin/python -m scripts.luna_cpu l3-max-test --output runs/policy/luna-l3-max-test
-```
-
-如需每项最多 30 分钟，在上述 `l3-max-test` 命令后增加 `--wall-limit-s 1800`；并行数仍为 4。Slurm 脚本仍固定一小时。
-
-只准备并检查任务，不调用模型或启动仿真：
-
-```sh
-.venv/bin/python -m scripts.luna_cpu l3-max-test --prepare-only --output runs/policy/luna-l3-max-plan
-```
-
-准备的批次不可再用相同路径执行 `l3-max-test`；若需运行它，先使用相同路径预检，再执行 `run runs/policy/luna-l3-max-plan --parallel 4`。各批次要独立目录。
-
-## 3. 手动运行及查询
-
-每批需使用一个未存在的输出目录。`preflight --output`、`submit --output` 使用相同路径，自动选择相同的私有 Codex home。更换 Codex CLI 或模型配置后必须重新预检。预检需调用 API；`doctor` 不调用模型。
-
-```sh
-.venv/bin/python -m scripts.luna_cpu preflight --output runs/policy/luna-all-36
-.venv/bin/python -m scripts.luna_cpu submit --output runs/policy/luna-all-36
-```
-
-要做 4 项、每项 10 分钟的工程短测：
-
-```sh
-.venv/bin/python -m scripts.luna_cpu preflight --output runs/policy/luna-smoke
-.venv/bin/python -m scripts.luna_cpu submit --output runs/policy/luna-smoke --level 1 --min-arms --wall-limit-s 600 --parallel 4
-```
-
-另一终端可查看、统计或请求优雅停止：
-
-```sh
-.venv/bin/python -m scripts.luna_cpu status runs/policy/luna-all-36
-.venv/bin/python -m scripts.luna_cpu usage runs/policy/luna-all-36
-.venv/bin/python -m scripts.luna_cpu performance runs/policy/luna-all-36
-.venv/bin/python -m scripts.luna_cpu stop runs/policy/luna-all-36
-```
-
-24 小时是每项的上限，不需要等满。Controller 调用 `finish` 后，若动作均已结束且 adaptive 子代理均已处理交回，任务会立即结束并按实际终态评分；提前结束也可能评分为未完成。任务不会仅因为模型说成功就自动通过，也不能保证达到目标后系统自动发起 `finish`。未主动结束的任务可能持续运行至截止或中断。各项独立结束，批次进程等待所有项结束或中断。异常中断须单独检查，不等同于正常完成。
-
-## 4. 保存和收集
-
-每个新批次自动使用 `.codex-luna/<批次名>-<路径哈希>/sessions/`；`runs/policy/<批次名>/codex-home.json` 记录确切位置。它不同于服务器账号默认 `~/.codex`。运行数据位于批次目录，其中包括截图、SQLite 状态、宿主日志、评估和运动记录；默认不录实时视频。每项任务的 `private/outputs/codex-host.jsonl` 记录角色、调度、工具调用和时间等事件摘要，不是完整 Codex session；Controller 和子代理的原生 session JSONL 另存于上述 `sessions/`。以上目录均被 Git 忽略，必须单独备份。
-
-批次已关闭后，可复制批次数据和按角色关联的 session 到新目录，输出 `collection.json` 标识缺失 session 或评估：
-
-```sh
-.venv/bin/python -m scripts.luna_cpu collect runs/policy/luna-all-36 --output runs/exports/luna-all-36
-```
-
-收集目录包含实验私有内容；不要公开分享，且仍需另存备份。该检查不保证评分正确，也无法识别运行中从未登记的 session。真实多子代理及 36 项长期运行还需实测。`usage` 根据 session 去重统计 token，报告缺失 trace，不等于账单；`performance` 的模型轮次包含工具等待，不能当作纯 API 延迟。没有按进程连续采集 CPU/RSS；可在 Slurm 配置支持时通过 `sacct -j JOB_ID --format=JobID,State,Elapsed,AllocCPUS,MaxRSS,TotalCPU` 查看站点报告，具体统计范围由集群决定。
-
-## 5. Docker（可选）
-
-如果服务器支持 Docker，可在代码目录构建镜像：
-
-```sh
-docker build -f docker/luna-cpu.Dockerfile -t robofrontier-luna-cpu .
-```
-
-以下将整个工作区挂载到容器，**自动创建的批次 Codex home 位于该挂载下**，不会使用服务器默认 Codex home；容器退出后数据仍在工作区。必须为所有命令使用同一个容器内路径 `/workspace`，否则已冻结的绝对路径可能失效。API key 从挂载的 `.env` 读取。
-
-```sh
-docker run --rm -v "$PWD:/workspace" -w /workspace robofrontier-luna-cpu setup-assets
-docker run --rm -v "$PWD:/workspace" -w /workspace robofrontier-luna-cpu doctor
-docker run --rm -v "$PWD:/workspace" -w /workspace robofrontier-luna-cpu preflight --output runs/policy/luna-all-36
-docker run --rm -v "$PWD:/workspace" -w /workspace robofrontier-luna-cpu submit --output runs/policy/luna-all-36
-```
-
-在 macOS 的 Docker，默认 seccomp 可能阻止 Codex sandbox：此前测试需给上述各命令增加 `--security-opt seccomp=unconfined`。这会降低容器隔离；Linux 集群先用默认配置检查，若失败由管理员确认可用方案。容器用户可能在宿主机创建不同所有者的文件。并非所有 Slurm 站点提供 Docker；上面的 Slurm 脚本使用原生 Linux Python 环境。
-
-### 已停止批次的收集与无损归档
-
-`collect` 现在调用四分支共用的收集器，新清单格式为 `robofrontier.policy-collection.v1`；旧 Luna 清单和归档仍可读取。命令、恢复兼容性、异常数据保留及空间要求见 [数据收集、无损归档与恢复](evidence-storage.md)。源数据不会自动删除，完整收集不代表任务成功。
+Its native one-hour default, optional `--wall-limit-s`, parallel-4 selection and
+private `codex-home.json` marker remain compatibility behavior. An already
+prepared directory is executed with its separate native `run` command after a
+matching preflight, not by invoking `l3-max-test` over it again. Never move a
+prepared live batch between machines/absolute paths or mix native and unified
+configuration markers. Old Docker commands/image defaults are documented as
+Legacy; new work should use the frozen [Docker commands](docker.md).
