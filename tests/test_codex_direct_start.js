@@ -78,4 +78,3 @@ test('STOP during binding prevents START and all initial model turns',async()=>{
   await assert.rejects(PolicyHost.prototype.startInitialRoles.call(host,standing,'direct_team_v3'),/Stop requested/);
   assert.equal(operations.filter(o=>['request-start','send'].includes(o.type)).length,0);
 });
-

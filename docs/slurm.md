@@ -213,4 +213,3 @@ exit with migration instructions instead of creating active databases in shared
 storage or making hidden paid preflight calls. The four-task engineering
 selection is available as [`luna-l3-cpu.toml`](../configs/examples/luna-l3-cpu.toml);
 copy it to an untracked site TOML and review the allocation settings first.
-

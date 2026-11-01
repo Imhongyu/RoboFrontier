@@ -25,6 +25,28 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
+def _pinned_asset_release(root, config):
+    """Admit only the reviewed nine historical-edit metadata substitutions."""
+    current = digest(root/RELEASE)
+    if current == config['release_sha256']:
+        return current
+    receipt = config.get('historical_edit_index_release', {})
+    if current != receipt.get('sha256'):
+        raise ValueError('Task release does not match pinned R14 asset package')
+    release = read(root/RELEASE)
+    entries = release['families']['mosaic']['oracle']
+    if len(entries) != 9:
+        raise ValueError('Unreviewed historical edit case count')
+    for entry in entries:
+        if entry.pop('historical_edit', None) != receipt['index_reference']:
+            raise ValueError('Unreviewed historical edit reference')
+    unchanged = hashlib.sha256(json.dumps(release, sort_keys=True,
+        separators=(',', ':'), ensure_ascii=True).encode()).hexdigest()
+    if unchanged != receipt['unchanged_fields_sha256']:
+        raise ValueError('Unreviewed asset release fields changed')
+    return config['release_sha256']
+
+
 def scene_assets(root=ROOT):
     expected={}
     for family in read(root/RELEASE)['families'].values():
@@ -87,7 +109,10 @@ def restore_assets(archive_path, root=ROOT):
         names=[m.name for m in members]
         if len(set(names))!=len(names):raise ValueError('Duplicate archive members')
         manifest=json.load(archive.extractfile('assets-manifest.json'))
-        if manifest.get('schema')!='robofrontier.policy-assets.v1' or manifest['release_sha256']!=digest(root/RELEASE):
+        release = digest(root/RELEASE)
+        if manifest.get('release_sha256') != release and (root/'configs/policy-assets.json').is_file():
+            release = _pinned_asset_release(root, read(root/'configs/policy-assets.json'))
+        if manifest.get('schema')!='robofrontier.policy-assets.v1' or manifest['release_sha256']!=release:
             raise ValueError('Asset archive belongs to a different task release')
         expected=scene_assets(root)
         for name,checksum in expected.items():
@@ -125,8 +150,7 @@ def ensure_asset_archive(root=ROOT, archive_path=None):
     """Return a verified pinned archive, including for offline compute-node staging."""
     root = Path(root).resolve()
     config = read(root/'configs/policy-assets.json')
-    if digest(root/RELEASE) != config['release_sha256']:
-        raise ValueError('Task release does not match pinned R14 asset package')
+    _pinned_asset_release(root, config)
     if archive_path is not None:
         archive_path = Path(archive_path).resolve()
         if digest(archive_path) != config['archive_sha256']:
@@ -156,8 +180,7 @@ def setup_assets(root=ROOT, archive_path=None):
     """Fetch the pinned R14 archive or restore an explicitly supplied local copy."""
     root = Path(root).resolve()
     config = read(root/'configs/policy-assets.json')
-    if digest(root/RELEASE) != config['release_sha256']:
-        raise ValueError('Task release does not match pinned R14 asset package')
+    _pinned_asset_release(root, config)
     expected = scene_assets(root)
     try:
         if digest(root/'vendor/panda/SOURCE.json') != config['panda_source_sha256']:

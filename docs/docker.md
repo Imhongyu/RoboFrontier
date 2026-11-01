@@ -239,4 +239,3 @@ prepared runs. This is not a standalone wheel distribution or a checkpoint/resum
 implementation. Slurm batch execution has its own node-local staging workflow;
 do not assume a cluster permits a Docker daemon or that Docker's GPU visibility
 matches a Slurm allocation without the site's configuration.
-

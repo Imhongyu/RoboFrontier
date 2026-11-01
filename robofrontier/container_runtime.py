@@ -336,4 +336,3 @@ def execute(arguments, config, *, root=ROOT):
             subprocess.run(['docker', 'rm', name], check=True, stdout=subprocess.DEVNULL)
         write_json(record, state)
     return state
-

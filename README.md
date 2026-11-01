@@ -46,8 +46,8 @@ user's request; the editable English project remains available.
 | Read completion and recovery rules | [Shared policy rules](prompts/policy-rules.md) |
 | Run privileged references and interpret recovery checks | [Oracle execution](docs/oracle.md) and [recovery boundaries](docs/oracle-recovery.md) |
 
-Other documentation and historical entries are still being reconciled into the
-English release. Frozen legacy inputs retain their original protocol and source;
+Current source, documentation and historical prose use English. Frozen legacy
+inputs retain their original filenames, language, protocol and source;
 current documentation must not reinterpret an old result as a new-protocol run.
 
 ## Install and verify assets
@@ -68,6 +68,13 @@ verifies its SHA-256 and restores every referenced asset with hash verification.
 It reuses already verified files. `prepare` performs the same required asset
 setup automatically. Cloning Git alone cannot execute an installation step.
 Neither bootstrap, planning nor preparation calls a language model.
+
+The asset lock also records one reviewed metadata-compatible release: nine
+historical Mosaic edit references now use a pinned original video index. Every
+other release field and all asset bytes remain unchanged. Bootstrap authenticates
+both the exact revised release and its unchanged-field projection before reusing
+the original archive. The task atlas retains its original capture-release hash;
+this metadata change did not regenerate its images or alter task physics.
 
 For an offline machine, download the archive named by the checked-in asset lock
 on a connected machine, transfer it, and run:

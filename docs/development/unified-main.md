@@ -1948,3 +1948,26 @@ fixtures and was not claimed checked; its unavailable-check receipt is separate.
 Tracked source/content now contains no Han text. Original ignored evidence names,
 reports and recordings remain unchanged. Complete discovery and a new committed-
 source image remain required after this consumer change.
+
+## Fresh image exposed the asset release's metadata binding
+
+The first actual image rebuild at `8ddea22` failed before downloading assets:
+the original archive pins the complete release JSON, whose bytes changed with
+the nine historical edit references. Comparison against immutable `696000c`
+confirmed that every other parsed field is identical, including GPT cases,
+scene/source hashes, qualification labels and all original edit hashes. The
+old archive URL, archive SHA-256 and Panda source pin remain unchanged.
+
+The asset lock now carries one explicit metadata compatibility receipt. The
+installer authenticates the exact revised release, all nine expected typed
+references and the canonical digest of every remaining field. Only then can it
+use the original archive's release identity. All manifest contents and individual
+asset hashes are still checked. Updating a raw release hash alone cannot admit
+an unrelated scene/rule/control change. New runs still freeze the actual revised
+release identity, rather than claiming its old hash.
+
+The minimal regression reproduced the image error before the fix. Sixteen
+asset/reference checks now pass, including missing-receipt, changed unrelated
+fields and substituted-index rejection. Original red/build logs remain retained;
+`asset-index-release-compatibility.json` records the independent old/new comparison.
+The image rebuild and complete-discovery results will be recorded separately.
