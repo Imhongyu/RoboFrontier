@@ -1711,3 +1711,17 @@ bridge, gear, balance, packing and domino concepts remain historical proposals.
 Python syntax and every non-text AST node are unchanged; no image or world was
 rendered. Source comparisons are in `english-task-concept-verification.json`.
 Remaining tracked English migration: 17 files / 52,497 Han characters.
+
+## English discrete Dial research-report generators
+
+Both Dial feedback/alphabet report generators now emit English descriptions,
+HTML labels and historical rule drafts. They retain all numerical tokens and
+identical non-text Python ASTs, including sampling, table construction and output
+selection. Their text keeps exhaustive versus sampled counts, uncertainty,
+logical-trial versus mechanical-time boundaries, candidate-information limits,
+record-event attribution and historical non-deployment explicit. No report was
+regenerated, no hidden task answer read and no dynamics/model started. Receipts
+are `english-dial-alphabet-verification.json` and
+`english-dial-feedback-verification.json`. No tracked Python or HTML display
+source remains in the Han inventory; the remaining migration is 15 files /
+49,907 Han characters, all historical documents and preserved path references.
