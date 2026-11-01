@@ -499,11 +499,11 @@ class Trial:
         if self.process_events is not None:
             self.process_events.close();report['process_recording']=dict(schema=self.process_events.schema,pose_stream='motion/stream.json',process_events='process.jsonl')
         if self.motion is not None:
-            # A controlled stop can fall between cadence samples. Preserve its
-            # actual final live pose without advancing dynamics or promoting an
-            # interrupted recording to complete. Invalid/scratch state is never
-            # invented as a final frame; retain the verified prefix instead.
-            if report.get('interrupted'):
+            # Stops and ordinary failed operations can end between samples.
+            # Preserve the measured final pose without advancing dynamics or
+            # promoting failed/interrupted evidence to complete. Invalid or
+            # scratch state keeps its verified prefix and an explicit error.
+            if report.get('interrupted') or report.get('error'):
                 if self.data is not self._live_data:
                     report['final_motion_capture_error']='Live data is not attached at owner shutdown'
                 else:

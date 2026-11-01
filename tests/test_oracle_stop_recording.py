@@ -13,6 +13,25 @@ from robofrontier.suite.oracle import Trial
 
 
 class OracleStopRecordingTests(unittest.TestCase):
+    def test_failed_operation_retains_its_measured_tail_without_marking_complete(self):
+        scene=ROOT/'configs/environments/cube_transport/frontier-v2-r14-transport-a04-d1'
+        with TemporaryDirectory() as directory:
+            trial=Trial(scene,Path(directory)/'trial')
+            trial.step()
+            stamp=trial.time;state=trial.data.qpos.copy();control=trial.data.ctrl.copy()
+            report={'passed':False,'error':'Finite placement route rejected'}
+            with patch('mujoco.mj_step',side_effect=AssertionError('Closing must not advance dynamics')):
+                trial.close(report)
+            reader=MotionReader(trial.directory/'motion')
+            frames=list(reader.frames());events=list(reader.events())
+            self.assertEqual(reader.meta['status'],'failed')
+            self.assertEqual(frames[-1][0],stamp)
+            np.testing.assert_array_equal(frames[-1][1],state.astype(np.float32))
+            np.testing.assert_array_equal(trial.data.qpos,state)
+            np.testing.assert_array_equal(trial.data.ctrl,control)
+            self.assertLessEqual(max(event['sim_time_s'] for event in events),frames[-1][0])
+            self.assertFalse(report['passed'])
+
     def test_between_sample_stop_retains_actual_final_state_and_interrupted_status(self):
         scene=ROOT/'configs/environments/cube_transport/frontier-v2-r14-transport-a04-d1'
         with TemporaryDirectory() as directory:
