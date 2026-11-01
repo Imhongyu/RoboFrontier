@@ -4,7 +4,7 @@ from unittest.mock import patch
 import mujoco,numpy as np
 from robofrontier.motion_recording import MotionWriter,MotionReader
 from robofrontier.workstation import Workstation
-from robofrontier.suite.v2 import cases,directory
+from robofrontier.task_families import ROOT,resolve_case
 
 class MotionRecordingTests(unittest.TestCase):
     def test_video_cadence_does_not_accumulate_sample_phase_error(self):
@@ -17,7 +17,7 @@ class MotionRecordingTests(unittest.TestCase):
         self.assertEqual(len(selected),61)
         self.assertLess(max(np.diff(selected)),.034)
     def setUp(self):
-        self.source=directory(next(c for c in cases() if c['id']=='transport-a04-d1'))
+        self.source=ROOT/resolve_case('transport-a04-d1')[2]['directory']
         self.w=Workstation(self.source)
     def test_float32_exact_roundtrip_events_and_bounded_chunks(self):
         with tempfile.TemporaryDirectory() as td:

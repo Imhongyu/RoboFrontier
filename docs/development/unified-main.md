@@ -385,3 +385,25 @@ repair and process-violation rejection are unchanged. The focused stop/recovery,
 Relay batch and unified Oracle group passed 37 tests in 14.800 seconds. A new
 physical attempt is required to verify native shutdown; the first trial is
 never resumed or rewritten.
+
+The new Relay attempt from committed source `496f83a` stopped at the same
+15-second limit without forced termination and wrote its native report. Its
+36 actions and four unresolved arms are retained; it is interrupted, not a
+success or a fully reconciled physical stop. All four current native entries
+now have real CLI load/action/stop/report evidence. The retained stream audits
+decoded 1,707 Transport, 2,065 Mosaic, 2,123 Relay and 1,765 Dial frames, including
+three Dial appearance events. Every committed chunk checksum and timestamp
+decoded correctly. As interrupted streams, none passed the complete-recording
+gate; Transport/Mosaic/Relay also exposed a final event after the last cadence
+pose. Original files were not rewritten.
+
+Controlled Oracle shutdown now captures the actual final live pose without
+another physics step, retaining `interrupted` status. Invalid final state keeps
+its verified prefix and an explicit capture-error field. The closing regression
+checks exact float32 pose retention, unchanged controls/physics state, event time
+coverage and invalid-state handling. All 17 motion/process/monitoring/stop tests
+passed in 2.428 seconds. Six initially missing-asset errors came from the motion
+test fixture selecting the obsolete generated v2 scene; that format-generic
+fixture now resolves the current released scene, with all codec/source/corruption
+assertions intact. New physical recordings still need to verify the revised
+closing path; an old interrupted recording cannot retroactively gain a frame.

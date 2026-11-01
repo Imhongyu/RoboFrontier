@@ -498,7 +498,18 @@ class Trial:
         self.monitor.close();self.event('trial_end',result=report);self.trace.close()
         if self.process_events is not None:
             self.process_events.close();report['process_recording']=dict(schema=self.process_events.schema,pose_stream='motion/stream.json',process_events='process.jsonl')
-        if self.motion is not None:report['motion_recording']=self.motion.close(None if report.get('error') else self.data,status='interrupted' if report.get('interrupted') else 'failed' if report.get('error') else 'complete')
+        if self.motion is not None:
+            # A controlled stop can fall between cadence samples. Preserve its
+            # actual final live pose without advancing dynamics or promoting an
+            # interrupted recording to complete. Invalid/scratch state is never
+            # invented as a final frame; retain the verified prefix instead.
+            if report.get('interrupted'):
+                if self.data is not self._live_data:
+                    report['final_motion_capture_error']='Live data is not attached at owner shutdown'
+                else:
+                    try:self.motion.capture(self.data,force=True)
+                    except ValueError as error:report['final_motion_capture_error']=str(error)
+            report['motion_recording']=self.motion.close(None if report.get('error') else self.data,status='interrupted' if report.get('interrupted') else 'failed' if report.get('error') else 'complete')
         if self.renderer:self.renderer.close()
         np.savez_compressed(self.directory/'frame-states.npz',qpos=np.asarray(self.frame_qpos),time_s=np.asarray(self.frame_times),display=np.asarray(self.frame_scores),robot_ids=np.asarray(list(self.arms)),gripper_actuator_force_n=np.asarray(self.frame_grip_force),gripper_force_setpoint_n=np.asarray(self.frame_grip_setpoint))
         np.savez_compressed(self.directory/'event-states.npz',qpos=np.asarray(self.event_qpos),qvel=np.asarray(self.event_qvel))

@@ -69,6 +69,13 @@ uncertain world or blindly replays its last actions. If a supervisor is killed,
 its native child can outlive it: inspect the recorded PID before collection.
 An unheld owner lock alone is not proof that all writers have stopped.
 
+On a controlled native stop, the recorder captures the actual final live pose
+even if it falls between cadence samples. This reads the stopped world and
+advances no dynamics. The stream remains `interrupted`; unknown actions are
+still unknown. An invalid final pose is not fabricated: the verified prefix is
+kept and `final_motion_capture_error` records the missing tail. Legacy interrupted
+streams can end before their final event; keep their status and original bytes.
+
 The execution directory retains `oracle.json`, `effective-config.json`,
 `oracle-status.json`, `oracle.log`, `private/` frozen inputs/source and `trial/`
 native actions, motion, evaluator/report and recovery files. `passed` requires
