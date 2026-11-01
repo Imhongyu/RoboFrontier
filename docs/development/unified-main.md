@@ -407,3 +407,37 @@ test fixture selecting the obsolete generated v2 scene; that format-generic
 fixture now resolves the current released scene, with all codec/source/corruption
 assertions intact. New physical recordings still need to verify the revised
 closing path; an old interrupted recording cannot retroactively gain a frame.
+
+An actual new five-second Transport execution from `24a4b41` verified the revised
+shutdown path. It returned a native stopped report without forced termination;
+all 759 motion frames, checksums and 70 events decoded, with 0.018-second maximum
+sample spacing. No event extended beyond the final recorded pose. The complete-
+recording audit still correctly rejects its `interrupted` status. Its original
+source-scene hash is unchanged. Evidence and the separate read-only motion audit
+are retained beside the earlier four-family smoke outputs.
+
+## Manager prompts and remaining English migration
+
+Both outer-manager prompts now use English. The Codex prompt uses the unified
+one-profile configuration/CLI, explicit paid-stage authorization, frozen launch
+settings, direct role startup and stopped collection. It explains combined
+concurrency for separate profiles rather than implying one supervisor controls
+all of them. The Claude prompt retains the native multi-profile engineering
+entry, optional cost limits, explicit precheck estimates, unqualified status and
+separate subscription qualification. Neither outer manager injects robot
+strategies or claims its own model is the measured policy.
+
+Legacy Transport startup text and Dial design display titles also use English;
+physics, geometry and installed asset fingerprints were not regenerated.
+The active `robofrontier/` and `prompts/` trees now have no Han characters.
+This does not complete the repository-wide language gate: historical docs,
+scripts, generated pages and some metadata still require migration.
+
+The presentation/legacy Dial contract group passed all 22 tests in 2.766 seconds.
+Its first run exposed missing legacy `facing-04` assets, not a new runtime error.
+The synthetic policy group now builds its own isolated legacy XML/textures and
+initial keyframe using the real generator and compiled model. Its preview and
+runtime measurements remain explicitly synthetic; no physical qualification is
+claimed. Tests retain every existing privacy, symbol mapping, role/fork return,
+sampling and success-latch assertion, without installing/overwriting a published
+scene or loosening production scene-path checks.

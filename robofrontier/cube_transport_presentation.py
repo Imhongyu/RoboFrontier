@@ -119,21 +119,20 @@ def startup_context(env, model, data):
 
 
 def startup_markdown(env, context):
-    lines = [f'# {env["id"]} 启动说明（规则 v4）', '',
-             '先打开本目录 startup.json 中 initial_top_image 指向的带编号俯视图，核对各基座标签。',
-             '本说明和图片描述初始化；执行后以新 RGB 和机器人本体观测为准。', '',
-             '机器人 ID 与图中的大写基座标签一致。世界 +X 向东、+Y 向北、+Z 向上；俯视图上北右东。',
-             '相邻关系：'+', '.join('—'.join(pair) for pair in context['neighbors'])+'。', '',
-             '| 工位 / robot_id | 安装侧 | 初始物料（各三件） |', '| --- | --- | --- |']
-    sides = {'south': '南', 'east': '东', 'north': '北', 'west': '西', 'line': '直线排列'}
-    colors = {'red': '红', 'blue': '蓝', 'green': '绿', 'orange': '橙', 'purple': '紫', 'cyan': '青'}
+    lines = [f'# {env["id"]} startup guide (rules v4)', '',
+             'Open initial_top_image from startup.json in this directory and identify the labelled bases.',
+             'This guide and preview describe initialization. After execution, use fresh RGB and robot observations.', '',
+             'Robot IDs match the uppercase base labels. World +X is east, +Y north and +Z up; top views show north above and east right.',
+             'Adjacent stations: '+', '.join('—'.join(pair) for pair in context['neighbors'])+'.', '',
+             '| Station / robot_id | Mounting side | Initial stock (three items each) |', '| --- | --- | --- |']
+    sides = {'south': 'south', 'east': 'east', 'north': 'north', 'west': 'west', 'line': 'linear layout'}
     for station, kind in zip(env['stations'], context['initial_inventory']):
-        shape = '方块' if kind['shape'] == 'cube' else '圆柱'
-        lines.append(f"| {station['id']} | {sides[station['side']]} | {colors[kind['color']]}{shape}（{kind['type_code']}） |")
-    lines += ['', '读取本次指定的 seed 任务文件获取三个槽位的颜色＋形状要求。同类物品可互换；槽号不规定执行顺序。',
-              '使用相邻工位交接，路线、分工、操作次序和并行安排由策略选择。', '',
-              f"相机共 {len(context['cameras'])} 台：global、global_side 为两侧全局斜视，top 为俯视；每台另有 <ID>_front、<ID>_side。",
-              '局部相机面向指定工位，也可能包含邻居。依据观测需要选择视角；固定相机几何见 startup.json。',
-              '运行图像应注明相机名与仿真时间。静态预览不能代替运行观测。', '',
-              '当前是离线资产包，尚未绑定运行服务；本说明不提供动作入口。', '']
+        shape = 'cube' if kind['shape'] == 'cube' else 'cylinder'
+        lines.append(f"| {station['id']} | {sides[station['side']]} | {kind['color']} {shape} ({kind['type_code']}) |")
+    lines += ['', 'Read the assigned seed task for the three slot color/shape requirements. Matching items are interchangeable; slot numbers do not prescribe action order.',
+              'Use adjacent-station handovers. The policy chooses routes, allocation, action order and parallel execution.', '',
+              f"There are {len(context['cameras'])} cameras: global and global_side are opposing global oblique views, top is overhead, and each station also has <ID>_front and <ID>_side.",
+              'Local views face the assigned station and may include neighbors. Choose views as needed; startup.json records fixed camera geometry.',
+              'Label runtime images with camera name and simulation time. Static previews do not replace runtime observations.', '',
+              'This is an offline asset package, not a bound runtime. This guide provides no action entry point.', '']
     return '\n'.join(lines)

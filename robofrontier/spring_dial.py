@@ -13,11 +13,11 @@ from .scene import vector
 DIRECTORY = ROOT / 'configs/environments/spring_dial/facing-04'
 CAMERAS = ('board', 'global', 'top', 'global_side', 'dial_A', 'dial_B', 'dial_C', 'dial_D')
 DESIGNS = {
-    'warm': dict(title='暖白圆盘', paper=(248, 244, 234), rim=(184, 166, 146),
+    'warm': dict(title='Warm white dial', paper=(248, 244, 234), rim=(184, 166, 146),
                  ink=(66, 57, 49), tick_step=30, case=[.71, .67, .61, 1]),
-    'silver': dict(title='浅银仪表', paper=(231, 236, 239), rim=(157, 171, 182),
+    'silver': dict(title='Light silver instrument', paper=(231, 236, 239), rim=(157, 171, 182),
                    ink=(51, 65, 76), tick_step=15, case=[.70, .75, .79, 1]),
-    'panel': dict(title='象牙白面板', paper=(249, 247, 240), rim=(217, 212, 200),
+    'panel': dict(title='Ivory panel', paper=(249, 247, 240), rim=(217, 212, 200),
                   ink=(0, 0, 0), tick_step=90, case=[.84, .82, .76, 1]),
 }
 PARAMETERS = {

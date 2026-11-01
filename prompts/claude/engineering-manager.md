@@ -1,14 +1,16 @@
-# Claude 工程批次主 session prompt
+# Claude engineering batch manager prompt
 
-把下列内容交给有终端和仓库访问权限的 coding agent。主 session 的模型可以与被测
-模型不同；任务内模型由 Claude CLI 和冻结的 profile 指定。此入口仅用于**未计分工程
-草稿**，不能产出正式 benchmark 结果。当前分支尚在开发，参见
-[交接状态](../../docs/claude-handoff.md)。
+Give this prompt to a coding agent with terminal and repository access. The
+outer session can use any model. Claude CLI and the frozen profile select the
+inner measured model. This native entry is for unqualified engineering drafts;
+it does not produce formally qualified benchmark scores. Read
+[handoff status](../../docs/claude-handoff.md) before using it.
 
 ```text
-你是 RoboFrontier Claude 工程批次的外层调度者。先读 docs/claude-handoff.md。
+Act as the outer manager for a RoboFrontier Claude engineering batch. First read
+docs/claude-handoff.md and docs/unified-cli.md.
 
-参数：
+Parameters:
 - models: [opus]
 - families: [transport, mosaic, relay, dial]
 - level: 1
@@ -18,58 +20,72 @@
 - parallel: 4
 - mode: plan
 - output: runs/engineering/opus-l1-small-001
-- precheck_budget_usd: 未指定
+- precheck_budget_usd: unspecified
 - check_fork: true
 - check_blocked_fork: false
-- turn_budget_usd: null（不设单轮美元上限）
-- task_budget_usd: null（不设整任务美元上限）
-- wall_limit_s: 86400（从 START 起的工程停止时间）
-- startup_timeout_s: 120
+- turn_budget_usd: null
+- task_budget_usd: null
+- wall_limit_s: 86400
+- startup_timeout_s: 600
 
-按顺序执行，报告每一步的结果：
-1. 核对当前 checkout、提交、Git 工作区状态和 configs/task_families/current.json；
-   报告选用的场景版本。只管理本次批次，不接管其他 session 的运行。
-2. 运行 scripts.claude_benchmark doctor，检查所选 profile、CLI 和资产；缺少密钥
-   时只报告变量名。若 .env 不存在，可复制 .env.claude.example，设置权限 600，
-   保留空值；绝不输出密钥或覆盖已有 .env。doctor 不证明账号或服务商可用。
-3. 运行 scripts.claude_benchmark plan，传入 models、families、level、min-arms、
-   parallel，报告每项 case、臂数和模型。scale 不是 min-arms 时不要传该选项。
-   mode=plan 到此结束。
-4. mode=precheck：用户已明确授权真实 API 费用且给出正数 precheck_budget_usd 时，
-   对每个所选 profile 单独执行 scripts.claude_precheck --profile PROFILE
-   --max-budget-usd BUDGET --confirm-spend；check_fork=true 时加 --check-fork，
-   保存并报告各回执。没有费用授权、额度、
-   密钥或兼容 endpoint 时先完成离线步骤，再报告缺项，不发真实请求。precheck 仅
-   检查文本、图片工具往返和续接；可选检查空闲会话 fork，不证明阻塞父会话的
-   fork 或完整任务可用。
-   若 check_blocked_fork=true，且用户授权额外的指定预算，再对每个 profile 执行
-   scripts.claude_blocked_precheck，保存独立回执；这仍不是完整任务或计费硬上限。
-   取得两份回执后可用 scripts.claude_readiness 核对当前 profile 和 CLI 是否匹配；
-   一致仅代表回执检查通过，不代表已完成正式计分资格验证。
-5. mode=engineering：用户已明确授权指定模型和工程批次的真实费用时继续。
-   turn_budget_usd、task_budget_usd 默认 null，不要求用户填写预算；显式指定时须为
-   正数。wall_limit_s 默认 86400，工程短测可缩短，但不会改写公开任务的冻结时限。
-   准备新目录：
-   scripts.claude_benchmark prepare-draft，传入选择、topology 和 output；若
-   record_video=true 则加 --record-video 并检查 FFmpeg、ffprobe。执行前核对
-   batch.json 的 case 和 profile 与第 3 步一致。目录已存在则停下，不覆盖或重用。
-   此模式是未计分工程测试，不能代替正式 preflight 或计分 benchmark。
-6. 使用持久终端运行 scripts.claude_benchmark run-engineering OUTPUT --parallel N
-   --wall-limit-s W --confirm-engineering-spend。只有明确设置对应预算时，才添加
-   --turn-budget-usd T 或 --task-budget-usd B；省略即不设该层美元上限。
-   可传 --startup-timeout-s S，控制物理 owner 和策略启动阶段各自的等待上限。
-   定期使用 status-engineering 检查本批次，持续观察直到进程结束；需要停止时使用
-   stop-engineering，然后检查每项的封存、进程状态与 needs_review。不可重启已领取的
-   世界或批次；遇到未知状态保留证据并报告。
-7. 报告模型 profile、任务、并发、每项终态和日志路径；无法验证的项目明确标出。
+1. Inspect the checkout, Git commit, worktree state and current release registry.
+   Report scene versions. Manage this batch only, leaving other sessions' runs
+   with their original operators.
+2. Run scripts.claude_benchmark doctor for the selected profiles, CLI and assets.
+   Report missing credential variable names only. If .env is absent, copy the
+   empty .env.claude.example template with mode 0600; preserve existing .env and
+   credentials. Doctor establishes no account/provider compatibility claim.
+3. Run scripts.claude_benchmark plan with the requested models, families, level,
+   scale and parallelism. Pass --min-arms only when requested. Report each exact
+   case, arm count and inner model. For mode=plan, stop here.
+4. For mode=precheck, use scripts.claude_precheck --profile PROFILE
+   --max-budget-usd BUDGET --confirm-spend for each selected profile only when
+   real provider spend has been authorized and a positive precheck estimate is
+   specified. Add --check-fork when requested. Keep every receipt and report its
+   result. Missing authorization, budget, credentials or a compatible endpoint
+   leaves the paid step pending; finish offline work and report missing items.
+   This checks text, native image/tool round trips and continuation. An idle
+   fork check does not qualify a blocked parent's fork or a full physical task.
+   When check_blocked_fork=true and its additional spend is authorized, run
+   scripts.claude_blocked_precheck separately and retain the independent receipt.
+   scripts.claude_readiness checks whether both receipts match the profile and
+   CLI; a match does not grant formal benchmark qualification.
+5. For mode=engineering, continue only within authorization for these models and
+   this engineering batch. Turn/task budgets default to null; omit their flags
+   rather than inventing dollar limits. Explicit limits must be positive. The
+   wall limit defaults to 86400 seconds from START; an engineering short-test
+   stop may be earlier without rewriting the frozen public task limit.
+   Prepare a new directory using scripts.claude_benchmark prepare-draft with
+   matching selection, topology and output. Add --record-video only when
+   requested, checking FFmpeg/ffprobe first. Permanent-worker Claude modes remain
+   unavailable; use single or adaptive drafts. Verify batch.json case/profile
+   selection before execution. Retain an existing directory instead of reusing
+   it. An engineering draft is not a scored/preflight-qualified benchmark.
+6. Run scripts.claude_benchmark run-engineering OUTPUT --parallel N
+   --wall-limit-s W --startup-timeout-s S --confirm-engineering-spend in a
+   persistent terminal. Add --turn-budget-usd T or --task-budget-usd B only when
+   explicitly set. Startup timeout bounds owner/policy startup stages; it is not
+   an extra task clock. Keep the process handle and poll status-engineering
+   until it exits. Request stopping with stop-engineering, then inspect every
+   sealing result, process state and needs_review field. Claimed batches/worlds
+   are single-use; preserve unknown state and evidence rather than restarting.
+7. Report the inner model profiles, exact tasks, concurrency, per-case terminal
+   states and evidence paths. Clearly identify anything still unverified.
 
-实验边界：外层只负责环境与调度；任务决策、视觉理解和机器人操作交给被测模型。
-不读取私有答案，不改写冻结输入，不将外层策略或动作注入被测任务。实际费用以
-供应商账单为准；每任务额度是 CLI 报告的估算限制，不是服务商扣费硬上限，多个任务
-各自计算；任务内的并发子角色也不等同于 API 并发数。
+The outer manager owns setup/supervision; the inner model owns task decisions,
+visual reasoning and robot actions. Keep private answers isolated and frozen
+inputs unchanged. External action hints, action injection and modified scoring
+are outside this protocol. Provider bills are authoritative. CLI-reported cost
+limits are estimates, not a provider payment ceiling; each task has its own
+accounting, while adaptive roles share that task's ledger. A task concurrency
+setting is not the number of concurrent API requests.
 ```
 
-替换 `models`、`families`、等级、并发和 `mode` 即可安排任务；多个模型和 case
-构成笛卡尔积。若只要四项 Level 1，选一个模型及四个家族。准备后不要把批次目录
-复制到另一台机器运行，在目标机器重新准备。`opus_subscription` 是尚未验证真实
-订阅的候选 profile，需要用户自行配置 OAuth token；它不会自动读取 Desktop 登录。
+Multiple models and cases form a Cartesian product in this native entry. One
+model and the four families at Level 1/minimum arms produces four tasks. Prepare
+again on the target host instead of copying a prepared directory's absolute
+paths. `opus_subscription` remains an unverified native subscription candidate;
+its explicit OAuth configuration does not import Desktop login automatically.
+For the unified one-profile workflow, use `robofrontier --config SETTINGS.toml`
+with `policy.engine="claude"`, a Claude profile, and `run --engineering`; the
+native engineering-only qualification restriction still applies.
