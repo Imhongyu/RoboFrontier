@@ -9,6 +9,13 @@ from robofrontier.source_compatibility import RECEIPT, historical_digest, normal
 
 
 class HistoricalCompatibilityTests(unittest.TestCase):
+    def test_harness_selection_normalization_keeps_control_and_timing_in_the_digest(self):
+        item=next(row for row in read(ROOT/RECEIPT)['files'] if row['path']=='robofrontier/task_config.py')
+        tree=ast.parse((ROOT/item['path']).read_text())
+        method=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='execution_timing')
+        method.body.insert(0,ast.parse("config['action_timeout_sim_s']=0").body[0])
+        self.assertNotEqual(normalized_digest(ast.unparse(tree),item['rule']),item['unaffected_ast_sha256'])
+
     def test_observation_normalization_cannot_hide_world_physics_changes(self):
         item=next(row for row in read(ROOT/RECEIPT)['files'] if row['path']=='robofrontier/pipeline.py')
         tree=ast.parse((ROOT/item['path']).read_text())

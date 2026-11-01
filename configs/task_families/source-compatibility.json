@@ -25,6 +25,17 @@
       "historical_sha256": "ee2efac94d55253a63197adf4ddf364ec43a373a6959eba1bd5ef0886af7c035",
       "integrated_sha256": "e02958740824f675a7d492c9e8b1d67d53f46a90b41b0f2917ce03468dab7a7c",
       "unaffected_ast_sha256": "0dcf394977e2c64e80fa46626905fc58ee85a52b50e0ede276d62aaec01b5dfe"
+    },
+    {
+      "path": "robofrontier/task_config.py",
+      "rule": "exclude_policy_harness_selection",
+      "families": [
+        "dial"
+      ],
+      "historical_sha256": "88d0cd4d24cc298015c0f119b5d565b70451394cd73654b02e9bafd32d8380af",
+      "integrated_sha256": "3865f83a82a1ffa39af14ed2dc929de64d6e75248516dc7a2c82b0c7522c9c98",
+      "unaffected_ast_sha256": "dd926c6b8cb16c3dfe4cee59495907fea98e55c4585c5e6983a5181b7f35c9fa",
+      "review": "Only the exact reviewed Controller/Coordinator label acceptance and engine/direct-START selection checks in load_harness are normalized. All remaining AST nodes match the pinned baseline, including action limits, controller settings and execution timing. This is historical control-source compatibility, not equal physics, policy observations or current-task qualification."
     }
   ]
 }

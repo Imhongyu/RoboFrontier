@@ -64,6 +64,35 @@ def require_best5(task):
         raise ValueError('Expected the R11 BEST5 dial family')
 
 
+def selected_report(root, selected, pinned):
+    """Locate a relocated closed report through its pinned relative identity.
+
+    The original selection bytes may contain the author's absolute data root.
+    Never follow that external path or rewrite it: match its complete logical
+    suffix, then verify the independent local copy against the registered hash.
+    """
+    relative=Path(pinned['report'])
+    if relative.is_absolute() or '..' in relative.parts or relative.parts[:2]!=('runs','oracle'):
+        raise ValueError('Invalid pinned Oracle report path')
+    original=Path(selected['report'])
+    if original.parts[-len(relative.parts):]!=relative.parts:
+        raise ValueError('Selected report differs from pinned logical path')
+    path=Path(root)/relative
+    if not path.resolve().is_relative_to((Path(root)/'runs').resolve()):
+        raise ValueError('Selected report escapes the local evidence store')
+    if digest(path)!=pinned['report_sha256']:
+        raise ValueError('Selected Oracle report checksum mismatch')
+    return path
+
+
+def same_harness(frozen, current):
+    """Admit the reviewed role-label rename, never a drive/limit change."""
+    original=deepcopy(frozen)
+    if original.get('coordinator')=='Coordinator' and current.get('coordinator')=='Controller':
+        original['coordinator']='Controller'
+    return original==current
+
+
 def registry(root):
     root = Path(root)
     catalog, selection = read(root/CATALOG), read(root/SELECTION)
@@ -71,9 +100,14 @@ def registry(root):
     expected = {f'dial-best5-n{n:02d}-d{level}' for n in (4,6,8) for level in (1,2,3)}
     if set(selected) != expected or {c['id'] for c in catalog['cases']} != expected:
         raise ValueError('The selection and catalog must contain exactly nine R11 cases')
+    pinned_registry=read(root/REGISTRY)
+    if digest(root/SELECTION)!=pinned_registry['selection_sha256']:
+        raise ValueError('Historical Oracle selection checksum mismatch')
+    pinned={row['case_id']:row for row in pinned_registry['cases']}
     rows = []
     for case in catalog['cases']:
-        report_path = root/store_relative(selected[case['id']]['report'], root)
+        registered=pinned[case['id']]
+        report_path = selected_report(root,selected[case['id']],registered['oracle_evidence'])
         attempt = report_path.parent
         report = read(report_path)
         reader = MotionReader(attempt/'motion')
@@ -89,15 +123,25 @@ def registry(root):
                 or evaluation['violations'] or report.get('unresolved_robot_actions')
                 or reader.meta['status'] != 'complete'):
             raise ValueError('Selected evidence is not a closed clean success: '+case['id'])
-        # Use the source owned by the successful recording, and reject drift in
-        # the catalog's canonical metadata. Do not edit either to make them agree.
+        # Validate the current input independently from the historical witness.
+        # An explicitly unqualified physics candidate does not inherit success.
+        from ..task_families import resolve_case
+        _,_,current=resolve_case(case['id'],root=root)
+        if current['directory']!=case['directory']:
+            raise ValueError('Dial catalog differs from the released input')
+        candidate=root/case['directory']
+        scope=registered.get('oracle_evidence_scope')
+        candidate_only=(scope=='Historical pre-0.03 physics; not a qualification of this candidate.'
+                        and current['qualification']=='rolling_friction_003_candidate_not_full_task_qualified')
         for name in ('task.json','environment.json','scene.xml','workstation.json'):
-            if digest(source/name) != digest(root/case['directory']/name):
+            if digest(candidate/name)!=registered['source_sha256'][name]:
+                raise ValueError('Registered candidate source changed: '+case['id']+'/'+name)
+            if digest(source/name) != digest(candidate/name) and not candidate_only:
                 raise ValueError('Catalog source differs from evidence: '+case['id']+'/'+name)
         frozen_cfg = attempt/'executor-source/inputs/harness.json'
         if not frozen_cfg.exists():
             frozen_cfg = attempt.parent.parent/'inputs/harness.json'
-        if read(frozen_cfg) != read(root/'configs/harness-frontier-v2-servo2.json'):
+        if not same_harness(read(frozen_cfg),read(root/'configs/harness-frontier-v2-servo2.json')):
             raise ValueError('Candidate policy control configuration differs from Oracle')
         paths = ('robot_control.py','sim.py','motion_check.py','task_config.py','pipeline.py')
         from ..source_compatibility import historical_digest
@@ -105,13 +149,17 @@ def registry(root):
         if physical_control_fingerprint(hashes, read(frozen_cfg)) != report['physical_control_sha256']:
             raise ValueError('Shared physical control code differs from the selected evidence')
         logic_paths = ('evaluate.py','evaluate_v2.py','dial_feedback.py')
-        logic = {'robofrontier/suite/'+p:historical_digest(root, 'robofrontier/suite/'+p, 'dial') for p in logic_paths}
+        # Current policy terminal scoring is deliberately different. Verify the
+        # historical result against its own frozen evaluator, never normalize
+        # that scoring change into a claim of current evaluator equivalence.
+        logic = {'robofrontier/suite/'+p:digest(attempt/'executor-source/robofrontier/suite'/p)
+                 for p in logic_paths}
         if environment_logic_manifest(logic,task)['sha256'] != report['environment_logic_sha256']:
-            raise ValueError('Current evaluator code differs from the selected evidence')
+            raise ValueError('Frozen evaluator source differs from the selected evidence')
         assisted = bool(report.get('assisted', report.get('llm_used', False)))
         rows.append(dict(case_id=case['id'], dials=len(task['dials']), level=task['level'],
             arms=len(task['arms']), source_directory=case['directory'],
-            source_sha256={name:digest(source/name) for name in
+            source_sha256={name:digest(candidate/name) for name in
                 ('scene.xml','task.json','environment.json','workstation.json')},
             oracle_evidence=dict(report=store_relative(report_path,root),report_sha256=digest(report_path),
                 recording=store_relative(reader.path,root),motion_index_sha256=digest(reader.path/'stream.json'),
@@ -120,10 +168,14 @@ def registry(root):
                 environment_logic_sha256=report['environment_logic_sha256'],
                 assisted=assisted, evidence_kind='privileged_assisted' if assisted else 'pure_program'),
             runtime_readiness='pending_shared_integration'))
-    return dict(schema='robofrontier.dial-family-review.v1', family='dial', revision='best5-r11',
+        if scope is not None:rows[-1]['oracle_evidence_scope']=scope
+    result = dict(schema='robofrontier.dial-family-review.v1', family='dial', revision='best5-r11',
         catalog=CATALOG,catalog_sha256=digest(root/CATALOG),selection=SELECTION,
         selection_sha256=digest(root/SELECTION),presentation=deepcopy(PRESENTATION),
         policy_guidance=GUIDANCE,formal_policy_ready=False,shared_integration_required=list(BLOCKERS),cases=rows)
+    if 'physics_revision_note' in pinned_registry:
+        result['physics_revision_note']=pinned_registry['physics_revision_note']
+    return result
 
 
 def static_geometry(source):
@@ -212,8 +264,7 @@ def build_review(root, output, registered):
     output.mkdir(parents=True,exist_ok=False)
     public_hashes = {}
     for row in current['cases']:
-        evidence = root/row['oracle_evidence']['recording']/'source'
-        source = Workstation(evidence)
+        source = Workstation(root/row['source_directory'])
         task = public_review(source)
         images = ['preview-global.png','preview-global_rear.png','preview-top.png']
         task['initial_reference_images'] = images
@@ -226,8 +277,14 @@ def build_review(root, output, registered):
             scope='Declared fixed camera calibration; live robot/object feedback comes from observe'))
         (destination/'task-guide.md').write_text(task_guide(task))
         (destination/'family-guidance.md').write_text((root/GUIDANCE).read_text())
+        from ..task_families import resolve_case
+        _,_,spec=resolve_case(row['case_id'],root=root)
         for name in images:
-            shutil.copy2(root/row['source_directory']/name,destination/name)
+            reference=spec.get('public_files',{}).get(name)
+            image=root/reference['path'] if reference else root/row['source_directory']/name
+            if reference and digest(image)!=reference['sha256']:
+                raise ValueError('Reviewed image checksum mismatch: '+name)
+            shutil.copy2(image,destination/name)
         for path in sorted(destination.iterdir()):
             public_hashes[str(path.relative_to(output))] = digest(path)
     write_json(output/'private/family-evidence.json',current)
@@ -258,7 +315,7 @@ def verify_review(root, output):
         folder = output/row['case_id']/'public'
         task = read(folder/'task.json')
         assert_public(task)
-        source = Workstation(root/row['oracle_evidence']['recording']/'source')
+        source = Workstation(root/row['source_directory'])
         expected_task = public_review(source)
         expected_task['initial_reference_images'] = ['preview-global.png','preview-global_rear.png','preview-top.png']
         if task != expected_task or (folder/'task-guide.md').read_text() != task_guide(task):

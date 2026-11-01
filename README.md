@@ -14,8 +14,9 @@ collection have explicit command-line entries.
 `integration/unified-main`. Its unified commands have not yet replaced GitHub's
 `main`. Read the [acceptance ledger](docs/development/unified-main.md) for actual
 verification and open gates. Claude scored execution remains closed; all four
-Claude topologies have engineering entries. The complete historical test suite
-is not passing. Model profiles are configuration choices, not universal provider
+Claude topologies have engineering entries. Full historical checks require legacy
+assets and closed recordings beyond the policy asset bundle; see the
+[testing guide](docs/development/testing.md). Model profiles are configuration choices, not universal provider
 compatibility certificates.
 
 ## Factory tour

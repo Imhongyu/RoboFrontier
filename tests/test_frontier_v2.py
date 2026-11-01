@@ -163,6 +163,7 @@ class FrontierV2Tests(unittest.TestCase):
 
     def test_reported_width_capability_follows_installed_hardware(self):
         from robofrontier.pipeline import World
+        from robofrontier.observation_image import observation_profile
         from robofrontier.run_setup import load_harness
         from types import SimpleNamespace
         for case_id,limits in [('transport-a04-d1',[0,.08]),('relay-a08-d1',[0,.08])]:
@@ -171,6 +172,7 @@ class FrontierV2Tests(unittest.TestCase):
             world.model=m;world.data=object()
             world.arms={name:SimpleNamespace(qids=range(7),grip_min=limits[0],grip_max=limits[1]) for name in ['A']}
             world.command_bounds={'lower':[-10,-10,0],'upper':[10,10,2]}
+            world.observation_image=observation_profile(load_harness())
             facts=world.robot_facts(load_harness())
             self.assertEqual(facts['shared_capabilities']['gripper']['width_m'],limits)
             self.assertEqual(facts['robots']['A']['gripper_width_range_m'],limits)

@@ -1458,3 +1458,59 @@ are retained, with old demo defaults and preview-only checks labeled by date.
 All edited local links resolve. The tracked-text inventory is now 50 files /
 72,002 Han characters; the English-only gate is still open. Translation source
 comparisons are in `english-history-verification.json` beside the Oracle evidence.
+
+## Historical fixture closure and full local discovery
+
+Full discovery first ran 1,495 tests with no assertion failures, 41 errors and
+26 skips. Most errors were absent ignored historical data; a hardware-capability
+test also constructed World without its current observation-image profile.
+That fixture now initializes the same declared profile without changing either
+hardware-width assertion or production World behavior.
+
+The preserved primary checkout supplied 3,643 absent assets from identical-XML
+scenes, 1,295 original previews and 87 files from the unchanged source-preservation
+receipt. Workstation checksums were required wherever declared. Independent
+copied objects were shared only inside the new fixture store, with no links to
+the originals. Pinned closed Dial/Transport reports, streams and original harness
+files were copied byte-exactly; all 36 historical Oracle-presentation sources
+were restored against their existing metadata/asset hashes. No approximate
+regeneration, source-scene edit, raw-report rewrite or new rendering occurred.
+
+The Dial family review had additional actual compatibility defects after these
+files were present: absolute selection paths did not relocate; the legacy
+builder incorrectly required the current explicitly unqualified physics
+candidate to equal its older successful witness; and it compared the historical
+report with the changed current scorer. It now selects only the pinned local
+report with the exact logical suffix and SHA-256. Current metadata is separately
+bound to the release and registered hashes. A source mismatch requires both the
+existing explicit historical-evidence caveat and the unqualified-candidate
+release label. Public geometry uses the current source, and images use verified
+existing reviewed public files. Formal readiness remains false and all original
+qualification/assistance labels are preserved.
+
+The old report's evaluator is verified from its own frozen bytes. No equivalence
+is claimed for current terminal scoring. The only newly admitted controller
+compatibility change is the exact role-label/engine/direct-START validation in
+load_harness: removing those reviewed checks yields the identical AST from
+pinned commit `d3e5916`, including every control and timing function. Its raw
+historical hash is unchanged. Mutation tests reject changed control/timing,
+unreviewed source, invalid report relocation/hashes, missing candidate caveats
+and changed historical evaluator bytes.
+
+The focused handoff/source group passed 32 checks on network-disabled Linux
+aarch64 using read-only current source and the existing dependency image. Full
+macOS discovery then ran 1,501 tests in 329.983 seconds: 1,475 passed, 26 skipped,
+zero failures/errors. All 28 dispatcher scenarios, other JavaScript checks,
+syntax checks and portable links also passed. The first failed full run remains
+retained. This passing discovery used the restored local historical fixtures;
+it is not automatic fresh-clone fixture delivery or Linux/NVIDIA/Slurm qualification.
+The full group includes native CLI tests with synthetic loopback endpoints;
+the checker's descriptive scope now states that explicitly. The raw earlier
+report is retained. Protocol-only validation with source-compatibility guards
+also passed 239 tests and 28 dispatcher scenarios on macOS.
+
+See [testing](testing.md). Logs, data restoration receipts, exact control-AST
+comparison and passing/failing reports remain in
+`runs/engineering/main-integration-oracle-final-20261102/`. No paid inference
+or new full video was started. Remaining fixture packaging, English migration,
+hardware/provider qualification and final publication gates stay open.

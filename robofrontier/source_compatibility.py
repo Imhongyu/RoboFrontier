@@ -57,6 +57,26 @@ def normalized_digest(source, rule):
             if len(sizes) != 1:
                 raise ValueError('Observation camera metadata differs from reviewed source')
             sizes[0].elts = [ast.Constant(1280), ast.Constant(800)]
+    elif rule == 'exclude_policy_harness_selection':
+        method=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='load_harness')
+        reviewed=ast.parse("if c['manager'] != 'Meta' or c['coordinator'] not in ('Controller', 'Coordinator'):\n"
+                           " raise ValueError('Use Meta and Controller; legacy Coordinator is accepted for frozen runs')\n"
+                           "if c.get('engine','codex') not in ('codex','claude'):\n"
+                           " raise ValueError('Unknown policy engine')\n"
+                           "if c.get('startup_protocol', 'ready_barrier_v1') not in ('ready_barrier_v1', 'direct_controller_v2', 'direct_team_v3'):\n"
+                           " raise ValueError('Unknown startup protocol')\n"
+                           "if c.get('startup_protocol') == 'direct_controller_v2' and c['topology'] not in ('adaptive', 'centralized'):\n"
+                           " raise ValueError('Direct startup requires a single Controller')\n"
+                           "if c.get('startup_protocol') == 'direct_team_v3' and c['topology'] not in ('hierarchical', 'peer'):\n"
+                           " raise ValueError('Direct team startup requires standing Workers')").body
+        original=ast.parse("if c['manager'] != 'Meta' or c['coordinator'] != 'Coordinator':\n"
+                           " raise ValueError('Use explicit Meta / Coordinator role boundary')").body[0]
+        for index,expected in enumerate(reviewed):
+            matches=[i for i,node in enumerate(method.body) if ast.dump(node)==ast.dump(expected)]
+            if len(matches)!=1:
+                raise ValueError('Harness selection differs from reviewed configuration checks')
+            if index==0:method.body[matches[0]]=original
+            else:method.body.pop(matches[0])
     else:
         raise ValueError('Unknown compatibility rule')
     return hashlib.sha256(ast.dump(tree).encode()).hexdigest()

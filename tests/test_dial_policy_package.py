@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from robofrontier.suite.dial_policy_package import (
     REGISTRY, assert_public, build_review, public_review, read, registry, verify_review, static_geometry,
+    selected_report, same_harness,
 )
 from robofrontier.workstation import Workstation
 
@@ -15,6 +16,51 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DialPolicyPackageTests(unittest.TestCase):
+    def test_relocated_selection_uses_only_the_pinned_local_report(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);relative='runs/oracle/batch/case/attempt/report.json'
+            report=root/relative;report.parent.mkdir(parents=True);report.write_text('{"synthetic":true}')
+            pinned={'report':relative,'report_sha256':hashlib.sha256(report.read_bytes()).hexdigest()}
+            original={'report':'/retired/author/checkout/'+relative}
+            self.assertEqual(selected_report(root,original,pinned),report)
+            with self.assertRaisesRegex(ValueError,'logical path'):
+                selected_report(root,{'report':'/other/report.json'},pinned)
+            with self.assertRaisesRegex(ValueError,'checksum'):
+                selected_report(root,original,dict(pinned,report_sha256='0'*64))
+            with self.assertRaisesRegex(ValueError,'Invalid pinned'):
+                selected_report(root,original,dict(pinned,report='../outside/report.json'))
+
+    def test_role_label_rename_does_not_admit_other_harness_changes(self):
+        old={'coordinator':'Coordinator','gripper_position_servo':'pd1000-v1'}
+        current=dict(old,coordinator='Controller')
+        self.assertTrue(same_harness(old,current))
+        self.assertEqual(old['coordinator'],'Coordinator')
+        self.assertFalse(same_harness(old,dict(current,gripper_position_servo='legacy')))
+        self.assertFalse(same_harness(old,dict(current,coordinator='other')))
+
+    def test_historical_witness_cannot_silently_qualify_the_current_candidate(self):
+        from robofrontier.suite import dial_policy_package as package
+        original=package.read
+        for scope in (None,'Qualified current physics'):
+            registered=original(ROOT/REGISTRY)
+            registered['cases'][0].pop('oracle_evidence_scope',None)
+            if scope is not None:registered['cases'][0]['oracle_evidence_scope']=scope
+            def altered(path):
+                return registered if Path(path)==ROOT/REGISTRY else original(path)
+            with self.subTest(scope=scope),patch.object(package,'read',side_effect=altered):
+                with self.assertRaisesRegex(ValueError,'Catalog source differs'):
+                    registry(ROOT)
+
+    def test_historical_evaluator_bytes_are_verified_without_equating_current_scoring(self):
+        from robofrontier.suite import dial_policy_package as package
+        original=package.digest
+        def altered(path):
+            return '0'*64 if str(path).endswith('executor-source/robofrontier/suite/evaluate.py') else original(path)
+        with patch.object(package,'digest',side_effect=altered):
+            with self.assertRaisesRegex(ValueError,'Frozen evaluator source differs'):
+                registry(ROOT)
+
     def test_all_nine_sources_and_evidence_are_bound_without_promoting_runtime(self):
         with patch('mujoco.mj_step',side_effect=AssertionError('No review physics')):
             value = registry(ROOT)

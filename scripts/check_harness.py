@@ -59,7 +59,7 @@ def main():
                  'test_runtime_store','test_run_setup','test_scheduling','test_centralized','test_delegation',
                  'test_delegate_callbacks','test_private_evaluation','test_run_seal','test_run_report',
                  'test_session_mailbox_demo','test_transport_schedule','test_recording','test_harness_checker','test_policy_batch_viewer',
-                 'test_oracle_protocol','test_oracle_terminal_recovery')
+                 'test_oracle_protocol','test_oracle_terminal_recovery','test_source_compatibility')
         suite=unittest.defaultTestLoader.loadTestsFromNames(modules)
     else:suite=unittest.defaultTestLoader.discover(str(ROOT/'tests'),pattern='test_*.py')
     try:result=unittest.TextTestRunner(verbosity=2).run(suite)
@@ -101,7 +101,7 @@ def main():
     dispatcher_passed=node.returncode==0 and dispatcher_count is not None
     passed=result.wasSuccessful() and dispatcher_passed and bridge.returncode==0 and sequence.returncode==0 and local_step.returncode==0 and cli_rpc.returncode==0 and cli_preflight.returncode==0 and all(s['passed'] for s in js_syntax) and ui.returncode==0 and runbook.returncode==0 and tool_docs.returncode==0 and not broken_links and (validator is None or validator.returncode==0)
     report={'checked_at':datetime.now(ZoneInfo('Asia/Hong_Kong')).isoformat(),'passed':passed,
-            'scope':('Protocol-only engineering: FakeWorld/HTTP, private scoring on synthetic records, frozen inputs and encoder recovery. Physics creation/stepping prohibited; no native sessions, model inference or GUI.' if args.protocol_only else 'Offline engineering; synthetic sessions, FakeWorld/HTTP, robot kinematics/contacts and FFmpeg encode/decode/crash regressions when tools are installed. No live model inference, native session wakeups, GUI or multi-agent policy trial.'),
+            'scope':('Protocol-only engineering: FakeWorld/HTTP, private scoring on synthetic records, frozen inputs and encoder recovery. Physics creation/stepping prohibited; no native sessions, model inference or GUI.' if args.protocol_only else 'Offline engineering; FakeWorld/HTTP, robot kinematics/contacts, source/evidence verification and FFmpeg regressions. Installed native CLIs may run against synthetic loopback model endpoints in isolated test sessions. No real provider inference, GUI or model task-solving qualification.'),
             'physics_entrypoints_blocked':args.protocol_only,
             'python_tests':{'run':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),'skipped':len(result.skipped)},
             'dispatcher_js':{'passed':dispatcher_passed,'scenarios':int(dispatcher_count[1]) if dispatcher_count else None,'error':node.stderr or None},
