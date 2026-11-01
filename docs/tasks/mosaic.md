@@ -18,6 +18,13 @@ for provenance. They do not override unified new-run selection. The nine origina
 complete Oracle witnesses and their Factory recordings use R13 stock colors;
 their independent audits covered 1,566/1,566 cells. Preserve those recordings
 with their original source instead of replaying their poses into R14 colors.
+The delivery metadata now uses schema `robofrontier.mosaic-delivery.v2`: its
+`timeline_index` points to the checksum-pinned original video index. Unified
+release `historical_edit` entries can use a `mosaic_video_index` reference;
+`prepare_factory_edits` resolves the case through that index and verifies both
+index and original edit hashes. Legacy direct edit paths remain supported.
+Original non-English filenames stay in the immutable evidence, not current
+configuration strings. No historical file is renamed or rewritten.
 New R14 Oracle attempts have separate qualification; the old success does not
 transfer automatically. See [Oracle execution](../oracle.md) and the
 [integration ledger](../development/unified-main.md).
@@ -86,6 +93,10 @@ python -m scripts.mosaic check --purpose oracle
 python -m scripts.mosaic check --verify-recorded-chunks --verify-protected
 python -m scripts.mosaic package --output outputs/policy-packages/NEW
 ```
+
+The optional full `--verify-protected` cleanup inventory and raw motion chunks
+require their original complete local evidence trees. They are broader than the
+separate development fixture bundle and its package-level preserved-input checks.
 
 The default family check inspects its R14 policy entries without creating a run
 or calling a model. Its explicit `--purpose oracle` inspects Legacy R13 witnesses;

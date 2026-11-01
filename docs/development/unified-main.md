@@ -1927,3 +1927,24 @@ records source and translated hashes.
 Tracked source/content now has no Han text except ten immutable-evidence path
 references in two configuration files. The underlying original filenames and
 evidence bytes remain protected. No source recording or video was regenerated.
+
+## English configuration with unchanged historical timeline names
+
+The final ten path strings now use the original ASCII-named video index and its
+SHA-256, rather than renaming protected historical files or hiding their names
+with Unicode escapes. Mosaic delivery metadata explicitly advances to v2 with
+`timeline_index`; current release historical edits use typed `mosaic_video_index`
+references. The presentation-preparation consumer authenticates the index, selects
+exactly one case timeline, confines legacy-root relocation to the local registered
+video directory and authenticates original edit bytes. Direct legacy paths remain
+supported; conflicting views, wrong cases/hashes, traversal and external symlinks
+are rejected.
+
+Seventeen focused reference/delivery tests passed. Read-only checks resolved all
+nine actual entries to exactly the same original paths/hashes and authenticated
+all 496 package-preserved files. `historical-edit-index-validation.json` records
+this. The broader optional cleanup snapshot is absent from the local development
+fixtures and was not claimed checked; its unavailable-check receipt is separate.
+Tracked source/content now contains no Han text. Original ignored evidence names,
+reports and recordings remain unchanged. Complete discovery and a new committed-
+source image remain required after this consumer change.

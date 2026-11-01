@@ -603,7 +603,11 @@
           "qualification": "r13_pure_program",
           "edit": "outputs/robo-factory/source-edits-v3-20261027/mosaic-a04-6x12-d1/edit.json",
           "edit_sha256": "2f13f1620184f58f31bd9a5985d04b72f3ee768c89fb22712a000dfb7ce9252a",
-          "historical_edit": "outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表/mosaic-a04-6x12-d1.json",
+          "historical_edit": {
+            "kind": "mosaic_video_index",
+            "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
+            "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
+          },
           "historical_edit_sha256": "41d37473da270298771bebb7fe8c96b44528d5405bf0585c3553d84f83ef3c55"
         },
         {
@@ -619,7 +623,11 @@
           "qualification": "r13_pure_program",
           "edit": "outputs/robo-factory/source-edits-v3-20261027/mosaic-a04-6x12-d2/edit.json",
           "edit_sha256": "39c30230a53a1443e7815cc022e876155ae21e0143927a717eefde4e6508ce9c",
-          "historical_edit": "outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表/mosaic-a04-6x12-d2.json",
+          "historical_edit": {
+            "kind": "mosaic_video_index",
+            "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
+            "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
+          },
           "historical_edit_sha256": "3d3e6a3c4f9dd5e9d7a8cea5d9fa20f02e9abc00c04e7e651a404dbf35ec5e02"
         },
         {
@@ -635,7 +643,11 @@
           "qualification": "r13_pure_program",
           "edit": "outputs/robo-factory/source-edits-v3-20261027/mosaic-a04-6x12-d3/edit.json",
           "edit_sha256": "bb92f732ebd33f787836b761e41c2b1dd6771003db70717411d13074eb5cb9f4",
-          "historical_edit": "outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表/mosaic-a04-6x12-d3.json",
+          "historical_edit": {
+            "kind": "mosaic_video_index",
+            "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
+            "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
+          },
           "historical_edit_sha256": "e8850d9823c509a071622a7d7b765b9f70c09a222e7d390ce0407f3fd28c8879"
         },
         {
@@ -651,7 +663,11 @@
           "qualification": "r13_privileged_assisted",
           "edit": "outputs/robo-factory/source-edits-v3-20261027/mosaic-a06-9x18-d1/edit.json",
           "edit_sha256": "1ce183a0cbdc34f187fecb309e991bff51369f0bd0d084ff044321bdfd3a627d",
-          "historical_edit": "outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表/mosaic-a06-9x18-d1.json",
+          "historical_edit": {
+            "kind": "mosaic_video_index",
+            "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
+            "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
+          },
           "historical_edit_sha256": "45f09932f820fe04ac8c4bac231953a4ad559ca8282e47b84705be76dd869b31"
         },
         {
@@ -667,7 +683,11 @@
           "qualification": "r13_privileged_assisted",
           "edit": "outputs/robo-factory/source-edits-v3-20261027/mosaic-a06-9x18-d2/edit.json",
           "edit_sha256": "fa1ad1f8b3940085a13616ae20588574e24dfa62c4fa3cf847b6ff0763006823",
-          "historical_edit": "outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表/mosaic-a06-9x18-d2.json",
+          "historical_edit": {
+            "kind": "mosaic_video_index",
+            "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
+            "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
+          },
           "historical_edit_sha256": "64bcb24be3be1bc4430c1c1eede818ae271d12ec8cc8ab71b7ae2c150101e53f"
         },
         {
@@ -683,7 +703,11 @@
           "qualification": "r13_privileged_assisted",
           "edit": "outputs/robo-factory/source-edits-v3-20261027/mosaic-a06-9x18-d3/edit.json",
           "edit_sha256": "8cdea53d348c0814cc8575cded5902cc6ed797cb57e0f064fd16442eb0e4374e",
-          "historical_edit": "outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表/mosaic-a06-9x18-d3.json",
+          "historical_edit": {
+            "kind": "mosaic_video_index",
+            "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
+            "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
+          },
           "historical_edit_sha256": "96d8fd82132ba06588e6ba30565f5e1c9505e079d2aa4bd3f30680cf1e6c80cc"
         },
         {
@@ -699,7 +723,11 @@
           "qualification": "r13_privileged_assisted",
           "edit": "outputs/robo-factory/source-edits-v3-20261027/mosaic-a08-12x24-d1/edit.json",
           "edit_sha256": "4e6fa6d7b5c1092d203bd860bae0510c8054276c61c996e641a121bee9a3c0a7",
-          "historical_edit": "outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表/mosaic-a08-12x24-d1.json",
+          "historical_edit": {
+            "kind": "mosaic_video_index",
+            "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
+            "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
+          },
           "historical_edit_sha256": "0fecd23e2ed5c0dbd84ccce29f1c091c76fb70bdb06c6a972026fb6ab2767c14"
         },
         {
@@ -715,7 +743,11 @@
           "qualification": "r13_privileged_assisted",
           "edit": "outputs/robo-factory/source-edits-v3-20261027/mosaic-a08-12x24-d2/edit.json",
           "edit_sha256": "9c32528c52123f429b294d4a4e5de16b01224b229b75c39d439dddde13de4c7d",
-          "historical_edit": "outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表/mosaic-a08-12x24-d2.json",
+          "historical_edit": {
+            "kind": "mosaic_video_index",
+            "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
+            "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
+          },
           "historical_edit_sha256": "e2a4609e218fad5b58a48a11d5523645efa4fb6f2cf498305599b6cb74593840"
         },
         {
@@ -731,7 +763,11 @@
           "qualification": "r13_privileged_assisted",
           "edit": "outputs/robo-factory/source-edits-v3-20261027/mosaic-a08-12x24-d3/edit.json",
           "edit_sha256": "15ecd01d4efa46186c69c7b0aedebb56b2ef877b467b829b67bb221f55c438e8",
-          "historical_edit": "outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表/mosaic-a08-12x24-d3.json",
+          "historical_edit": {
+            "kind": "mosaic_video_index",
+            "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
+            "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
+          },
           "historical_edit_sha256": "eaf2f8684565434b95ff8bc74724a18c3af55857ba3e8833158f986a66553449"
         }
       ]

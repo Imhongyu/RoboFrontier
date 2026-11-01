@@ -1,5 +1,5 @@
 {
-  "schema": "robofrontier.mosaic-delivery.v1",
+  "schema": "robofrontier.mosaic-delivery.v2",
   "default_purpose": "gpt",
   "purposes": {
     "gpt": {
@@ -13,7 +13,11 @@
       "registry": "configs/task_families/mosaic/r13.json",
       "package": "outputs/policy-packages/mosaic-r13-20261027",
       "videos": "outputs/oracle/mosaic-continuation-20261026/videos",
-      "timelines": "outputs/oracle/mosaic-continuation-20261026/videos/轨迹剪辑时间表"
+      "timeline_index": {
+        "kind": "mosaic_video_index",
+        "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
+        "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
+      }
     }
   },
   "protected_snapshot": {
