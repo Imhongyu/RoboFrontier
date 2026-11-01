@@ -1,129 +1,274 @@
 # RoboFrontier
 
-服务器离线工厂渲染从 [Factory Linux / Slurm 交接](docs/factory-server.md) 开始。
-`scripts.factory_server` 自动准备独立的 R14 工厂数据，生成渲染计划并提交 GPU 作业；
-不调用模型。它与下述真实 benchmark 的数据库存储限制分别验收。
+**Benchmarking How LLM Agents Organize, Communicate, and Collaborate in a
+Multi-Robot World**
 
-## 任务时限、结束与录像
+RoboFrontier studies language-model policies controlling multiple robot arms in
+MuJoCo. Four task families—Transport, Mosaic, Relay and Dial—provide 36 released
+cases across three difficulty levels and three scales. Native Codex and Claude
+Code hosts share task, physics, role, scoring and evidence contracts. A separate
+LLM supervisor is optional: preparation, execution, monitoring, stopping and data
+collection have explicit command-line entries.
 
-标准任务默认从 START 起最多 24 小时。完成后可提前结束；未完成时应继续恢复，
-仅当公开证据表明无法完成时才主动 `finish`，并在 note 中说明原因和恢复判断。
-具体规则见 [共享策略说明](prompts/policy-rules.md)。运行时收尾检查与私有评分保持独立，
-接受 `finish` 不代表评分成功；正常回复结束和子任务返回也不等于结束整项任务。
+**Integration status:** this checkout is the development branch
+`integration/unified-main`. Its unified commands have not yet replaced GitHub's
+`main`. Read the [acceptance ledger](docs/development/unified-main.md) for actual
+verification and open gates. In particular, Claude scored execution and its
+permanent-worker modes remain closed, and the complete historical test suite is
+not passing. Model profiles are configuration choices, not universal provider
+compatibility certificates.
 
-标准 benchmark 入口默认关闭实时 MP4，motion 和策略观察图仍保留，可离线渲染。
-工程测试可设置更短的外部停止时间，不会改写公开任务的冻结时限。
-模型在运行中持续推进，不因默认时限或估计剩余时间而提前结束未完成任务；计时和停止由宿主执行。
-修改后的策略规则用于新准备的批次；已有冻结批次不自动更新。
+## Start here
 
-Claude 工程入口默认不设单轮、整任务美元上限，也不设正常策略轮次超时；
-费用记录照常保留。可显式启用预算，详见 [Claude 交接说明](docs/claude-handoff.md)。
+| Goal | Guide |
+| --- | --- |
+| Configure, prepare and run a benchmark | [Unified CLI and TOML](docs/unified-cli.md) |
+| Run on Linux Docker or macOS Docker Desktop | [Docker execution](docs/docker.md) |
+| Queue a job with node-local runtime state | [Slurm submission](docs/slurm.md) |
+| See which integration gates have passed | [Acceptance and source provenance](docs/development/unified-main.md) |
+| Read the policy's role and tool contract | [Robot collaboration skill](.agents/skills/robot-collaboration/SKILL.md) |
+| Read completion and recovery rules | [Shared policy rules](prompts/policy-rules.md) |
 
-> **运行数据库存储尚未验证：**运行时使用 SQLite WAL。不要将活跃的运行数据库放在 Lustre/NFS 等网络文件系统，或从 macOS 主机直接打开正在由 Docker 写入的数据库；节点本地临时目录与结果回传流程尚需验证。不要根据现有 Slurm 示例启动正式或多人共享批次，直到存储方案通过验证。参见 [SQLite WAL 文档](https://www.sqlite.org/wal.html)。
+Other documentation and historical entries are still being reconciled into the
+English release. Frozen legacy inputs retain their original protocol and source;
+current documentation must not reinterpret an old result as a new-protocol run.
 
-> **Physics revision:** This branch uses the Transport and Dial rolling-friction 0.03 candidate. See [validation and limitations](docs/transport-cylinder-stability.md) before collecting results; results differ from the original R14 physics.
+## Install and verify assets
 
-RoboFrontier 用 MuJoCo 多机械臂任务研究 GPT 的分工、规划与协作。Frontier V2
-包含 Transport、Mosaic、Relay、Dial 四类，每类三个规模、三个等级，共36项。
-在线任务使用真实接触物理；离线展示读取已保存状态。
-
-## 当前入口
-
-- [Codex / Claude 调用编号、恢复、统计口径与验收](docs/harness-alignment.md)
-- [Luna CPU：Linux、Docker、36 项并发及独立 session 保存](docs/luna-cpu.md)
-- [OpenLux GPT-6.1 Terra：配置、预检和 CPU 运行](docs/openlux-terra.md)
-- [Luna 已停止批次的收集、无损归档与恢复](docs/evidence-storage.md)
-- [Luna Level 3 最大臂四任务、一小时 Slurm 工程测试](docs/luna-cpu.md#level-3-最大臂工程测试四项并行)
-
-  **正式批次仍需验证：**Slurm 节点本地数据库暂存与回传尚未验证，详见该指南。
-- [四类任务说明图谱 UI](outputs/task-atlas/v1-20261027/index.html)（[离线 ZIP](outputs/exports/task-atlas-four-families-20261027.zip)）
-- [各类任务与版本入口](docs/frontier-v2-environments.md)
-- [Codex CLI 多模型、并行运行与公开材料](docs/gpt-policy.md)
-- [多模型 worktree 交接、本机小测与调度 prompt](docs/multimodel-handoff.md)
-- [Claude Code 工程版交接与当前验证范围](docs/claude-handoff.md)；
-  [Claude 工程批次主 session prompt](prompts/claude/engineering-manager.md)
-- [Linux 服务器策略基准准备](docs/server-benchmark.md)
-- [最终视频、数据保留与目录](docs/repository-layout.md)
-- [本次合并、数据保全与验收](docs/oracle-integration.md)
-- [架构、目录与运行数据](docs/architecture.md)
-- [Meta 操作说明](docs/meta-runbook.md)
-- [Controller／Worker Skill](.agents/skills/robot-collaboration/SKILL.md)
-- [Harness 验收范围](docs/harness-v2-verification.md)
-- [工厂展示与渲染](docs/robo-factory.md)
-- [服务器工厂：数据下载、Slurm、重试和结果目录](docs/factory-server.md)
-
-四个Oracle分支已合并。GPT任务版本由`configs/task_families/current.json`
-选择：Transport R14、Mosaic R14、Relay最终Goal规则和Dial R11 BEST5。
-服务器工厂展示由独立的`configs/factory-assets.json`选择数据发布，Mosaic默认R14；
-各录制保留自己的冻结来源和资格标记。旧`frontier-v2.json`保留历史生成兼容。
-
-36桌工厂采用独立源剪辑、独立循环、各自倍速与30fps。新GPT使用全新公开上下文，
-不继承Oracle答案。当前已加入CLI多模型宿主；本轮没有启动正式模型试验。四个已合并旧任务worktree已清理，当前开发worktree与main保留。
-
-## 安装与工程检查
-
-新 clone 后，安装 Python 环境并运行 `.venv/bin/python -m scripts.benchmark_handoff setup-assets`，
-可自动下载、校验并恢复当前 R14 任务资产；离线可使用 `setup-assets --archive /path/to/policy-assets-rolling003-20261029.tar.gz`。
-资产包和校验说明见[多模型交接](docs/multimodel-handoff.md)。不要将密钥或运行数据提交到 Git。
-新 clone 后，运行 `.venv/bin/python -m scripts.benchmark_handoff setup-assets` 自动下载、校验并恢复当前资产；离线步骤见 [Luna CPU 指南](docs/luna-cpu.md)。
-
-Luna Linux 使用者请先按 [完整交接指南](docs/luna-cpu.md) 创建 Python 环境、安装 Codex CLI、填写自己的 API Key 并准备资产。要在 Slurm 上排队四类 Level 3 最大臂、一小时工程测试，在仓库根目录执行：
-
-```sh
-sbatch --partition=YOUR_PARTITION --cpus-per-task=YOUR_CPUS --mem=YOUR_MEMORY \
-  --time=YOUR_JOB_TIME scripts/slurm_luna_l3_max_test.sh
-```
-
-将占位符替换为集群允许的资源和足够覆盖准备、运行、收尾的时间。此命令会调用付费 API；状态、日志、结果收集与会话备份的具体命令见指南。现有 36 项入口独立保留，尚未达到正式 24 小时运行资格。
-
-Python 与依赖由 `.python-version`、`pyproject.toml`、`uv.lock` 管理。
-机器人上游资产与许可证由 `scripts/fetch_robot.py` 物化，来源记录在 `vendor/`。
+Use a repository checkout and Python 3.12. Install uv, Node.js and the native CLI
+for the selected policy engine. The integration checks use Codex 0.165.0 and
+Claude Code 2.1.312; these are observed reproducibility pins, not claims about the
+latest upstream releases. The Docker image installs both pinned CLIs itself.
 
 ```sh
 uv sync --locked --extra oracle
-uv run python scripts/fetch_robot.py
-uv run --extra oracle python -m scripts.check_harness
+.venv/bin/robofrontier bootstrap
+.venv/bin/robofrontier plan
 ```
+
+`bootstrap` downloads the policy archive pinned in `configs/policy-assets.json`,
+verifies its SHA-256 and restores every referenced asset with hash verification.
+It reuses already verified files. `prepare` performs the same required asset
+setup automatically. Cloning Git alone cannot execute an installation step.
+Neither bootstrap, planning nor preparation calls a language model.
+
+For an offline machine, download the archive named by the checked-in asset lock
+on a connected machine, transfer it, and run:
 
 ```sh
-.venv/bin/python -m scripts.tasks list
-.venv/bin/python -m scripts.tasks check --purpose gpt
-.venv/bin/python -m scripts.benchmark prepare --models astra --cases transport-a04-d1 --output runs/policy/my-new-batch
-.venv/bin/python -m scripts.factory_server setup
-.venv/bin/python -m scripts.factory_server prepare --output runs/factory/my-preview --families transport --levels 1 --duration-s 1
+.venv/bin/python -m scripts.benchmark_handoff setup-assets \
+  --archive /path/to/the-pinned-policy-assets.tar.gz
+.venv/bin/python -m scripts.tasks check --purpose gpt --assets
 ```
 
-准备命令仅冻结输入。并行准备与真实启动见GPT说明；更多入口见
-[scripts目录](scripts/README.md)。历史场景资产可按记录哈希恢复：
-`python -m scripts.restore_scene_assets --report runs/engineering/asset-restore.json`。
+Do not substitute a similarly named asset package or rebuild missing labels
+approximately. A changed scene or asset hash identifies a different input. The
+larger optional Factory recording bundle has its own release lock and installer;
+ordinary policy preparation does not download it.
 
-## 目录
+## Defaults and configuration
 
-| 目录 | 内容 |
+The single public settings file is [robofrontier.toml](robofrontier.toml). A
+partial user TOML overrides named defaults; explicit CLI options override those
+settings. Unknown options and invalid values fail before execution. Each prepared
+batch freezes its resolved configuration and input hashes. Editing TOML later
+does not change an existing batch.
+
+The new-run defaults are:
+
+- Native Codex, official OpenAI API, Luna, reasoning effort `high`.
+- Adaptive topology, all 36 current cases and 36 concurrent host slots.
+- A 0.3-second interval between initial host launches, after serialized native
+  initialization. This interval does not delay robot calls or model turns.
+- A separate 86,400-second task limit measured from each persisted START.
+- Linux NVIDIA EGL observations and CPU MuJoCo dynamics.
+- JPEG observations at 896 x 560, quality 85; realtime MP4 recording disabled.
+- Automatic stopped-evidence collection and a verified ZIP archive; originals
+  retained unless an operator explicitly performs a separate reviewed cleanup.
+
+The requested concurrency is not a hardware or provider capacity guarantee.
+Account for simulator/session/delegate memory, CPU, GPU contexts, local disk and
+provider rate limits. OOM or an unsealed tool outcome is an engineering issue,
+not an automatic model task failure.
+
+Store API keys in the ignored `.env` or process environment. Never put credentials
+in TOML or commit them. Existing keys and Desktop authentication are not copied
+into another user's checkout. The selected engine's catalog is
+`configs/models.json` or `configs/claude-models.json`. OpenLux and third-party
+profiles need their own compatibility checks; provider routing groups are not
+selected by changing a task's model prompt.
+
+## Run from commands
+
+On an equipped Linux NVIDIA host, first check local execution prerequisites:
+
+```sh
+.venv/bin/robofrontier doctor
+```
+
+Doctor checks the selected native CLI, the Codex workspace sandbox when selected,
+and a real RGB renderer. It does not authenticate or call a model. On macOS use
+`doctor --render native` and prepare with `--render native`. For Linux CPU
+rendering use `--render cpu`; on macOS the CPU path runs inside Linux Docker.
+Render backend mismatches fail instead of silently falling back.
+
+After setting `OPENAI_API_KEY`, explicitly authorize a provider compatibility
+preflight, then prepare and run the full default batch:
+
+```sh
+.venv/bin/robofrontier preflight --confirm-spend
+.venv/bin/robofrontier prepare --output runs/policy/example-36
+.venv/bin/robofrontier run runs/policy/example-36
+```
+
+Preflight and run make real, potentially billable model calls. A smoke-only
+provider receipt does not qualify a scored run. A provider/catalog/CLI mismatch
+requires another explicit preflight. Local sandbox prerequisites are checked
+before confirmed preflight; local sandbox and frozen rendering are checked before
+task hosts start.
+
+To prepare four minimum-arm Level 1 tasks instead, choose a new directory:
+
+```sh
+.venv/bin/robofrontier prepare --level 1 --min-arms --parallel 4 \
+  --output runs/policy/example-l1
+```
+
+Preparing does not launch this batch. Use the same `run` command when ready.
+Every task has its own START and clock; preparation and session setup precede
+START, while initial reading, observation and planning count as task time.
+
+Monitor or stop from another terminal:
+
+```sh
+.venv/bin/robofrontier status runs/policy/example-36
+.venv/bin/robofrontier stop runs/policy/example-36
+```
+
+Status reads an atomic supervisor snapshot. Stop requests orderly closure; inspect
+the final sealing/collection result before treating it as complete. A disconnected
+native session or uncertain physical request is not automatically restarted or
+replayed. Short engineering stops are separate from the published task deadline.
+
+## Four collaboration modes
+
+| Mode | Initial roles and authority |
 | --- | --- |
-| `configs/` | 任务场景、家族规格、catalog 与控制配置 |
-| `prompts/`、`.agents/skills/` | 任务参考、公共规则与角色协议 |
-| `robofrontier/` | 仿真、运行服务、任务实现与离线数据接口 |
-| `scripts/`、`tests/` | 工程入口与回归验证 |
-| `assets/`、`vendor/` | 展示资产与上游模型 |
-| `docs/` | 当前说明；`docs/history/` 保存历史过程 |
-| `runs/`、`outputs/` | 持久实验记录与媒体交付，Git 忽略，需独立保管 |
+| `single` | One Controller controls all arms and creates no delegates. |
+| `controller-worker` | One coordinating Controller and one permanent Worker per arm; each Worker controls its assigned arm. |
+| `worker-worker` | One permanent Worker per arm; Workers coordinate directly with peers. |
+| `adaptive` | One Controller controls all arms and dynamically chooses whether, when and how many bounded delegates to create or retire. |
 
-当前有效的历史worktree依赖已转到主仓库持久归档。`runs/`、`outputs/`、
-`vendor/`和大型场景资产需要随数据根独立备份；仅复制Git仓库不能恢复实验。
+All new unified Codex batches directly START after their required initial native sessions
+are bound. Each role receives an explicit started prompt. `ready` is an optional
+capability query; it is not a model-readiness gate. Old `ready_barrier_v1` inputs
+keep their frozen legacy behavior. Direct START does not change robot ownership.
 
-## 历史练习与实验
+Claude currently exposes Single/Adaptive engineering drafts through this CLI;
+permanent-worker execution and full scored lifecycle qualification are still
+integration gates. Use the engine-specific guide rather than assuming that a
+Codex app-server tool/fork interface exists in Claude Code. API and native
+subscription authentication are separate paths. In particular, isolated Codex
+API homes do not imply qualified concurrent subscription-token refresh.
 
-单臂键盘 Demo 仍可由 `uv run robofrontier` 或 `Launch Demo.command` 启动；操作、
-配置与早期实验保存在 [历史说明](docs/history/readme-before-transport-cleanup-20261027.md)。
-其他试点与修订记录见 `docs/history/`、`benchmarks/`。旧成绩绑定原场景和控制来源。
+## Completion, recovery and timing
 
-实验结束后的数据保存请见 [数据收集、无损归档与恢复](docs/evidence-storage.md)：四分支共用命令，包含原生 session、Motion、图片与恢复校验。
+The independent scorer determines task completion from published conditions.
+Process events such as supported drop/collision detections are reported
+separately and do not automatically veto terminal completion. Dial retains its
+unlock latch: unlocking completes the puzzle. These rules do not grant an agent
+access to private evaluation state or Oracle solutions.
 
-### 并发启动与资源
+A Controller should keep observing, acting and recovering while the task remains
+unfinished. `finish` is an end proposal accepted only after closure conditions;
+it is appropriate for completion or publicly supported unrecoverability. Accepting
+it does not imply a successful score. Ending a normal model turn or returning a
+delegate does not itself end the experiment. Hosts enforce deadline and stop
+requests independently of a supervising LLM.
 
-Codex 批次在并发启动任务前，会对实际使用的 `CODEX_HOME` 加锁，串行执行一次本地 app-server 初始化握手；初始化失败时不会启动任务。该握手不启动模型轮次，诊断记录在批次目录的 `codex-initialize.log`。所有共享该目录的 RoboFrontier 批次必须使用此启动入口；其他独立程序若不使用同一锁，仍可能发生竞争。请在节点本地文件系统使用 Codex 状态目录；此步骤不能保证网络或共享文件系统的 SQLite 安全。
+For a new robot request, omit the outer `call_id`; the host returns a generated
+identifier. Query an existing action with a new `job` request and its original ID
+in `data.call_id`. An uncertain result may be retried only under its original ID
+and identical payload. A rejected ID conflict and an uncertain transport result
+have different meanings; neither permits blind repetition of physical actions.
 
-批次 `batch.json` 的 `resource_snapshot` 和启动提示仅提供可读取的内存快照，不是可运行并发数量的保证。Linux 容器的 cgroup 数值可能无法反映所有父级或 Slurm 限制；请核对调度器分配、容器上限及节点本地空间，再从较低并发逐步测量。内存不足或 OOM 属于工程异常，不能当作模型任务失败。Codex 退出非零或封存未确认时，批次任务标为 `needs_review`；已提交但结果不明的动作不能自动重放。
+## Runtime data and handoff
 
-Claude 原生运行路径使用任务独立的配置目录，不使用上述 Codex 握手；Claude 并发能力需要单独验证。
+A batch lives under the path supplied to `prepare`, with one run per profile/case.
+Each run contains frozen public/private inputs, observations, tool/host events,
+runtime state and motion under `private/outputs/motion/`. Live runtime SQLite and
+Codex state must be on a node-local filesystem. Never monitor an active Docker
+SQLite database from macOS or place active WAL databases on Lustre/NFS.
+
+For new API batches, each task uses a private Codex home beneath
+`.robofrontier/codex/`. Its `sessions/` directory contains the native Controller
+and delegate transcripts. The run's `codex-home.json` records its exact home.
+Legacy `.codex-luna/` and shared-home recordings remain separate legacy layouts.
+`codex-host.jsonl` is the harness event log; it does not replace native session
+JSONL files.
+
+After writers stop, automatic collection places portable evidence under
+`runs/exports/` and creates a sibling ZIP. Review collection completeness and
+sealing issues. The archive deduplicates identical payloads and replaces inline
+session image Base64 with reversible image-object references. Restoration verifies
+hashes and reconstructs original transcript bytes. Live native logs are not edited
+in place. Creating a ZIP alone does not reclaim the originals' disk space.
+
+Motion retains timestamps, appearance changes and the existing float32 states;
+XOR and ZIP compression add no further numeric loss. The original conversion to
+float32 is declared and is not lossless relative to float64 simulation state.
+Historical uncompressed motion remains a compatibility obligation. JPEG
+observation settings are separate from later video resolution.
+
+## Oracle, Factory and media
+
+Mosaic R14 is the default. Relay's independent revision identifiers must not be
+confused with a Mosaic R15 draft. The current release still uses its pinned
+rolling-friction candidate; recommended new Transport/Dial physics are not a
+published replacement until their full operational gates pass. See the acceptance
+ledger before comparing results across revisions.
+
+Factory replay must use each recording's own frozen scene and assets. It reads
+saved states for visual reconstruction rather than rerunning recorded actions in
+new physics. Optional production rendering uses Blender Cycles with explicit CPU,
+Metal, CUDA or OPTIX selection; silent device fallback is not an acceptance path.
+
+The native Factory installer/commands remain available:
+
+```sh
+.venv/bin/python -m scripts.factory_server setup
+.venv/bin/python -m scripts.factory_server doctor --device CPU
+```
+
+Factory/Oracle options have not yet been folded into the unified TOML. Curated
+Oracle integration, all-family compressed-motion background replay, the tracked
+English task atlas and the editable full-length English video project remain open
+gates. Existing Oracle intervention records and historical source identities must
+be preserved; assisted execution is not automatically an autonomous benchmark.
+
+## Repository map
+
+| Path | Purpose |
+| --- | --- |
+| `robofrontier.toml` | Public defaults for newly prepared unified batches |
+| `robofrontier/` | Simulation, native hosts, runtime protocol and evidence interfaces |
+| `configs/` | Released task registries, model catalogs, scenes and asset locks |
+| `prompts/`, `.agents/skills/` | Public policy and role/tool contracts |
+| `scripts/`, `tests/` | Engineering entries and regression checks |
+| `docker/` | Unified image and explicitly retained legacy image |
+| `docs/` | Current guides, provenance and historical migration records |
+| `runs/`, `outputs/` | Ignored runtime evidence and media; back up separately from Git |
+| `.robofrontier/` | Ignored private native state and container command receipts |
+
+The early single-arm application is available as `robofrontier demo` or
+`robofrontier-demo`; it is not the default benchmark entry. A standalone wheel,
+without the repository catalogs/assets, is not a qualified distribution.
+
+## Attribution and publication
+
+Confirmed first author: **Changxuan Fan, Hong Kong University of Science and
+Technology**. The remaining author list/order, copyright holder, publication
+status, DOI and paper URL are not finalized. No final license grant for all
+repository content is asserted here. Preserve upstream asset notices; code,
+original media and third-party resources require their appropriate attribution
+and licensing review before the unified release.

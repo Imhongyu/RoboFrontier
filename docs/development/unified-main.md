@@ -218,6 +218,27 @@ archive command now returns the ZIP SHA-256 as well as its path, matching the
 container export verifier. The focused follow-up group passed 23 tests including
 byte-exact session/image/motion restoration and terminal receipt verification.
 
+The corrected `9352651995a8` image built and the actual unified container doctor
+passed with explicit `unconfined` configuration. With Docker's default seccomp,
+the same command returned exit 2, exposing the namespace denial while still
+reporting a successful llvmpipe render. Both invocations made zero model calls.
+
+A synthetic stopped collection containing a real 21-frame Transport motion
+stream and one synthetic image-bearing session was archived by the native
+container command. The wrapper copied a 5,225,812-byte ZIP to the host and
+verified SHA-256 `0c6b78cf2ca0ff042f5d9d7eefc843f99d939a70dea69069be050ac3d8d1f367`.
+Host extraction and archive verification restored the session byte-for-byte,
+loaded the recording's own frozen model, and replayed every frame with finite
+forward kinematics. A restored frame rendered at 1920 x 1080 using Apple M5 Pro
+OpenGL/Metal, independently of the 896 x 560 policy-image format. This is plain
+background reconstruction, not Factory qualification or a native model session.
+Local evidence is under `runs/engineering/main-integration-container-20261101`.
+
+The root README is now English and describes the actual unified entries,
+authentication boundaries, defaults, data locations and open acceptance gates.
+It does not yet make the rest of the repository English or replace the pending
+Factory/Oracle/atlas/video documentation and integration work.
+
 ## Second full regression inventory
 
 After the source/fixture corrections and added integration checks, full discovery
