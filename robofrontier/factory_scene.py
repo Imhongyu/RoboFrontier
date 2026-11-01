@@ -992,9 +992,13 @@ class _Builder:
         return path,manifest
 
 
-def build_factory(config_path=DEFAULT_CONFIG, output=None):
+def build_factory(config_path=DEFAULT_CONFIG, output=None, workstation_catalog=None):
     """Return a generated scene and manifest; no task imports or simulation steps."""
     config_path=Path(config_path).resolve();config=json.loads(config_path.read_text())
+    if workstation_catalog is not None:
+        workstation_catalog=Path(workstation_catalog).resolve()
+        if not workstation_catalog.is_file():raise ValueError('Missing explicit workstation catalog')
+        config.setdefault('workstation_dressing',{})['catalog']=str(workstation_catalog)
     default_folder={'robo-factory-v4':'v4-shell','robo-factory-v5':'v5-shell'}.get(config['id'],'scene')
     output=Path(output or ROOT/'outputs/robo-factory'/default_folder).resolve();output.mkdir(parents=True,exist_ok=True)
     b=config['building'];W,D=b['width_m'],b['depth_m']
@@ -1014,5 +1018,5 @@ def build_factory(config_path=DEFAULT_CONFIG, output=None):
     active_meshes={file.name for file in (assets/'meshes').glob('factory_*.obj')}
     for file in (output/'assets/meshes').glob('factory_*.obj'):
         if file.name not in active_meshes:file.unlink()
-    shutil.copy2(config_path,output/'build-config.json')
+    (output/'build-config.json').write_text(json.dumps(config,indent=2)+'\n')
     return scene,manifest

@@ -141,5 +141,17 @@ class FactoryBundleTests(unittest.TestCase):
             changed=bundle.read(plan);changed['samples']=999;bundle.write(plan,changed)
             with self.assertRaisesRegex(ValueError,'plan changed'):server.load_plan(plan)
 
+    def test_render_dependency_verification_checks_used_bytes_without_other_recordings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);data=fixture(root)
+            unrelated=data/'unrelated/data.bin';unrelated.parent.mkdir();unrelated.write_bytes(b'original')
+            manifest=bundle.read(data/'bundle.json')
+            manifest['files']['unrelated/data.bin']=dict(bytes=8,sha256=bundle.digest(unrelated));bundle.write(data/'bundle.json',manifest)
+            unrelated.write_bytes(b'corrupt!')
+            self.assertEqual(bundle.verify(data,cases=['transport-a04-d1'])['verification_scope'],'selected_render_dependencies')
+            with self.assertRaisesRegex(ValueError,'checksum'):bundle.verify(data)
+            shared=data/'asset/shared.bin';shared.write_bytes(b'broken')
+            with self.assertRaisesRegex(ValueError,'checksum'):bundle.verify(data,cases=['transport-a04-d1'])
+
 
 if __name__=='__main__':unittest.main()

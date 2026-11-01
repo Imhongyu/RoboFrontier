@@ -31,6 +31,7 @@ def main():
             a.add_argument('--output',type=Path,required=True)
             a.add_argument('--families',nargs='+',choices=('transport','mosaic','relay','dial'))
             a.add_argument('--levels',nargs='+',type=int,choices=(1,2,3))
+            a.add_argument('--cases',nargs='+',help='Explicit published task IDs')
             a.add_argument('--views',nargs='+',choices=('front','side'),default=['front','side'])
             a.add_argument('--duration-s',type=float,help='Optional short preview cap; omit for the full edited timeline')
             a.add_argument('--width',type=int,default=1920);a.add_argument('--height',type=int,default=1080)

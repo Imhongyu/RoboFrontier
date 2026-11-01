@@ -113,7 +113,7 @@ def build(output,release_path=None):
     overrides={spec['id']:ROOT/spec['directory'] for spec in specs}
     catalog=output.parent/(output.name+'-catalog.json')
     write_json(catalog,dict(cases=[dict(read(source/'workstation.json')['case'],directory=str(source)) for source in overrides.values()]))
-    scene,_=build_factory(output=shell)
+    scene,_=build_factory(output=shell,workstation_catalog=catalog)
     result=compose(scene,catalog,output,source_overrides=overrides)
     manifest=read(output/'manifest.json')
     write_json(output/'camera-shots.json',shots(manifest))

@@ -93,12 +93,12 @@ def import_motion(data_root, recording, output, speedup=1.):
     output.parent.mkdir(parents=True,exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.factory-import-',dir=output.parent) as tmp:
         tmp=Path(tmp)
-        shell,_=build_factory(output=tmp/'shell')
         sources={s['id']:s['directory'] for _,s in entries}
         sources[spec['id']]=str(recording/'source')
         cases=[dict(read(Path(directory)/'workstation.json')['case'],directory=directory)
                for directory in sources.values()]
         write(tmp/'catalog.json',dict(cases=cases))
+        shell,_=build_factory(output=tmp/'shell',workstation_catalog=tmp/'catalog.json')
         base=read(inside(data_root,read(data_root/'bundle.json')['scene']).parent/'manifest.json')
         placements={p['case_id']:dict(translation_m=p['translation_m'],yaw_rad=p['yaw_rad']) for p in base['placements']}
         scene=compose(shell,tmp/'catalog.json',tmp/'scene',source_overrides=sources,placement_overrides=placements)
@@ -125,7 +125,7 @@ def import_motion(data_root, recording, output, speedup=1.):
     return dict(**result,data_root=str(output),case_id=spec['id'],speedup=speedup)
 
 
-def prepare(data_root, output, families=None, levels=None, views=('front', 'side'),
+def prepare(data_root, output, families=None, levels=None, views=('front', 'side'), cases=None,
             duration_s=None, width=1920, height=1080, samples=64, mode='desks', device=None):
     from .motion_recording import MotionReader
     from .station_edit import StationEdit
@@ -139,6 +139,8 @@ def prepare(data_root, output, families=None, levels=None, views=('front', 'side
     if len(set(views)) != len(views) or not views or set(views)-{'front','side'}:
         raise ValueError('Choose distinct front/side views')
     release = resolved_release(data_root)
+    known_cases={s['id'] for f in release['families'].values() for s in f['oracle']}
+    if cases and set(cases)-known_cases:raise ValueError('Unknown selected task ID')
     if families and set(families)-release['families'].keys():
         raise ValueError('Unknown task family')
     if levels and set(levels)-{1,2,3}:
@@ -148,7 +150,7 @@ def prepare(data_root, output, families=None, levels=None, views=('front', 'side
     if fps != 30:
         raise ValueError('Current Cycles encoder requires the reviewed 30-fps presentation')
     if mode == 'promo':
-        if families or levels:
+        if families or levels or cases:
             raise ValueError('The factory-tour camera visits all published workstations')
         jobs.append(dict(index=0, id='promo', frames=math.ceil((duration_s or 210.5)*fps)))
     elif mode == 'desks':
@@ -156,6 +158,7 @@ def prepare(data_root, output, families=None, levels=None, views=('front', 'side
             if families and name not in families:
                 continue
             for spec in family['oracle']:
+                if cases and spec['id'] not in cases:continue
                 level = spec.get('level', read(Path(spec['directory'])/'task.json')['level'])
                 if levels and level not in levels:
                     continue
@@ -226,8 +229,13 @@ def run_job(plan_path, index, blender=None, scratch=None):
     path, plan = load_plan(plan_path)
     if index < 0 or index >= len(plan['jobs']):
         raise ValueError('Render job index outside plan')
-    verify(plan['data_root'])
     job = plan['jobs'][index]
+    selected=None
+    if plan['mode']=='desks':
+        release=resolved_release(plan['data_root'])
+        selected=[s['id'] for s in release['families'][job['family']]['oracle']
+                  if s.get('level',read(Path(s['directory'])/'task.json')['level'])==job['level']]
+    verify(plan['data_root'],cases=selected)
     job_dir = path.parent/'jobs'/job['id']
     job_dir.mkdir(parents=True, exist_ok=True)
     # A process that is killed cannot leave a stale advisory lock on POSIX.
@@ -254,7 +262,7 @@ def run_job(plan_path, index, blender=None, scratch=None):
                 os.killpg(active[0].pid, signal.SIGTERM)
         handlers = {s:signal.signal(s,stop) for s in (signal.SIGTERM,signal.SIGINT)}
         started = time.time()
-        write(job_dir/'running.json',dict(pid=os.getpid(),host=platform.node(),attempt=attempt_id,started_unix_s=started))
+        write(job_dir/'running.json',dict(pid=os.getpid(),host=platform.node(),attempt=attempt_id,started_unix_s=started,work_dir=str(work)))
         error = None
         def command(argv):
             if stopped:
@@ -343,6 +351,7 @@ def status(plan_path):
         attempts=sorted(folder.glob('attempt-*/attempt.json'),key=lambda p:p.stat().st_mtime) if folder.exists() else []
         row=dict(index=job['index'],id=job['id'],status='complete' if done else read(attempts[-1])['status'] if attempts else 'pending')
         if not done and (folder/'running.json').exists():
+            row['runtime']=read(folder/'running.json')
             import fcntl
             with (folder/'run.lock').open('a') as lock:
                 try:

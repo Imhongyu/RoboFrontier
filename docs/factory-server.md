@@ -49,13 +49,14 @@ Mosaic 的 a06-d3、a08-d3 展示复用对应 d2 记录，并保留 `recorded_ca
 登录节点没有 GPU 时，不能用其检查结果推断计算节点 GPU 可用；可先用 `--device CPU`
 检查 CPU 路径，再通过下述短作业验证 GPU。doctor 不产生视频、不调用模型。
 
-下面选择四类的 Level 1，三个规模、front/side，共 24 个一秒预览。
+下面选择四类的 Level 1 最小臂数、front/side，共 8 个一秒预览。
 默认正式画质为 1920×1080、30fps、64 samples；此短测降低尺寸和采样以检查交接。
 
 ```sh
 .venv/bin/python -m scripts.factory_server prepare \
   --output runs/factory/smoke \
-  --levels 1 --duration-s 1 --width 640 --height 360 --samples 8 --device OPTIX
+  --cases transport-a04-d1 mosaic-a04-6x12-d1 relay-a08-d1 dial-best5-n04-d1 \
+  --duration-s 1 --width 640 --height 360 --samples 8 --device OPTIX
 
 .venv/bin/python -m scripts.factory_server submit \
   --plan runs/factory/smoke/plan.json --partition YOUR_PARTITION \
@@ -85,7 +86,9 @@ Slurm 时限涵盖准备、渲染、编码和回传，和 benchmark 的 START �
   --plan runs/factory/full/plan.json --partition YOUR_PARTITION --parallel 2
 ```
 
-可用 `--families transport relay`、`--levels 1 2`、`--views front` 缩小范围。
+可用 `--families transport relay`、`--levels 1 2`、`--views front` 缩小范围，或通过
+`--cases 任务ID ...` 精确选择。准备阶段校验完整数据包；每个渲染项重新校验它会使用的
+源记录、场景、资产和相机，避免每项都重新读取其他任务的大型历史记录。
 普通桌面模式按源剪辑独立播放；相机固定，源状态和外观事件不被重新求解。
 
 宣传片是一个独立作业，默认 210.5 秒，使用全工厂镜头和显式记录的工位播放重启：

@@ -63,7 +63,7 @@ def resolved_release(root):
     return release
 
 
-def verify(root):
+def verify(root, cases=None):
     root = Path(root).resolve()
     manifest = read(root/'bundle.json')
     if manifest.get('schema') != SCHEMA:
@@ -71,12 +71,42 @@ def verify(root):
     files = manifest['files']
     if not files or 'bundle.json' in files:
         raise ValueError('Invalid bundle inventory')
+    release_path=inside(root,manifest['release'])
+    if digest(release_path)!=files[manifest['release']]['sha256']:
+        raise ValueError('Factory release checksum mismatch')
+    release=resolved_release(root)
+    all_specs=[s for f in release['families'].values() for s in f['oracle']]
+    all_ids=[s['id'] for s in all_specs]
+    if len(set(all_ids))!=len(all_ids):raise ValueError('Duplicate factory station')
+    walks=[root]
+    required=set()
+    if cases is not None:
+        cases=set(cases)
+        if not cases or cases-set(all_ids):raise ValueError('Unknown selected factory station')
+        # Each render validates every byte it can consume, without rereading the
+        # unrelated recordings of the other desks on a shared filesystem.
+        walks=[inside(root,manifest['scene']).parent,inside(root,manifest['asset'])]
+        required={manifest['release'],manifest['cameras']}
+        for spec in all_specs:
+            if spec['id'] not in cases:continue
+            for field in PATH_FIELDS:
+                if field in spec:
+                    path=Path(spec[field]);walks.append(path.parent if field=='edit' else path)
+            edit=read(spec['edit'])
+            for name in edit.get('input_evidence_sha256',{}):
+                if name not in ('actions.json','process.jsonl'):raise ValueError('Unexpected semantic evidence')
+                required.add((Path(spec['recording']).parent/name).relative_to(root).as_posix())
+        prefixes={p.relative_to(root).as_posix().rstrip('/')+'/' for p in walks}
+        files={name:spec for name,spec in files.items() if name in required or any(name.startswith(prefix) for prefix in prefixes)}
     actual = set()
-    for path in root.rglob('*'):
-        if path.is_symlink():
-            raise ValueError('Symlinked bundle input: ' + str(path))
-        if path.is_file() and path != root/'bundle.json':
-            actual.add(path.relative_to(root).as_posix())
+    for folder in set(walks):
+        for path in folder.rglob('*'):
+            if path.is_symlink():
+                raise ValueError('Symlinked bundle input: ' + str(path))
+            if path.is_file() and path != root/'bundle.json':
+                actual.add(path.relative_to(root).as_posix())
+    for name in required:
+        if inside(root,name).is_file():actual.add(name)
     if actual != set(files):
         raise ValueError('Bundle inventory differs; missing or extra files')
     inode_hashes={}
@@ -102,10 +132,10 @@ def verify(root):
     camera_ids = [c['id'] for c in cameras]
     if len(camera_ids) != len(set(camera_ids)):
         raise ValueError('Duplicate factory camera')
-    release = resolved_release(root)
     ids = set()
     for family in release['families'].values():
         for spec in family['oracle']:
+            if cases is not None and spec['id'] not in cases:continue
             if spec['id'] in ids:
                 raise ValueError('Duplicate factory station')
             ids.add(spec['id'])
@@ -118,6 +148,11 @@ def verify(root):
                 raise ValueError('Station recorded task identity differs')
             if edit['source_scene_sha256'] != stream['source_scene_sha256']:
                 raise ValueError('Edit/recording source identity differs')
+            if edit.get('schema')=='robofrontier.station-edit.v2':
+                if (edit['source_stream_sha256']!=checked_digest(Path(spec['recording'])/'stream.json')
+                        or edit['events_sha256']!=checked_digest(Path(spec['recording'])/'events.jsonl')
+                        or edit['selection_sha256']!=checked_digest(inside(Path(spec['edit']).parent,edit['selection_file']))):
+                    raise ValueError('Station edit source or selection differs')
             if digest(Path(spec['recording'])/'source/scene.xml') != stream['source_scene_sha256']:
                 raise ValueError('Recorded source scene differs')
             for chunk in stream['chunks']:
@@ -135,7 +170,8 @@ def verify(root):
                 if spec['id']+'--'+view not in camera_ids:
                     raise ValueError('Missing station camera: ' + spec['id']+'--'+view)
     return dict(status='verified', files=len(files), stations=len(ids),
-                bundle_sha256=digest(root/'bundle.json'), scope=manifest['scope'])
+                bundle_sha256=digest(root/'bundle.json'), scope=manifest['scope'],
+                verification_scope='full_bundle' if cases is None else 'selected_render_dependencies')
 
 
 def export(output, scene, release, cameras, asset, source_root):
