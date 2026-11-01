@@ -63,7 +63,7 @@ Oracle已经结束；整理过程没有重跑。新入口的静态／局部回�
 | `suite/relay_scene.py`、`relay_underslung.py`、`rigid_relay.py` | 当前几何及仍被使用的构建能力 |
 | `relay_video_motion.py`、`relay_motion_edit.py` | 背景无关运动判定、时间映射 |
 | `scripts/analyze_relay_motion.py` | 一次生成剪辑判定，不再另输出16fps旧版影片 |
-| `scripts/export_relay_edited.py` | 派生60Hz轨迹及20倍速／30fps简单与工厂视频 |
+| `scripts/export_relay_edited.py` | 派生60Hz轨迹及20倍速／30fps简单背景视频；工厂视频使用Cycles |
 
 ## 数据与交接
 

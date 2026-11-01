@@ -106,7 +106,7 @@ def render_offline(args):
     blender=args.blender or shutil.which('blender') or '/Applications/Blender.app/Contents/MacOS/Blender'
     command=[blender,'--background','--python-exit-code','1','--python',str(ROOT/'scripts/render_factory_blender.py'),'--',
         '--asset',str(output/'asset'),'--animation',str(output/'poses/animation.json'),'--output',str(output),
-        '--engine',args.renderer,'--profile',args.profile,'--device',args.device,'--samples',str(args.samples if args.samples is not None else (64 if args.renderer=='cycles'else 6)),
+        '--engine','cycles','--profile',args.profile,'--device',args.device,'--samples',str(args.samples if args.samples is not None else 64),
         '--width',str(args.width),'--height',str(args.height)]
     command.append('--denoise'if args.denoise else '--no-denoise')
     if args.noise_threshold is not None:command+=['--noise-threshold',str(args.noise_threshold)]
@@ -127,7 +127,7 @@ def main():
     video.add_argument('--duration',type=float,required=True);video.add_argument('--camera',default='tour')
     video.add_argument('--station',help='Task case ID for the fixed desk-front camera')
     video.add_argument('--orbit-degrees',type=float,default=60.,help='Partial orbit angle; independent of Oracle replay speed')
-    video.add_argument('--renderer',choices=['eevee','cycles'],default='cycles')
+    video.add_argument('--renderer',choices=['cycles'],default='cycles')
     video.add_argument('--profile',choices=['fast','reference'],default='fast')
     video.add_argument('--samples',type=int);video.add_argument('--device',choices=['METAL','CPU'],default='METAL')
     video.add_argument('--denoise',action=argparse.BooleanOptionalAction,default=True)

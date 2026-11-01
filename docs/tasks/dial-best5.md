@@ -53,16 +53,12 @@ BEST 是历史完整有效输入的最大命中数，READY 表示当前输入资
 私有证据索引只供工程审查。公共角色 prompt、Skill、harness 保持共享权威版本。
 
 ```bash
-.venv/bin/python -m scripts.replay_dial_motion /absolute/attempt/motion \
-  --edit /absolute/edit.json --output /absolute/NEW-video --render
 .venv/bin/python -m scripts.render_dial_oracle /absolute/attempt \
   --edit /absolute/edit.json --output /absolute/NEW-views
 ```
 
-两个旋钮渲染入口消费同一源帧清单；前者输出 simple/factory 配对视频，后者选择
-简单背景相机。工厂场景默认取已发布 10x 目录的 scene。只恢复 FK 与外观，按
-固定工位平移/旋转放置，不重新执行动作、IK 或接触积分。反馈/边界帧单独保留，
-10x 为标称动作速度；每个输出帧的原始编号和时间写入报告。
+简单背景渲染使用冻结源与剪辑；工厂视频使用 `scripts.factory video` 的 Cycles 入口。
+历史的 Classic 工厂成片入口已停用，源帧和已发布视频保留。
 
 `run_best5_dial_batch.py` / `run_blind_dial_oracle.py` 是显式工程 Oracle 启动工具，
 统一使用 R11 与 `configs/harness-frontier-v2-servo2.json`；不传预算表示不限时。

@@ -30,17 +30,16 @@ SCRIPT_SHA256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--asset',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--views',nargs='+',default=['interior_south','interior_diagonal'])
+    parser.add_argument('--views',nargs='+',help='Named cameras; defaults to all desk cameras or the two interior views')
     parser.add_argument('--width',type=int,default=1280);parser.add_argument('--height',type=int,default=800)
     parser.add_argument('--exposure',type=float);parser.add_argument('--samples',type=int,default=64);parser.add_argument('--device',choices=['METAL','CPU'],default='METAL')
-    parser.add_argument('--engine',choices=['cycles','eevee'],default='cycles')
+    parser.add_argument('--engine',choices=['cycles'],default='cycles',help='Factory offline rendering uses Cycles')
     parser.add_argument('--profile',choices=['reference','fast'],default='reference')
     parser.add_argument('--benchmark-frames',type=int,default=1)
     parser.add_argument('--instances',action=argparse.BooleanOptionalAction,default=True)
-    parser.add_argument('--raytracing',action=argparse.BooleanOptionalAction,default=True)
     parser.add_argument('--lighting-config',type=Path,help='Offline lighting overrides; source task state stays frozen')
     parser.add_argument('--camera-config',type=Path,help='Named offline camera overrides for matched-engine look development')
-    parser.add_argument('--bake-gi',action='store_true',help='Bake static architecture GI once; moving task geometry excluded')
+    parser.add_argument('--desk-cameras',type=Path,help='JSON array of workstation inspection cameras')
     parser.add_argument('--denoise',action=argparse.BooleanOptionalAction,default=True,help='GPU denoising for low-sample output')
     parser.add_argument('--save-blend',action='store_true');parser.add_argument('--usd',action='store_true')
     parser.add_argument('--recorded-pose',type=Path,help='Derived recorded-state pose, matching this exact factory; no physics')
@@ -74,6 +73,11 @@ def main():
     if platform.system()=='Darwin':threading.Thread(target=monitor_gpu,daemon=True).start()
     args.asset=args.asset.resolve();args.output=args.output.resolve();args.output.mkdir(parents=True,exist_ok=True)
     metadata=json.loads((args.asset/'scene.json').read_text());arrays=np.load(args.asset/'meshes.npz')
+    if args.desk_cameras:
+        if args.animation or args.recorded_pose:raise ValueError('Desk cameras require static rendering')
+        desk_cameras=json.loads(args.desk_cameras.read_text())
+        metadata['cameras'].extend(desk_cameras)
+    args.views=args.views or ([c['id'] for c in desk_cameras] if args.desk_cameras else ['interior_south','interior_diagonal'])
     if args.camera_config:
         overrides=json.loads(args.camera_config.read_text())
         metadata['cameras']=[overrides.get(c['id'],c)for c in metadata['cameras']]
@@ -82,7 +86,7 @@ def main():
     if args.exposure is None:args.exposure=lighting.get('exposure_ev',-1.5)
     animation=json.loads(args.animation.read_text()) if args.animation else None
     bpy.ops.wm.read_factory_settings(use_empty=True);scene=bpy.context.scene
-    scene.render.engine='CYCLES' if args.engine=='cycles' else 'BLENDER_EEVEE'
+    scene.render.engine='CYCLES'
     scene.cycles.samples=args.samples;scene.cycles.use_denoising=args.denoise
     scene.render.use_persistent_data=True
     scene.render.resolution_x=args.width;scene.render.resolution_y=args.height;scene.render.resolution_percentage=100
@@ -98,23 +102,6 @@ def main():
     if args.noise_threshold is not None:scene.cycles.adaptive_threshold=args.noise_threshold
     scene.cycles.use_adaptive_sampling=True
     if args.min_samples is not None:scene.cycles.adaptive_min_samples=args.min_samples
-    scene.eevee.taa_render_samples=args.samples
-    scene.eevee.use_raytracing=args.raytracing;scene.eevee.use_fast_gi=True
-    scene.eevee.ray_tracing_options.resolution_scale=str(lighting.get('eevee_ray_resolution',4))
-    scene.eevee.fast_gi_ray_count=lighting.get('eevee_gi_rays',2);scene.eevee.fast_gi_step_count=8
-    scene.eevee.shadow_ray_count=1 if args.profile=='fast' else 2
-    scene.eevee.shadow_step_count=4 if args.profile=='fast' else 8
-    if args.denoise and args.engine=='eevee':
-        graph=bpy.data.node_groups.new('Factory GPU denoising','CompositorNodeTree')
-        graph.interface.new_socket(name='Image',in_out='OUTPUT',socket_type='NodeSocketColor')
-        scene.compositing_node_group=graph
-        layer=graph.nodes.new('CompositorNodeRLayers');denoise=graph.nodes.new('CompositorNodeDenoise');output=graph.nodes.new('NodeGroupOutput')
-        scene.view_layers[0].use_pass_normal=True;scene.view_layers[0].use_pass_diffuse_color=True
-        graph.links.new(layer.outputs['Image'],denoise.inputs['Image'])
-        graph.links.new(layer.outputs['Normal'],denoise.inputs['Normal']);graph.links.new(layer.outputs['Diffuse Color'],denoise.inputs['Albedo'])
-        graph.links.new(denoise.outputs['Image'],output.inputs['Image'])
-        scene.render.compositor_device='GPU';scene.render.compositor_denoise_device='GPU'
-        scene.render.compositor_denoise_final_quality='BALANCED'if args.profile=='fast'else 'HIGH'
     prefs=bpy.context.preferences.addons['cycles'].preferences
     scene.cycles.denoising_use_gpu=True
     if args.device=='METAL':
@@ -150,21 +137,18 @@ def main():
             bsdf.inputs['Transmission Weight'].default_value=1.;bsdf.inputs['Roughness'].default_value=.025
             bsdf.inputs['Alpha'].default_value=1.
             mat.use_raytrace_refraction=True
-            if args.engine=='cycles':
-                path=nodes.new('ShaderNodeLightPath');clear=nodes.new('ShaderNodeBsdfTransparent')
-                clear.inputs[0].default_value=(.94,.94,.94,1)
-                mix=nodes.new('ShaderNodeMixShader');links.new(path.outputs['Is Shadow Ray'],mix.inputs[0])
-                links.new(bsdf.outputs['BSDF'],mix.inputs[1]);links.new(clear.outputs[0],mix.inputs[2])
-                links.new(mix.outputs[0],nodes.get('Material Output').inputs['Surface'])
-            if args.engine=='eevee':
-                # Distant planar panes need no expensive/noisy screen-space
-                # refraction; smooth alpha blending preserves the yard view.
-                mat.use_raytrace_refraction=False;mat.surface_render_method='BLENDED'
-                bsdf.inputs['Transmission Weight'].default_value=0.;bsdf.inputs['Alpha'].default_value=.10
+            path=nodes.new('ShaderNodeLightPath');clear=nodes.new('ShaderNodeBsdfTransparent')
+            clear.inputs[0].default_value=(.94,.94,.94,1)
+            mix=nodes.new('ShaderNodeMixShader');links.new(path.outputs['Is Shadow Ray'],mix.inputs[0])
+            links.new(bsdf.outputs['BSDF'],mix.inputs[1]);links.new(clear.outputs[0],mix.inputs[2])
+            links.new(mix.outputs[0],nodes.get('Material Output').inputs['Surface'])
         roles=spec.get('textures',{})
         for texture_role in ('mjTEXROLE_RGB','mjTEXROLE_RGBA','mjTEXROLE_ROUGHNESS','mjTEXROLE_NORMAL'):
             tid=roles.get(texture_role)
             if tid not in textures:continue
+            # Zone paint carries its authored color directly; the concrete's
+            # gray albedo must not dull it. Keep its roughness and normal maps.
+            if spec['name'].startswith('factory_zone_floor_') and texture_role in ('mjTEXROLE_RGB','mjTEXROLE_RGBA'):continue
             tex=nodes.new('ShaderNodeTexImage');tex.image=image(tid,texture_role in ('mjTEXROLE_ROUGHNESS','mjTEXROLE_NORMAL'))
             tex.extension='REPEAT';uv=nodes.new('ShaderNodeUVMap');mapping=nodes.new('ShaderNodeVectorMath');mapping.operation='MULTIPLY'
             mapping.inputs[1].default_value=(*spec['texrepeat'],1.)
@@ -181,13 +165,25 @@ def main():
             else:
                 mix=nodes.new('ShaderNodeMixRGB');mix.blend_type='MULTIPLY';mix.inputs[0].default_value=1.;mix.inputs[2].default_value=spec['rgba']
                 color=tex.outputs['Color']
+                if spec['name']=='factory_floor':
+                    normalization=nodes.new('ShaderNodeVectorMath');normalization.operation='SCALE'
+                    normalization.inputs['Scale'].default_value=1.35
+                    links.new(color,normalization.inputs[0]);color=normalization.outputs['Vector']
                 if lighting.get('normalize_paint_textures',False) and spec['name'] in ('factory_wall','factory_roof'):
                     # These grayscale images describe paint/rib variation, not
                     # a second dark paint layer over the chosen base albedo.
                     normalization=nodes.new('ShaderNodeVectorMath');normalization.operation='SCALE'
                     normalization.inputs['Scale'].default_value=1.8 if spec['name']=='factory_wall' else 1.45
                     links.new(color,normalization.inputs[0]);color=normalization.outputs['Vector']
-                links.new(color,mix.inputs[1]);links.new(mix.outputs[0],bsdf.inputs['Base Color'])
+                links.new(color,mix.inputs[1])
+                if role in ('print','painted_wood','task_color'):
+                    chroma=nodes.new('ShaderNodeHueSaturation');chroma.inputs['Saturation'].default_value=1.65
+                    links.new(mix.outputs[0],chroma.inputs['Color'])
+                    if role=='print':
+                        contrast=nodes.new('ShaderNodeGamma');contrast.inputs['Gamma'].default_value=1.8
+                        links.new(chroma.outputs['Color'],contrast.inputs['Color']);links.new(contrast.outputs['Color'],bsdf.inputs['Base Color'])
+                    else:links.new(chroma.outputs['Color'],bsdf.inputs['Base Color'])
+                else:links.new(mix.outputs[0],bsdf.inputs['Base Color'])
         if role=='painted_wood' or spec['name']=='factory_bench_wood':
             # Fine sealed grain, in stable local UVs; no displacement or color
             # changes to task loads and their printed markings.
@@ -226,7 +222,7 @@ def main():
         if np.array_equal(rgba,np.asarray(original['rgba'],dtype=np.float32)):
             return geom_material(original)
         if original['material']<0:return geom_material(dict(original,rgba=list(rgba)))
-        key=(original['material'],tuple(rgba))
+        key=(original['material'],tuple(rgba),task_role(original))
         if key not in appearance_materials:
             spec=dict(material_specs[original['material']],rgba=list(rgba))
             appearance_materials[key]=make_material(spec,task_role(original))
@@ -265,7 +261,8 @@ def main():
         sys.path.insert(0,str(Path(__file__).resolve().parent))
         from factory_blender_objects import build
         camera_positions=[f['camera']['position_m']for f in animation['frames']]if animation else [c['position_m']for c in metadata['cameras']if c['id']in args.views]
-        grouped=build(metadata,meshes,primitive,geom_material,scene,set(animation['appearance_geom_ids'])if animation else set(),args.instances,camera_positions,args.profile=='fast',lighting.get('robot_lod',{}))
+        mutable=set(animation['appearance_geom_ids'])if animation else set()
+        grouped=build(metadata,meshes,primitive,geom_material,scene,mutable,args.instances,camera_positions,args.profile=='fast',lighting.get('robot_lod',{}))
         objects=grouped['objects'];max_position_error=grouped['position_error'];max_rotation_error=grouped['rotation_error']
     for g in ([] if grouped else metadata['geoms']):
         mesh=meshes[('mesh',g['mesh'])] if g['kind']==7 else primitive(g['kind'])
@@ -331,8 +328,6 @@ def main():
         for iy,y in enumerate(np.linspace(-building['depth_m']/2+4,building['depth_m']/2-4,6)):
             key=ix in (1,5) and iy in (1,4)
             lamp=bpy.data.lights.new('Ceiling softbox','AREA');lamp.energy=lighting.get('ceiling_key_w'if key else 'ceiling_fill_w',lighting.get('ceiling_energy_w',1800.));lamp.shape='RECTANGLE';lamp.size=lighting.get('fixture_size_m',4.);lamp.size_y=lighting.get('fixture_width_m',2.)
-            if args.engine=='eevee' and args.profile=='fast':
-                lamp.use_shadow=lighting.get('eevee_all_shadows',False) or (ix+2*iy)%5==0
             # Emit below the lamp's lower face, not inside its opaque mesh.
             obj=bpy.data.objects.new(lamp.name,lamp);scene.collection.objects.link(obj);obj.location=(x,y,building['eave_height_m']-1.04)
     if bounced:
@@ -349,7 +344,7 @@ def main():
     sun.color=lighting.get('sun_color',[1.,.94,.85])
     obj.rotation_euler=tuple(math.radians(x)for x in lighting.get('sun_rotation_deg',[25,-30,-15]))
     # Exterior daylight cards sit beyond the actual glazed side openings. They
-    # provide a visible sky/treeline instead of black transmission in Eevee.
+    # provide a visible sky and treeline through the windows.
     # This is presentation scenery, shared by both offline engines.
     exterior_objects=[]
     if lighting.get('exterior_daylight',True):
@@ -382,35 +377,19 @@ def main():
         obj.location=(side*26.9,0,3.2);obj.rotation_euler=(Vector((0,0,1.))-obj.location).to_track_quat('-Z','Y').to_euler()
     camera_data=bpy.data.cameras.new('Factory camera');camera=bpy.data.objects.new('Factory camera',camera_data);scene.collection.objects.link(camera);scene.camera=camera
     camera_data.clip_start=.03;camera_data.clip_end=250.
-    bake_s=0.
-    if args.bake_gi:
-        if args.engine!='eevee' or not grouped or not grouped.get('instances'):raise ValueError('Static GI bake needs Eevee instances')
-        before=time.monotonic();probe=bpy.data.lightprobes.new('Static factory indirect light','VOLUME')
-        probe.resolution_x=16;probe.resolution_y=16;probe.resolution_z=4
-        probe.bake_samples=128;probe.surfel_density=4;probe.capture_world=True;probe.capture_distance=70.
-        obj=bpy.data.objects.new(probe.name,probe);scene.collection.objects.link(obj);obj.location=(0,0,3.5);obj.scale=(27.,24.,3.4)
-        dynamic=[c['obj']for c in grouped['instances'].clouds if not c['static']]
-        for obj in dynamic:obj.hide_render=True
-        baked=bpy.ops.object.lightprobe_cache_bake(subset='ALL')
-        if baked!={'FINISHED'}:raise RuntimeError(('Static light cache bake did not finish',baked))
-        for obj in dynamic:obj.hide_render=False
-        scene.eevee.fast_gi_method='AMBIENT_OCCLUSION_ONLY';bake_s=time.monotonic()-before
     report=dict(schema='robofrontier.blender-render.v1',source_scene_sha256=metadata['source_scene_sha256'],blender_version=bpy.app.version_string,
-        engine=args.engine,profile=args.profile,device=args.device if args.engine=='cycles' else 'GPU',exposure_ev=args.exposure,physics_stepped=False,
+        engine='cycles',profile=args.profile,device=args.device,exposure_ev=args.exposure,physics_stepped=False,
         visual_objects=len(metadata['geoms']),retained_objects=grouped['objects_count']if grouped else len(objects),shared_meshes=grouped['unique_meshes']if grouped else len(meshes),
         max_position_error_m=max_position_error,max_rotation_matrix_error=max_rotation_error,
         scope='Offline visual rendering; no physics/Isaac dynamics conversion',views=[])
     report.update(setup_wall_s=time.monotonic()-started,cpu_threads='AUTO',cpu_logical_cores=os.cpu_count(),
-        static_gi_bake_s=bake_s,
-        compositor_gpu_denoise=args.denoise and args.engine=='eevee',
-        compositor_denoise_quality=scene.render.compositor_denoise_final_quality,
-        lighting=lighting,raytracing=args.raytracing,material_audit=material_audit,
+        lighting=lighting,material_audit=material_audit,
         acceleration=dict(metalrt=prefs.metalrt,persistent_data=scene.render.use_persistent_data,
             adaptive_sampling=scene.cycles.use_adaptive_sampling,max_samples=scene.cycles.samples,min_samples=scene.cycles.adaptive_min_samples,
             light_tree=scene.cycles.use_light_tree,noise_threshold=scene.cycles.adaptive_threshold,
             png_compression=args.png_compression,enabled_devices=[dict(name=d.name,type=d.type)for d in prefs.devices if d.use]),
-        glass_mode='blended-thin-pane'if args.engine=='eevee'else 'physical-transmission-with-thin-shadow',
-        cycles_gpu_denoising=bool(args.engine=='cycles'and scene.cycles.use_denoising and scene.cycles.denoising_use_gpu),
+        glass_mode='physical-transmission-with-thin-shadow',
+        cycles_gpu_denoising=bool(scene.cycles.use_denoising and scene.cycles.denoising_use_gpu),
         shadow_area_lights=sum(l.use_shadow for l in bpy.data.lights if l.type=='AREA'),
         geometry=dict(robot_visual_lod=args.profile=='fast',
             render_triangles=grouped.get('render_triangles')if grouped else None,
@@ -423,7 +402,8 @@ def main():
     def render_camera(source,file):
         nonlocal hidden_state
         position=Vector(source['position_m']);target=Vector(source['target_m']);camera.location=position
-        camera.rotation_euler=(target-position).to_track_quat('-Z','Y').to_euler()
+        camera.rotation_euler=(Matrix(source['rotation_matrix']).to_euler() if 'rotation_matrix' in source
+            else (target-position).to_track_quat('-Z','Y').to_euler())
         if source.get('projection')=='orthographic':
             camera_data.type='ORTHO';camera_data.sensor_fit='HORIZONTAL'
             camera_data.ortho_scale=source['orthographic_height_m']*args.width/args.height
@@ -437,18 +417,14 @@ def main():
             for obj,group in visibility:
                 obj.hide_render=group in {layers[x] for x in hidden if x in layers}
                 obj.visible_camera=group not in {layers[x] for x in camera_hidden if x in layers}
-                # Eevee does not implement Cycles camera-ray visibility. Its
-                # cutaway omits the roof; this approximation is reported.
-                if args.engine=='eevee' and group in {layers[x] for x in camera_hidden if x in layers}:obj.hide_render=True
             for obj in exterior_objects:obj.hide_render=bool(hidden or camera_hidden)
             hidden_state=state
         offset=lighting.get('top_exposure_offset_ev',0.) if source.get('projection')=='orthographic' else 0.
-        if args.engine=='eevee' and source.get('projection')=='orthographic':offset=lighting.get('eevee_top_exposure_offset_ev',offset)
         scene.view_settings.exposure=args.exposure+source.get('exposure_offset_ev',offset)
         scene.render.filepath=str(file);before=time.monotonic();bpy.ops.render.render(write_still=True)
         return dict(camera=source.get('id','tour'),file=scene.render.filepath,wall_s=time.monotonic()-before,
             exposure_ev=scene.view_settings.exposure,hidden_layers=sorted(hidden),camera_hidden_layers=sorted(camera_hidden),
-            cutaway_mode=('camera-only' if args.engine=='cycles' else 'roof-omitted') if camera_hidden else 'none',
+            cutaway_mode='camera-only' if camera_hidden else 'none',
             started_s=before-started,ended_s=time.monotonic()-started,samples=args.samples,resolution=[args.width,args.height])
     if args.animation:
         if args.recorded_pose:raise ValueError('Select one animation or one recorded pose')

@@ -31,34 +31,40 @@ def placements(catalog,regions,root,aisle=1.2,source_overrides=None):
         for case in catalog['cases']:
             if case['family']!=family:continue
             source=Workstation((source_overrides or {}).get(case['id'],root/case['directory']));m,d=source.model,source.data;source.frame()
-            corners=[]
+            corners=[];table_corners=[]
             for g in range(m.ngeom):
                 name=m.geom(g).name
                 if int(m.geom_type[g])==mujoco.mjtGeom.mjGEOM_PLANE or name.startswith(('sky','floor')):continue
-                if not(m.geom_contype[g] or m.geom_conaffinity[g]):continue
                 box=m.geom_aabb[g];r=d.geom_xmat[g].reshape(3,3);center=d.geom_xpos[g]+r@box[:3];half=abs(r)@box[3:]
+                if name.startswith('table_') and 'leg' not in name:
+                    table_corners.extend((center[:2]-half[:2],center[:2]+half[:2]))
+                if not(m.geom_contype[g] or m.geom_conaffinity[g]):continue
                 corners.extend((center[:2]-half[:2],center[:2]+half[:2]))
             bases=np.asarray([b['position_parent_m'][:2] for b in source.manifest['bodies'] if b['id'].endswith('_link0')])
             low=np.minimum(np.min(corners,axis=0),bases.min(axis=0)-1.)
             high=np.maximum(np.max(corners,axis=0),bases.max(axis=0)+1.)
-            entries.append(dict(case=case,low=low,high=high,size=high-low))
+            if not table_corners:raise ValueError('No tabletop geometry: '+case['id'])
+            table=np.asarray(table_corners)
+            entries.append(dict(case=case,low=low,high=high,size=high-low,table_low=table.min(axis=0),table_high=table.max(axis=0)))
         if not entries:continue
         scales=sorted({e['case'].get('dials',e['case']['arms']) for e in entries})
         def cell(row,col):
-            level,scale=(col+1,scales[row]) if family=='transport' else (row+1,scales[col])
+            # Rows are built from -Y to +Y; the top camera looks with +Y up.
+            level,scale=3-row,scales[col]
             return next(e for e in entries if e['case']['level']==level and e['case'].get('dials',e['case']['arms'])==scale)
         grid=[[cell(row,col) for col in range(3)] for row in range(3)]
         widths=[max(grid[r][c]['size'][0] for r in range(3)) for c in range(3)]
         heights=[max(grid[r][c]['size'][1] for c in range(3)) for r in range(3)]
         x0,y0,x1,y1=region['bounds_xy_m'];total=np.array([sum(widths)+2*gap,sum(heights)+2*gap])
         origin=(np.array([x0+x1,y0+y1])-total)/2
+        origin[1]+=float(region.get('workstation_offset_y_m',0.))
         if np.any(origin<np.array([x0,y0])+.6):raise ValueError('Region too small: '+family)
         for row in range(3):
             for col in range(3):
                 e=grid[row][col];center=origin+[sum(widths[:col])+col*gap+widths[col]/2,sum(heights[:row])+row*gap+heights[row]/2]
                 shift=center-(e['low']+e['high'])/2;case=e['case']
                 result.append(dict(case_id=case['id'],family=family,source_directory=case['directory'],translation_m=[*shift,0.],yaw_rad=0.,scale=1.,
-                    planning_bounds_xy_m=[*(e['low']+shift),*(e['high']+shift)],inter_cell_gap_m=gap,planning_scope='Initial physical bounds plus indicative 1m base radius; actual carried-motion swept bounds remain to be checked'))
+                    planning_bounds_xy_m=[*(e['low']+shift),*(e['high']+shift)],table_bounds_xy_m=[*(e['table_low']+shift),*(e['table_high']+shift)],inter_cell_gap_m=gap,planning_scope='Initial physical bounds plus indicative 1m base radius; actual carried-motion swept bounds remain to be checked'))
     return result
 
 
@@ -108,6 +114,9 @@ def compose(shell,catalog_path,output,table_opening_scale=None,source_overrides=
         moved=corners@np.array([[co,-si,0],[si,co,0],[0,0,1.]]).T+shift
         place.update(translation_m=shift.tolist(),yaw_rad=yaw,
             planning_bounds_xy_m=[*moved[:,:2].min(axis=0),*moved[:,:2].max(axis=0)])
+        a,b,c,d=place['table_bounds_xy_m'];corners=np.array([[x,y,0.] for x in (a,c) for y in (b,d)])-old
+        moved=corners@np.array([[co,-si,0],[si,co,0],[0,0,1.]]).T+shift
+        place['table_bounds_xy_m']=[*moved[:,:2].min(axis=0),*moved[:,:2].max(axis=0)]
     root=ET.parse(shell).getroot();shutil.copytree(shell.parent/'assets',output/'assets')
     if (shell.parent/'build-config.json').exists():shutil.copyfile(shell.parent/'build-config.json',output/'build-config.json')
     option=root.find('option')
@@ -138,12 +147,13 @@ def compose(shell,catalog_path,output,table_opening_scale=None,source_overrides=
             continue
         if center[2]+half[2]>.035:
             occupied.append([*(center[:2]-half[:2]),*(center[:2]+half[:2])])
+    shell_occupied=occupied.copy()
     occupied.extend(p['planning_bounds_xy_m']for p in plan)
     del shell_model,shell_data
     def floor_label(name,text,position,half):
-        image=Image.new('RGB',(1600,256),(216,220,216));draw=ImageDraw.Draw(image)
+        image=Image.new('RGB',(1600,256),(245,245,240));draw=ImageDraw.Draw(image)
         font=ImageFont.truetype(str(root_dir/'assets/robo_factory/fonts/BarlowCondensed-SemiBold.ttf'),150)
-        draw.text((800,128),text,font=font,anchor='mm',fill=(35,57,67))
+        draw.text((800,128),text,font=font,anchor='mm',fill=(0,0,0))
         file=output/'workstation-assets'/(name+'.png');file.parent.mkdir(exist_ok=True);image.save(file)
         ET.SubElement(root.find('asset'),'texture',name=name,type='2d',file=str(file.relative_to(output)))
         ET.SubElement(root.find('asset'),'material',name=name,texture=name,texuniform='false',specular='0',roughness='.85')
@@ -187,10 +197,13 @@ def compose(shell,catalog_path,output,table_opening_scale=None,source_overrides=
         floor_label('ws_region_'+region['id'],region['label'],position,half);occupied.append(box)
         labels.append(dict(id='ws_region_'+region['id'],kind='region',text=region['label'],position_m=position,half_size_m=half,bounds_xy_m=box))
     for place in plan:
-        lowx,lowy,highx,highy=place['planning_bounds_xy_m'];cx=(lowx+highx)/2
+        lowx,lowy,highx,highy=place['table_bounds_xy_m'];cx=(lowx+highx)/2
         half=[min(1.4,(highx-lowx)/2-.10),.13]
-        candidates=[[cx+dx,lowy-dy,.004]for dy in (.45,.60,.80,1.)for dx in (0,-.35,.35)]
-        position,box=place_label(candidates,half,occupied)
+        candidates=[[cx,lowy-half[1]-gap,.004]for gap in (.20,.30,.45,.60,1.)]
+        # The planning envelope deliberately extends beyond the tabletop; it
+        # must not force a caption far away from its own table.
+        blocked=shell_occupied+[p['planning_bounds_xy_m'] for p in plan if p is not place]+[x['bounds_xy_m'] for x in labels]
+        position,box=place_label(candidates,half,blocked)
         name='ws_caption_'+place['case_id'];text=place['case_id'].upper()
         floor_label(name,text,position,half);occupied.append(box)
         labels.append(dict(id=name,kind='station',text=text,position_m=position,half_size_m=half,bounds_xy_m=box))

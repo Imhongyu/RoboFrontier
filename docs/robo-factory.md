@@ -1,20 +1,21 @@
 # 工厂展示与渲染
 
-V10使用居中区域标签的场景，最新静态图索引为
+工厂源码现将每区按俯视图从上到下排列L1/L2/L3、从左到右排列规模；工位标签放在实际桌沿上方。
+既有V10场景与视频为旧布局的历史交付，静态图索引为
 `outputs/robo-factory/v10-centered-labels-review/README.md`。区域标签固定在各矩形上边中间，
 通过移动供给车避让；工位标签放在桌面投影外。固定灯光/相机配置为
 `configs/backgrounds/robo_factory_lookdev.json`与`robo_factory_lookdev_camera.json`。
 大面积柔和补光替代离散光池；低角度暖日光从真实窗洞进入，室外道路已关闭。
 机械臂深色关节与外壳、木制任务件和桌面印刷分别校准展示材质，不改写源状态。
 
-视频现已恢复：16秒、30fps、480帧、1080p、Cycles Metal GPU、完整360°环绕。
+旧V10视频为16秒、30fps、480帧、1080p、Cycles Metal GPU、完整360°环绕。
 同一组10帧的加速比较见`runs/engineering/factory-orbit360-20261027/benchmark-review.md`；
 正式视频输出为`outputs/robo-factory/v10-orbit16-cycles/`。
 以下V9成片与耗时是历史验收，不能用作V10最终画质或速度结论。
 
-当前为V10、55×50米、四区36桌。配置`configs/backgrounds/robo_factory.json`；
-布局输入`configs/suites/frontier-current-oracle.json`；场景
-`outputs/robo-factory/v10-centered-labels/scene.xml`，由`outputs/robo-factory/current.json`指向。
+工厂为55×50米、四区36桌。当前构建配置是`configs/backgrounds/robo_factory.json`，
+布局输入为`configs/suites/frontier-current-oracle.json`。新布局需重新构建；旧V10场景
+`outputs/robo-factory/v10-centered-labels/scene.xml`和其历史指针不自动变为新布局。
 离线展示没有物理自由度或执行器。[V7验收记录](history/robo-factory-v7-20261027.md)
 及[V6早期说明](history/robo-factory-before-integration-20261027.md)保留。
 
@@ -54,13 +55,15 @@ Transport原Oracle为R13，桌面开孔显示比例0.5；GPT的R14本身已是�
 V10保留42组灯具模型；照明采用宽幅顶棚漫反射补光，避免离散灯源在地坪产生一圈圈亮斑。
 窗侧面积光、低角度太阳及环境光分工，顶棚补光不贡献镜面高光。
 Cycles玻璃保留相机方向的反射/透射，阴影射线使用薄玻璃透光近似，允许日光进入真实窗洞。
-Eevee采用混合透明薄玻璃，fast模式4盏主灯计算阴影，其余灯补光；两引擎效果需要实测比较。
 台面/硬表面使用平面法线，机械臂保留平滑表面；避免弧形桌面错误平滑造成波浪条带。
 
 `camera-shots.json`先总览6秒、角落小幅环视6秒，再按Transport→Mosaic→Relay→Dial，
 每类L1→L2→L3拍各规模工位。`orbit`默认在厂内缓慢环绕60°，可用`--orbit-degrees 360`选择整圈，导出固定30fps。
 镜头时钟与各桌源时钟独立；可选固定镜头或自行剪辑。
 这是可用的拍摄基础，尚未制作完整讲解、字幕与成片。
+
+工厂离线渲染只使用Cycles；旧的Classic工厂视频入口已停用。交互检查与GPT简单背景仍使用MuJoCo Classic。
+桌面任务物体的显示材质提高色度；源场景、事件及机械臂关节不改写。
 
 ## 构建、观看与导出
 
@@ -69,14 +72,13 @@ Eevee采用混合透明薄玻璃，fast模式4盏主灯计算阴影，其余灯�
 ```sh
 .venv/bin/python -m scripts.factory build --output outputs/robo-factory/my-factory
 .venv/bin/python -m scripts.factory video --renderer cycles --camera orbit --duration 8 --output outputs/robo-factory/my-cycles
-.venv/bin/python -m scripts.factory video --renderer eevee --camera orbit --duration 8 --output outputs/robo-factory/my-eevee
 ```
 
 `--scene`选择新场景，`--families`选择家族，`--camera`可选tour、orbit、desk-front或相机预设。
 默认Cycles/Metal GPU、fast、64 samples、Noise Threshold 0.10、Min Samples 4，
-Adaptive Sampling与GPU降噪开启；Eevee默认6 samples与GPU降噪。
+Adaptive Sampling与GPU降噪开启。
 `--samples`、`--noise-threshold`、`--min-samples`可单独覆盖。
-两种引擎均启用GPU降噪，CPU用于源FK、文件与场景更新。`--save-blend`可保存可检查场景。
+Cycles启用GPU降噪，CPU用于源FK、文件与场景更新。`--save-blend`可保存可检查场景。
 需安装Blender和ffmpeg；macOS自动发现Blender，也可传`--blender`指定程序。
 输出包含asset、poses、逐帧源映射、PNG、MP4、日志与report；完整解码并校验视频帧数/30fps。
 动画PNG默认为临时文件：MP4完整解码与帧数校验通过后，保留`stills/`内首、中、末三张，
@@ -100,7 +102,7 @@ Adaptive Sampling与GPU降噪开启；Eevee默认6 samples与GPU降噪。
 图像、视频与验证回执由`current.json.presentation.desk_front_preview`索引；
 记录在`runs/engineering/factory-desk-front-10frames-20261028/`。
 
-要复用同一批姿态进行两个引擎的严格对比，可分步导出：
+要复用同一批姿态比较不同Cycles采样参数，可分步导出：
 
 ```sh
 .venv/bin/python -m scripts.export_factory_blender --scene outputs/robo-factory/v9-workstations/scene.xml --output outputs/robo-factory/my-blender
@@ -108,7 +110,7 @@ Adaptive Sampling与GPU降噪开启；Eevee默认6 samples与GPU降噪。
 /Applications/Blender.app/Contents/MacOS/Blender --background --python-exit-code 1 --python scripts/render_factory_blender.py -- --asset outputs/robo-factory/my-blender --animation outputs/robo-factory/my-poses/animation.json --output outputs/robo-factory/my-cycles --engine cycles --device METAL --profile fast --samples 24
 ```
 
-第二次渲染使用相同asset/animation、独立output，改为`--engine eevee --samples 4`。
+可用相同asset/animation和独立output比较Cycles不同采样配置。
 `--benchmark-frames 3 --views interior_diagonal`用于固定机位冷/热帧测试。
 动画加速比较使用`--frame-indices 0 1 96 97 192 193 288 289 384 385 --no-encode`，
 只抽取相同10个源状态；完整相机路径仍决定固定LOD。`--metalrt ON`启用Metal硬件光线追踪，
@@ -123,12 +125,11 @@ fast模式仅对机械臂外观使用三档LOD，按整条镜头路径的最近�
 变色采用绑定在网格数据上的缓存材质副本；物体级材质覆盖不能作为实例变色依据。
 Blender集成检查读取最终求值几何的面材质，验证独立变色、运动后位置和立即复位。
 状态及源映射有哈希验证；初始和动画首/中/末帧审计刚体转换，位置误差约1微米。
-`--bake-gi`提供静态结构间接光烘焙实验，排除全部任务物体；当前不是默认方案。
 导出仍为可视化，不证明Isaac/USD动力学转换。
 
-## V10完整环视验收
+## V10历史完整环视验收
 
-- 当前视频：`outputs/robo-factory/v10-orbit16-cycles/factory.mp4`，16秒、480帧、30fps、1920×1080、完整360°。
+- 当时的视频：`outputs/robo-factory/v10-orbit16-cycles/factory.mp4`，16秒、480帧、30fps、1920×1080、完整360°。
 - Cycles Metal GPU、MetalRT ON、24 samples、GPU降噪；所有36桌源轨迹独立循环，源物理与动作不变。
 - Apple M5 Pro 16核GPU，预热后479帧平均2.126秒/帧，P95 2.279秒。
   场景准备4.913秒，首帧纯渲染3.120秒，进程启动至首帧8.290秒；
@@ -175,3 +176,22 @@ Blender集成检查读取最终求值几何的面材质，验证独立变色、�
 ## 数据清理后的交付入口
 
 `outputs/final/factory/` 提供当前 top、side 和环视 MP4 的链接。当前场景、Blender导出、光照配置、36条源流和v3剪辑保留；旧版本试图和编码后的逐帧PNG缓存按保留策略清理。旧验收中的帧数／解码结果是当时检查记录，不能据此声称PNG缓存现在仍存在。更新后的独立渲染输出不纳入本轮清理。
+
+## 单桌正面与侧面
+
+对已构建的场景先导出 Blender 资源，再生成相机并渲染：
+
+```bash
+python -m scripts.export_factory_blender --scene SCENE/scene.xml --output ASSET
+python -m scripts.factory_desk_cameras --scene SCENE/scene.xml --output desk-cameras.json
+blender --background --python-exit-code 1 --python scripts/render_factory_blender.py -- \
+  --asset ASSET --output DESK_OUTPUT --desk-cameras desk-cameras.json \
+  --width 1280 --height 800 --samples 16 --profile fast
+```
+
+默认每桌输出 front、side 两个透视视图，并保留工厂环境；正面沿用任务简单背景的
+global 相机方向，侧面正对工位侧轴。工位标签位于桌子下方的地面；正面取景包含标签，
+侧面优先展示桌子和设备，不要求露出标签文字。正面使用更小的画面留白，避免包含标签后桌子显得过小。
+依据每张桌子的初始几何包围范围调整距离和画面中心，
+使工位在 16:10 画幅内保持适当大小。可用 `--views top` 额外生成旧俯视图；结果是静态初始姿态，
+不代表运行时所有姿态。

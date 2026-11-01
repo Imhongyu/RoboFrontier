@@ -71,6 +71,8 @@ Mosaic的同名旧schema是另一种帧引用格式，不能直接当成Relay轨
 视频帧号/播放时间、原始仿真时间、剪辑时间、轨迹行号、原始60Hz帧号、区间号。
 `render.json`记录同一派生轨迹hash、工厂hash、倍速、帧率、几何误差、完整解码与视频hash。
 
+工厂离线影片现统一使用 `python -m scripts.factory video` 的 Cycles 入口；下面的 Relay render 命令只输出简单背景。原配对视频与原始帧映射保留。
+
 ## 可重用命令
 
 ```sh
@@ -87,8 +89,7 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=. \
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=. \
   .venv/bin/python -m scripts.export_relay_edited render \
   outputs/oracle/relay-edited-tracks-20261027 \
-  --output outputs/oracle/relay-20x-20261027 \
-  --factory outputs/robo-factory/relay-recorded-20261027/scene.xml
+  --output outputs/oracle/relay-20x-20261027
 ```
 
 新场景用新的输出目录并重新组成精确源。输出编码先写partial文件，完整解码和帧数

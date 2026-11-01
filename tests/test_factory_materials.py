@@ -33,11 +33,29 @@ class MaterialChecks(unittest.TestCase):
         self.assertLess(max(resolve(source, 'shell')['rgba'][:3]), .8)
         self.assertEqual(resolve(source, 'shell', False)['rgba'], source['rgba'])
 
-    def test_task_wood_and_print_do_not_recolor_or_reveal_hidden_geoms(self):
+    def test_task_colors_increase_chroma_without_revealing_hidden_geoms(self):
         source=dict(rgba=[.84,.1,.08,0.],roughness=-1.,metallic=-1.)
         for name in ('relay-a08-d1__payload_01_beam','mosaic-a04-6x12-d1__A_stock01_geom'):
             self.assertEqual(task_role(dict(name=name)), 'painted_wood')
             result=resolve(source,task_role(dict(name=name)))
-            self.assertEqual(result['rgba'],source['rgba'])
+            self.assertEqual(result['rgba'][3],0.)
+            self.assertGreater(max(result['rgba'][:3])-min(result['rgba'][:3]),max(source['rgba'][:3])-min(source['rgba'][:3]))
             self.assertGreater(result['roughness'],.5)
         self.assertIsNone(task_role(dict(name='transport-a04-d1__A_item1_blade0')))
+        self.assertEqual(source['rgba'],[.84,.1,.08,0.])
+
+    def test_task_palette_covers_families_and_preserves_neutral_white(self):
+        for name in ('transport-a04-d1__A_item1_geom','relay-a08-d1__relay_direction_0_tip',
+                     'dial-best5-n04-d1__D01_module_disk','mosaic-a04-6x12-d1__A_stock01_geom'):
+            self.assertIsNotNone(task_role(dict(name=name)),name)
+        source=dict(rgba=[.9,.9,.9,1.],roughness=.5,metallic=0.)
+        self.assertEqual(resolve(source,'task_color')['rgba'],source['rgba'])
+
+    def test_printed_labels_use_matte_nonmetallic_finish(self):
+        for name in ('transport-a04-d1__A_label', 'dial-best5-n04-d1__score_title_geom',
+                     'relay-a08-d1__payload_01_label'):
+            self.assertEqual(task_role(dict(name=name)), 'print')
+        result = resolve(dict(rgba=[1, 1, 1, 1], roughness=.2, metallic=.4), 'print')
+        self.assertEqual(result['specular'], 0.)
+        self.assertGreaterEqual(result['roughness'], .9)
+        self.assertEqual(result['metallic'], 0.)
