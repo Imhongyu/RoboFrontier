@@ -1,11 +1,12 @@
 # Native Claude Code engineering handoff
 
 The unified integration retains the native Claude CLI/MCP implementation beside
-Codex. It does **not** admit scored Claude tasks. Current Single/Adaptive
+Codex. It does **not** admit scored Claude tasks. Current four-topology
 engineering entries can start real simulation and potentially billable inference
 only when explicitly invoked. Provider profiles are candidates, not compatibility
-certificates. Permanent Worker topologies remain an implementation/qualification
-gate; see [the component map](claude-codex-parity.md),
+certificates. Native permanent Worker engineering is documented in
+[standing teams](claude-standing-teams.md); full scored qualification remains
+a gate. See [the component map](claude-codex-parity.md),
 [harness alignment](harness-alignment.md) and
 [the current acceptance ledger](development/unified-main.md).
 
@@ -15,7 +16,9 @@ New Single/Adaptive policy inputs use direct Controller START. Once the world is
 ready and the Controller's native session is bound, the host persists START and
 sends an explicit started prompt. Initial task reading, observation and planning
 count toward the task clock. `ready` is an optional capability query; it is not
-a readiness barrier. Frozen `ready_barrier_v1` runs keep their historical
+a readiness barrier. Standing Controller + Worker and Worker-Worker runs bind
+all initial roles before one `direct_team_v3` START, then send each an explicit
+started task prompt. Frozen `ready_barrier_v1` runs keep their historical
 READY/idle startup and must not be reinterpreted as direct-start experiments.
 
 The default task limit is 86,400 seconds from persisted START. A separately

@@ -6,21 +6,30 @@ from pathlib import Path
 MAX_BOOTSTRAP_BYTES = 400_000
 
 
-def bootstrap_prompt(run_dir, *, topology='centralized', startup_protocol='ready_barrier_v1'):
+def bootstrap_prompt(run_dir, *, topology='centralized', startup_protocol='ready_barrier_v1', actor='Controller'):
     run = Path(run_dir).resolve()
     public = (run / 'public/inputs').resolve()
     task = json.loads((public / 'task.json').read_text())
     roles = json.loads((public / 'roles.json').read_text())
-    if topology not in ('centralized','adaptive') or roles.get('topology') != topology or roles.get('roles', {}).get('Controller', {}).get('kind') != 'controller':
+    standing = topology in ('hierarchical', 'peer')
+    role = roles.get('roles', {}).get(actor, {})
+    if roles.get('topology') != topology:
+        raise ValueError('Expected a policy role in the selected topology')
+    if standing:
+        if startup_protocol != 'direct_team_v3' or role.get('kind') not in ('coordinator', 'worker'):
+            raise ValueError('Expected a direct-start standing policy role')
+    elif topology not in ('centralized', 'adaptive') or actor != 'Controller' or role.get('kind') != 'controller':
         raise ValueError('Expected the selected Controller topology')
     # No filesystem tools are exposed to the policy, so its complete textual
     # public materials must be supplied in the prompt. Images use public_image.
-    paths = ['claude-controller.md', 'task.json', 'roles.json', 'skill/SKILL.md',
+    paths = [('claude-roles/' + actor + '.md') if standing else 'claude-controller.md',
+             'task.json', 'roles.json', 'skill/SKILL.md',
              'skill/references/tools.md', 'skill/references/communication.md',
              'skill/references/motion-check.md']
     # Earlier frozen drafts do not contain the shared contract; preserve their
     # existing inputs instead of silently injecting a newer protocol.
     if (public / 'policy-rules.md').is_file(): paths.insert(1, 'policy-rules.md')
+    if standing: paths.insert(1, 'claude-controller.md')
     if topology == 'adaptive': paths.append('skill/references/adaptive.md')
     for name in task.get('family_materials', []):
         if not isinstance(name, str): raise ValueError('Invalid public material reference')
@@ -39,7 +48,7 @@ def bootstrap_prompt(run_dir, *, topology='centralized', startup_protocol='ready
              'history, inbox and authorized messages for status and handback evidence. To read a returned '
              'delegate report, call robot work with data {"delegate_id":"Delegate_..."}; '
              'the authorized report is returned inline as delegate_report.' if topology == 'adaptive' else '')
-    if startup_protocol == 'direct_controller_v2':
+    if startup_protocol in ('direct_controller_v2', 'direct_team_v3'):
         extra += ('\n\nThe experiment has STARTED and the task clock is running. Read the task and '
                   'observe the scene, then decide and act. You may call ready for robot capabilities; '
                   'continue without waiting for another START.')

@@ -19,6 +19,7 @@ from robofrontier.claude.adaptive_policy_host import AdaptivePolicyHost
 from robofrontier.claude.budget import BudgetLedger
 from robofrontier.claude.session_host import ClaudeSessionHost
 from robofrontier.claude.supervisor import CentralizedSupervisor
+from robofrontier.claude.standing_team import StandingTeamPolicyHost
 from robofrontier.run_seal import seal_run
 from robofrontier.run_setup import verify_inputs, write_json
 from robofrontier.task_config import ROOT
@@ -40,7 +41,7 @@ def _evaluation_present(run):
 
 def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd=None, wall_limit_s=86400, startup_timeout_s=120,
                     poll_s=0.5, owner_factory=subprocess.Popen, policy_factory=CentralizedPolicyHost,
-                    adaptive_policy_factory=AdaptivePolicyHost,
+                    adaptive_policy_factory=AdaptivePolicyHost, standing_policy_factory=StandingTeamPolicyHost,
                     clock=time.monotonic, sleep=time.sleep):
     """Run one explicit engineering draft and conservatively retain uncertain state.
 
@@ -65,8 +66,8 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
     profile = launch['profile']
     config = json.loads((run / 'private/inputs/harness.json').read_text())
     topology = config.get('topology')
-    if topology not in ('centralized', 'adaptive') or config.get('engine') != 'claude':
-        raise ValueError('Expected a centralized or adaptive Claude engineering draft')
+    if topology not in ('centralized', 'adaptive', 'hierarchical', 'peer') or config.get('engine') != 'claude':
+        raise ValueError('Expected a supported Claude engineering draft')
     if not base_env.get(profile['env_key']): raise ValueError('Missing credential variable: ' + profile['env_key'])
     if (run / 'STOP').exists(): raise ValueError('Run was stopped before launch')
     host_factory = partial(ClaudeSessionHost, max_budget_usd=turn_budget_usd, total_budget_usd=total_budget_usd)
@@ -97,6 +98,10 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
             policy = adaptive_policy_factory(run, profile, base_env, ledger,
                                              turn_budget_usd=turn_budget_usd,
                                              setup_budget_usd=turn_budget_usd)
+        elif topology in ('hierarchical', 'peer'):
+            ledger = BudgetLedger.create(run / 'private/state/claude-budget.sqlite', total_budget_usd)
+            policy = standing_policy_factory(run, profile, base_env, ledger,
+                                              turn_budget_usd=turn_budget_usd)
         write_json(status, {'status': 'starting', 'claimed_at': time.time(), 'scored': False,
                             'turn_budget_usd': turn_budget_usd, 'task_budget_usd': total_budget_usd,
                             'wall_limit_s': wall_limit_s, 'startup_timeout_s': startup_timeout_s})

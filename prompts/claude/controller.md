@@ -1,4 +1,4 @@
-# RoboFrontier Controller
+# RoboFrontier policy role
 
 You are the policy for one fresh robot experiment. Use the supplied public task,
 family materials and collaboration rules. Your decisions, observations and robot

@@ -13,9 +13,9 @@ collection have explicit command-line entries.
 **Integration status:** this checkout is the development branch
 `integration/unified-main`. Its unified commands have not yet replaced GitHub's
 `main`. Read the [acceptance ledger](docs/development/unified-main.md) for actual
-verification and open gates. In particular, Claude scored execution and its
-permanent-worker modes remain closed, and the complete historical test suite is
-not passing. Model profiles are configuration choices, not universal provider
+verification and open gates. Claude scored execution remains closed; all four
+Claude topologies have engineering entries. The complete historical test suite
+is not passing. Model profiles are configuration choices, not universal provider
 compatibility certificates.
 
 ## Start here
@@ -161,14 +161,15 @@ replayed. Short engineering stops are separate from the published task deadline.
 | `worker-worker` | One permanent Worker per arm; Workers coordinate directly with peers. |
 | `adaptive` | One Controller controls all arms and dynamically chooses whether, when and how many bounded delegates to create or retire. |
 
-All new unified Codex batches directly START after their required initial native sessions
-are bound. Each role receives an explicit started prompt. `ready` is an optional
+All new unified batches directly START after their required initial native
+sessions are bound. Each role receives an explicit started prompt. `ready` is an optional
 capability query; it is not a model-readiness gate. Old `ready_barrier_v1` inputs
 keep their frozen legacy behavior. Direct START does not change robot ownership.
 
-Claude currently exposes Single/Adaptive engineering drafts through this CLI;
-permanent-worker execution and full scored lifecycle qualification are still
-integration gates. Use the engine-specific guide rather than assuming that a
+Claude exposes all four modes as explicit engineering drafts, including native
+standing Workers with independent sessions. See [Claude standing teams](docs/claude-standing-teams.md)
+for commands, resource implications and measured coverage. Formal scored Claude
+lifecycle qualification remains an integration gate. Use the engine-specific guide rather than assuming that a
 Codex app-server tool/fork interface exists in Claude Code. API and native
 subscription authentication are separate paths. In particular, isolated Codex
 API homes do not imply qualified concurrent subscription-token refresh.

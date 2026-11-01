@@ -199,9 +199,11 @@ launch interval alone does not prove that all shared-config races are solved.
 See [official Codex authentication documentation](https://developers.openai.com/codex/auth/)
 for file versus OS credential storage and native sign-in behavior.
 
-Claude planning/preparation uses its native catalog and runner. Only `single`
-and `adaptive` engineering drafts are exposed; permanent-worker modes are not
-silently emulated. The formal scored qualification gate remains closed.
+Claude planning/preparation uses its native catalog and runner. All four
+topologies have engineering entries. Standing modes create one native Claude
+session per initial role and use the shared mailbox/scheduler; they are not
+simulated Adaptive delegations. See [Claude standing teams](claude-standing-teams.md)
+for role counts and the scoped checks. Formal scored qualification remains closed.
 
 ```sh
 .venv/bin/robofrontier plan --engine claude --profile haiku --level 1 --min-arms

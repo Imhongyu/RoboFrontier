@@ -72,8 +72,8 @@ def prepare_draft(output, names, families=None, cases=None, level=None, min_arms
     from robofrontier.task_families import prepare, policy_task
     from robofrontier.suite.dial_feedback import alphabet
 
-    if topology not in ('adaptive', 'centralized'):
-        raise ValueError('Draft topology must be adaptive or centralized')
+    if topology not in ('adaptive', 'centralized', 'hierarchical', 'peer'):
+        raise ValueError('Unknown Claude engineering topology')
     if type(record_video) is not bool:
         raise ValueError('record_video must be a boolean')
     selection = plan(names, families, cases, level, min_arms, 1, catalog)
@@ -101,6 +101,7 @@ def prepare_draft(output, names, families=None, cases=None, level=None, min_arms
             puzzles[case] = target
     for name, p in profiles.items():
         cfg = read(ROOT / 'configs/harnesses/policy.json')
+        if topology in ('hierarchical', 'peer'): cfg['startup_protocol'] = 'direct_team_v3'
         cfg.update(engine='claude', topology=topology, model=p['model'], effort=p['effort'], observation_renderer='classic', record_realtime_video=record_video)
         if observation_image_profile is not None:cfg['observation_image_profile']=observation_image_profile
         if startup_timeout_s is not None:cfg['startup_timeout_s']=startup_timeout_s
@@ -116,9 +117,27 @@ def prepare_draft(output, names, families=None, cases=None, level=None, min_arms
                                 'qualified': False, 'execution_available': False})
             prompt = run / 'public/inputs/claude-controller.md'
             prompt.write_text((ROOT / 'prompts/claude/controller.md').read_text())
+            role_prompts = []
+            if topology in ('hierarchical', 'peer'):
+                roles = read(run/'public/inputs/roles.json')
+                controller = cfg['coordinator']
+                for actor, info in roles['roles'].items():
+                    if info['kind'] == 'manager': continue
+                    template = 'standing-controller' if info['kind'] == 'coordinator' else 'standing-worker'
+                    text = (ROOT/'prompts/claude'/f'{template}.md').read_text()
+                    values = {'ACTOR': actor, 'TOPOLOGY': topology,
+                        'FINISH_AUTHORITY': controller if topology == 'hierarchical' else 'any peer Worker',
+                        'COMMUNICATION_ROUTE': ('Coordinate joint commitments through '+controller+
+                            '; Worker-to-Worker business messages are unavailable.' if topology == 'hierarchical' else
+                            'Negotiate affected commitments and shared resources directly with relevant peer Workers.')}
+                    for key, value in values.items(): text = text.replace('{{'+key+'}}', value)
+                    role_prompt = run/'public/inputs/claude-roles'/f'{actor}.md'
+                    role_prompt.parent.mkdir(parents=True, exist_ok=True)
+                    role_prompt.write_text(text)
+                    role_prompts.append(role_prompt)
             manifest_path = inputs / 'manifest.json'
             manifest = read(manifest_path)
-            for file in (launch, prompt):
+            for file in (launch, prompt, *role_prompts):
                 manifest['input_sha256'][str(file.relative_to(run))] = digest(file)
             for file in (ROOT / 'scripts/claude_benchmark.py', ROOT / 'configs/claude-models.json'):
                 relative = file.relative_to(ROOT)
@@ -172,10 +191,10 @@ def main():
         if command == 'plan': p.add_argument('--parallel', type=int, default=4)
         else:
             p.add_argument('--output', type=Path, required=True)
-            p.add_argument('--topology', choices=('adaptive', 'centralized'), default='adaptive',
-                           help='Engineering draft topology; neither option qualifies a scored run')
+            p.add_argument('--topology', choices=('adaptive', 'centralized', 'hierarchical', 'peer'), default='adaptive',
+                           help='Engineering draft topology; no topology qualifies a scored run')
             p.add_argument('--record-video', action='store_true', help='Record a real-time MP4 during the engineering run')
-    p = sub.add_parser('run-engineering', help='Unqualified centralized or adaptive experiments; may spend API funds')
+    p = sub.add_parser('run-engineering', help='Unqualified native Claude topology experiments; may spend API funds')
     p.add_argument('batch', type=Path); p.add_argument('--parallel', type=int, required=True)
     p.add_argument('--turn-budget-usd', type=float, default=None,
                    help='Optional CLI-reported cost allowance per turn; unset means no per-turn cost cap')

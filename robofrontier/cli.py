@@ -67,8 +67,6 @@ def prepare(output, config):
     output = Path(output).resolve()
     if output.exists():
         raise ValueError('Choose a new output directory; prepared runs are never overwritten')
-    if policy['engine'] == 'claude' and policy['topology'] not in ('single', 'adaptive'):
-        raise ValueError('Claude permanent-worker modes are not qualified; use single or adaptive engineering drafts')
     setup_assets()
     topology = TOPOLOGIES[policy['topology']]
     harness = {'topology': topology,

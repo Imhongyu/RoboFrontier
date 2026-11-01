@@ -35,6 +35,20 @@ class BatchTests(unittest.TestCase):
         return run_batch(self.root, self.env, parallel=parallel, turn_budget_usd=.2, total_budget_usd=1, wall_limit_s=5,
                          runner=runner, verifier=lambda _: [], startup_interval_s=0)
 
+    def test_standing_topologies_pass_shared_batch_preflight(self):
+        for job, topology in zip(self.jobs, ('hierarchical', 'peer', 'hierarchical', 'peer')):
+            path = Path(job['run_directory'])/'private/inputs/harness.json'
+            data = json.loads(path.read_text())
+            data.update(topology=topology, startup_protocol='direct_team_v3')
+            path.write_text(json.dumps(data))
+        seen = []
+        def runner(run, *args, **kwargs):
+            seen.append(Path(run).name)
+            return {'status':'finished','reason':'wall_limit'}
+        state = self.run_case(runner)
+        self.assertEqual(state['status'], 'closed')
+        self.assertEqual(set(seen), {'case0','case1','case2','case3'})
+
     def test_parallel_limit_all_jobs_and_single_use(self):
         guard = threading.Lock(); counts = {'active':0, 'maximum':0, 'total':0}
         def runner(*args, **kwargs):

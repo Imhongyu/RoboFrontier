@@ -46,7 +46,7 @@ def _preflight(jobs, env, verifier):
         profile = launch['profile']
         if (launch.get('schema') != 'robofrontier.claude-launch-draft.v1' or launch.get('qualified') is not False
                 or launch.get('execution_available') is not False or config.get('engine') != 'claude'
-                or config.get('topology') not in ('centralized', 'adaptive') or config.get('model') != profile.get('model')
+                or config.get('topology') not in ('centralized', 'adaptive', 'hierarchical', 'peer') or config.get('model') != profile.get('model')
                 or config.get('effort') != profile.get('effort')):
             raise ValueError('Run does not match the engineering launch profile')
         if not env.get(profile.get('env_key')): raise ValueError('Missing provider credential variable')

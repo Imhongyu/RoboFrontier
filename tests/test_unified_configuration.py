@@ -94,6 +94,30 @@ class UnifiedConfigurationTests(unittest.TestCase):
                 self.assertEqual(set(roles), {'Meta', 'Controller', 'A', 'B', 'C', 'D'} if topology == 'controller-worker' else {'Meta', 'A', 'B', 'C', 'D'})
                 self.assertEqual(verify_inputs(run), [])
 
+    def test_claude_standing_prepare_freezes_role_prompts_and_direct_start(self):
+        for topology in ('controller-worker', 'worker-worker'):
+            with self.subTest(topology=topology), tempfile.TemporaryDirectory() as tmp:
+                config = load_configuration(overrides={
+                    'policy': {'engine':'claude','profile':'haiku','topology':topology},
+                    'render': {'device':'native'}, 'selection': {'cases':['transport-a04-d1']}})
+                batch = Path(tmp)/'batch'
+                prepare(batch, config)
+                data = json.loads((batch/'batch.json').read_text())
+                self.assertFalse(data['execution_available'])
+                self.assertEqual(data['model_calls'], 0)
+                run = Path(data['jobs'][0]['run_directory'])
+                harness = json.loads((run/'private/inputs/harness.json').read_text())
+                self.assertEqual(harness['startup_protocol'], 'direct_team_v3')
+                roles = json.loads((run/'public/inputs/roles.json').read_text())['roles']
+                self.assertEqual(set(roles), {'Meta','A','B','C','D'} |
+                    ({'Controller'} if topology == 'controller-worker' else set()))
+                for actor, value in roles.items():
+                    if value['kind'] == 'manager': continue
+                    self.assertTrue((run/'public/inputs/claude-roles'/f'{actor}.md').is_file())
+                self.assertEqual(verify_inputs(run), [])
+                self.assertEqual(_frozen_configuration(batch), config)
+
+
 
 if __name__ == '__main__':
     unittest.main()

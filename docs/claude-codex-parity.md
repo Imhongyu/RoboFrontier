@@ -7,11 +7,12 @@ Their native session/tool interfaces are different. Use
 [architecture](architecture.md) for shared contracts, and the
 [acceptance ledger](development/unified-main.md) for actual integration evidence.
 
-New Single/Adaptive runs use direct Controller START; all initial standing-team
-Codex roles use direct team START. `ready` is a capability query in those runs.
+New Single/Adaptive runs use direct Controller START; both engines use direct
+team START for initial standing-team roles. `ready` is a capability query in those runs.
 Historical `ready_barrier_v1` inputs retain their old READY/idle barrier.
-Claude currently exposes Single/Adaptive engineering drafts only. Permanent
-Workers and formal scored Claude execution are not yet available. Earlier
+Claude exposes all four engineering topologies. Native permanent Workers are
+documented in [standing teams](claude-standing-teams.md); formal scored Claude
+execution remains unavailable. Earlier
 migration records below describe their original stages, not current defaults.
 
 ## Component map
@@ -22,8 +23,8 @@ migration records below describe their original stages, not current defaults.
 | Task selection/freeze | `benchmark.select_cases`, shared preparation | Same selection/preparation; `engine: claude` in new harness/manifest | Shared tasks, separate engine qualification. |
 | One policy turn | app-server `turn/start` | `claude -p`, `robofrontier/claude/runner.py` | Native turn lifecycle is not task success. |
 | Robot tools | app-server dynamic `robot` tool | Role-bound MCP in `robot_mcp.py` | Actual provider image handling requires its own evidence. |
-| Per-task host | `scripts/codex_policy_host.js` | `policy_host.py`, `adaptive_policy_host.py` | Claude Single/Adaptive engineering only. |
-| Scheduling | `scripts/meta_dispatcher.js` | `dispatch.py`, `adaptive_dispatch.py` | Both use shared deterministic runtime rules; Claude engineering does not run through a fabricated Codex tool object. |
+| Per-task host | `scripts/codex_policy_host.js` | `policy_host.py`, `adaptive_policy_host.py`, `standing_team.py` | All four Claude topologies remain engineering only. |
+| Scheduling | `scripts/meta_dispatcher.js` | `dispatch.py`, `adaptive_dispatch.py`, `standing_team.py` | Both use shared deterministic runtime rules; Claude engineering does not run through a fabricated Codex tool object. |
 | Session observation source | `codex.wait_threads`, `codex.app-server` | `claude.host` | `SESSION_SOURCES` is restricted by selected engine. |
 | Fork history | Native ordinal/prefix hashes in the task's Codex home | Native transcript UUID sequence/content in `provenance.py` | Prefix equality alone does not establish trusted creation or role authority. |
 | Source freeze | Benchmark launch and native host/RPC scripts | Claude launcher/catalog and imported shared Python modules | Current freeze checks do not retroactively protect old drafts. |

@@ -86,6 +86,23 @@ class EngineeringRunTests(unittest.TestCase):
         self.assertFalse(result['scored'])
         self.assertTrue(result['owner_alive'])  # live owner is recorded, never killed implicitly
 
+    def test_standing_launch_creates_one_run_ledger_before_world(self):
+        for topology in ('hierarchical', 'peer'):
+            with self.subTest(topology=topology), tempfile.TemporaryDirectory() as tmp:
+                import shutil
+                run = Path(tmp)/'run'; shutil.copytree(self.run, run)
+                (run/'private/inputs/harness.json').write_text(json.dumps({
+                    'engine':'claude','topology':topology,'startup_protocol':'direct_team_v3'}))
+                seen = []
+                def standing(run, profile, env, ledger, **kwargs):
+                    seen.append((ledger.snapshot()['limit_usd'], kwargs))
+                    return Policy()
+                result = run_engineering(run, self.env, turn_budget_usd=.5, total_budget_usd=2,
+                    standing_policy_factory=standing, owner_factory=lambda *a, **k: Owner(1))
+                self.assertEqual(result['status'], 'needs_review')
+                self.assertEqual(seen, [('2', {'turn_budget_usd':.5})])
+                self.assertTrue((run/'private/state/claude-budget.sqlite').is_file())
+
     def test_adaptive_launch_creates_shared_run_budget_before_world(self):
         (self.run/'private/inputs/harness.json').write_text(json.dumps({'engine':'claude','topology':'adaptive'}))
         seen = []

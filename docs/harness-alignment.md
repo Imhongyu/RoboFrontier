@@ -15,7 +15,7 @@ qualification are tracked in the [acceptance ledger](development/unified-main.md
 | Claude delegation identity | `request_identity.py`, `fork_setup.py` | Bind the generated delegation ID to one unmatched native tool call, then create and verify the fork |
 | Public tool instructions | `prompts/claude/controller.md`, `.agents/skills/robot-collaboration/references/tools.md` | Distinguish new requests, status queries and retries of uncertain requests; retain explicit-ID compatibility |
 | Claude provider errors | `recovery.py`, `runner.py`, `session_host.py` | Recognize structured capacity failures and retain original-session recovery, backoff and retry evidence |
-| Claude scheduling | `supervisor.py`, `dispatch.py`, `adaptive_dispatch.py` | Recover within the existing deadline; a recovering role does not claim ordinary wakes while other runnable roles continue |
+| Claude scheduling | `supervisor.py`, `dispatch.py`, `adaptive_dispatch.py`, `standing_team.py` | Recover within the existing deadline; a recovering role does not claim ordinary wakes while other runnable roles continue |
 | Shared reporting | `robofrontier/run_metrics.py`, `scripts/export_run_report.py` | Emit common `host_metrics`; resolve isolated Codex homes and collected session maps |
 | Host timing | `scripts/codex_policy_host.js`, Claude `runner.py` and `robot_mcp.py` | Record turn/tool/fork setup intervals without adding another image Base64 log |
 
