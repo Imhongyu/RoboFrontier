@@ -1,53 +1,105 @@
-# VLA 的动作空间与 RGB / Oracle：一手资料核对
+# VLA action spaces and RGB/Oracle information: primary-source review
 
-日期：2026-10-19。只调查与解释，未实施仿真。下述论文版本和官方仓库说明对应特定实现，不代表所有 VLA。
+Date: 2026-10-19. This is a dated research/design note, not a new simulation or
+an updated upstream survey. Each cited paper/repository describes a particular
+implementation; its choices do not apply to every vision-language-action model.
 
-## 已核实的实例
+## Verified examples
 
-| 系统 | 模型输入 | 动作表示 | 一手证据 |
+| System | Model input | Action representation | Primary evidence |
 | --- | --- | --- | --- |
-| RT-2 | 相机图像、文字任务 | 末端 3D 平移增量、3D 旋转增量、夹爪、终止标志 | [原始论文 §3.2](https://arxiv.org/html/2307.15818v1#S3.SS2) |
-| 原始 OpenVLA | 图像、语言指令 | 7 维机器人动作；数据筛选为单臂末端控制，不是七个关节 | [论文 Fig.2、§3.2–3.3](https://arxiv.org/html/2406.09246v3) |
-| π0 论文 | 多路 RGB、语言、关节角本体状态 | 作者内部数据使用关节位置；混合训练也含不同动作表示 | [论文 §IV](https://www.physicalintelligence.company/download/pi0.pdf)、[作者 Kevin Black 在官方仓库的解释](https://github.com/Physical-Intelligence/openpi/discussions/302) |
-| 后续 openpi 相关模型 | 随具体模型和数据适配器定义 | 作者说明支持关节、世界坐标末端、末端相对动作；不能一概视为关节输出 | [官方作者讨论 #302](https://github.com/Physical-Intelligence/openpi/discussions/302) |
+| RT-2 | Camera image and text task | End-effector 3D translation delta, 3D rotation delta, gripper and termination flag | [Original paper §3.2](https://arxiv.org/html/2307.15818v1#S3.SS2) |
+| Original OpenVLA | Image and language instruction | 7-dimensional robot action; training data filtered for single-arm end-effector control, not seven joints | [Paper Fig.2, §3.2–3.3](https://arxiv.org/html/2406.09246v3) |
+| π0 paper | Multiple RGB views, language and joint-angle proprioception | Joint positions for the authors' internal data; mixed training also includes different action representations | [Paper §IV](https://www.physicalintelligence.company/download/pi0.pdf), [author Kevin Black's official repository explanation](https://github.com/Physical-Intelligence/openpi/discussions/302) |
+| Later openpi-related models | Defined by the particular model and data adapter | Authors describe joint, world-frame end-effector and end-effector-relative actions; these are not uniformly joint outputs | [Official author discussion #302](https://github.com/Physical-Intelligence/openpi/discussions/302) |
 
-OpenVLA 的 7 维在常见末端接口中对应平移 3、旋转 3、夹爪 1；RT-2 另外还有终止标志。机器人本身是 7 DoF，与动作向量恰好有 7 维是不同概念。原始 OpenVLA 的图像输入结论不能自动套用后续 OpenVLA-OFT 等扩展。
+OpenVLA's seven dimensions commonly mean three translation, three rotation and
+one gripper component. RT-2 additionally has a termination flag. A seven-DoF
+robot and a seven-dimensional action vector are distinct concepts. Conclusions
+about original OpenVLA image inputs do not automatically apply to later
+extensions such as OpenVLA-OFT.
 
-π0 论文明确观察包含关节角。官方 ALOHA 适配代码又具体列出 state 的内容为左右臂角度和夹爪，并把它与图像一起送入模型：[aloha_policy.py](https://github.com/Physical-Intelligence/openpi/blob/main/src/openpi/policies/aloha_policy.py)。因此，视觉机器人不等于模型和底层都只能读取相机。
+The π0 paper explicitly includes joint angles in observations. The official
+ALOHA adapter defines state from both arms' angles and grippers and supplies it
+alongside images: [aloha_policy.py](https://github.com/Physical-Intelligence/openpi/blob/main/src/openpi/policies/aloha_policy.py).
+A visual robot therefore need not restrict both its model and its lower-level
+controller to camera information alone.
 
-结论：这些一手实现并未采用唯一动作空间。末端命令与关节命令都是正常设计；要报告具体表征、坐标系、单位、频率、归一化和执行器，而不能把“VLA 标准”理解为必需输出每个电机。
+These primary implementations do not share a single action space. End-effector
+and joint commands are both ordinary designs. Report the actual representation,
+frame, units, frequency, normalization and actuator rather than interpreting a
+"VLA standard" as a requirement to output every motor command.
 
-## IK 与世界物体真值是独立的问题
+## IK and privileged object state are independent questions
 
-LeRobot 官方文档直接介绍关节和末端两种表示，并提供基于机器人 URDF 的 `RobotKinematics`、`ForwardKinematicsJointsToEE`、`InverseKinematicsEEToJoints`：[Action Representations](https://github.com/huggingface/lerobot/blob/main/docs/source/action_representations.mdx)。它给出的运动学转换依据是机器人模型及关节状态，不是方块的模拟真值。
+LeRobot documents joint and end-effector representations and URDF-based
+`RobotKinematics`, `ForwardKinematicsJointsToEE` and
+`InverseKinematicsEEToJoints`: [Action Representations](https://github.com/huggingface/lerobot/blob/main/docs/source/action_representations.mdx).
+Its kinematic conversion uses the robot model and joint state, not simulated
+cube ground truth.
 
-以下是据此作出的系统设计解释：
+The following is a system-design interpretation of that evidence:
 
-1. **感知 / 决策**回答：方块在哪里、应选择哪个、末端下一步向哪里走？视觉模式由图像决定；Oracle 可以获得精确物体坐标。
-2. **IK**回答：给定期望末端位姿及机器人几何关系，关节应采用什么配置？数值求解通常利用当前关节配置做初值，选择连续、可达的解。
-3. **低层控制**根据实际关节反馈跟踪参考。模型不接收关节状态，并不意味着底层控制器也不能读关节编码器。
+1. **Perception/decision** determines where a cube is, which cube to choose and
+   where the end effector should move. A visual policy decides from images;
+   an Oracle may receive precise object coordinates.
+2. **IK** determines joint configurations for a desired end-effector pose and
+   known robot geometry. Numerical solvers commonly initialize from current
+   joint configuration to find continuous, reachable solutions.
+3. **Low-level control** tracks references using measured joint feedback. A model
+   that does not receive joint state can still use a controller that reads encoders.
 
-所以 RGB 与 Oracle 都能使用相同 IK：它们的区别在目标/动作由什么信息决定，不在是否存在运动学求解。IK 不会自动识别蓝色方块，也不会把某个错误估计的目标修正成正确方块坐标。
+RGB and Oracle policies can consequently share the same IK. Their distinction
+is the information used to choose targets/actions. IK does not recognize a blue
+cube or replace a wrongly estimated target with the correct cube coordinate.
 
-真机的直接证据：Franka 官方 `Robot` API 同时支持 CartesianPose、CartesianVelocities、JointPositions、JointVelocities；`RobotState.q` 是机器人测得的关节位置，单位 rad。[Robot API](https://frankarobotics.github.io/libfranka/latest/classfranka_1_1Robot.html)、[RobotState API](https://frankarobotics.github.io/libfranka/latest/structfranka_1_1RobotState.html)。官方示例明确把 Cartesian pose goals 送入接口以求解 IK：[joint_impedance_control.cpp](https://github.com/frankarobotics/libfranka/blob/main/examples/joint_impedance_control.cpp)。这些接口不要求传入被抓方块的真实位置。真机使用已知机器人结构和自身测量，不需要知道整个世界的状态。
+For physical hardware, Franka's `Robot` API supports CartesianPose,
+CartesianVelocities, JointPositions and JointVelocities; `RobotState.q` is
+measured joint position in rad: [Robot API](https://frankarobotics.github.io/libfranka/latest/classfranka_1_1Robot.html),
+[RobotState API](https://frankarobotics.github.io/libfranka/latest/structfranka_1_1RobotState.html).
+An official example sends Cartesian pose goals to the interface to solve IK:
+[joint_impedance_control.cpp](https://github.com/frankarobotics/libfranka/blob/main/examples/joint_impedance_control.cpp).
+These interfaces do not require the grasped cube's true position. A real robot
+uses its known structure and its own measurements without knowing the whole world.
+See also the [official FCI overview](https://frankarobotics.github.io/docs/doc/libfranka/docs/overview.html).
 
-Franka FCI 的控制结构与可读机器人状态另见[官方 overview](https://frankarobotics.github.io/docs/doc/libfranka/docs/overview.html)。
+"Move down 2 mm after viewing an image" need not explicitly reconstruct the
+whole world. Recovering exact cube coordinates from one RGB image requires
+visual estimation, calibration, depth, multiple views or task priors; it is not
+an IK capability. A monocular feedback loop does not guarantee exact 3D recovery
+in arbitrary scenes.
 
-“看图后向下移动 2 mm”可以不显式重建整个世界；相反，“从一张 RGB 得出方块精确三维坐标”并非 IK 的能力，需要视觉估计、标定、深度、多视角或任务先验等额外条件。单目视觉闭环不代表任意场景都能精确恢复物体三维状态。
+## End-effector control does not always mean IK
 
-## 不能把末端控制全部称作 IK
+Robosuite distinguishes WholeBodyIK from OSC_POSE. The former converts
+end-effector targets into joint-angle targets; the latter computes joint torques
+from end-effector error and the robot model: [controller documentation](https://robosuite.ai/docs/modules/controllers.html).
+Showing that a VLA outputs end-effector actions therefore does not prove that
+its controller uses a particular IK implementation.
 
-robosuite 官方区别了 WholeBodyIK 与 OSC_POSE：前者把末端目标变为关节角目标；后者根据末端误差和机器人模型计算关节力矩。[Controller 文档](https://robosuite.ai/docs/modules/controllers.html)。因此，证明某 VLA 输出末端动作，不等于证明它底层必定采用某个 IK 实现。
+## Recommendations for the early demo: design judgments
 
-## 对本 Demo 的建议（设计判断）
+- Define RGB as **RGB plus the same robot proprioception**. Define Oracle as
+  that information plus object position, orientation and attributes.
+- Share end-effector deltas, gripper commands, IK and trajectory limits. Using
+  joint control in one condition and end-effector control in the other changes
+  two experimental factors.
+- The RGB IK/controller must not read cube body poses, target sites or simulated
+  depth. It may read robot geometry and proprioceptive joint state. The physics
+  solver necessarily has full state; that does not expose it to the operator.
+- Select proprioception explicitly by robot joint/site names. Do not pass the
+  whole `qpos`, including free-object poses, to an RGB policy or its IK. Full
+  state belongs to physics, the evaluator and logging.
+- `move(dx,dy,dz)` and `grasp(object_id)` are different abstraction levels. If the
+  latter queries object truth and plans a grasp internally, it bypasses visual
+  decisions and cannot be presented as an ordinary RGB action.
+- A pure-pixel policy without proprioceptive feedback is a separate condition.
+  Declare whether the policy sees joints and whether its controller reads
+  encoders; that differs from RGB versus an object-state Oracle.
 
-- RGB 条件可精确定义为 **RGB + 相同的机器人本体状态**；Oracle 条件为前者再加物体位置、姿态和属性。
-- 二者共用末端增量与夹爪动作接口、相同 IK 和轨迹限制。不要一个采用关节控制、另一个采用末端控制，否则改变了两个因素。
-- RGB 路径的 IK / controller 不读取方块 body pose、目标 site 或仿真深度；只读机器人模型和本体关节状态。环境求解器本身当然仍拥有完整物理状态，这不等于给操作者泄露真值。
-- 机器人本体状态必须按机器人关节 / site 名称明确筛选，不能把包含自由方块位姿的整个 `qpos` 数组传入 RGB 策略或 IK。完整状态只留在物理引擎与 evaluator / logger。
-- `move(dx,dy,dz)` 与 `grasp(object_id)` 属于不同抽象层：后者若内部查询物体真值并规划抓取，会绕过视觉决策，不能被包装成 RGB 条件下的普通动作。
-- 若研究“没有本体反馈的纯像素策略”，应另外声明 policy 是否能看关节状态，以及 controller 是否能读取编码器；这和 RGB 对比 object-state Oracle 是不同实验问题。
+## Verification outstanding at the snapshot date
 
-## 待实现核验
-
-仍需实测 Panda 的 IK 连续性、限位、真实接触、动作尺度及视觉可操作性。查到真实机器人论文使用末端动作，并不意味着任意通用 GPT 在未训练情况下能可靠抓取；可行的控制接口与模型执行能力需要分开验证。
+Panda IK continuity, joint limits, physical contact, action scales and visual
+operability still needed measurement. Real-robot papers using end-effector
+actions do not establish that an untrained general GPT can grasp reliably.
+Control-interface feasibility and model execution ability require separate checks.

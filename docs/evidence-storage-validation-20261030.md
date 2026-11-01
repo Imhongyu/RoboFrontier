@@ -1,52 +1,102 @@
-# 数据归档同步验证：2026-10-30
+# Evidence archive synchronization: 2026-10-30
 
-本次同步覆盖 Codex、Claude、Luna CPU 和 Luna multi-topology 四个本地工作树。共用收集、归档、恢复、回放校验代码及测试、操作文档逐文件哈希一致。多通信补齐 JPEG profile、公共标定和宿主 MIME 识别，并保留其 CPU 渲染、性能采集及通信逻辑。
+This dated acceptance snapshot covers the Codex, Claude, Luna CPU and Luna
+multi-topology worktrees. Shared collection, archival, restoration, replay checks,
+tests and operating documentation had matching per-file hashes. The multi-topology
+branch also received JPEG profiles, public calibration and host MIME handling,
+while retaining its CPU rendering, performance capture and communication logic.
+For the current integration, use the [acceptance ledger](development/unified-main.md).
 
-没有启动新模型调用、没有重新运行付费 benchmark，没有修改任务 release、物理参数、评分、START 或协作提示。源实验数据保留；下列是已有数据的离线验证。
+No new model calls or paid benchmarks were launched. Task releases, physics,
+scoring, START and collaboration prompts were unchanged. Original experimental
+data was retained; the checks below used existing recordings offline.
 
-## 代码测试
+## Code checks
 
-| 环境/分支 | 覆盖 | 结果 |
+| Environment/branch | Coverage | Result |
 | --- | --- | --- |
-| macOS Codex | 收集、归档、图片 profile、Motion | 24 项通过 |
-| macOS Claude | 同上，加 Claude runner 与工具错误处理 | 38 项通过 |
-| macOS Luna | 共用功能、Luna 命令兼容、图片、Motion | 34 项通过 |
-| macOS 多通信 | 共用功能、原 Luna 入口、图片、Motion | 34 项通过 |
-| Linux Docker，Luna CPU 镜像 | 收集、归档、图片、Motion | 24 项通过 |
-| 最终归档/收集核心修订 | macOS 与 Linux 的共用核心测试 | 各 15 项通过 |
-| Codex/多通信 JavaScript | JPEG/PNG、保留动作结果、调用 ID 冲突处理 | 各 4 项通过 |
-| 发布前最终复核，macOS / Linux | 收集、归档与回放入口的回归测试 | 各 21 项通过 |
-| 四分支干净代码快照 | 不带 `.env`、`runs/`、`vendor/` 的标准库收集/归档测试 | 各 18 项通过 |
+| macOS Codex | Collection, archives, image profiles, Motion | 24 passed |
+| macOS Claude | Same, plus Claude runner and tool-error handling | 38 passed |
+| macOS Luna | Shared features, Luna command compatibility, images, Motion | 34 passed |
+| macOS multi-topology | Shared features, original Luna entries, images, Motion | 34 passed |
+| Linux Docker, Luna CPU image | Collection, archives, images, Motion | 24 passed |
+| Final archive/collector core revision | Shared core checks on macOS and Linux | 15 passed on each |
+| Codex/multi-topology JavaScript | JPEG/PNG, action-result retention, call-ID conflicts | 4 passed on each |
+| Final pre-publication check, macOS/Linux | Collection, archives and replay entries | 21 passed on each |
+| Clean source snapshots of four branches | Standard-library collection/archive tests without `.env`, `runs/` or `vendor/` | 18 passed on each |
 
-发布复核额外验证：初次校验后变更的源文件不会被发布成有效归档；复制期间新增的 Claude 原生辅助记录不会被静默漏收；空目录、缺失 Motion 或未覆盖全部任务的输入不能通过回放验证。历史 PID 已被无关进程复用时可正常收集，仍在运行的宿主会被拒绝。损坏但可读取的工程记录仅能明确按不完整数据保存。
+Publication checks additionally rejected source mutation after initial validation,
+refused to omit native Claude auxiliary records added during copying, and rejected
+empty, missing-Motion or incompletely covered replay inputs. A historical PID
+reused by an unrelated process did not block collection; a live owner did.
+Readable but corrupt engineering records could only be retained as explicitly
+incomplete evidence.
 
-共用测试包含 36 项批次的任务/模型目录区分、Controller/Worker/Coordinator/delegate 收集、Claude 原生路径与辅助记录、认证文件排除、写入锁与活跃 PID 拒绝、复制期间变化拒绝、异常数据显式归档、文件清单变化、图片三种已知结构还原、未知结构回退、损坏检测及高压缩比文件的流式还原。36 项测试为离线构造数据，不是新跑了 36 个模型任务。
+Shared checks covered task/model directory separation in synthetic 36-case
+batches; Controller/Worker/Coordinator/delegate collection; native Claude paths
+and auxiliary records; authentication exclusion; writer locks and live PIDs;
+mutation during copying; explicit incomplete archival; changing inventories;
+restoration of three known image structures and fallback for unknown structures;
+corruption detection; and streaming restoration of highly compressed files.
+The 36-case fixtures were offline constructed data, not 36 new model trials.
 
-本地 Motion 历史测试夹具缺少的忽略资产按已有清单 SHA-256 从本机相同内容资产恢复后再测，没有生成近似替代品或修改预期值。这不表示历史测试资产已加入当前 release。共用收集/归档核心测试仅需 Python 标准库；图片、Motion 与回放测试需要相应场景资产及渲染依赖。
+Missing ignored assets in historical Motion fixtures were restored from local
+byte-identical assets against their existing SHA-256 manifests. No approximate
+replacement was generated or expected value changed. This did not add historical
+test assets to the current release. Core collection/archive checks require only
+the Python standard library; image, Motion and replay checks require the relevant
+scene assets and rendering dependencies.
 
-## 真实记录还原
+## Restoration of actual recordings
 
-| 已有记录 | 文件数 | 原收集目录 | 归档 | 缩减 | 逐帧比较 |
+| Existing recording | Files | Original collection | Archive | Reduction | All-frame comparison |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Luna 四类 Level 1、最小臂、10 分钟批次 | 3,215 | 510,111,516 B（486.5 MiB） | 76,910,307 B（73.3 MiB） | 84.9% | 139,749 帧 |
-| Claude Haiku Transport 工程记录 | 632 | 107,246,157 B（102.3 MiB） | 13,974,660 B（13.3 MiB） | 87.0% | 18,389 帧 |
+| Luna, four families, Level 1, minimum arms, 10-minute batch | 3,215 | 510,111,516 B (486.5 MiB) | 76,910,307 B (73.3 MiB) | 84.9% | 139,749 frames |
+| Claude Haiku Transport engineering recording | 632 | 107,246,157 B (102.3 MiB) | 13,974,660 B (13.3 MiB) | 87.0% | 18,389 frames |
 
-全部恢复文件与归档前收集目录按 SHA-256 比对一致。Motion 的所有 float32 状态、时间戳及外观事件一致。两个批次重新通过最终收集器检查，文件清单与已验证归档相同。Claude 记录为原有中断/超时工程数据；本次不更改其任务结果。
+Every restored file matched the pre-archive collection by SHA-256. All float32
+Motion states, timestamps and appearance events were identical. Both batches
+passed the final collector again with inventories matching their verified
+archives. The Claude recording remained interrupted/timed-out engineering data;
+its task result was not changed.
 
-发布前再次使用最终工具从两个收集目录创建临时归档、恢复并校验，分别仍为 3,215 / 632 文件和 139,749 / 18,389 帧，简单场景抽样像素一致。结果保存为各自验证目录下的 `luna-publish-check.json`、`claude-publish-check.json`。
+The final tools recreated temporary archives from both collections before
+publication, restored and verified them again: 3,215/632 files and
+139,749/18,389 frames, with identical sampled simple-scene pixels. Receipts are
+`luna-publish-check.json` and `claude-publish-check.json` in the respective
+verification directories.
 
-Luna 四类简单场景的首/中/末三个采样图像逐像素一致。使用本机匹配 R14 和当前物理参数的工厂候选场景，四类各三个采样状态的几何映射通过，原始/恢复记录的工厂首末图片逐像素一致，短预览视频可解码。Claude Transport 的简单背景三个采样图像一致。
+First/middle/last simple-scene images matched pixel-for-pixel for all four Luna
+families. Separate local Factory candidate scenes matching R14 and the recorded
+physics passed geometry mapping for three states per family. Original/restored
+Factory first/last images matched pixel-for-pixel and short previews decoded.
+The three simple-background Claude Transport samples also matched.
 
-工厂测试使用 MuJoCo 记录姿态回放；没有新做 Blender Cycles 完整视频测试，也没有渲染每一帧。工厂候选场景及其资产是独立验证输入，不自动包含在 policy 数据归档或本次四分支同步里。画面抽样通过不等于模型完成了任务。
+Factory checks replayed recorded MuJoCo poses. They did not create new full
+Blender Cycles videos or render every frame. The candidate Factory scenes/assets
+were separate verification inputs, not automatically included in policy archives
+or this four-branch synchronization. Matching sampled images do not establish
+model task success.
 
-新恢复工具还校验了原先 4,599 文件的旧 Luna 归档，全部通过。旧 PNG、已有 Motion 格式和冻结输入不被重写。
+The new restorer also verified the older 4,599-file Luna archive. Existing PNGs,
+Motion formats and frozen inputs were not rewritten.
 
-## 本机验证材料
+## Local evidence and limits
 
-Luna 工作树的 `runs/engineering/compression-sync-20261030/` 包含 `luna-collection/`、`luna-archive/`、`luna-restored/`、`luna-replay-check/report.json` 和 `luna-final-collector-check.json`。
+The Luna worktree's ignored `runs/engineering/compression-sync-20261030/` contains
+`luna-collection/`, `luna-archive/`, `luna-restored/`, `luna-replay-check/report.json`
+and `luna-final-collector-check.json`. The corresponding Claude worktree directory
+contains the matching `claude-*` artifacts. These include private experimental
+data and are not published as repository source.
 
-Claude 工作树同名目录包含对应的 `claude-*` 文件和目录。材料含私有实验数据，均位于被忽略的 runs 下，不作为公开仓库代码发布。
+See [collection, archival and restoration](evidence-storage.md) for operation and
+current boundaries. This acceptance covers offline archival after writers stop.
+It does not automatically reduce active-run storage or remove multiple retained
+source copies. Cross-host paths, native CLI resume, different CLI versions and
+uncovered models require their own verification.
 
-操作方法和边界见 [数据收集、无损归档与恢复](evidence-storage.md)。当前能力是停止写入后的离线归档；运行中磁盘占用与保留多个源副本的空间不会自动下降。跨主机路径、原生 CLI resume、其他 CLI 版本和未覆盖模型需要各自验证，不能从本次结果推断全部通过。
-
-上述归档验证当时尚未修复宿主固定截止时间；后续计时修复以代码和对应测试为准。Slurm 节点本地数据库暂存与回传仍未验证。SQLite WAL 的活跃数据库不应放在 Lustre/NFS 或跨 Docker 文件系统边界打开。本次通过不代表已具备正式 36 项、24 小时批次运行资格。
+At this snapshot, the host's fixed deadline was not yet corrected; later timing
+changes must be assessed from their own code/tests. Slurm node-local staging and
+stage-out had not been verified by these archive checks. Active SQLite WAL
+belongs outside Lustre/NFS and must not be opened across Docker filesystem
+boundaries. These results did not qualify formal 36-case, 24-hour execution.

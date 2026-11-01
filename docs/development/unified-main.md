@@ -1417,3 +1417,18 @@ Evidence is in `runs/engineering/main-integration-oracle-final-20261102/` and
 `runs/engineering/oracle-terminal-recovery-20261102/`. No paid model calls or new
 video rendering were performed. Full repository, real hardware/provider and
 publication gates remain open.
+
+## English archival and robot-interface notes
+
+The 2026-10-30 evidence synchronization receipt, 2026-10-19 VLA action-space
+review and 2026-10-22 robot-interface audit are now English. Their dates, every
+source URL and numeric value remain preserved. The force-interface audit keeps
+the pre-grasp-v2 findings separate from the later implementation update; the
+archive receipt keeps its historical test counts, interrupted Claude status,
+pixel/float32 scope and then-unverified deadline/Slurm boundaries. No vendor
+research was refreshed and no historical trial was relabeled.
+
+Local links resolve and the three files contain no Han characters. The current
+tracked-text inventory is 61 files / 75,375 Han characters, so the English-only
+gate remains open. Verification is in
+`runs/engineering/main-integration-oracle-final-20261102/english-operations-verification.json`.
