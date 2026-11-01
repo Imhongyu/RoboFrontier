@@ -2,8 +2,11 @@
 
 This is the unified integration entry. It replaces the old Luna sbatch script,
 which placed active runtime files in the shared checkout. The implementation
-has offline tests; a real Slurm allocation and NVIDIA hardware acceptance are
-still required before calling this path cluster-qualified.
+has offline tests. A bounded Slurm/H800 allocation passed the production NVIDIA
+EGL context probe and a minimal-scene 896×560 JPEG check on 2026-11-02 (job
+`428862`, zero model calls). This does not qualify unified policy execution,
+node-local SQLite, descendant cleanup, stage-out or 36-task capacity. Those
+checks are still required before calling this path cluster-qualified.
 
 ## Prerequisites
 

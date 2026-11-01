@@ -58,9 +58,10 @@ the Linux receipt is not relabeled as a full run of those later commits.
 The optional historical fixture installer and separate local bundle now support
 independent installation. Public bundle distribution, final current-source image,
 remaining English migration, final review and main publication are still open.
-Real-provider/subscription lifecycle, 36-task capacity, NVIDIA observations and
-the unified Slurm execution/stage-out path remain distinct qualification gates.
-Slurm resource discovery alone does not satisfy them. Claude formal scored
+Real-provider/subscription lifecycle, 36-task capacity, complete task observations
+and the unified Slurm execution/stage-out path remain distinct qualification
+gates. A bounded real Slurm/H800 allocation passed NVIDIA EGL and a minimal-scene
+896×560 JPEG check; its limited scope is recorded below. Claude formal scored
 execution remains closed. The user's deferred full video rerender stays deferred.
 
 ## Invariants
@@ -1863,3 +1864,25 @@ Receipts are in `claude-standing-post-idle-{mac,linux}-v{1,2}.log`. These tests
 use real native CLIs and MCP with synthetic loopback model/world endpoints;
 they make no real-provider inference and do not open Claude scored execution.
 Complete discovery of the committed test correction remains required.
+
+## Real Slurm/H800 observation context check
+
+Slurm job `428862` completed with exit `0:0` on `dgx-097`, using one H800,
+two CPUs and a five-minute limit. The compute step verified five source modules
+frozen at `86d043b`, created the production NVIDIA rendering probe, then rendered
+a minimal sphere/plane scene after ten CPU physics steps. The backend reported
+NVIDIA Corporation / NVIDIA H800 / driver 580.159.03. The 896×560 JPEG used
+quality 85, decoded completely and had nonzero image variation. Model calls: zero.
+
+Returned JSON, JPEG and batch log are retained under
+`slurm-egl-86d043b/returned`. Independent local verification checked their hashes,
+the JPEG dimensions/format/size and every tested module's bytes against current
+`9bba6fe`. The image SHA-256 is
+`c313a54b45fcca2fd7d3ca58a6606493d61f12d96b9b799620c9fbac6210f007`.
+`returned-verification.json` and the original allocation logs preserve scope.
+
+This is real Slurm allocation plus hardware EGL/JPEG evidence. It does not
+qualify complete task observations, the unified policy launcher, node-local
+SQLite/stage-out, provider execution, 36-task capacity or Factory video.
+The probe used `/tmp`, but did not certify its filesystem type. No other user's
+job was modified and no model/provider or video render was launched.
