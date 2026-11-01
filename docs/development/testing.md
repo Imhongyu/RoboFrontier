@@ -44,21 +44,21 @@ fixtures from the preserved primary checkout. Scene XML identities and pinned
 asset/report/source hashes were verified, and original files were retained.
 The restoration receipts are under
 `runs/engineering/main-integration-oracle-final-20261102/`. The optional local
-delivery contains `legacy-test-fixtures-v3.tar.gz` and
-`legacy-test-fixtures-v3.json`. It contains original ignored test inputs, not
-new task qualification or native sessions. Its 44,536 files are pinned by
+delivery contains `legacy-test-fixtures-v4.tar.gz` and
+`legacy-test-fixtures-v4.json`. It contains original ignored test inputs, not
+new task qualification or native sessions. Its 45,141 files are pinned by
 individual SHA-256 checksums. The archive checksum is
-`be29b7c952a4edff3e4570093abc7cff2745c23a35fb1026b33cbc8e6b60d49d`.
+`b1ddf425f8c538a05fab705767f28d586905fc49944901a60c2cf0d5bb9bfe06`.
 The manifest checksum, supplied independently of its contents, is
-`c0eecdab86a0ccbef2cc40f400f088a8c46eba7af4587e8166eeb0e84fc28136`.
+`909e9a42b2c4048bb9d5affc58fdc3930c449394b8efb1f83e854ae98ff9ba06`.
 
 Given a copy of this separately supplied bundle, install it into a checkout:
 
 ```sh
 python3 scripts/install_historical_fixtures.py \
-  --archive /path/to/legacy-test-fixtures-v3.tar.gz \
-  --manifest /path/to/legacy-test-fixtures-v3.json \
-  --manifest-sha256 c0eecdab86a0ccbef2cc40f400f088a8c46eba7af4587e8166eeb0e84fc28136 \
+  --archive /path/to/legacy-test-fixtures-v4.tar.gz \
+  --manifest /path/to/legacy-test-fixtures-v4.json \
+  --manifest-sha256 909e9a42b2c4048bb9d5affc58fdc3930c449394b8efb1f83e854ae98ff9ba06 \
   --report runs/engineering/historical-fixture-install.json
 ```
 
@@ -72,7 +72,19 @@ reads the archive sequentially, including hardlinks, to avoid repeatedly
 decompressing the large bundle. The dated Relay source aliases under
 `outputs/oracle/relay-edited-tracks-20261027/` are included only for the nine
 registered source directories and their original metadata/assets. Other output
-paths are rejected.
+paths are rejected. The dated Mosaic review packages, design/coverage certificates,
+protected original media and separately extracted frozen-builder provenance are
+also included. Original source/recording bytes and qualification labels remain
+unchanged; current static projection/caption compatibility has explicit receipts.
+
+The development bundle does not include all raw Mosaic motion chunks. Default
+package checks validate the original pinned reports/audits, stream indexes,
+frozen controls/evaluators and public artifacts. An explicit
+`--verify-recorded-chunks` additionally needs complete original motion trees.
+A read-only local verification of those originals checked 72,141 chunks across
+8,656,459 frames; that receipt does not claim the chunks were relocated into
+this development archive. This bundle is a test dependency set, not a full
+export of every historical experiment.
 
 This is an explicit optional development bundle, not an automatic download in
 the ordinary policy bootstrap. Public distribution of this separate bundle

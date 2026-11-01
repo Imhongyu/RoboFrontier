@@ -13,6 +13,14 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = 'robofrontier.local-legacy-test-fixture.v1'
 PRESERVATION_RECEIPT = 'docs/generated/frontier-v2/relay-r15/source-preserved-hashes.json'
+MOSAIC_REVIEW_ROOTS = (
+    'outputs/policy-packages/mosaic-r13-20261027/',
+    'outputs/policy-packages/mosaic-r14-local-colours-20261027/',
+    'outputs/oracle/mosaic-continuation-20261026/',
+    'runs/engineering/mosaic-local-colours-r14-20261027/',
+    'runs/engineering/mosaic-r13-coverage-20261025/',
+    'runs/engineering/mosaic-review-source-20261102/',
+)
 
 
 def digest(path):
@@ -30,7 +38,7 @@ def relative_path(value):
     historical_relay = re.fullmatch(
         r'outputs/oracle/relay-edited-tracks-20261027/relay-a(?:08|12|16)-d[123]/source/'
         r'(?:scene\.xml|task\.json|environment\.json|workstation\.json|assets/.+)', value)
-    if not (value.startswith('configs/environments/') or value.startswith('runs/oracle/') or historical_relay
+    if not (value.startswith(('configs/environments/', 'runs/oracle/', *MOSAIC_REVIEW_ROOTS)) or historical_relay
             or value == PRESERVATION_RECEIPT):
         raise ValueError('Outside historical fixture roots: ' + value)
     return path

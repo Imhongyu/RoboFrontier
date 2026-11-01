@@ -1814,3 +1814,18 @@ Receipts and all prior failures remain under the Oracle engineering evidence
 root, including `mosaic-review-validation.json`, `mosaic-original-motion-checks.json`
 and `protocol-after-mosaic-mac.json`. Existing raw reports, media and fingerprints
 were not rewritten; formal readiness and assistance labels remain unchanged.
+
+## Mosaic development fixture closure v4
+
+The v4 local development archive now contains 45,141 files / 1,436,933,424
+compressed bytes, adding 605 files to v3. It includes the restored Mosaic review
+and protected-media/coverage closure plus separate exact frozen-builder sources
+extracted from immutable Git. Those sources live in a new engineering namespace,
+without adding files to a sealed original trial. Current source remains English;
+original archived evidence bytes/names remain unchanged.
+
+The installer accepts only the added dated Mosaic fixture roots and still rejects
+unrelated paths, source overwrites and unverified links. Twelve focused installer
+checks pass. Both independent bundle pins and raw-Mosaic-chunk limits are now in
+the testing guide. The v3 bundle/receipts remain retained. New-source independent
+v4 Linux discovery and public fixture distribution remain pending at this commit.

@@ -101,6 +101,16 @@ class HistoricalFixtureTests(unittest.TestCase):
         for name, content in files.items():
             self.assertEqual((self.root/name).read_bytes(), content)
 
+    def test_mosaic_review_fixtures_stay_in_their_dated_roots(self):
+        files = {'outputs/policy-packages/mosaic-r13-20261027/engineering/package-manifest.json': b'original',
+                 'runs/engineering/mosaic-r13-coverage-20261025/case/report.json': b'certificate'}
+        self.assertEqual(self.run_install(self.bundle(files))['installed'], 2)
+        for name in ('runs/engineering/unrelated/config.json', 'outputs/policy-packages/other/source.py'):
+            with self.subTest(name=name):
+                pin = self.bundle({name: b'outside declared review'})
+                with self.assertRaisesRegex(ValueError, 'Outside historical fixture roots'):
+                    self.run_install(pin)
+
     def test_destination_symlink_is_rejected(self):
         outside = self.base/'outside'
         outside.mkdir()
