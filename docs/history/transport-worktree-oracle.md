@@ -1,47 +1,100 @@
-> 历史归档。当前规格与状态见 [Transport任务说明](../tasks/transport.md)；合并操作见 [交接](../plans/suite-v2/transport-merge-handoff.md)。本文保留当时的过程与证据。
+> Historical archive. Current specification/status: [Transport task](../tasks/transport.md).
+> Merge procedure: [handoff](../plans/suite-v2/transport-merge-handoff.md).
+> This record preserves the original process/evidence.
 
-当前任务版本与完成状态请看[Transport任务说明](../tasks/transport.md)及[合并交接](../plans/suite-v2/transport-merge-handoff.md)。以下为Oracle开始前后的历史记录。
+See the [Transport task](../tasks/transport.md) and
+[merge handoff](../plans/suite-v2/transport-merge-handoff.md) for current versions
+and completion status. This records the period before and during initial Oracle work.
 
-# Transport 专用 worktree 与完整 Oracle
+# Dedicated Transport worktree and complete Oracle plan
 
-分支：`task/transport-oracle`，起点 `main` 的 `d3e5916`。当前没有合并 main，也不接管 Dial、Relay 或 Mosaic 会话。
+Branch: `task/transport-oracle`, from `main` at `d3e5916`. At this historical
+stage it was unmerged and did not take over Dial, Relay or Mosaic sessions.
 
-源码和 Transport R13／测试用 R10 的场景资产位于本 worktree。模型资产采用独立 COW 副本；vendor 同样已独立复制，修改不会写回原工作目录。`.venv` 是共享的只读依赖入口；新增 `greenlet==3.2.4` 单独安装在本 worktree 的 `.oracle-deps/`，没有安装到其他任务共用的环境。
+Source and Transport R13 / test R10 scene assets were in this worktree. Model
+assets used independent COW copies; vendor was also independently copied, so
+changes could not write back to the original directory. `.venv` was a shared
+read-only dependency entry. Added `greenlet==3.2.4` lived separately in this
+worktree's `.oracle-deps/`, without modifying other tasks' shared environment.
 
-运行数据继续使用共享的持久目录，但每个批次、场景、尝试都有唯一目录。实验记录绑定 worktree、提交、冻结执行器、依赖二进制哈希、控制／验收指纹、完整场景和 60 Hz 状态流。离线工厂渲染继续使用原格式，不把命令清单当完整运动记录。
+Runtime data used shared durable storage, with unique directories per batch,
+scene and attempt. Records bound worktree, commit, frozen executor, dependency
+binary hashes, control/acceptance fingerprints, full scenes and 60 Hz state
+streams. Offline Factory rendering retained its original format; command lists
+were not substituted for complete motion records.
 
-## 执行边界
+## Execution boundaries
 
-`transport_runtime.py` 复用同步动作配方，只在 execute／wait 边界协作切换。greenlet 的切换是显式、协作式的；参见 [greenlet 官方概念说明](https://greenlet.readthedocs.io/en/stable/greenlet.html)。所有规划和物理操作位于同一 OS 线程，只有调度所有者能 step。计算规划时不会在其他线程同时改世界；这实现的是物理运动交错推进，不声称模型／CPU 规划本身并行。
+`transport_runtime.py` reused synchronous action recipes, cooperatively switching
+only at execute/wait boundaries. greenlet switching was explicit/cooperative;
+see the [official greenlet concepts](https://greenlet.readthedocs.io/en/stable/greenlet.html).
+All planning/physics ran on one OS thread; only the scheduling owner could step.
+Planning computation never coincided with another thread mutating the world.
+Physical motion advanced interleaved; model/CPU planning parallelism was not claimed.
 
-每条运输工作有明确的机器人资源集合。完成换手且供方释放、撤离、归位后，可提前交还供方资源；其他独立工作可以继续。失败但仍持物或结果未知的机械臂保持占用，不自动交给下一项。
+Every transport job had an explicit robot resource set. After completed handoff
+and sender release/withdrawal/parking, sender resources could return early while
+independent jobs continued. Failed robots still holding objects or with uncertain
+results remained reserved, rather than being reassigned automatically.
 
-新动作相对已在运行的动作进行有限的全场景名义关节扫掠筛查。冲突时等待已在运行的动作，不中断它。采样预测不是连续碰撞或接触动力学证书，真实过程监控和原验收是最终依据。
+New actions underwent bounded full-scene nominal joint-sweep screening against
+in-flight actions. Conflicts waited for existing actions instead of interrupting
+them. Sampled predictions were not continuous-collision/contact-dynamics
+certificates; actual monitoring and original acceptance remained authoritative.
 
-`transport_full_oracle.py` 使用私有候选可达图和同身份物品／目标的最小代价匹配，不把候选图写回场景。场景没有固定中转框。优先减少必要的交接，允许任意具备候选能力的机械臂取放；实际交接、接收抓姿、插入和撤离仍需真实执行。
+`transport_full_oracle.py` used a private candidate reachability graph and
+minimum-cost matching of objects/targets with matching identities. It did not
+write that graph into scenes, which had no fixed transfer boxes. It preferred
+fewer necessary handoffs and allowed any candidate-capable arm to pick/place.
+Actual handoffs, receiver grasps, insertion and withdrawal still required execution.
 
-该执行器只用于工程 Oracle，不向 GPT Prompt／Skill 注入私有坐标、抓点或路线，也不替换 GPT 的自主规划。
+This executor was engineering Oracle only. It neither injected private
+coordinates/grasps/routes into GPT Prompt/Skill nor replaced autonomous planning.
 
-## 顺序与停止条件
+## Order and stopping conditions
 
-1. 首项：R13 四臂 L1 的完整 12 件原订单，不以局部单元通过代替整项。
-2. 首项通过后扩展四／八／十二臂的 L1／L2／L3，最多两个独立物理实例；环境参数保持冻结。
-3. 每项同时检查原目标成功、无违规、无未结算动作，并在收尾等待后重新确认。录像和状态块单独封存。
-4. 失败保留同一世界的真实状态与原因。未知动作不重发；禁止接触不清除；不自动回滚、不拼接成功分数，也不为追求通过静默调整物理环境。
-5. Oracle 稳定后冻结整合版本，再进行 GPT Adaptive 正式比较。当前没有启动 GPT，也没有宣称九项完整 Oracle 已通过。
+1. First: the complete original 12-item R13 four-arm L1 order, without treating local-unit passes as a whole-task result.
+2. Only after that passed, expand four/eight/twelve arms across L1/L2/L3, with at most two independent physics instances and frozen environment parameters.
+3. Require original-goal success, no violations and no unresolved actions, then recheck after terminal settling. Seal videos and state chunks separately.
+4. Preserve the same failed world's actual state/cause. Never replay uncertain actions, clear prohibited contact, roll back, combine scores across worlds or silently tune physics for a pass.
+5. After Oracle stabilized, freeze integration before formal GPT Adaptive comparison. At this stage no GPT had started and nine complete Oracle passes were not claimed.
 
-运行入口：`scripts/run_transport_full_oracle.py`。执行前要求 Git 干净并生成冻结源副本；修改参考代码后使用新的提交和新尝试目录。
+Entry: `scripts/run_transport_full_oracle.py`. Execution required clean Git and
+a frozen source copy. Reference-code changes required a new commit/attempt.
 
-测试：59 条 Transport 相关回归通过，包含原有最小单元规划回归，以及同线程物理所有权、快臂持续推进、冲突延迟、资源越界和未知结果保留。所有 R13 场景文件与上一轮冻结内容一致。
+Recorded tests: 59 Transport regressions passed, including existing minimum-unit
+planning, same-thread physics ownership, fast-arm progress, conflict deferral,
+resource boundaries and uncertainty retention. Every R13 scene matched its
+previous frozen bytes.
 
-## 普通失败的现场恢复
+## In-world recovery from ordinary failures
 
-普通抓取、交接和放置失败只结束该工作上下文；其他独立工作继续。已知失败的持物机器人保留资源，不能假装已经放下。一次新动作被预测冲突后，等待相关在途动作结束再重查，不每个物理步重复相同检查。
+Ordinary grasp/handoff/placement failures ended only that job context; unrelated
+jobs continued. Known failed holders retained resources rather than pretending
+to have released. After predicted conflict, a new action waited for the relevant
+in-flight action to finish before rescreening, without repeating the same check
+every physics step.
 
-`transport_recovery.py` 在运行中发布 `recovery/frontier.json`。如果剩余工作受阻，物理进程保持世界，继续重力、接触和夹持控制，约按实时速度等待工程会话决定恢复；这段等待计入运行。没有用最终回复结束、重开世界来冒充同场恢复。
+`transport_recovery.py` published `recovery/frontier.json`. If remaining work
+blocked, the physical process retained the world, continuing gravity, contact
+and grasp control near real time while engineering chose recovery. Waiting counted
+toward execution. Ending a reply/reopening a world did not count as same-world recovery.
 
-研究会话可向 `recovery/inbox/<唯一ID>.json` 原子写入恢复输入：`id`、失败的 `job`、`scene_sha256`，以及可选的 `robots`、至多 64 个普通机器人 `steps`、`reason`、`author`。每一步只有既有 move／gripper 参数或至多 30 s 等待；不能提交 qpos、物理参数、评分修改或任意 Python。输入保留哈希、时间、接受／拒绝记录；旧失败不被删除，未知动作不能接管或重发。
+Research could atomically submit `recovery/inbox/<UNIQUE_ID>.json` containing
+`id`, failed `job`, `scene_sha256`, optional `robots`, up to 64 ordinary robot
+`steps`, `reason` and `author`. Each step contained existing move/gripper
+parameters or a wait of at most 30 s. Inputs could not supply qpos, physics,
+score edits or arbitrary Python. Hashes, timestamps and acceptance/rejection
+were retained. Old failures stayed; uncertain actions could not be taken over
+or replayed.
 
-空步骤表示从实际现场重新规划该目标；普通步骤完成后也从现场继续目标。新恢复工作可在其他独立工作仍执行时接管相关的已知空闲资源。部分交接、多臂仍共同夹持等复杂现场应先提交明确的释放／撤离方案，而不是直接重新抓取。
+Empty steps requested replanning from the actual scene; ordinary steps also
+returned to scene-based goal continuation afterward. Recovery could acquire its
+known-idle resources while independent jobs continued. Partial handoffs and
+multiple holders required explicit release/withdrawal plans before regrasping.
 
-若使用研究会话提供的现场恢复输入，报告标为 `engineering_assisted=true`、`llm_used=true`，与纯冻结程序结果分开。成功仍由原完整任务验收决定，不能抹掉碰撞、拼接分数或把旧失败变成功。需要修改执行器代码时，旧尝试封存，新提交的新初态属于明确的新尝试。
+Research-supplied recovery inputs set `engineering_assisted=true` and
+`llm_used=true`, separately from pure frozen-program results. Original complete
+task acceptance still determined success; collisions stayed recorded and scores
+were not stitched together or old failures rewritten. Executor-code changes
+sealed the old attempt; a new commit/new initial state was an explicit new attempt.

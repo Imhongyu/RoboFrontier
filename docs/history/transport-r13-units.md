@@ -1,84 +1,119 @@
-> 历史归档。当前规格与状态见 [Transport任务说明](../tasks/transport.md)；合并操作见 [交接](../plans/suite-v2/transport-merge-handoff.md)。本文保留当时的过程与证据。
+> Historical archive. Current specification/status: [Transport task](../tasks/transport.md).
+> Merge procedure: [handoff](../plans/suite-v2/transport-merge-handoff.md).
+> This record preserves the original process/evidence.
 
-# Transport R13：审查、最小单元与并行计划
+# Transport R13: review, minimum units and parallel plan
 
-后续工程修正与统一代码复测见 [Transport R13 抓姿接续与独立推进](transport-r13-planning.md)。本文保留此前一轮的历史数据；下文“8种尚未通过”等状态不代表后续复测的最终结论。
+Later engineering corrections/unified-code rechecks are in
+[Transport R13 grasp continuation and independent progress](transport-r13-planning.md).
+This preserves the earlier round; statements such as the 8 unpassed types
+below are not final conclusions from the later rechecks.
 
-本轮按用户要求由当前会话独立执行；没有恢复任何fork，没有运行完整任务。环境已是R13：白板143×396 mm、84 mm目标标识、相邻标识净间隔36 mm。九个场景输入、2 ms步长、pd1000-v1、材料及原验收保持冻结。
+The session independently executed this round under the user's request,
+without resuming forks or running full tasks. R13 used 143×396 mm boards,
+84 mm target markers and 36 mm clear marker spacing. Nine scene inputs,
+2 ms steps, pd1000-v1, materials and original acceptance stayed frozen.
 
-## 代码与旧trace审查
+## Code and old-trace review
 
-- R10 L1四／八／十二臂的实际运动重叠比例约0.239%、0.080%、0.034%，主要是共同开局归位。运输主体几乎串行，峰值活动臂数不能证明运输并行。
-- `deliver`与完整任务循环按订单／跳逐个同步执行；中转会落桌、再抓。默认换手收尾还会让接收臂暂存、原臂重抓。
-- 环图日志路径未发现比相同起止臂最少跳数更长的例子；不能把全部低效归因于方向。仍需减少实际抓取／换手冗余，并比较方向、接收可用时间和后续可达性。
-- R13取消固定中转点后，旧完整`solve`会因缺少声明路线拒绝运行。没有把固定中转点重新写回场景；新单元驱动仅提出私有交接候选，完整执行器的事件调度适配仍是后续工作。
+- R10 L1 four/eight/twelve-arm actual motion overlap was about 0.239%, 0.080%, 0.034%, mainly common initial homing. Transport was nearly serial; peak active-arm count did not establish transport parallelism.
+- `deliver` and full-task loops synchronously processed orders/hops. Transfers placed on the table and regrasped. Default handoff cleanup could also make receivers store objects for regrasp by the original arm.
+- Ring-route logs showed no example exceeding minimum hops for the same endpoints. Direction alone could not explain all inefficiency. Grasp/handoff redundancy, direction, receiver availability and subsequent reachability still required comparison.
+- With R13 fixed transfer points removed, old full `solve` refused missing declared routes. Points were not reintroduced into scenes. New unit drivers proposed private handoff candidates; event scheduling for the complete executor remained future work.
 
-## 最小单元结果
+## Minimum-unit outcomes
 
-共49个独立物理片段（含串／并行对照），覆盖29种单元定义。21种已有通过的具体冻结配方，其中20种为订单匹配单元、1种仅为机械邻块夹具；8种尚未通过。九个场景都至少有一项局部通过证据。不能将不同世界的目标数相加，也不能继承为整项通过。
+There were 49 independent physical segments, including serial/parallel controls,
+covering 29 unit definitions. Specific frozen recipes passed for 21 types:
+20 order-matching units and 1 mechanical-neighbor fixture. The remaining 8 types
+were unpassed. Each of nine scenes had at least one local pass. Goal counts
+across different worlds cannot be summed or inherited as whole-task success.
 
-|能力|本轮结果|
-|---|---|
-|L1本地直接放置|四／八／十二臂方块，八／十二臂圆柱样例通过|
-|L1空中交接后直接放置|四／八／十二臂方块、八／十二臂圆柱样例通过；四臂拐角样例需要侧抓、留接收空间并降低持物运动速度|
-|L2空中交接后直插|四／八臂方块、八／十二臂圆柱样例通过；接收臂保留实际持物继续插入，不中途落桌或由供方重抓|
-|L3空中交接后直插|方块、圆柱均有通过样例；插入过程中用实际板姿态更新目标|
-|本臂单抓直插|四臂L3侧放方块、十二臂L3侧放圆柱通过；其他朝向的有限候选仍有失败，不能断言全局物理无解|
-|左侧已有方块，再插中间／右侧|两个单元都通过；真实动作建立左侧物体，两个原订单目标同时保留|
-|左侧已有圆柱，再插右侧|机械夹具通过；左侧身份不符合原订单，明确不计原订单完成|
-|左侧已有圆柱，再插中间|尚未通过；出现过IK拒绝、动作超时，以及H_hand/H_link5自碰撞。自碰撞尝试和未结算H动作保留|
+| Capability | Recorded outcome |
+| --- | --- |
+| L1 local direct placement | Four/eight/twelve-arm blocks and eight/twelve-arm cylinder examples passed |
+| L1 direct placement after airborne handoff | Four/eight/twelve-arm blocks and eight/twelve-arm cylinders passed; the four-arm corner needed side grasp, receiver clearance and reduced loaded speed |
+| L2 insertion after airborne handoff | Four/eight-arm blocks and eight/twelve-arm cylinders passed; the receiver retained the actual object into insertion, without table storage or sender regrasp |
+| L3 insertion after airborne handoff | Block and cylinder examples passed; targets updated from actual board pose during insertion |
+| Same-arm insertion from one grasp | Four-arm L3 side-laid block and twelve-arm L3 side-laid cylinder passed; finite candidates for other orientations still failed, without proving global physical impossibility |
+| Left block present, then middle/right insertion | Both units passed, establishing the left block through actual actions and retaining both original order goals |
+| Left cylinder present, then right insertion | Mechanical fixture passed; left identity differed from the order and was explicitly excluded from order completion |
+| Left cylinder present, then middle insertion | Unpassed: IK rejection, timeout and H_hand/H_link5 self-collision occurred; failed collision and unresolved H action stayed retained |
 
-侧抓候选会检查初始接近、抓点、后续目标处的夹爪开口与臂姿端点。空中交接增加可选的后续槽位端点检查。它们都是规划筛查，不是完整轨迹／动态载荷保证。
+Side-grasp candidates screened approach, grasp points and gripper/arm endpoints
+at subsequent goals. Airborne handoff optionally screened later slot endpoints.
+These were planning filters, not full-trajectory/dynamic-load guarantees.
 
-## 真实串／并行对照
+## Actual serial/parallel comparison
 
-同一R13十二臂L1场景内执行F_item1→F_slot2、H_item1→H_slot3。两次分别从相同标准初态开始，逐臂动作指令序列完全一致。
+Within the same R13 twelve-arm L1 scene, execute F_item1→F_slot2 and
+H_item1→H_slot3. Separate runs started from identical standard initialization
+and used exactly the same per-arm action sequences.
 
-|模式|任务仿真时间，排除共同开局归位|运输运动重叠|原验收|
-|---|---:|---:|---|
-|串行|83.98 s|0 s|两项目标通过，零违规／未知|
-|批量并行|50.10 s|27.52 s|两项目标通过，零违规／未知|
+| Mode | Task simulation time, excluding common initial homing | Transport-motion overlap | Original acceptance |
+| --- | ---: | ---: | --- |
+| Serial | 83.98 s | 0 s | Both goals passed, zero violations/unknowns |
+| Batch parallel | 50.10 s | 27.52 s | Both goals passed, zero violations/unknowns |
 
-这个最小对照约快1.68倍。它证明现有批量动作接口可以形成真实有效并行，不是完整十二臂任务的提速结论，也不是多Agent模型性能结果。源动作与两次实测见运行目录`parallel/`。
+This minimum comparison was about 1.68 times faster. It demonstrated effective
+physical parallelism through the existing batch interface, rather than full
+twelve-arm-task speedup or multi-agent model performance. Source actions and
+both measurements are in the run's `parallel/` directory.
 
-## 路线与并行草案，尚未执行
+## Route/concurrency draft, not executed
 
-暂以相邻臂构成候选环图，不把它当作任务权限限制。先比较最少交接的方向，等长路线再比较接收预约；仅因草案自身预约造成的等待，不足以成为绕远的理由。后续发现可行直交边时可以跳过不必要的中继。四臂L3 D→B直交已提供一个非邻接示例，但不能自动推广到其他载荷／场景。
+Adjacent arms initially formed a candidate ring, not a task-permission boundary.
+Prefer minimum-handoff directions, breaking equal-length ties using receiver
+reservations. Waiting created solely by draft reservations did not justify a
+detour. Discovered feasible direct edges could skip unnecessary relays.
+Four-arm L3 D→B gave one non-adjacent example, without generalizing to every
+payload/scene.
 
-原子规划范围是有边界的一个物体运输链。预约包含整个持物区间和交接双方，不只计算手臂正在移动的时间；先确保接收／后续退出条件再抓起，避免全体抓满之后循环等待。没有强制所有臂开局抓取，接收臂可做安全的空手准备。
+The planning atom was one bounded object-transport chain. Reservations covered
+all holding and both handoff participants, not just moving-arm time. Verify
+receiver/downstream exit before pickup to avoid everyone holding objects in a
+cycle. Initial pickup by every arm was not mandatory; receivers could prepare
+safely empty-handed.
 
-下表是条件资源模型，使用同规模实测动作宏时长（不存在该规模配方时明确回退八臂参考），对其他位置仍有外推。没有执行完整订单，没有计入全部联合轨迹、共享空间冲突、感知／决策／通信成本，也未证明最优。
+The conditional resource model below used measured macros at the same scale,
+explicitly falling back to eight-arm references when absent. Other positions
+still required extrapolation. It ran no full orders, omitted complete combined
+trajectories/shared-space conflicts/perception/decision/communication costs
+and did not prove optimality.
 
-|规模|同一动作宏模型串行|条件并行草案|
-|---|---:|---:|
-|4臂|1183.0 s|578.6 s|
-|8臂|1877.3 s|549.1 s|
-|12臂|4010.0 s|935.3 s|
+| Scale | Same-macro serial model | Conditional parallel draft |
+| --- | ---: | ---: |
+| 4 arms | 1183.0 s | 578.6 s |
+| 8 arms | 1877.3 s | 549.1 s |
+| 12 arms | 4010.0 s | 935.3 s |
 
-计划文件：`runs/oracle/transport-r13-units-20261025/parallel-plan.json`。图中蓝色为抓取，橙色为交接，绿色为放置。不要将预测倍数当作MuJoCo实测提速。
+Plan: `runs/oracle/transport-r13-units-20261025/parallel-plan.json`.
+Plots use blue for grasp, orange for handoff and green for placement. Predicted
+ratios are not measured MuJoCo speedups.
 
-## 代码修改与边界
+## Code changes and boundaries
 
-- `transport_oracle_v2.py`：私有候选交接中心、接收抓点／角度和可选后续目标检查；保留旧默认行为以免破坏冻结R10参考。新单元显式保留接收臂持物。
-- `transport_unit_motion.py`：有限侧抓与后续操作端点筛查；不运行新的物理世界。
-- `verify_transport_units.py`：独立标准初态、预算、原验收、真实邻块建立、冻结来源与60 Hz全状态记录。
-- `verify_transport_parallel_unit.py`：复用同一`Trial.execute`批量接口完成双臂对照；没有多线程写物理世界，没有新增MCP或常驻服务。
-- `plan_parallel.py`仅为本次运行目录里的条件调度原型，未进入通用Harness或Agent Skill。
-- 44条Transport参考回归通过。R13物理输入未变，控制／验收哈希与旧同配置一致；全部物理进程已退出。
-- 171,332帧运动记录已逐块校验，初态、时间单调性和2 ms物理步长均核对。60 Hz采样记录用于离线重建，不是物理回退checkpoint。
+- `transport_oracle_v2.py`: private candidate handoff centers, receiver grasp points/angles and optional later-goal screening. Retained old defaults to protect frozen R10 references; new units explicitly retained the receiver's object.
+- `transport_unit_motion.py`: finite side-grasp/later-operation endpoint screening, without starting new physics worlds.
+- `verify_transport_units.py`: independent standard initialization, budgets, original acceptance, real neighbor establishment, frozen provenance and 60 Hz full-state recording.
+- `verify_transport_parallel_unit.py`: reused `Trial.execute` batches for the two-arm comparison. No multithreaded world writes, new MCP or persistent service.
+- `plan_parallel.py`: a conditional scheduling prototype in this run directory, outside the generic Harness/Agent Skill.
+- The 44 Transport reference regressions passed. R13 physics inputs were unchanged, control/acceptance hashes matched the old identical configuration and all physical processes exited.
+- All chunks of 171,332 motion frames passed source/initial-state/time-monotonicity/2 ms checks. The 60 Hz stream supported offline reconstruction, not physics rollback checkpoints.
 
-## 下一步实施顺序
+## Planned implementation sequence
 
-1. 先解决未通过的圆柱中槽接触段：在当前负载／板姿下重新验证腕部、自碰撞和关节余量，必要时换抓姿或操作者；不能只检查高位悬停，也不能靠加力或放宽验收。
-2. 将已验证的抓取、交接、插入分解为可续行的小阶段；一个物理线程处理已就绪的动作，复用现有批量或非阻塞接口。不要继续按整个订单同步阻塞，也不要每臂开一个写世界线程。
-3. 每段开始前核对实际持物、接收准备、后续插入和撤离；按条件比较等待、空交、暂存。避免无意义归位和再次抓取，不要求所有臂一直运动。
-4. 先联调一对／两对真实不冲突工作，再验证更多并行组合与完整订单。当前没有启动这一阶段。
+1. Resolve the unpassed middle-cylinder contact segment: recheck wrist, self-collision and joint margin under actual load/board pose, changing grasp/operator if needed. High-hover checks alone, increased force or relaxed acceptance are insufficient.
+2. Split qualified grasp/handoff/insertion into resumable small phases, with one physics thread handling ready actions through existing batch/nonblocking interfaces. Avoid synchronous full-order blocking or one world-writing thread per arm.
+3. Before every phase, verify actual holding, receiver preparation, later insertion/withdrawal, and compare waiting, airborne handoff and storage. Avoid pointless homing/regrasping without demanding constant motion from all arms.
+4. Integrate one/two physically independent job pairs before more combinations/full orders. This stage had not started in this round.
 
-工程Oracle使用私有几何与坐标；这些测试配方不应自动进入未来GPT策略的Prompt／Skill。通用Skill可保留前瞻规划、为后续夹取留空间、用实际反馈更新计划等原则。
+Engineering Oracle used private geometry/coordinates. Test recipes must not
+enter future GPT Prompt/Skill automatically. Generic guidance may retain
+look-ahead planning, clearance for later grasping and feedback-based replanning.
 
-## 证据入口
+## Evidence entries
 
-- 浏览报告与录像：`http://127.0.0.1:56719/transport-r13-study/index.html`。
-- 完整JSON、失败历史、源代码快照和录制块：`runs/oracle/transport-r13-units-20261025/`。
-- 录像：`outputs/oracle/transport-r13-units/`；均由原保存状态离线渲染，UNIT PASS不表示整项通过。
-
+- Historical local report/videos: `http://127.0.0.1:56719/transport-r13-study/index.html`.
+- Complete JSON, failures, source snapshots and chunks: `runs/oracle/transport-r13-units-20261025/`.
+- Videos: `outputs/oracle/transport-r13-units/`, rendered offline from actual saved states. UNIT PASS was not a whole-task pass.

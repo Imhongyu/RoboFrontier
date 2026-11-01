@@ -1725,3 +1725,16 @@ are `english-dial-alphabet-verification.json` and
 `english-dial-feedback-verification.json`. No tracked Python or HTML display
 source remains in the Han inventory; the remaining migration is 15 files /
 49,907 Han characters, all historical documents and preserved path references.
+
+## English Transport execution/planning history
+
+The original dedicated-worktree Oracle plan, minimum-unit review and subsequent
+grasp/forward-recovery/independent-progress record now use English. They preserve
+single-thread physics ownership, original request IDs, in-world versus fresh
+attempt boundaries, private geometry, assistance labels, fixture versus order
+identity and local-segment versus whole-task scope. The two historical parallel
+comparisons retain all measured values without becoming model-performance or
+global-optimality claims. All numeric tokens, URLs and local links match; the
+receipt is `english-transport-planning-verification.json`. No recorded input,
+physics, source snapshot or trial was changed. Remaining English migration:
+12 tracked files / 44,195 Han characters.

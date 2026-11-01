@@ -1,80 +1,144 @@
-> 历史归档。当前规格与状态见 [Transport任务说明](../tasks/transport.md)；合并操作见 [交接](../plans/suite-v2/transport-merge-handoff.md)。本文保留当时的过程与证据。
+> Historical archive. Current specification/status: [Transport task](../tasks/transport.md).
+> Merge procedure: [handoff](../plans/suite-v2/transport-merge-handoff.md).
+> This record preserves the original process/evidence.
 
-# Transport R13：抓姿接续、前向恢复与独立推进
+# Transport R13: grasp continuation, forward recovery and independent progress
 
-范围：Transport 最小单元及十二臂 L2 两目标对照。没有运行九项完整订单，也没有恢复用户停止的 Codex fork。Oracle 是读取私有几何、执行真实控制指令的工程参考，不是 GPT 策略试验。
+Scope: minimum Transport units and a twelve-arm L2 two-goal comparison.
+This ran neither nine complete orders nor the Codex fork stopped by the user.
+Oracle was an engineering reference using private geometry and actual control
+commands, not a GPT policy trial.
 
-## 修正内容
+## Corrections
 
-- `robofrontier/suite/oracle.py`：保留旧错误前缀，补充接近 IK、槽口附近 IK／间隙、直接搬运及抬高搬运的拒绝统计。有限搜索失败不再只能得到一句高度报错。
-- `robofrontier/suite/transport_unit_motion.py`：把插入姿态约束纳入抓姿选择，增加 30°、45° 等斜抓候选。按源端与目标端的手掌空间排序；先用便宜的源端检查剪枝，再检查入槽、张爪、撤离、接近与抬起。候选仍须真实执行，不把 IK 端点当成通过。
-- `robofrontier/suite/transport_socket_motion.py`：独立规划副本内检查全臂、携物、连续 IK 分支和采样关节边。下降按 2 mm、旋转按 0.025 rad、关节边按 0.01 rad 有限采样；不声称连续碰撞或接触动力学认证。执行前检查也覆盖实际微调指令。
-- 实际搬运后重读物体／夹爪关系与板姿。一次侧抓实测出现约 4.1° 相对转动和约 1 mm 偏移，不能一直沿用抓取前的刚体关系。
-- 换手候选可检查接收抓姿后续的入槽、松爪和撤离。供方释放并撤离后，由实际接收方继续插入；不要求中间落桌、原臂重抓。
-- `scripts/verify_transport_units.py`：已知空闲、仍有实际支撑、没有违规且载荷与真实板体分离时，可以在同一现场改为换手。接收方按几何候选选择，并尝试有限角度／抓点；只有尚未执行任何该候选动作的搜索失败才尝试下一候选族。
-- 恢复资格采用物体到板体的真实几何距离，不用板面无限延伸平面的高度。已进孔、贴近孔壁、动作未知或出现禁止接触时，不自动拉出、重发或清除历史。
-- 张爪开口未精确达到目标的失败记录保留。只有已知反馈且抓取力保持已取消，才允许筛查并执行撤离；撤离时在规划副本中把已支撑的物体留在原位，之后核实真实脱离及最终入槽。不能把“开得够大”直接记为张爪命令成功。
-- `scripts/verify_transport_parallel_unit.py`：增加独立单臂序列的就绪队列。某臂完成当前动作及其等待后可继续，不等另一臂完成同一批次；始终只有一个物理线程。它只执行已审查的独立程序，不负责自动分工、双臂交接或全任务规划。
+- `robofrontier/suite/oracle.py`: retained old error prefixes and added rejection counts for approach IK, near-socket IK/clearance, direct carrying and elevated carrying. Finite search failure no longer produced only a height error.
+- `robofrontier/suite/transport_unit_motion.py`: included insertion-pose constraints in grasp selection, adding oblique candidates such as 30° and 45°. Ranked source/target palm clearance; cheap source pruning preceded insertion/open/withdrawal/approach/lift checks. Candidates still required execution; IK endpoints were not passes.
+- `robofrontier/suite/transport_socket_motion.py`: checked full arm, carried object, continuous IK branches and sampled joint edges in an independent planning copy. Finite descent sampling was 2 mm, rotation 0.025 rad and joint edges 0.01 rad, without continuous-collision/contact-dynamics certification. Pre-execution screening also covered actual fine adjustments.
+- Reread object/gripper relations and board pose after carrying. One actual side grasp showed about 4.1° relative rotation and 1 mm translation, invalidating indefinite reuse of the pre-grasp rigid relation.
+- Handoff candidates could screen receiver-grasp insertion/open/withdrawal. After sender release/withdrawal, the actual receiver continued insertion, without mandatory table storage or sender regrasp.
+- `scripts/verify_transport_units.py`: allowed changing to handoff in the same scene only with known-idle actions, actual support, no violations and real load/board separation. Geometric candidates selected receiver/grasp angles/points. Only search failure before any action for that candidate allowed another candidate family.
+- Recovery eligibility used actual object/board geometry distance, not height above an infinitely extended board plane. Inserted/near-wall objects, uncertain actions or prohibited contact did not trigger automatic withdrawal, replay or history clearing.
+- Failed opening that missed target aperture remained failed. Withdrawal could be screened/executed only after known feedback and cancellation of force holding. Planning left the supported object in place, then checked actual separation/final seating. A sufficiently wide aperture was not relabeled successful opening.
+- `scripts/verify_transport_parallel_unit.py`: added ready queues for independent single-arm sequences. An arm continued after its own action/wait rather than waiting for the other arm's batch. One physics thread remained. This executed reviewed independent programs, without automatic assignment, two-arm handoff or full-task planning.
 
-这些改动位于工程 Oracle 与验证驱动，没有新增 MCP、数据库、Agent 通信协议或权限系统。通用 Prompt／Skill 未写入私有抓点和本题解法。
+Changes were confined to engineering Oracle/validation drivers, without new MCP,
+database, agent communication protocol or permission system. Generic Prompt/Skill
+received no private grasp points or task solution.
 
-## 原八类缺口的完成路径
+## Resolution of the original eight gaps
 
-“通过”指指定目标的单次真实片段，不等于整项订单通过；采用换手的样例不算本臂单抓直插。
+A pass meant one actual segment for its specified target, not a whole order.
+Handoff examples were not counted as same-arm single-grasp insertion.
 
-|单元|已验证策略|范围|
-|---|---|---|
-|四臂 L2 插片朝上方块|B 抓起，交给 C，C 直接插 B_slot1|原订单身份匹配|
-|四臂 L2 侧向方块①|45° 斜抓，本臂直接插入|原订单身份匹配|
-|四臂 L2 侧向方块②|45° 斜抓，携物关节速度上限 0.18 rad/s，本臂直接插入|原订单身份匹配|
-|四臂 L3 插片朝上方块|B→C 换手，C 直接插入|原订单身份匹配|
-|十二臂 L2 插片朝上圆柱|H→G 换手，G 直接插入|原订单身份匹配|
-|十二臂 L2 侧向圆柱|45° 斜抓，本臂直接插入|原订单身份匹配|
-|十二臂 L3 插片朝上圆柱|换手后由接收臂直接插入|原订单身份匹配|
-|十二臂 L3 左侧已有圆柱，再插中间|真实建立左侧物体，再选择可接续的 H 抓姿／关节分支插中间|机械夹具，物品身份不匹配原订单，不计原订单分数|
+| Unit | Verified strategy | Scope |
+| --- | --- | --- |
+| Four-arm L2 upward-tab block | B lifts, hands to C, C inserts directly into B_slot1 | Original order identity |
+| Four-arm L2 lateral block ① | 45° oblique grasp, same-arm direct insertion | Original order identity |
+| Four-arm L2 lateral block ② | 45° oblique grasp, loaded joint speed cap 0.18 rad/s, same-arm insertion | Original order identity |
+| Four-arm L3 upward-tab block | B→C handoff, then C inserts | Original order identity |
+| Twelve-arm L2 upward-tab cylinder | H→G handoff, then G inserts | Original order identity |
+| Twelve-arm L2 lateral cylinder | 45° oblique grasp, same-arm insertion | Original order identity |
+| Twelve-arm L3 upward-tab cylinder | Receiver inserts after handoff | Original order identity |
+| Twelve-arm L3 left cylinder present, then center insertion | Establish actual left object, select a continuable H grasp/joint branch, insert center | Mechanical fixture; identities differ from original order and earn no order score |
 
-侧向方块①与侧向圆柱的候选搜索样例分别约 1.3 s、3.3 s。这不是完整任务耗时或普遍搜索上限。侧向方块②曾在快速携物后碰到自己的手掌，降低合法动作速度后通过；未修改摩擦、抓力上限或验收来消除该问题。
+Candidate searches for lateral block ① and the lateral cylinder took about
+1.3 s and 3.3 s respectively. These were neither full-task times nor general
+search caps. Lateral block ② once hit its own palm after fast carrying, then
+passed at a lower legal action speed. Friction, force limits and acceptance
+were unchanged.
 
-另外复测了原来已经通过的四臂 L3 侧放方块：新斜抓直插通过，并保留一次 `Requested aperture exceeded` 失败反馈；随后经过受筛查的撤离确认物体脱离、稳定入槽。没有把该失败改写为完成。
+The previously passed four-arm L3 side-laid block was also rechecked: a new
+oblique grasp/direct insertion passed while retaining one
+`Requested aperture exceeded` failure. Screened withdrawal then verified actual
+separation/stable seating. The failed command was not rewritten as completion.
 
-## 十二臂 L2：相同两项目标、相同逐臂指令
+## Twelve-arm L2: identical goals and per-arm commands
 
-目标为 F_item2→F_slot2、H_item2→H_slot3。三个世界分别从相同标准初态开始，排除共同开局归位，计入相同的末尾稳定等待；原验收均同时接受这两项，零违规、零未知动作。
+Goals: F_item2→F_slot2 and H_item2→H_slot3. Three worlds began at identical
+standard initialization, excluding common initial homing but including the same
+terminal settling. Original acceptance simultaneously accepted both goals,
+with zero violations/unknown actions.
 
-|执行方式|本段仿真时间|两臂真实运动重叠|相对串行|
-|---|---:|---:|---:|
-|串行|100.92 s|0.00 s|1.00×|
-|逐批次并行|60.72 s|34.72 s|1.66×|
-|各臂独立推进|52.64 s|40.82 s|1.92×|
+| Execution | Segment simulation time | Actual two-arm motion overlap | Relative to serial |
+| --- | ---: | ---: | ---: |
+| Serial | 100.92 s | 0.00 s | 1.00× |
+| Batch parallel | 60.72 s | 34.72 s | 1.66× |
+| Independent arm progress | 52.64 s | 40.82 s | 1.92× |
 
-独立推进相比逐批次等待减少 8.08 s。两条冻结程序的参考时长为 49.44 s、48.24 s，加共同末尾 3.20 s，独立执行参考为 `max(49.44,48.24)+3.20=52.64 s`。这个结论只针对这两条程序，不是完整任务全局最优；不能把批次同步、机械臂运动并行和多 Agent 的推理并行混为一谈。
+Independent progress saved 8.08 s versus batch waiting. Frozen programs took
+49.44 s and 48.24 s, plus common terminal 3.20 s, giving the independent reference
+`max(49.44,48.24)+3.20=52.64 s`. This concerns these two programs only, without
+full-task global optimality. Batch synchronization, arm-motion concurrency and
+multi-agent reasoning concurrency are distinct.
 
-## 物理、恢复与记录边界
+## Physics, recovery and recording boundaries
 
-R13 环境文件、物体尺寸／质量、桌板位置、材料、2 ms 物理步长、pd1000-v1 及原验收未改变。1,197 个原冻结环境文件按哈希核对未变。改变的携物速度是参考程序通过现有接口选择的合法动作参数。
+R13 environment files, object dimensions/masses, board positions, materials,
+2 ms steps, pd1000-v1 and original acceptance were unchanged. Hashes matched all
+1,197 frozen environment files. Loaded-speed changes were legal reference-program
+parameters through the existing interface.
 
-所有真实片段均从声明的标准初态开始；片段内只通过普通机器人命令改变世界。没有把失败世界回滚、拼接分数或重放未知动作。失败尝试独立封存，后续新初态是明确的新尝试。
+All actual segments began at declared standard initialization; only ordinary
+robot commands changed the world within a segment. Failed worlds were neither
+rolled back nor score-stitched, and uncertain actions were not replayed.
+Failed attempts stayed independently sealed; later fresh starts were explicit
+new attempts.
 
-60 Hz float32 全关节位置流保留所有物体、机械臂与弹簧板运动，逐块检查来源、哈希、初态与时间线，供离线渲染／工厂迁移；它不是可精确恢复物理执行的 checkpoint。本轮没有迁移到工厂。
+The 60 Hz float32 full-joint stream retained all objects, arms and spring-board
+motion. Every chunk checked source, hash, initialization and timeline for offline
+rendering/Factory import. This was not an exact physics-execution restart
+checkpoint. This round performed no Factory migration.
 
-## 仍需完成的全任务工作
+## Full-task work remaining at that stage
 
-旧完整 `solve` 仍依赖声明的固定路线，不能直接用于已去掉中转框的 R13。不能把这次单元验收和两目标队列宣称为九项完整任务已经跑通。
+Old complete `solve` still required declared fixed routes and could not directly
+handle R13 without transfer boxes. Unit checks and two-goal queues did not prove
+nine complete tasks.
 
-下一阶段应把合格配方连接成真实的工作阶段，维护物体与机械臂占用、交接双方就绪、目标板姿和后续退路。4／8／12 臂使用同样的候选与事件逻辑，扩大候选与预约范围；规模增大不应重新引入全体批次等待。
+The next phase should connect qualified recipes into actual job stages,
+tracking object/arm occupancy, both handoff sides' readiness, target-board pose
+and downstream exits. The same candidate/event logic should serve 4 / 8 / 12 arms
+with broader candidates/reservations, without reintroducing whole-team batch waits.
 
-L1 比较实际搬运／交接次数与接收可用时间；L2 选运输路线时同时选好接收抓姿与插入关节分支；L3 在负载改变后更新板姿、邻块与接触路径。资源数学排程只能从已经验证或明确标为待验证的候选边中选择；联合运动和真实执行仍需验收。
+L1 should compare actual carrying/handoff counts and receiver availability.
+L2 should select receiver grasp/insertion joint branch along with route.
+L3 should update board pose, neighbors and contact paths after load changes.
+Resource schedules may choose only verified or explicitly unverified candidate
+edges; combined motion and real execution still require checks.
 
-当前独立队列只覆盖互不占用机械臂的单臂程序。空中交接是耦合阶段，不能把它拆成两个没有握手条件的独立命令流。完整调度还应分别验证共享区域的安全并行与 A→B→C 流水，而不是强制每台机械臂开局先抓满物体。
+Independent queues covered only single-arm programs with disjoint arm ownership.
+Airborne handoff is coupled and cannot become two command streams without
+handshake conditions. Full scheduling should separately verify safe shared-space
+concurrency and A→B→C pipelines, without requiring all arms to begin holding objects.
 
-## 证据与测试
+## Evidence and tests
 
-运行目录：`runs/oracle/transport-r13-planning-20261025/`，所有尝试、失败、源快照、录制块和三次对照均保留。最终统一代码复测以 `qualification-2/` 及 `final-executor-2/` 为准，不能混用各开发阶段的成功配方来宣称统一版本通过。
+Run directory: `runs/oracle/transport-r13-planning-20261025/`. All attempts,
+failures, source snapshots, chunks and three execution controls remained.
+Final unified-code rechecks used `qualification-2/` and `final-executor-2/`;
+passing recipes from different development stages could not be combined into
+a claimed unified-version pass.
 
-最终八类复测在同一执行器快照下全部通过，零禁止碰撞、零未知动作：七类原订单目标加一类机械夹具；其中四类采用空中换手，三类本臂直插，一类为已有邻块条件下的连续操作。这个计数没有把机械夹具算入原订单，也没有把换手算成本臂单抓直插。
+All eight final types passed under one executor snapshot, with zero prohibited
+collisions/unknown actions: seven original-order goals and one mechanical
+fixture. Four types used airborne handoff, three same-arm insertion and one
+continuous operation with an existing neighbor. The fixture was not counted
+as an original-order goal, nor handoff as single-grasp insertion.
 
-本轮共 39 个独立片段（含开发失败、两次统一复测与三个执行方式对照），27 个局部通过；145,445 帧运动记录的全部块、时间线与标准初态校验通过。全部片段的控制与验收指纹一致，1,197 个原冻结环境文件未变。详细数据为运行目录的 `summary.json`；这些片段不能拼接成一次完整任务。
+The round contained 39 independent segments, including development failures,
+two unified rechecks and three execution controls, with 27 local passes.
+All chunks/timelines/standard initial states for 145,445 motion frames verified.
+Control/acceptance fingerprints matched across segments and all 1,197 original
+environment files stayed unchanged. Details: the run's `summary.json`.
+Segments cannot be stitched into one complete task.
 
-Transport 规划回归 53 条，加两项环境／真实孔口回归，共 55 条通过，包括封存自碰撞的执行前拒绝、关节分支跳变、中途碰撞、未知反馈禁止继续、真实松爪核实、部分插入禁止换手、板侧空中恢复、快臂不等待慢臂。
+The 53 Transport planning regressions plus two environment/real-opening checks,
+55 total, passed. They covered pre-execution rejection of an archived
+self-collision, joint-branch jumps, intermediate collisions, blocking on uncertain
+feedback, actual release verification, forbidding handoff during partial insertion,
+airborne board-side recovery and fast-arm progress without waiting for slow arms.
 
-拓展运行已有环境测试时发现一条既存接力布局断言仍要求 `upper_semicircle`，但冻结场景是 `upper_arc_90_degrees`。该测试不调用本次改动的 Transport 规划代码；本轮未改接力场景或其历史断言，不能宣称整个项目所有测试通过。
+Expanded environment tests exposed one existing Relay layout assertion expecting
+`upper_semicircle`, while the frozen scene was `upper_arc_90_degrees`. It did not
+call the changed Transport planner. This round changed neither Relay scenes nor
+that historical assertion and did not claim a full-project pass.
