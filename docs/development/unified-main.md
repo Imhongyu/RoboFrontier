@@ -1559,3 +1559,14 @@ retained. Obsolete commands are labeled historical. All numeric tokens and
 source URLs match the originals, and local links resolve; the comparison is
 `english-pilot-verification.json` in the Oracle engineering evidence directory.
 The English migration remains open, with 39 tracked files / 67,326 Han characters.
+
+## English historical Factory viewer and V7 record
+
+The legacy empty-building viewer and V7 rendering record now use English. The
+viewer still identifies its reserved zones as an empty-building preview; it
+cannot be mistaken for the later populated Factory delivery. HTML structure,
+non-text JavaScript, template expressions and numeric values are unchanged, and
+the inline script parses. No renderer was started. The V7 record retains all
+numeric values, commands, historical limitations and local links. Verification
+is in `english-factory-legacy-verification.json` in the Oracle evidence root.
+The remaining English inventory is 37 files / 66,203 Han characters.
