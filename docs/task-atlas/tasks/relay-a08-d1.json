@@ -1,0 +1,287 @@
+{
+  "id": "relay-a08-d1",
+  "family": "relay",
+  "level": 1,
+  "arms": {
+    "A": {
+      "base_position_m": [
+        -1.08,
+        -0.65,
+        0.8
+      ],
+      "yaw_rad": 1.5707963267948966
+    },
+    "B": {
+      "base_position_m": [
+        -1.08,
+        0.65,
+        0.8
+      ],
+      "yaw_rad": -1.5707963267948966
+    },
+    "C": {
+      "base_position_m": [
+        -0.36,
+        -0.65,
+        0.8
+      ],
+      "yaw_rad": 1.5707963267948966
+    },
+    "D": {
+      "base_position_m": [
+        -0.36,
+        0.65,
+        0.8
+      ],
+      "yaw_rad": -1.5707963267948966
+    },
+    "E": {
+      "base_position_m": [
+        0.36,
+        -0.65,
+        0.8
+      ],
+      "yaw_rad": 1.5707963267948966
+    },
+    "F": {
+      "base_position_m": [
+        0.36,
+        0.65,
+        0.8
+      ],
+      "yaw_rad": -1.5707963267948966
+    },
+    "G": {
+      "base_position_m": [
+        1.08,
+        -0.65,
+        0.8
+      ],
+      "yaw_rad": 1.5707963267948966
+    },
+    "H": {
+      "base_position_m": [
+        1.08,
+        0.65,
+        0.8
+      ],
+      "yaw_rad": -1.5707963267948966
+    }
+  },
+  "coordinate_frame": "Workstation metres, +X east, +Y north, +Z up; radians; wxyz quaternions",
+  "objective": "Complete the declared assembly/transport task correctly and efficiently; allocation, local motion and collaboration are Agent choices.",
+  "rules": [
+    "Move all 2 numbered payload assemblies from their individual initial positions toward the common GOAL. START marks the route origin; returning scattered payloads to START is not required.",
+    "Route regions and arrows indicate progress. Grasp points, handover locations, robot teams, allocation and execution order are planner choices. Independent work may run concurrently.",
+    "Grasp the red timber, not a pendant, ring or shaft. Keep the whole assembly clear of table and floor during airborne transport, except for the allowed final GOAL landing.",
+    "Any final placement in GOAL is allowed, including cargo contact and stacking. Oracle packing centers and contact-free separation are not task requirements.",
+    "The complete assembly must be within the GOAL outline with at most 50mm outward geometric tolerance on each boundary. Final completion requires actual release from every robot and actual table support, directly or through other accepted cargo. There is no additional velocity threshold or stationary-duration requirement.",
+    "Only ordinary robot actuators and real contacts may change the live task. No hand welds, object-state writes, hidden-state tools, runtime physics changes or stabilizing attachments.",
+    "Collisions, drops and other process events are recorded separately. Recover using ordinary robot actions; do not reset, respawn or erase history."
+  ],
+  "completion": {
+    "rule_revision": "relay-final-goal-50mm-v1",
+    "boundary_tolerance_m": 0.05,
+    "stable_duration_sim_s": 0.0,
+    "require_stationary": false,
+    "allow_goal_payload_contact": true,
+    "arbitrary_goal_placement": true,
+    "required_airborne_handover": false,
+    "support_via_goal_payload": true,
+    "allow_goal_partial_support": true,
+    "allow_near_goal_release": true,
+    "max_release_gap_m": 0.03,
+    "release_height_reference": "lowest_assembly_part",
+    "scope": "All assemblies released, actually supported and inside GOAL tolerance; process events are reported separately."
+  },
+  "mechanism": {
+    "chord_m": 1.2,
+    "mass_kg": 1.458,
+    "cross_section_m": [
+      0.045,
+      0.045
+    ],
+    "kind": "straight_beam",
+    "minimum_supporting_robots": 2,
+    "flexible_teams": true,
+    "layout": "straight",
+    "outer_arms": null,
+    "inner_arms": null,
+    "inner_robot_radius_m": null,
+    "outer_robot_radius_m": null,
+    "curve_radius_m": null,
+    "table_end_extension_m": 0.38,
+    "finish": "Tabletop destination region; no cradle; beam and suspended assembly must land stably",
+    "payload_count": 2,
+    "payload_assemblies": [
+      {
+        "id": "payload_01",
+        "beam_body": "payload_01",
+        "weight_body": null,
+        "tray_body": null,
+        "source_region_id": "pickup_01",
+        "initial_route_stage_id": "zone_01",
+        "pickup_center_m": [
+          -1.46,
+          0.0,
+          0.8
+        ],
+        "pickup_half_size_m": [
+          0.24,
+          0.65
+        ],
+        "pickup_yaw_rad": 0.0,
+        "destination_region_id": "zone_04",
+        "source_region_painted": false
+      },
+      {
+        "id": "payload_02",
+        "beam_body": "payload_02",
+        "weight_body": null,
+        "tray_body": null,
+        "source_region_id": "pickup_02",
+        "initial_route_stage_id": "zone_03",
+        "pickup_center_m": [
+          0.03999999999999998,
+          0.0,
+          0.8
+        ],
+        "pickup_half_size_m": [
+          0.24,
+          0.65
+        ],
+        "pickup_yaw_rad": 0.0,
+        "destination_region_id": "zone_04",
+        "source_region_painted": false
+      }
+    ],
+    "initial_distribution": "Separate positions along the route; each travels rightward to the common destination",
+    "cable_to_cable_collision": false,
+    "presentation": {
+      "revision": 13,
+      "endpoint_size_xy_m": [
+        0.8,
+        1.36
+      ],
+      "start_center_world_m": [
+        -1.62,
+        0.0,
+        0.8
+      ],
+      "goal_center_world_m": [
+        1.62,
+        0.0,
+        0.8
+      ],
+      "intermediate_region_frames": false,
+      "per_payload_pickup_frames": false,
+      "arrows": [
+        {
+          "center_world_m": [
+            -0.92,
+            0.0,
+            0.8
+          ],
+          "yaw_rad": 0.0
+        },
+        {
+          "center_world_m": [
+            -0.6133333333333333,
+            0.0,
+            0.8
+          ],
+          "yaw_rad": 0.0
+        },
+        {
+          "center_world_m": [
+            -0.30666666666666664,
+            0.0,
+            0.8
+          ],
+          "yaw_rad": 0.0
+        },
+        {
+          "center_world_m": [
+            1.1102230246251565e-16,
+            0.0,
+            0.8
+          ],
+          "yaw_rad": 0.0
+        },
+        {
+          "center_world_m": [
+            0.30666666666666675,
+            0.0,
+            0.8
+          ],
+          "yaw_rad": 0.0
+        },
+        {
+          "center_world_m": [
+            0.6133333333333334,
+            0.0,
+            0.8
+          ],
+          "yaw_rad": 0.0
+        },
+        {
+          "center_world_m": [
+            0.92,
+            0.0,
+            0.8
+          ],
+          "yaw_rad": 0.0
+        }
+      ],
+      "opening": "L2/L3 whole assembly yaw reversed by180 degrees; opening faces the original local route-forward direction",
+      "end_extensions": [],
+      "physics_scope": "Apparatus local mechanics and controller unchanged. Twelve-arm modules are laid out on120degrees; arc worktops have1.60m inner openings and integrated normal end landings, without external side tables."
+    }
+  },
+  "initial_supplies": [
+    {
+      "source": "A",
+      "color": "red",
+      "count": 1
+    },
+    {
+      "source": "E",
+      "color": "red",
+      "count": 1
+    }
+  ],
+  "workspace_world_m": {
+    "lower": [
+      -1.9300000000000002,
+      -1.5,
+      0.42500000000000004
+    ],
+    "upper": [
+      1.9300000000000002,
+      1.5,
+      2.1
+    ]
+  },
+  "observation_contract": {
+    "initial_geometry_public": true,
+    "live_object_truth_for_policy": false,
+    "policy": [
+      "Selected timestamped RGB",
+      "Robot proprioception and robot geometry",
+      "Action feedback",
+      "Visible dial count"
+    ]
+  },
+  "gripper_profile": "standard-panda",
+  "arm_count": 8,
+  "family_guidance": "# Air Relay — terminal outcome v2\n\nRead the assigned task and move every assembly from its initial position to\nGOAL. START marks the route origin; returning to START is not required. Choose\nrobot teams, route and any handovers based on available observations.\n\nCompletion requires every assembly to be released by all robots, actually\nsupported, and inside the GOAL boundary tolerance of 50 mm. Cargo contact and\nstacking are allowed. Check the final physical state; opening alone does not\nestablish completion.\n\nCollisions, drops and other process events are recorded separately from final\ncompletion. You may observe and recover using ordinary robot actions. No reset,\nrespawn, state writing or history erasure is permitted.\n",
+  "source": {
+    "scene_sha256": "ce01162529bcaaedda48bd2f5ced66fdfa42df7ca044ecd25372a0c610da6cef",
+    "task_sha256": "f05cbd9e5ff6e4053eb62a1835502a0c73ff2fe877b39577da7c64cff148c999",
+    "qualification": "final_goal_contract_with_historical_user_goal_evidence"
+  },
+  "views": {
+    "top": "images/relay-a08-d1-top.jpg",
+    "global": "images/relay-a08-d1-global.jpg"
+  }
+}

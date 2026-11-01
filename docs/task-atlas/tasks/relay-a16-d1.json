@@ -1,0 +1,435 @@
+{
+  "id": "relay-a16-d1",
+  "family": "relay",
+  "level": 1,
+  "arms": {
+    "A": {
+      "base_position_m": [
+        -2.43,
+        2.9758917219280684e-16,
+        0.8
+      ],
+      "yaw_rad": 6.283185307179586
+    },
+    "B": {
+      "base_position_m": [
+        -2.283453068509757,
+        0.8311089482813754,
+        0.8
+      ],
+      "yaw_rad": 5.934119456780721
+    },
+    "C": {
+      "base_position_m": [
+        -1.8614879967791165,
+        1.561973891538291,
+        0.8
+      ],
+      "yaw_rad": 5.585053606381854
+    },
+    "D": {
+      "base_position_m": [
+        -1.2150000000000005,
+        2.104441731196186,
+        0.8
+      ],
+      "yaw_rad": 5.235987755982989
+    },
+    "E": {
+      "base_position_m": [
+        -0.4219650717306407,
+        2.3930828398196655,
+        0.8
+      ],
+      "yaw_rad": 4.886921905584122
+    },
+    "F": {
+      "base_position_m": [
+        0.42196507173064096,
+        2.3930828398196655,
+        0.8
+      ],
+      "yaw_rad": 4.537856055185257
+    },
+    "G": {
+      "base_position_m": [
+        1.2149999999999999,
+        2.1044417311961863,
+        0.8
+      ],
+      "yaw_rad": 4.188790204786391
+    },
+    "H": {
+      "base_position_m": [
+        1.8614879967791167,
+        1.5619738915382908,
+        0.8
+      ],
+      "yaw_rad": 3.839724354387525
+    },
+    "I": {
+      "base_position_m": [
+        2.283453068509757,
+        0.8311089482813752,
+        0.8
+      ],
+      "yaw_rad": 3.490658503988659
+    },
+    "J": {
+      "base_position_m": [
+        2.43,
+        0.0,
+        0.8
+      ],
+      "yaw_rad": 3.141592653589793
+    },
+    "K": {
+      "base_position_m": [
+        -1.03,
+        1.2613862031217737e-16,
+        0.8
+      ],
+      "yaw_rad": 3.141592653589793
+    },
+    "L": {
+      "base_position_m": [
+        -0.8332875042061958,
+        0.6054188098612474,
+        0.8
+      ],
+      "yaw_rad": 2.5132741228718345
+    },
+    "M": {
+      "base_position_m": [
+        -0.3182875042061958,
+        0.9795882117840082,
+        0.8
+      ],
+      "yaw_rad": 1.8849555921538759
+    },
+    "N": {
+      "base_position_m": [
+        0.3182875042061959,
+        0.9795882117840081,
+        0.8
+      ],
+      "yaw_rad": 1.2566370614359172
+    },
+    "O": {
+      "base_position_m": [
+        0.8332875042061959,
+        0.6054188098612473,
+        0.8
+      ],
+      "yaw_rad": 0.6283185307179586
+    },
+    "P": {
+      "base_position_m": [
+        1.03,
+        0.0,
+        0.8
+      ],
+      "yaw_rad": 0.0
+    }
+  },
+  "coordinate_frame": "Workstation metres, +X east, +Y north, +Z up; radians; wxyz quaternions",
+  "objective": "Complete the declared assembly/transport task correctly and efficiently; allocation, local motion and collaboration are Agent choices.",
+  "rules": [
+    "Move all 4 numbered payload assemblies from their individual initial positions toward the common GOAL. START marks the route origin; returning scattered payloads to START is not required.",
+    "Route regions and arrows indicate progress. Grasp points, handover locations, robot teams, allocation and execution order are planner choices. Independent work may run concurrently.",
+    "Grasp the red timber, not a pendant, ring or shaft. Keep the whole assembly clear of table and floor during airborne transport, except for the allowed final GOAL landing.",
+    "Any final placement in GOAL is allowed, including cargo contact and stacking. Oracle packing centers and contact-free separation are not task requirements.",
+    "The complete assembly must be within the GOAL outline with at most 50mm outward geometric tolerance on each boundary. Final completion requires actual release from every robot and actual table support, directly or through other accepted cargo. There is no additional velocity threshold or stationary-duration requirement.",
+    "Only ordinary robot actuators and real contacts may change the live task. No hand welds, object-state writes, hidden-state tools, runtime physics changes or stabilizing attachments.",
+    "Collisions, drops and other process events are recorded separately. Recover using ordinary robot actions; do not reset, respawn or erase history."
+  ],
+  "completion": {
+    "rule_revision": "relay-final-goal-50mm-v1",
+    "boundary_tolerance_m": 0.05,
+    "stable_duration_sim_s": 0.0,
+    "require_stationary": false,
+    "allow_goal_payload_contact": true,
+    "arbitrary_goal_placement": true,
+    "required_airborne_handover": false,
+    "support_via_goal_payload": true,
+    "allow_goal_partial_support": true,
+    "allow_near_goal_release": true,
+    "max_release_gap_m": 0.03,
+    "release_height_reference": "lowest_assembly_part",
+    "scope": "All assemblies released, actually supported and inside GOAL tolerance; process events are reported separately."
+  },
+  "mechanism": {
+    "chord_m": 1.2,
+    "mass_kg": 1.458,
+    "cross_section_m": [
+      0.045,
+      0.045
+    ],
+    "kind": "straight_beam",
+    "minimum_supporting_robots": 2,
+    "flexible_teams": true,
+    "layout": "upper_semicircle",
+    "outer_arms": 10,
+    "inner_arms": 6,
+    "inner_robot_radius_m": 1.03,
+    "outer_robot_radius_m": 2.43,
+    "curve_radius_m": 1.73,
+    "table_end_extension_m": 0.38,
+    "finish": "Tabletop destination region; no cradle; beam and suspended assembly must land stably",
+    "payload_count": 4,
+    "payload_assemblies": [
+      {
+        "id": "payload_01",
+        "beam_body": "payload_01",
+        "weight_body": null,
+        "tray_body": null,
+        "source_region_id": "pickup_01",
+        "initial_route_stage_id": "zone_01",
+        "pickup_center_m": [
+          -1.73,
+          -0.3799999999999998,
+          0.8
+        ],
+        "pickup_half_size_m": [
+          0.24,
+          0.65
+        ],
+        "pickup_yaw_rad": 1.5707963267948966,
+        "destination_region_id": "zone_10",
+        "source_region_painted": false
+      },
+      {
+        "id": "payload_02",
+        "beam_body": "payload_02",
+        "weight_body": null,
+        "tray_body": null,
+        "source_region_id": "pickup_02",
+        "initial_route_stage_id": "zone_04",
+        "pickup_center_m": [
+          -1.1421281292110206,
+          1.3382239485470786,
+          0.8
+        ],
+        "pickup_half_size_m": [
+          0.24,
+          0.65
+        ],
+        "pickup_yaw_rad": 0.5235987755982991,
+        "destination_region_id": "zone_10",
+        "source_region_painted": false
+      },
+      {
+        "id": "payload_03",
+        "beam_body": "payload_03",
+        "weight_body": null,
+        "tray_body": null,
+        "source_region_id": "pickup_03",
+        "initial_route_stage_id": "zone_06",
+        "pickup_center_m": [
+          -0.01472713360011696,
+          1.7592848295645376,
+          0.8
+        ],
+        "pickup_half_size_m": [
+          0.24,
+          0.65
+        ],
+        "pickup_yaw_rad": -0.17453292519943298,
+        "destination_region_id": "zone_10",
+        "source_region_painted": false
+      },
+      {
+        "id": "payload_04",
+        "beam_body": "payload_04",
+        "weight_body": null,
+        "tray_body": null,
+        "source_region_id": "pickup_04",
+        "initial_route_stage_id": "zone_09",
+        "pickup_center_m": [
+          1.5162217880954074,
+          0.8923964866048977,
+          0.8
+        ],
+        "pickup_half_size_m": [
+          0.24,
+          0.65
+        ],
+        "pickup_yaw_rad": -1.2217304763960306,
+        "destination_region_id": "zone_10",
+        "source_region_painted": false
+      }
+    ],
+    "initial_distribution": "Separate positions along the route; each travels rightward to the common destination",
+    "cable_to_cable_collision": false,
+    "table_inner_diameter_m": 1.6,
+    "layout_arc_degrees": 180,
+    "presentation": {
+      "revision": 13,
+      "endpoint_size_xy_m": [
+        0.8,
+        1.36
+      ],
+      "start_center_world_m": [
+        -1.73,
+        -0.47999999999999976,
+        0.8
+      ],
+      "goal_center_world_m": [
+        1.73,
+        -0.48,
+        0.8
+      ],
+      "intermediate_region_frames": false,
+      "per_payload_pickup_frames": false,
+      "arrows": [
+        {
+          "center_world_m": [
+            -1.671051679480088,
+            0.4477569480273614,
+            0.8
+          ],
+          "yaw_rad": 1.308996938995747
+        },
+        {
+          "center_world_m": [
+            -1.498223948547079,
+            0.8649999999999999,
+            0.8
+          ],
+          "yaw_rad": 1.0471975511965979
+        },
+        {
+          "center_world_m": [
+            -1.2232947314527272,
+            1.2232947314527274,
+            0.8
+          ],
+          "yaw_rad": 0.7853981633974483
+        },
+        {
+          "center_world_m": [
+            -0.8649999999999997,
+            1.498223948547079,
+            0.8
+          ],
+          "yaw_rad": 0.5235987755982987
+        },
+        {
+          "center_world_m": [
+            -0.44775694802736105,
+            1.6710516794800883,
+            0.8
+          ],
+          "yaw_rad": 0.2617993877991496
+        },
+        {
+          "center_world_m": [
+            1.0593194812624605e-16,
+            1.73,
+            0.8
+          ],
+          "yaw_rad": 0.0
+        },
+        {
+          "center_world_m": [
+            0.4477569480273609,
+            1.6710516794800883,
+            0.8
+          ],
+          "yaw_rad": -0.26179938779914935
+        },
+        {
+          "center_world_m": [
+            0.8650000000000002,
+            1.4982239485470787,
+            0.8
+          ],
+          "yaw_rad": -0.5235987755982989
+        },
+        {
+          "center_world_m": [
+            1.2232947314527274,
+            1.2232947314527272,
+            0.8
+          ],
+          "yaw_rad": -0.7853981633974483
+        },
+        {
+          "center_world_m": [
+            1.498223948547079,
+            0.8649999999999999,
+            0.8
+          ],
+          "yaw_rad": -1.0471975511965979
+        },
+        {
+          "center_world_m": [
+            1.6710516794800883,
+            0.4477569480273609,
+            0.8
+          ],
+          "yaw_rad": -1.3089969389957472
+        }
+      ],
+      "opening": "L2/L3 whole assembly yaw reversed by180 degrees; opening faces the original local route-forward direction",
+      "end_extensions": [],
+      "physics_scope": "Apparatus local mechanics and controller unchanged. Twelve-arm modules are laid out on120degrees; arc worktops have1.60m inner openings and integrated normal end landings, without external side tables."
+    }
+  },
+  "initial_supplies": [
+    {
+      "source": "C",
+      "color": "red",
+      "count": 1
+    },
+    {
+      "source": "E",
+      "color": "red",
+      "count": 1
+    },
+    {
+      "source": "K",
+      "color": "red",
+      "count": 1
+    },
+    {
+      "source": "O",
+      "color": "red",
+      "count": 1
+    }
+  ],
+  "workspace_world_m": {
+    "lower": [
+      -3.2800000000000002,
+      -0.85,
+      0.42500000000000004
+    ],
+    "upper": [
+      3.2800000000000002,
+      3.2430828398196656,
+      2.1
+    ]
+  },
+  "observation_contract": {
+    "initial_geometry_public": true,
+    "live_object_truth_for_policy": false,
+    "policy": [
+      "Selected timestamped RGB",
+      "Robot proprioception and robot geometry",
+      "Action feedback",
+      "Visible dial count"
+    ]
+  },
+  "gripper_profile": "standard-panda",
+  "arm_count": 16,
+  "family_guidance": "# Air Relay — terminal outcome v2\n\nRead the assigned task and move every assembly from its initial position to\nGOAL. START marks the route origin; returning to START is not required. Choose\nrobot teams, route and any handovers based on available observations.\n\nCompletion requires every assembly to be released by all robots, actually\nsupported, and inside the GOAL boundary tolerance of 50 mm. Cargo contact and\nstacking are allowed. Check the final physical state; opening alone does not\nestablish completion.\n\nCollisions, drops and other process events are recorded separately from final\ncompletion. You may observe and recover using ordinary robot actions. No reset,\nrespawn, state writing or history erasure is permitted.\n",
+  "source": {
+    "scene_sha256": "8ac11391873bc813df94eb6a3718ed04c1701f6de15224fb68a45226fd158b61",
+    "task_sha256": "c0335e3308f83ccdaa72428c695273fb641425f36255317a4856c991e1024882",
+    "qualification": "final_goal_contract_with_historical_user_goal_evidence"
+  },
+  "views": {
+    "top": "images/relay-a16-d1-top.jpg",
+    "global": "images/relay-a16-d1-global.jpg"
+  }
+}

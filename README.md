@@ -26,6 +26,7 @@ compatibility certificates.
 | Run on Linux Docker or macOS Docker Desktop | [Docker execution](docs/docker.md) |
 | Queue a job with node-local runtime state | [Slurm submission](docs/slurm.md) |
 | Replay motion and render Factory backgrounds | [Factory workflow](docs/factory.md) |
+| Browse the 36 current tasks and initial scenes | [English task atlas](docs/task-atlas/index.html) |
 | See which integration gates have passed | [Acceptance and source provenance](docs/development/unified-main.md) |
 | Read the policy's role and tool contract | [Robot collaboration skill](.agents/skills/robot-collaboration/SKILL.md) |
 | Read completion and recovery rules | [Shared policy rules](prompts/policy-rules.md) |
@@ -264,8 +265,10 @@ benchmark's START clock. The [Oracle guide](docs/oracle.md) documents native
 recovery, evidence and the distinction between commissioning and full success.
 All four families have passed current compressed-motion Factory import and
 all-frame replay checks, with small CPU video previews. New full physical Oracle
-qualification, the tracked English task atlas and the editable full-length English
-video project remain open gates. Existing Oracle intervention records and historical source identities must
+qualification and the editable full-length English video project remain open
+gates. The tracked [English task atlas](docs/task-atlas/index.html) includes current
+public task contracts and 72 regenerated initial views; its [guide](docs/task-atlas.md)
+provides verification and offline ZIP commands. Existing Oracle intervention records and historical source identities must
 be preserved; assisted execution is not automatically an autonomous benchmark.
 
 ## Repository map
@@ -278,7 +281,8 @@ be preserved; assisted execution is not automatically an autonomous benchmark.
 | `prompts/`, `.agents/skills/` | Public policy and role/tool contracts |
 | `scripts/`, `tests/` | Engineering entries and regression checks |
 | `docker/` | Unified image and explicitly retained legacy image |
-| `docs/` | Current guides, provenance and historical migration records |
+| `docs/` | Current guides, tracked public task atlas, provenance and historical migration records |
+| `web/task-atlas/` | Editable HTML/CSS/JavaScript sources for the offline public atlas |
 | `runs/`, `outputs/` | Ignored runtime evidence and media; back up separately from Git |
 | `.robofrontier/` | Ignored private native state and container command receipts |
 

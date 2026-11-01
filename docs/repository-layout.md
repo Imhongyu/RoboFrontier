@@ -1,27 +1,71 @@
-# 当前入口与数据保留
+# Repository layout and retained data
 
-| 要做的事 | 入口 |
+The repository contains source, pinned metadata and the public task atlas.
+Runtime data and large assets have separate explicit installation/backup paths.
+Cloning source is not a backup of ignored recordings or credentials.
+
+| Path | Purpose |
 | --- | --- |
-| 选择36项当前任务／版本 | `configs/task_families/current.json` |
-| 浏览四类任务说明 UI／下载离线包 | `outputs/task-atlas/v1-20261027/index.html`、`outputs/exports/task-atlas-four-families-20261027.zip` |
-| 配置不同模型与上下文 | `configs/models.json` |
-| 运行 Codex CLI 基准 | `python -m scripts.benchmark`；见 [运行说明](gpt-policy.md) |
-| 保留的 Oracle 构建／运行／验证 | `scripts/run_oracle_family.py` 与各家族当前 runner；见 [任务入口](frontier-v2-environments.md) |
-| 查看最终简单背景 Oracle 视频 | `outputs/final/oracle/{transport,mosaic,relay,dial}/` |
-| 查看当前工厂图／成片 | `outputs/final/factory/` |
-| 查看保留的历史 GPT 对照 | `outputs/gpt/frontier-v2-minimum-20m-20261025/` |
-| 查看最终产物原路径、倍速、哈希 | `outputs/final/manifest.json` |
-| 原始动作与运行证据 | `runs/oracle/`、`runs/policy/` |
-| 工程核验／清理回执 | `runs/engineering/` |
+| `README.md` | Installation, defaults, command examples and integration status |
+| `robofrontier.toml` | Unified defaults for new runs; prepared runs freeze their resolved settings |
+| `robofrontier/` | Shared physics/runtime/evidence contracts and native engine modules |
+| `configs/task_families/current.json` | Current 36-case policy/Oracle source registry |
+| `configs/policy-assets.json` | Pinned policy asset archive, hashes and release identity |
+| `configs/factory-assets.json` | Separate optional Factory recording bundle lock |
+| `configs/models.json`, `configs/claude-models.json` | Engine-specific provider/model profiles |
+| `prompts/`, `.agents/skills/` | Public policy and role/tool instructions |
+| `scripts/`, `tests/` | Engineering commands, retained scene/reference builders and regression checks |
+| `web/task-atlas/` | Editable English atlas templates and browser interactions |
+| `docs/task-atlas/` | Tracked, verified public offline atlas with 72 current initial JPEG views |
+| `docs/` | Guides, source provenance, acceptance ledger and explicitly historical material |
+| `docker/` | Unified image and labeled legacy image |
+| `runs/policy/`, `runs/oracle/` | Ignored original run evidence, frozen inputs and motion |
+| `runs/exports/` | Ignored stopped-run collections and portable evidence ZIP files |
+| `runs/engineering/` | Ignored engineering checks, failure evidence and acceptance receipts |
+| `outputs/` | Ignored renders, editable media projects and exported delivery packages |
+| `.robofrontier/` | Ignored task-local native state and container command receipts |
+| `vendor/`, `configs/environments/**/assets/` | Ignored large assets restored from the pinned package |
 
-`outputs/final` 是统一浏览入口，通过相对链接引用保留的媒体，不重复拷贝视频。原始60Hz源流、冻结场景、动作／过程证据和源帧剪辑保留原路径，避免破坏已发布数据的引用。Transport 有正反两视角18条，另外三类各9条，共45条简单背景视频；Dial 的 assisted 案例保持原标识。
+Use the [unified CLI guide](unified-cli.md) to run a benchmark, the
+[Oracle guide](oracle.md) for explicit reference execution, and the
+[Factory guide](factory.md) to import a recording and render a different
+background. The [atlas guide](task-atlas.md) explains current public browsing,
+verification and offline ZIP distribution.
 
-任务图谱的网页、图像、公开规格摘要、生成脚本和离线ZIP作为最终资料保留，使用当前GPT任务来源；它不是实时运行面板，也不包含Oracle解法或私有密码。上述目录列入显式保留清单。
+## Original evidence versus collections
 
-工厂保留当前 V10 场景、Blender 导出、top／side 图、环视成片，以及最后发布的任务展示。静止／细抖动裁剪表与原始源流分开保存，展示剪辑不覆盖原数据。已编码的整段PNG缓存、未选用的旧试验／校准、旧工厂试图和过期 prepared 包按 `configs/retention.json` 清理。本轮盘点之后新生成或更新的渲染目录排除在清理之外。
+Original task evidence and native session homes are the writable sources during
+execution. Each run's `codex-home.json` records its exact native home; new API
+runs use a separate task home below `.robofrontier/codex/`. Claude engineering
+runs use their run-local `private/claude-config`. Host JSONL events are not a
+substitute for native session transcripts.
 
-18个未被现有代码／配置／测试引用的一次性探针、概念图脚本及被CLI替代的旧20分钟Desktop批量入口已移除。原提交仍在 Git 历史中；仍被现有 Oracle、场景构建或回归引用的模块保留。四个旧任务 worktree 已移除，分支提交保留；39个独有忽略文件已归档并核对哈希。main 和当前开发 worktree 保留。
+Collection occurs after writers stop. It resolves task-associated sessions and
+copies the required portable evidence into `runs/exports/`, where an archive can
+deduplicate identical files and extract inline images reversibly. Originals stay
+available for audit and native history. A successful ZIP does not reclaim their
+disk space automatically. Deleting originals is a separate decision after
+verified restore and independent backup; see [evidence storage](evidence-storage.md).
+Never monitor active node/container SQLite files through a shared mount.
 
-本轮回执在 `runs/engineering/cli-migration-cleanup-20261027/`：保留清单、删除清单、旧worktree归档、原生CLI协议检查与回归检查分别记录。清理前对174917个当前源／交付文件建立哈希清单；清理后的检查以实际回执为准。旧历史保护清单记录当时的数据全集，不再要求已获授权退役的试验继续存在。
+## Legacy local delivery layouts
 
-`runs/`、`outputs/`、大型场景资产和 `vendor/` 不在 Git 内。Git 历史只能恢复源码，不能恢复已删除的未跟踪试验数据。当前仍保留的原始源和最终交付需随数据根备份；单独推送源码不能恢复实验。
+Older local worktrees may contain `outputs/final/manifest.json` and relative
+media links under `outputs/final/oracle/` and `outputs/final/factory/`. These were
+browsing indexes, not source-controlled media bundles. Their manifests preserve
+original paths, source-frame edits, playback rates, hashes and assisted labels.
+Keep those records with the matching recordings. A new release cannot silently
+reinterpret an old Oracle recording as autonomous or replace its frozen physics.
+
+The previous untracked atlas under `outputs/task-atlas/v1-20261027/` and its
+exported ZIP are legacy local artifacts. The tracked English replacement is
+`docs/task-atlas/`; it is generated anew from the current public release. Old
+worktree cleanup/retention receipts under
+`runs/engineering/cli-migration-cleanup-20261027/` describe that historical local
+inventory, not permission to delete future recordings. Current cleanup must use
+its own explicit scope and verification.
+
+The early `config.json` and single-arm demo remain legacy application inputs.
+They are not the unified benchmark configuration. Historical docs and plan files
+must be read with their date/source context; current defaults and acceptance are
+stated in the unified guides and [integration ledger](development/unified-main.md).

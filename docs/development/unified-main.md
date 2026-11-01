@@ -532,3 +532,42 @@ This is local clean-checkout/bootstrap/preparation evidence, not GitHub branch
 publication, provider compatibility, concurrent subscription refresh, 36-task
 resource capacity, Linux NVIDIA or Slurm qualification. The policy and Factory
 release locks remain unchanged, and integration has not been merged into main.
+
+
+## Tracked English public atlas
+
+The current public task atlas is now reproducible, tracked under
+`docs/task-atlas/`, with editable templates under `web/task-atlas/` and the
+`scripts.build_task_atlas` build/verify/ZIP entry. It regenerated all 72 top/front
+JPEG views from the actual current 36 scenes at their initial keyframes, without
+physics stepping or model calls. The package binds each file and generator to
+release `b432892f`; it uses the same reviewed public contracts and terminal
+scoring overlays as new policy runs. Raw private puzzles, Oracle solutions,
+local paths and live runtime databases are excluded.
+
+Eight artifact/public-contract tests passed in 2.710 seconds. They cover exact
+current contract selection, private-field rejection, corrupted images/unlisted
+files, stale completion semantics even with a rewritten payload hash, refusal to
+overwrite an existing artifact, and deterministic ZIP creation/restoration with
+byte-exact file checks. The generated site is 4,367,839 bytes and its ZIP is
+2,998,888 bytes (SHA-256
+`fdb1da0519f76ace7da90398128b7c2e385e1ce35c3d6009929fca88a43504df`).
+
+Actual browser checks exercised combined family/level/arm/ID filters, empty
+results, reset, front-camera switching and family-card navigation. A real
+initial navigation bug, caused by a reset-button ID masking `form.reset`, was
+found and fixed before delivery. The corrected 390 x 844 layout has one-column
+task cards with no horizontal overflow; desktop layout and loaded images were
+also inspected. Direct `file:` navigation is blocked by this browser tool's
+protocol policy, so it is not claimed as an executed browser check. Structural
+relative-link checks, self-contained JavaScript/CSS and actual ZIP restore are
+verified separately. Evidence is under
+`runs/engineering/main-integration-task-atlas-20261101/`.
+
+The Pages workflow validates relevant pull requests and supports an explicit
+manual publication, disabled by default. It uploads only the verified atlas;
+there is no push-triggered deployment. Neither this workflow nor the current
+integration branch has been published. The repository layout guide is now
+English and distinguishes tracked code/atlas from ignored original recordings,
+collections and historical local delivery layouts. Repository-wide English,
+full editable promo and the other outstanding gates remain open.
