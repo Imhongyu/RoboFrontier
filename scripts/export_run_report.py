@@ -116,14 +116,14 @@ def export(directory, codex_home=None):
     if snapshot.exists():report['video']=json.loads(snapshot.read_text()).get('video')
     write_json(directory/'private/state/model-verification.json',models)
     write_json(output/'messages.json',messages);write_json(output/'report.json',report)
-    lines=['# RoboFrontier 运行审计','',f"生命周期：{lifecycle}；目标评估：{evaluation}。",'',
-           f"墙钟：{report['wall_seconds']} 秒；动作：{sum(report['actions_by_arm'].values())}；消息：{len(messages)}。",'',
-           f"实际模型设置核验：{report['all_requested_models_verified']}；固定输入变更：{report['changed_inputs']}。",'',
-           '动作重叠不包含空闲保持；需结合任务进展与视频解释，一次试点不支持架构优劣结论。']
+    lines=['# RoboFrontier run audit','',f"Lifecycle: {lifecycle}; goal evaluation: {evaluation}.",'',
+           f"Wall time: {report['wall_seconds']} seconds; actions: {sum(report['actions_by_arm'].values())}; messages: {len(messages)}.",'',
+           f"Requested model settings verified: {report['all_requested_models_verified']}; frozen input changes: {report['changed_inputs']}.",'',
+           'Action overlap excludes idle holding. Interpret it alongside task progress and video; one pilot does not establish architectural superiority.']
     if config.get('engine', 'codex') == 'claude':
-        lines[2:2]=['Claude 工程运行：未取得正式 benchmark 资格，不能作为正式跑分结果。','']
+        lines[2:2]=['Claude engineering run: not qualified for formal benchmark scoring; do not report it as a scored result.','']
     if 'task_metrics' in report:
-        lines+=['',f"任务指标：{report['task_metrics']}。"]
+        lines+=['',f"Task metrics: {report['task_metrics']}."]
     (output/'report.md').write_text('\n'.join(lines)+'\n')
     return report
 

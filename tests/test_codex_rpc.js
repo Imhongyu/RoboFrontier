@@ -18,15 +18,15 @@ test('robot transport cannot select another role connection',()=>{
 test('direct bootstrap names shared rules and does not promise all drop counters',()=>{
   const prompt=PolicyHost.prototype.bootstrap.call({run:'/tmp/test-run',wallLimit:300},'Controller');
   assert.match(prompt,/policy-rules\.md/);
-  assert.match(prompt,/任务支持的过程事件/);
-  assert.doesNotMatch(prompt,/碰撞、掉落和交接等过程事件单独记录/);
-  assert.match(prompt,/不需要等待另一条 START/);
+  assert.match(prompt,/Supported process events follow their task-specific detection rules/);
+  assert.match(prompt,/do not automatically veto completion/);
+  assert.match(prompt,/without waiting for another START/);
 });
-test('standing roles use the existing readiness barrier and read their work after wake',()=>{
+test('frozen legacy roles retain the readiness barrier and read their work after wake',()=>{
   const prompt=PolicyHost.prototype.bootstrap.call({run:'/tmp/test-run',wallLimit:36000},'A','ready_barrier_v1');
-  assert.match(prompt,/调用 robot ready/);
-  assert.match(prompt,/调用 robot work/);
-  assert.doesNotMatch(prompt,/实验已经 START，计时已开始/);
+  assert.match(prompt,/call robot ready/);
+  assert.match(prompt,/call robot work/);
+  assert.doesNotMatch(prompt,/The experiment has STARTED and the task clock is running/);
 });
 test('capacity recovery resumes a started task without a READY barrier',async()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'capacity-retry-'));
@@ -41,8 +41,9 @@ test('capacity recovery resumes a started task without a READY barrier',async()=
       send:async(id,prompt)=>prompts.push(prompt),event:()=>{}};
     await PolicyHost.prototype.retryCapacity.call(host);
     assert.equal(prompts.length,1);
-    assert.match(prompts[0],/实验已经开始/);
-    assert.doesNotMatch(prompts[0],/READY\/保存等待协议/);
+    assert.match(prompts[0],/The experiment has started/);
+    assert.match(prompts[0],/continue without waiting for another START/);
+    assert.doesNotMatch(prompts[0],/legacy startup barrier has not opened/);
     await PolicyHost.prototype.retryCapacity.call(host);
     assert.equal(prompts.length,1);
   } finally {fs.rmSync(dir,{recursive:true,force:true});}

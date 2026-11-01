@@ -62,7 +62,7 @@ class FinishPhysicsSmokeTests(unittest.TestCase):
             self.assertEqual(report['evaluation'],evaluation)
             self.assertEqual(report['engine'],'claude')
             self.assertFalse(report['benchmark_qualified'])
-            self.assertIn('未取得正式 benchmark 资格',(run/'private/outputs/report.md').read_text())
+            self.assertIn('not qualified for formal benchmark scoring',(run/'private/outputs/report.md').read_text())
             self.assertFalse(report['all_requested_models_verified'])
             self.assertEqual(report['changed_inputs'],[])
             passed=True

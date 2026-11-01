@@ -130,10 +130,10 @@ async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAda
         }
         await runtime('delegate-activate',{id:batch.id}); activated = true;
         for (const child of claimed.children) {
-          const prompt = '当前身份为本次任务的临时分身 '+child.actor+'。这是运行时授权，替换继承历史中的父角色身份、连接及团队finish权限；共同任务和证据限制继续有效。父会话尚未完成的调用和计划是历史，不要重试或替父执行。'+
-            '\n本次范围由任务Controller原样提交：'+JSON.stringify({robots:child.robots,goal:child.goal,done_when:child.done_when,constraints:child.constraints??''})+
-            '\n只使用自己的连接 '+runDir+'/private/state/connections/'+child.actor+'.json；Python '+python+'。未来调用ID使用 '+child.actor+' 前缀，不复用父调用ID。'+
-            '\n你是临时分身，非每臂常驻Worker。生命周期与交回规则以冻结Skill的 references/adaptive.md为准；上下文缺失时恢复该参考。团队已经START，按本范围自主执行并处理父消息，必要时报告里程碑或阻塞。正常完成本次委派后return_task并结束；等待、暂停和未完成交回按该参考处理。不创建更多会话、不调用管理接口、不修改Harness、不读取私有评估、不执行团队finish。';
+          const prompt = 'Your current identity is temporary delegate '+child.actor+' for this task. This runtime authority replaces inherited parent-role identity, connection and team-finish permissions; shared task and evidence restrictions remain in force. The parent session\'s unfinished calls and plans are history: do not retry them or execute them for the parent.'+
+            '\nThe task Controller submitted this scope verbatim: '+JSON.stringify({robots:child.robots,goal:child.goal,done_when:child.done_when,constraints:child.constraints??''})+
+            '\nUse only your own connection '+runDir+'/private/state/connections/'+child.actor+'.json; Python '+python+'. Prefix future call IDs with '+child.actor+'; do not reuse parent call IDs.'+
+            '\nYou are a temporary delegate, not a permanent per-arm Worker. Follow the frozen Skill\'s references/adaptive.md for lifecycle and handback rules; restore that reference if context is missing. The team has STARTED. Act independently within this scope, process parent messages, and report milestones or blockers when useful. On normal completion, call return_task and end. Follow the reference for waiting, pauses and incomplete handback. Do not create more sessions, use management APIs, modify the harness, read private evaluation or execute team finish.';
           try {
             const reply = await adapter.send({threadId:child.thread_id,
               model:snapshot.config.model,thinking:snapshot.config.effort,prompt});

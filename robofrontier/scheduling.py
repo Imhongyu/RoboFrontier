@@ -95,11 +95,11 @@ class Scheduler:
                     continue
                 reasons = []
                 if has_mail:
-                    reasons.append('有发给你的未确认收件或系统状态事件')
+                    reasons.append('Unacknowledged inbox items or system-state events are addressed to you')
                 if due:
-                    reasons.append('你保存的检查期限已到')
+                    reasons.append('Your saved check deadline is due')
                 if continuing:
-                    reasons.append('你保存的工作状态仍需继续')
+                    reasons.append('Your saved work state requires continuation')
                 key = packed([actor, a['session_turn'], mail_token if has_mail else None,
                               a['work_revision'] if due else None, work_token if continuing else None])
                 existing=s.db.execute('SELECT id,status FROM wakes WHERE trigger_key=?',(key,)).fetchone()
@@ -108,9 +108,11 @@ class Scheduler:
                         continue
                     s.db.execute('UPDATE wakes SET trigger_key=? WHERE id=?',(key+'|cancelled:'+existing['id'],existing['id']))
                 wake_id = uuid.uuid4().hex
-                prompt = (f"运行通知〔wake_id={wake_id}〕：平台状态观察显示你的上一轮已结束；"
-                          + '；'.join(reasons) + '。请合并新增事件，复用有效上下文；需要时恢复已保存工作，自行决定继续、等待或结束。'
-                          '本通知不包含任务分工或动作建议。结束前按当前角色协议保存状态或交回委派；交付/收件不代表接受或任务完成。')
+                prompt = (f"Runtime notification [wake_id={wake_id}]: the platform observed that your previous turn ended. "
+                          + '; '.join(reasons) + '. Incorporate new events and reuse valid context. Restore saved work when needed, '
+                          'then decide whether to continue, wait or end within your role protocol. '
+                          'This notification assigns no task or action strategy. Before ending, save work or return your delegation '
+                          'as required by your role. Delivery or receipt does not establish acceptance or task completion.')
                 value = {'wake_id': wake_id, 'actor': actor, 'thread_id': a['thread_id'],
                          'expected_turn': a['session_turn'], 'reasons': reasons, 'prompt': prompt,
                          'created_at': now, 'mail_token': mail_token if has_mail else None,

@@ -311,3 +311,33 @@ assets; their physical-array and task-contract assertions are retained.
 `docs/oracle.md` documents native execution, assistance, evidence, stop and timing
 boundaries. Unified Oracle configuration/supervision and new full physical
 witnesses remain pending; these tests are not scored or full-case results.
+
+The committed `9e088cc` executor then ran an actual two-goal R14 commissioning
+trial with four planning workers and no internal physics worker pool. It
+completed the two selected goals out of 72, with 58 robot actions, no failed
+robot actions, no process violations, no unresolved actions and no assistance.
+The report correctly keeps full-case `passed=false` and
+`commissioning_passed=true`. Wall time including planning was 151.920 seconds;
+simulation reached 87.88 seconds. The independent motion audit verified all
+5,274 frames, checksums and 141 visual events with a maximum sample gap of
+0.018 seconds. Compressed chunks totaled 3,038,141 bytes. This is an actual
+partial physical reference, not a full-case success or an LLM run. Evidence is
+under `runs/engineering/main-integration-oracle-20261101`.
+
+## Shared runtime language follow-up
+
+The shared scheduler wake notices, native Desktop delegation notice and run-audit
+Markdown now use English. Wake triggers, role authority, ID isolation and the
+legacy protocol branch are unchanged. This is only part of the repository-wide
+English migration; legacy generators, pages and historical documents remain.
+
+Three old Codex RPC assertions still matched Chinese bootstrap/recovery text
+after the host had already changed to English. Their failed pre-update run is
+retained locally; assertions now check the same process-event, legacy READY and
+post-START recovery semantics in English. All 21 focused Codex Node tests, all
+24 existing dispatcher scenarios and 23 scheduling/report/direct-start Python
+tests passed. An additional opt-in smoke passed using the actual native Claude
+CLI against a local synthetic model endpoint and actual MuJoCo. Its early-finish
+path produced an incomplete evaluation, sealed evidence and the English
+unqualified-engineering report. This does not qualify a real provider, adaptive
+delegation or formal Claude scoring. None of these checks used paid inference.
