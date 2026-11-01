@@ -126,7 +126,8 @@ def import_motion(data_root, recording, output, speedup=1.):
 
 
 def prepare(data_root, output, families=None, levels=None, views=('front', 'side'), cases=None,
-            duration_s=None, width=1920, height=1080, samples=64, mode='desks', device=None):
+            duration_s=None, width=1920, height=1080, samples=64, mode='desks', device=None,
+            effective_configuration=None, asset_lock_sha256=None):
     from .motion_recording import MotionReader
     from .station_edit import StationEdit
     initial_code=code_hashes()
@@ -186,6 +187,9 @@ def prepare(data_root, output, families=None, levels=None, views=('front', 'side
         code_hashes=initial_code, mode=mode, fps=fps, width=width, height=height, samples=samples,
         device=device or ('METAL' if platform.system()=='Darwin' else 'OPTIX'), jobs=jobs,
         scope='Offline recorded-state rendering; no model calls, physics execution or task scores')
+    if effective_configuration is not None:
+        plan['effective_configuration'] = deepcopy(effective_configuration)
+        plan['asset_lock_sha256'] = asset_lock_sha256
     write(output/'plan.json', plan)
     (output/'plan.sha256').write_text(digest(output/'plan.json')+'\n')
     return dict(plan=str(output/'plan.json'), jobs=len(jobs), scope=plan['scope'])
@@ -365,18 +369,29 @@ def status(plan_path):
     return result
 
 
-def submit(plan_path, partition, parallel=1, cpus=20, memory='64G', wall_time='24:00:00', blender=None, dry_run=False):
+def submit(plan_path, partition, parallel=1, cpus=20, memory='64G', wall_time='24:00:00', blender=None, dry_run=False,
+           account='', qos='', gpus=None, stop_warning_s=180):
     path,plan=load_plan(plan_path)
     if min(parallel,cpus)<=0:
         raise ValueError('Positive concurrency and CPU count required')
+    if type(stop_warning_s) is not int or stop_warning_s<120:
+        raise ValueError('Factory stop warning must be at least 120 seconds')
     logs=path.parent/'logs';logs.mkdir(exist_ok=True)
-    command=['sbatch','--parsable','--partition',partition,'--nodes=1','--ntasks=1','--gres=gpu:1',
-        '--cpus-per-task',str(cpus),'--mem',memory,'--time',wall_time,'--no-requeue','--signal=B:TERM@180',
+    gpus = (0 if plan['device']=='CPU' else 1) if gpus is None else gpus
+    if gpus != (0 if plan['device']=='CPU' else 1):
+        raise ValueError('Factory renders require zero GPUs for CPU or one GPU for CUDA/OPTIX')
+    if plan['device']=='METAL':
+        raise ValueError('Metal rendering is native macOS; choose CPU, CUDA or OPTIX for Slurm')
+    command=['sbatch','--parsable','--nodes=1','--ntasks=1',
+        '--cpus-per-task',str(cpus),'--mem',memory,'--time',wall_time,'--no-requeue','--signal=B:TERM@'+str(stop_warning_s),
         '--array',f'0-{len(plan["jobs"])-1}%{parallel}','--output',str(logs/'%A_%a.out'),
         '--chdir',str(ROOT),'--export=ALL,RF_FACTORY_PYTHON='+sys.executable,
         str(ROOT/'scripts/slurm_factory.sbatch'),'--plan',str(path),'--blender',blender_path(blender)]
-    if plan['device']=='CPU':
-        raise ValueError('GPU Slurm entry requires a GPU plan; use run for an explicit CPU render')
+    options=[]
+    for name,value in (('partition',partition),('account',account),('qos',qos)):
+        if value:options.extend(['--'+name,value])
+    if gpus:options.append('--gres=gpu:1')
+    command[2:2]=options
     if dry_run:
         return dict(command=command,submitted=False)
     result=subprocess.check_output(command,cwd=ROOT,text=True).strip()

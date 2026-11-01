@@ -269,6 +269,8 @@ def main(argv=None):
     p.add_argument('arguments', nargs=argparse.REMAINDER)
     p = sub.add_parser('container', help='Run the native CLI in persistent local Docker volumes')
     p.add_argument('arguments', nargs=argparse.REMAINDER)
+    from .factory_workflow import add_arguments
+    add_arguments(sub)
     args = parser.parse_args(argv)
     def emit(value):
         if args.result_file:
@@ -276,6 +278,10 @@ def main(argv=None):
             write_json(args.result_file, value)
         _print(value)
     try:
+        if args.command == 'factory':
+            from .factory_workflow import execute
+            emit(execute(args))
+            return 0
         if args.command == 'container':
             from .container_runtime import execute
             report = execute(args.arguments, load_configuration(args.config))

@@ -25,6 +25,9 @@ SCHEMA = {
               'stop_warning_s': int, 'scratch_root': str},
     'container': {'image': str, 'workspace': str, 'memory_gib': int, 'cpus': float,
                   'seccomp_profile': str},
+    'factory': {'data_root': str, 'asset_lock': str, 'source': str, 'device': str,
+                'blender': str, 'mode': str, 'views': list, 'width': int, 'height': int,
+                'samples': int, 'duration_s': float, 'import_speedup': float, 'parallel': int},
 }
 
 
@@ -73,13 +76,16 @@ def load_configuration(path=None, overrides=None):
 
 
 def validate_configuration(config):
-    _validate_shape(config, SCHEMA)
+    version = config.get('schema_version')
+    if type(version) is not int or version not in (1, 2):
+        raise ValueError('Unsupported configuration schema_version')
+    # Version 1 frozen policy batches remain exact. Do not append new Factory
+    # defaults to an already-hashed experiment configuration.
+    _validate_shape(config, {k: v for k, v in SCHEMA.items() if version == 2 or k != 'factory'})
     def choice(section, field, allowed):
         if config[section][field] not in allowed:
             raise ValueError(f'Invalid {section}.{field}: choose from {", ".join(map(str, allowed))}')
 
-    if type(config['schema_version']) is not int or config['schema_version'] != 1:
-        raise ValueError('Unsupported configuration schema_version')
     choice('policy', 'engine', ('codex', 'claude'))
     choice('policy', 'topology', TOPOLOGIES)
     choice('policy', 'effort', ('minimal', 'low', 'medium', 'high', 'xhigh', 'max'))
@@ -128,6 +134,25 @@ def validate_configuration(config):
         raise ValueError('Invalid container.image')
     if container['memory_gib'] < 0 or not math.isfinite(container['cpus']) or container['cpus'] < 0:
         raise ValueError('Container resource limits must be finite and nonnegative')
+    if version == 2:
+        factory = config['factory']
+        choice('factory', 'source', ('release', 'imported'))
+        choice('factory', 'device', ('OPTIX', 'CUDA', 'METAL', 'CPU'))
+        choice('factory', 'mode', ('desks', 'promo'))
+        if (not factory['views'] or any(type(v) is not str or v not in ('front', 'side') for v in factory['views'])
+                or len(set(factory['views'])) != len(factory['views'])):
+            raise ValueError('factory.views must select distinct front/side views')
+        if not factory['data_root'].strip() or not factory['asset_lock'].strip():
+            raise ValueError('Factory data_root and asset_lock must be nonempty paths')
+        for field in ('width', 'height', 'samples', 'parallel'):
+            if factory[field] <= 0:
+                raise ValueError('factory.'+field+' must be positive')
+        if factory['width'] % 2 or factory['height'] % 2:
+            raise ValueError('Factory video dimensions must be even')
+        for field in ('duration_s', 'import_speedup'):
+            value = factory[field]
+            if not math.isfinite(value) or value < 0 or (field == 'import_speedup' and value == 0):
+                raise ValueError('Invalid factory.'+field)
 
 
 def rendering_environment(device, system, base):

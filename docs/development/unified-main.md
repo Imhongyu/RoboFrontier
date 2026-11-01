@@ -93,8 +93,8 @@ an explicit qualification gap; credentials are never cloned automatically.
 The native CLI wrapper can plan, bootstrap assets, prepare Codex runs or Claude
 engineering drafts, explicitly preflight providers, run, read atomic status,
 request stop, collect, ZIP, extract and restore evidence. Claude permanent-worker
-modes and formal scored execution remain closed. Factory/Oracle commands
-have not yet been folded into this configuration schema. Slurm staging now has
+modes and formal scored execution remain closed. Factory commands now share
+the versioned configuration; Oracle integration remains pending. Slurm staging has
 its own settings and entry, with real-cluster qualification still outstanding.
 
 Six real Codex 0.165.0 app-servers were initialized in independent cold homes and
@@ -238,6 +238,48 @@ The root README is now English and describes the actual unified entries,
 authentication boundaries, defaults, data locations and open acceptance gates.
 It does not yet make the rest of the repository English or replace the pending
 Factory/Oracle/atlas/video documentation and integration work.
+
+## Unified Factory configuration and actual CPU replay
+
+Schema version 2 adds a separate `[factory]` section for data identity, Cycles
+device, Blender executable, output dimensions, quality, presentation duration,
+import speedup and render-array concurrency. Existing frozen version 1 policy
+configurations retain their exact hashed shape. Factory video defaults to
+1920 x 1080, independently of 896 x 560 policy observations. The full tour remains
+210.5 seconds; an explicit positive duration caps only an engineering preview.
+
+The unified command now supports setup, verify, doctor, recording import,
+preparation, local execution, status and explicit Slurm submission. A prepared
+plan freezes the effective configuration and code/input hashes. Existing render
+plans keep their native legacy entry. CPU queues request no GPU; CUDA/OPTIX
+queues require one GPU; Metal is rejected on the Slurm path. Queue submission
+remains a dry run unless `--queue` is supplied. See `docs/factory.md`.
+
+The focused Factory/configuration/container/Slurm group passed 53 tests. They
+cover frozen settings, version 1 policy compatibility, independent observation
+and video sizes, full-tour duration, legacy plans, mismatched bundle rejection
+and explicit queueing. These tests made no model calls.
+
+Actual native commands verified all 123,198 files and 36 stations of the pinned
+R14 Factory package. Four minimum-arm Level 1 jobs then rendered three frames
+each using Blender 5.1.2 CPU Cycles at 320 x 180, one sample and 30 fps. Transport,
+Mosaic, Relay and Dial all passed complete video decoding, input/code checks and
+result sealing; representative images were inspected. Maximum reported Blender
+pose-position error was approximately 1.91 micrometers. This small diagnostic
+does not validate full-length videos, new physics, GPU performance or task success.
+
+The previously verified evidence ZIP was restored and its real 21-frame
+Transport motion imported through the unified command. Import composed the desk
+from that recording's frozen source, produced a distinct verified 1,217-file
+bundle and retained `recorded_benchmark_presentation_only` qualification. Every
+copied float32 state and timestamp matched the restored source exactly. All
+21 frames passed Factory FK checks with physics stepping explicitly forbidden;
+maximum positional error was below 5.1e-15 m. A separate three-frame CPU Cycles
+render of this imported bundle also passed decoding and sealing. This is a
+synthetic collection containing real motion, not a native model result. New
+all-family recording import, full videos, GPU and real Slurm qualification remain
+open. Local artifacts are under
+`runs/engineering/main-integration-factory-20261101`.
 
 ## Second full regression inventory
 

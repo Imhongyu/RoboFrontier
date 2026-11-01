@@ -51,6 +51,12 @@ overrides its named settings; explicit CLI options override those settings.
 Unknown fields, incorrect types, non-finite intervals and invalid limits are
 errors. Credentials belong in `.env` or the environment, never in TOML.
 
+New settings use `schema_version=2`, which adds the independent Factory section.
+Frozen version 1 policy configurations remain version 1 and retain their exact
+hashes; no new Factory defaults are appended to them. New partial user TOML files
+can omit the version to inherit the current schema. A frozen configuration is
+evidence, not an operator settings template to overwrite.
+
 ```sh
 .venv/bin/robofrontier config
 .venv/bin/robofrontier --config /path/to/my-settings.toml plan
@@ -89,11 +95,19 @@ physics steps, or model turns. It is not a provider rate-limit guarantee.
 | `container.image` | Optional image tag; its source revision must match the checkout commit |
 | `container.memory_gib` / `cpus` | Optional container resource limits; zero adds no quota |
 | `container.seccomp_profile` | `default`, or explicit `unconfined` for Codex containers whose namespace sandbox is otherwise denied; see Docker security notes |
+| `factory.device` / `blender` | Explicit offline Cycles backend and optional executable path; separate from observation rendering |
+| `factory.width` / `height` / `samples` | Independent offline video quality; default 1920 x 1080, 64 samples |
+| `factory.mode` / `views` | Station views or the full 210.5-second Factory tour |
+| `factory.duration_s` | 0 preserves the reviewed full timeline; a positive value explicitly caps a preview |
+| `factory.data_root` / `asset_lock` / `source` | Pinned release installation or an explicitly imported closed-recording bundle |
+| `factory.import_speedup` | Speed for a newly imported recording only; existing release edits remain intact |
+| `factory.parallel` | Render array concurrency, independent of benchmark task concurrency |
 
-This first configuration schema covers policy execution, evidence and Slurm
-resource requests. Factory editing, GPU device selection and Oracle recovery still use
-their native commands/configuration until those integration gates are complete.
-They are not silently interpreted as unified TOML options.
+The current schema covers policy execution, evidence, Slurm resources and
+Factory replay/render preparation. See the [Factory guide](factory.md) for
+the factory subcommands. Editorial camera/title/subtitle changes and Oracle
+recovery still use their native configuration until those integration gates
+are complete. They are not silently interpreted as unsupported TOML options.
 
 ## Startup in all four modes
 

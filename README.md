@@ -25,6 +25,7 @@ compatibility certificates.
 | Configure, prepare and run a benchmark | [Unified CLI and TOML](docs/unified-cli.md) |
 | Run on Linux Docker or macOS Docker Desktop | [Docker execution](docs/docker.md) |
 | Queue a job with node-local runtime state | [Slurm submission](docs/slurm.md) |
+| Replay motion and render Factory backgrounds | [Factory workflow](docs/factory.md) |
 | See which integration gates have passed | [Acceptance and source provenance](docs/development/unified-main.md) |
 | Read the policy's role and tool contract | [Robot collaboration skill](.agents/skills/robot-collaboration/SKILL.md) |
 | Read completion and recovery rules | [Shared policy rules](prompts/policy-rules.md) |
@@ -233,15 +234,18 @@ saved states for visual reconstruction rather than rerunning recorded actions in
 new physics. Optional production rendering uses Blender Cycles with explicit CPU,
 Metal, CUDA or OPTIX selection; silent device fallback is not an acceptance path.
 
-The native Factory installer/commands remain available:
+Factory has a unified configuration/command entry:
 
 ```sh
-.venv/bin/python -m scripts.factory_server setup
-.venv/bin/python -m scripts.factory_server doctor --device CPU
+.venv/bin/robofrontier factory setup
+.venv/bin/robofrontier factory doctor --device CPU
 ```
 
-Factory/Oracle options have not yet been folded into the unified TOML. Curated
-Oracle integration, all-family compressed-motion background replay, the tracked
+The `[factory]` section controls its independent video/device settings; prepared
+plans freeze the effective configuration. See the [Factory guide](docs/factory.md)
+for closed-recording import, full tour, CPU/GPU rendering and queue submission.
+Oracle options have not yet been folded into the unified TOML. Curated Oracle
+integration, all-family compressed-motion background replay, the tracked
 English task atlas and the editable full-length English video project remain open
 gates. Existing Oracle intervention records and historical source identities must
 be preserved; assisted execution is not automatically an autonomous benchmark.

@@ -4,6 +4,10 @@ The unified image contains both native policy CLIs, the locked Python environmen
 and the pinned policy assets. It supports CPU OSMesa and Linux NVIDIA EGL
 observations. It does not replace the native Codex or Claude session mechanisms.
 
+The policy image does not install Blender or expose `container factory`. Use the
+native [Factory workflow](factory.md) on a provisioned render host. Docker CPU
+MuJoCo observations and Blender Cycles background rendering are separate paths.
+
 Use the repository's command wrapper rather than manually mounting an entire
 checkout as a writable runtime directory. The wrapper creates all directories
 and two plain local Docker volumes. Active SQLite and original session files stay
