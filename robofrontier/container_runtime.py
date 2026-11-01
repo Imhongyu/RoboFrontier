@@ -17,7 +17,7 @@ from .configuration import ROOT, validate_configuration
 from .run_setup import write_json
 
 CONTAINER_ROOT = '/opt/RoboFrontier'
-COMMANDS = {'bootstrap', 'config', 'plan', 'prepare', 'preflight', 'run', 'status',
+COMMANDS = {'bootstrap', 'config', 'plan', 'prepare', 'doctor', 'preflight', 'run', 'status',
             'stop', 'collect', 'archive', 'extract'}
 
 
@@ -151,13 +151,16 @@ def _command(arguments, config, image, volumes, name, settings_file, environment
                '--env', 'CLAUDE_CONFIG_DIR='+CONTAINER_ROOT+'/.robofrontier/claude-auth',
                '--env', 'OMP_NUM_THREADS=1', '--env', 'OPENBLAS_NUM_THREADS=1']
     resources = config['container']
+    if (resources['seccomp_profile'] == 'unconfined' and
+            config['policy']['engine'] == 'codex' and arguments[0] in ('doctor', 'preflight', 'run')):
+        command.extend(['--security-opt', 'seccomp=unconfined'])
     if resources['memory_gib']:
         command.append('--memory='+str(resources['memory_gib'])+'g')
     if resources['cpus']:
         command.append('--cpus='+str(resources['cpus']))
     for key in sorted(environment):
         command.extend(['--env', key])  # Values stay in the process environment.
-    if arguments[0] == 'run' and config['render']['device'] == 'nvidia':
+    if arguments[0] in ('doctor', 'run') and config['render']['device'] == 'nvidia':
         if platform.system() != 'Linux':
             raise ValueError('NVIDIA Docker execution requires Linux; prepare CPU-rendered tasks for macOS Docker')
         command.extend(['--gpus', 'all', '--env', 'NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility'])

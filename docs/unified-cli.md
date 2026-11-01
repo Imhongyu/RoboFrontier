@@ -12,6 +12,13 @@ uv sync --locked --extra oracle
 .venv/bin/robofrontier plan
 ```
 
+Before a paid provider check or run, use `robofrontier doctor --render cpu` on
+Linux software rendering, `--render native` on macOS, or the default NVIDIA
+backend on an equipped Linux host. Doctor performs only local native CLI,
+Codex-sandbox and actual RGB-render checks. It does not authenticate or call a
+model. Confirmed preflight checks local native prerequisites first; run checks
+both native prerequisites and the frozen renderer before starting task hosts.
+
 `bootstrap` downloads the pinned policy asset package if needed, checks its
 SHA-256, and restores each referenced file with hash verification. It reuses
 already verified files. It does not call a model or download the larger optional
@@ -81,6 +88,7 @@ physics steps, or model turns. It is not a provider rate-limit guarantee.
 | `container.workspace` | Separate persistent Docker volumes for this checkout/workspace |
 | `container.image` | Optional image tag; its source revision must match the checkout commit |
 | `container.memory_gib` / `cpus` | Optional container resource limits; zero adds no quota |
+| `container.seccomp_profile` | `default`, or explicit `unconfined` for Codex containers whose namespace sandbox is otherwise denied; see Docker security notes |
 
 This first configuration schema covers policy execution, evidence and Slurm
 resource requests. Factory editing, GPU device selection and Oracle recovery still use

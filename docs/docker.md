@@ -44,7 +44,33 @@ device = "cpu"
 workspace = "cpu-bench"
 memory_gib = 0
 cpus = 0.0
+seccomp_profile = "unconfined"
 ~~~
+
+Docker's default seccomp profile can deny the user namespaces required by the
+native Codex sandbox. This was reproduced on macOS Docker Desktop: the local
+sandbox probe failed with the default profile and passed with the explicit
+`unconfined` setting above. The repository default remains `default`; this option
+removes Docker's seccomp filter for Codex doctor/preflight/run containers only.
+It does not add `--privileged`, host directories or administrator capabilities,
+and does not disable Codex's own workspace sandbox. Treat it as an explicit
+container security choice. A site can instead enable the required namespace
+operations in its own approved Docker policy. This particular image does not
+accept arbitrary host seccomp file paths.
+
+Run the free local check before an explicitly paid provider preflight:
+
+~~~bash
+robofrontier --config cpu.toml container doctor
+~~~
+
+Doctor checks the selected native CLI, the Codex sandbox when selected, and an
+actual MuJoCo RGB context. It does not authenticate or invoke a model. The CLI
+also checks native prerequisites before a confirmed provider preflight and
+checks both sandbox and rendering before starting a prepared task batch. A
+failure blocks model calls; there is no automatic permission escalation or
+renderer fallback. Claude's native CLI check does not establish its internal
+permission/agent lifecycle qualification.
 
 Zero resource limits add no quota beyond the Docker engine or allocation.
 Docker Desktop's VM memory is still a real bound. Defaults request 36 concurrent

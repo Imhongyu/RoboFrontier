@@ -44,6 +44,18 @@ class ContainerRuntimeTests(unittest.TestCase):
             'OPENAI_API_KEY': 'openai', 'OPENLUX_API_KEY': 'other', 'HOME': '/private'})
         self.assertEqual(credentials, {'OPENAI_API_KEY': 'openai'})
 
+    def test_nested_sandbox_permission_is_explicit_and_never_privileged(self):
+        self.assertNotIn('--security-opt', self.command(['run', 'runs/policy/batch']))
+        config = load_configuration(overrides={'render': {'device': 'cpu'},
+            'container': {'seccomp_profile': 'unconfined'}})
+        command = self.command(['run', 'runs/policy/batch'], config)
+        self.assertIn('seccomp=unconfined', command)
+        self.assertNotIn('--privileged', command)
+        self.assertNotIn('--cap-add', command)
+        self.assertNotIn('--security-opt', self.command(['prepare'], config))
+        config['policy'].update(engine='claude', profile='haiku')
+        self.assertNotIn('--security-opt', self.command(['run', 'runs/policy/batch'], config))
+
     def test_render_mode_requires_hardware_only_for_real_task_execution(self):
         config = load_configuration()
         with patch.object(runtime.platform, 'system', return_value='Darwin'):
@@ -135,7 +147,8 @@ class ContainerRuntimeTests(unittest.TestCase):
 
     def test_invalid_container_options_fail_during_configuration_resolution(self):
         for value in ({'workspace': '../escape'}, {'workspace': 'MixedCase'},
-                      {'memory_gib': -1}, {'cpus': float('nan')}, {'image': 'name with spaces'}):
+                      {'memory_gib': -1}, {'cpus': float('nan')}, {'image': 'name with spaces'},
+                      {'seccomp_profile': 'privileged'}):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 load_configuration(overrides={'container': value})
 

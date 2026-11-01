@@ -120,6 +120,8 @@ def preflight(config, *, confirm_spend=False, smoke_only=False, max_budget_usd=N
         return {'status': 'not_run', 'model_calls': 0,
                 'reason': 'Add --confirm-spend to authorize real provider calls',
                 'engine': policy['engine'], 'profile': policy['profile']}
+    from .runtime_diagnostics import require_runtime
+    require_runtime(config, render=False)
     with _catalog_file(config) as catalog:
         if policy['engine'] == 'claude':
             if max_budget_usd is None:
@@ -175,6 +177,8 @@ def run(batch, *, engineering=False):
     config = _frozen_configuration(batch)
     if config['policy']['engine'] == 'claude' and not engineering:
         raise ValueError('Claude runs remain unqualified; explicitly select run --engineering')
+    from .runtime_diagnostics import require_runtime
+    require_runtime(config)
     environment = rendering_environment(config['render']['device'], platform.system(), os.environ)
     os.environ.clear()
     os.environ.update(environment)
@@ -224,7 +228,7 @@ def main(argv=None):
     parser.add_argument('--config', type=Path, help='Partial TOML overriding repository defaults')
     parser.add_argument('--result-file', type=Path, help='Write the terminal command result as atomic JSON')
     sub = parser.add_subparsers(dest='command', required=True)
-    for name in ('config', 'plan', 'prepare', 'preflight', 'slurm-submit'):
+    for name in ('config', 'plan', 'prepare', 'doctor', 'preflight', 'slurm-submit'):
         p = sub.add_parser(name)
         p.add_argument('--engine', choices=('codex', 'claude'))
         p.add_argument('--profile')
@@ -285,7 +289,7 @@ def main(argv=None):
             from scripts.benchmark_handoff import setup_assets
             emit(setup_assets())
             return 0
-        if args.command in ('config', 'plan', 'prepare', 'preflight', 'slurm-submit'):
+        if args.command in ('config', 'plan', 'prepare', 'doctor', 'preflight', 'slurm-submit'):
             overrides = {}
             for section, fields in (('policy', ('engine', 'profile', 'effort', 'topology')),
                                     ('batch', ('parallel',)),
@@ -300,6 +304,11 @@ def main(argv=None):
                 emit(config)
             elif args.command == 'plan':
                 emit(plan(config))
+            elif args.command == 'doctor':
+                from .runtime_diagnostics import inspect_runtime
+                report = inspect_runtime(config)
+                emit(report)
+                return 0 if report['passed'] else 2
             elif args.command == 'preflight':
                 report = preflight(config, confirm_spend=args.confirm_spend,
                                    smoke_only=args.smoke_only, max_budget_usd=args.max_budget_usd)

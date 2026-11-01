@@ -50,3 +50,4 @@ image = ""                           # Empty selects a tag from the committed so
 workspace = "default"                # Persistent local Docker volumes, separate from host Codex state
 memory_gib = 0                       # 0 adds no limit beyond the Docker daemon/allocation
 cpus = 0.0                           # 0 adds no CPU quota
+seccomp_profile = "default"          # default | unconfined; explicit opt-in for nested Codex sandboxes

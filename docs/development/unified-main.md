@@ -185,7 +185,33 @@ host and verified against the terminal command's SHA-256. Native session/auth
 volumes are never removed automatically. Explicit native authentication commands
 are available without cloning the host's Desktop/Keychain credentials.
 
-The focused container/configuration/Slurm group passed 31 offline tests.
-Real-image build, CPU rendering, native sandbox behavior and provider/subscription
-lifecycle acceptance remain outstanding; no paid test was started. This stage
-does not establish 36-task resource capacity or Linux NVIDIA qualification.
+The focused container/configuration/Slurm group passed 31 offline tests. The
+actual `e51fa4b94315` image then built successfully with the pinned assets and
+both CLI versions. Its unified plan returned all 36 tasks, Luna high and adaptive
+with zero model calls. A real OSMesa context rendered RGB using Mesa llvmpipe.
+
+The actual Codex sandbox failed under Docker Desktop's default seccomp profile
+with a user-namespace permission error. The same fixed local probe passed when
+the container was explicitly started with `seccomp=unconfined`, without privileged
+mode or added capabilities. This establishes only the local sandbox prerequisite;
+it does not qualify a complete native model/robot lifecycle.
+
+The CLI now provides an offline `doctor`, checks native prerequisites before a
+confirmed paid provider preflight, and checks native prerequisites/rendering
+before task launch. A failed probe blocks model calls. The container seccomp
+choice is explicit, validated, frozen and documented; its default remains the
+Docker default. The focused diagnostics/configuration/container/Slurm group
+passed 39 tests. Provider/subscription lifecycle, actual NVIDIA and 36-task
+resource qualification remain outstanding; no paid test was started.
+
+## Second full regression inventory
+
+After the source/fixture corrections and added integration checks, full discovery
+executed 1,355 tests in 715.670 seconds. There were no assertion failures, 177
+errors and 25 skips. Every recorded error was a missing file/scene asset or a
+missing historical evidence dependency; none establishes an acceptable release
+test result. Historical scene assets, Oracle witnesses and source-preservation
+receipts still need explicit installation/Legacy treatment. Current 36-case
+asset verification is separate and must not be used to claim that this full
+suite passed. Raw diagnostic output remains in local engineering artifacts;
+the historical asset/evidence gates remain open.

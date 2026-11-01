@@ -23,7 +23,8 @@ SCHEMA = {
     'slurm': {'partition': str, 'account': str, 'qos': str, 'gpus': int,
               'cpus_per_task': int, 'memory_gib': int, 'time_limit_s': int,
               'stop_warning_s': int, 'scratch_root': str},
-    'container': {'image': str, 'workspace': str, 'memory_gib': int, 'cpus': float},
+    'container': {'image': str, 'workspace': str, 'memory_gib': int, 'cpus': float,
+                  'seccomp_profile': str},
 }
 
 
@@ -105,6 +106,7 @@ def validate_configuration(config):
     choice('render', 'device', ('nvidia', 'cpu', 'native'))
     choice('render', 'observation_profile', ('jpeg_896x560_q85', 'png_1280x800'))
     choice('runtime', 'codex_home_scope', ('task', 'shared'))
+    choice('container', 'seccomp_profile', ('default', 'unconfined'))
     choice('evidence', 'archive_format', ('zip',))
     if config['evidence']['auto_archive'] and not config['evidence']['auto_collect']:
         raise ValueError('evidence.auto_archive requires evidence.auto_collect')
