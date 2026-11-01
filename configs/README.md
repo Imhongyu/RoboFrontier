@@ -1,16 +1,44 @@
-# 配置入口
+# Configuration and frozen inputs
 
-| 路径 | 含义 |
+For a new run, start with [`../robofrontier.toml`](../robofrontier.toml), not a
+legacy family JSON or the root `config.json` single-arm demo. The unified loader
+resolves repository defaults, a partial operator TOML, and explicit CLI overrides
+in that order. It rejects unknown fields and freezes the effective configuration
+into a new batch. Changing settings does not change an already prepared batch.
+See the [configuration and CLI guide](../docs/unified-cli.md).
+
+| Path | Purpose |
 | --- | --- |
-| `task_families/current.json` | 四类任务、GPT/Oracle用途、公开材料及源剪辑的统一选择 |
-| `factory-assets.json` | 独立 R14 工厂交接数据的 Release、分卷大小及 SHA256；不更改 benchmark 资产选择 |
-| `task_families/<family>/public/` | 可交给新策略的已审查静态材料 |
-| `harnesses/policy.json` | 新GPT准备的默认共享控制与协作配置 |
-| `backgrounds/robo_factory.json` | 工厂外观、布局与资源复用 |
-| `suites/frontier-current-oracle.json` | 36桌冻结Oracle源的工厂布局输入 |
-| `environments/` | 不可就地改写的场景修订和物理元数据 |
+| `models.json` | Native Codex model/provider profiles; unified defaults select Luna/high with API authentication |
+| `claude-models.json` | Native Claude Code model/provider profiles; select an engine-specific profile explicitly |
+| `policy-assets.json` | Pinned policy asset archive and integrity inventory used by automatic bootstrap/preparation |
+| `factory-assets.json` | Independent R14 Factory recording release, split sizes and SHA-256 fingerprints; it does not change policy scene selection |
+| `task_families/current.json` | Reviewed four-family selections for policy/Oracle purposes, public inputs and source presentation edits |
+| `task_families/<family>/public/` | Reviewed static material that may be exposed to a new policy |
+| `harnesses/policy.json` | Native shared runtime/tool defaults; model fields are baseline native settings, not overrides of a frozen unified profile |
+| `backgrounds/robo_factory.json` | Factory appearance, layout and shared visual resources |
+| `suites/frontier-current-oracle.json` | Frozen 36-station Oracle recording inputs for Factory layout; not proof of current task-solving qualification |
+| `environments/` | Versioned scene revisions and physical metadata; do not rewrite published revisions in place |
+| `task_families/source-compatibility.json` | Explicitly scoped historical source-compatibility checks |
 
-其余家族registry、catalog、harness及旧任务配置是原实验的版本依据。旧
-`suites/frontier-v2.json`和通用生成器保留兼容，不代替current.json的用途选择。
-`source-compatibility.json`只证明共享改动对历史Mosaic/Dial检查的明确范围，
-不修改原指纹，不证明Relay旧评分与新评分等价。
+The remaining family registries, catalogs, harness JSON and older task configs
+preserve the original experiments' version identities. Legacy
+`suites/frontier-v2.json` and general generators do not replace purpose-specific
+selection in `task_families/current.json`. Compatibility evidence does not change
+an original fingerprint, establish equivalent old/new Relay scoring, or authorize
+applying new physical properties to an archived recording.
+
+Keep credentials in the ignored `.env` or environment, never in these files.
+API and subscription authentication belong to the selected native engine and
+profile; choosing a model name alone does not establish provider compatibility.
+Observation rendering, offline Factory rendering, model service timing, task
+START timing and scheduler allocation lifetime have separate settings. Their
+names and precedence are documented in the unified guide rather than inferred
+from an old native script's defaults.
+
+Editable Factory camera/title/subtitle projects are presentation inputs, not
+policy settings. The shipped project is
+[`tour-project.json`](../assets/robo_factory/tour-project.json); use the
+[editorial commands](../docs/factory-editorial.md) to make and freeze a working
+copy. Do not manually replace asset hashes or rewrite frozen motion to make a
+different input appear to match the release.

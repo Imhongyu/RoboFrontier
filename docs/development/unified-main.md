@@ -948,3 +948,25 @@ Logs, projects, raw/final preview media, full edited historical movie, inspectio
 JPEGs and `factory-editorial-acceptance.json` are retained under
 `runs/engineering/main-integration-task-atlas-20261101/`, using the
 `factory-editorial-` prefix. No model calls or physics steps were performed.
+
+## English compatibility dashboards and configuration index
+
+Three compatibility dashboards now use English labels, status/error text and
+locale formatting. The shared-world view displays Controller while retaining
+the historical `Coordinator` role ID for routing/sorting. The two-session pilot
+is explicitly labeled Legacy and keeps its original READY/START experiment gate;
+it is not documentation of the new direct-START benchmark protocol. Existing
+message/event payloads and archived snapshots are not rewritten.
+
+All three inline JavaScript programs parse with Node. The existing four mailbox
+pilot lifecycle/snapshot tests passed in 0.207 seconds. An initial text scan
+caught one untranslated camera filter label, which was corrected before the
+final parse/English check. These checks do not claim new browser visual or
+native-engine qualification. The configuration index is now English and clearly
+separates the unified TOML, engine catalogs, asset locks, native baseline JSON,
+frozen Factory inputs and editable video project. These changes do not modify
+physics, asset fingerprints, task selection or startup behavior.
+
+The remaining tracked-text English inventory is 133 files/126,853 Han characters,
+recorded in `english-inventory-after-editorial.json`. Repository-wide English
+migration remains unfinished.
