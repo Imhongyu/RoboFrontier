@@ -1529,3 +1529,22 @@ model was executed for this text migration, so no newly rendered layout is
 claimed. The comparison receipt is `english-display-verification.json` under the
 2026-11-02 Oracle engineering directory. Tracked text now contains 42 files /
 70,259 Han characters; the repository-wide English gate remains open.
+
+## Optional historical fixture installer
+
+The preserved test inputs now have a separate local delivery archive and
+per-file manifest: 43,678 files, 757,780,223 compressed bytes. Both delivery hashes
+are recorded in the testing guide; individual file identities remain unchanged.
+The standard-library installer requires the independent manifest pin, validates
+all members before installation, rejects source overwrites, traversal and
+unverified links, reuses only exact existing files and supports retry after an
+interrupted install. Hardlinks share only newly staged copies. Ten focused
+macOS tests pass, including late corruption with no partial installation.
+
+An initial isolated Linux staging driver was stopped before running tests:
+its random-access extraction repeatedly decompressed hardlink targets. Its
+original log and staging volume are retained. The maintained installer instead
+reads sequentially and resolves hardlinks only to already verified staged files.
+Independent Linux full-discovery and actual large-bundle installation results
+are still pending at this commit. This local bundle does not add a public
+historical-fixture download or change the ordinary policy bootstrap.

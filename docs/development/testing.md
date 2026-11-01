@@ -43,10 +43,38 @@ The local 2026-11-02 passing discovery used independently copied historical
 fixtures from the preserved primary checkout. Scene XML identities and pinned
 asset/report/source hashes were verified, and original files were retained.
 The restoration receipts are under
-`runs/engineering/main-integration-oracle-final-20261102/`. A portable installer
-for this additional development fixture set is still a delivery gate. Do not
-claim that the ordinary policy download alone reproduces full historical
-discovery in a fresh clone.
+`runs/engineering/main-integration-oracle-final-20261102/`. The optional local
+delivery contains `legacy-test-fixtures-v2.tar.gz` and
+`legacy-test-fixtures-v2.json`. It contains original ignored test inputs, not
+new task qualification or native sessions. Its 43,678 files are pinned by
+individual SHA-256 checksums. The archive checksum is
+`4ba71cce3f56ee72e8820f11ef885e4a773744e24156c91b0a9dc7b68e6f5f00`.
+The manifest checksum, supplied independently of its contents, is
+`31dca637c84c17a90fa6547192ac41292c4ff2814f4158be9657824314acc7cf`.
+
+Given a copy of this separately supplied bundle, install it into a checkout:
+
+```sh
+python3 scripts/install_historical_fixtures.py \
+  --archive /path/to/legacy-test-fixtures-v2.tar.gz \
+  --manifest /path/to/legacy-test-fixtures-v2.json \
+  --manifest-sha256 31dca637c84c17a90fa6547192ac41292c4ff2814f4158be9657824314acc7cf \
+  --report runs/engineering/historical-fixture-install.json
+```
+
+This standard-library installer verifies the archive and every member before
+installing any fixture, rejects tracked source destinations, links outside the
+bundle and paths outside the historical fixture roots, and preserves existing
+files. An existing different file is an error; an identical file is reused.
+Interrupted installation can be retried. Shared content links only newly staged
+copies, never the supplied original recordings or an existing fixture. Extraction
+reads the archive sequentially, including hardlinks, to avoid repeatedly
+decompressing the large bundle.
+
+This is an explicit optional development bundle, not an automatic download in
+the ordinary policy bootstrap. Public distribution of this separate bundle
+remains a delivery gate. Do not claim that the policy download alone reproduces
+full historical discovery in a fresh clone.
 
 ## Filesystems and platform scope
 
