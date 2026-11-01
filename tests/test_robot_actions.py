@@ -127,7 +127,7 @@ class StopProtocolTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.run=Path(self.tmp.name)/'run';prepare_run(self.run)
         self.service=RuntimeService(self.run,FakeWorld,fake_capture);self.count=0
-        for actor in ('Coordinator','A','B','C'):
+        for actor in ('Controller','A','B','C'):
             self.call(actor,'ready');self.call('Meta','bind',{'actor':actor,'thread_id':actor})
             self.service.store.observe_session(actor,'idle',actor,time.time(),'codex.wait_threads')
         self.call('Meta','start')
@@ -144,7 +144,7 @@ class StopProtocolTests(unittest.TestCase):
         a=self.call('A','move',{'target_m':[.4,0,.7],'wait':False},'moving-a')
         self.call('B','move',{'target_m':[.4,.65,.7],'wait':False},'moving-b')
         self.assertIn('error',self.call('A','stop',{'robot':'B','call_id':'moving-b'})['result'])
-        self.assertIn('error',self.call('Coordinator','stop',{'call_id':'moving-a'})['result'])
+        self.assertIn('error',self.call('Controller','stop',{'call_id':'moving-a'})['result'])
         stopped=self.call('A','stop',{'call_id':'moving-a'},'stop-a')
         self.assertTrue(stopped['result']['stop_requested'])
         self.assertEqual(self.call('A','job',{'call_id':'moving-a'})['result']['execution']['reason'],'stopped_by_agent')
@@ -166,7 +166,7 @@ class StopProtocolTests(unittest.TestCase):
 
     def test_grasp_mode_uses_same_role_authority_and_result_channel(self):
         p={'mode':'grasp','width_m':.04,'force_n':50,'wait':False}
-        rejected=self.call('Coordinator','gripper',dict(p,robot='A'))['result']
+        rejected=self.call('Controller','gripper',dict(p,robot='A'))['result']
         self.assertIn('error',rejected)
         result=self.call('A','gripper',p,'force-grasp')['result']
         self.assertEqual(result['execution_status'],'running')

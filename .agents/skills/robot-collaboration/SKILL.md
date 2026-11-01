@@ -1,6 +1,6 @@
 ---
 name: robot-collaboration
-description: Execute a RoboFrontier run as Coordinator, Worker, peer, Controller or adaptive delegate using assigned robot tools, work notes and mailbox. Meta owns engineering setup.
+description: Execute a RoboFrontier run as Controller, Worker, peer or adaptive delegate using assigned robot tools, work notes and mailbox. Meta owns engineering setup.
 ---
 
 # Robot collaboration
@@ -27,9 +27,9 @@ For dense placement or assembly, compare how the current order and pose affect l
 
 ## Role responsibility
 
-Use the current mode's lifecycle. Single (centralized) has one Controller that plans and operates all robots, including concurrent actions. Hierarchical has a Coordinator and standing Workers; peer has standing Workers coordinating directly. These Workers remain team members after local completion. Adaptive has a Controller and optional temporary delegates: execute a bounded assignment and hand it back through return_task; use the adaptive reference for that lifecycle. An ended native reply alone ends neither team membership nor a delegation.
+Use the current mode's lifecycle. Single (centralized) has one Controller that plans and operates all robots, including concurrent actions. Hierarchical has a Controller and standing Workers; peer has standing Workers coordinating directly. These Workers remain team members after local completion. Adaptive has a Controller and optional temporary delegates: execute a bounded assignment and hand it back through return_task; use the adaptive reference for that lifecycle. An ended native reply alone ends neither team membership nor a delegation.
 
-At START each Worker has standing authority to inspect, plan and perform supported independent local execution/preparation for the team task with its bound robot. Local means no unresolved joint commitment or shared-resource use, not everything inside its TCP bounds. Coordinate those commitments through the role's permitted route; accepted restrictions remain binding. In hierarchical mode Coordinator manages joint allocation, priorities and reservations. Workers choose local poses, speeds, views and commands, and propose useful scope changes while blocked. Authorize supported continuations early; an observable release within scope can enable execution without another approval.
+At START each Worker has standing authority to inspect, plan and perform supported independent local execution/preparation for the team task with its bound robot. Local means no unresolved joint commitment or shared-resource use, not everything inside its TCP bounds. Coordinate those commitments through the role's permitted route; accepted restrictions remain binding. In hierarchical mode Controller manages joint allocation, priorities and reservations. Workers choose local poses, speeds, views and commands, and propose useful scope changes while blocked. Authorize supported continuations early; an observable release within scope can enable execution without another approval.
 
 Peers own their robots' plans and negotiate only affected commitments. Start uncontested local work while negotiating transfers; a request alone is not acceptance. Avoid whole-team approval barriers. All modes share physical tools and evidence limits.
 
@@ -61,8 +61,12 @@ If substantial experience outgrows the compact note, write an optional self-auth
 
 ## Active waiting and context
 
+Before proposing team finish, apply the continuation and finish criteria in this
+run's `public/inputs/policy-rules.md`. A bounded delegate returns its own scope
+through `return_task`; local completion does not finish the team task.
+
 Before directing a role or yourself to wait, review remaining work for an independently executable portion. Identify the blocked step, actual resource/missing evidence and next review milestone. Propose a specific scope change through the permitted route; explicit restrictions remain binding until changed.
 
-For Single/Adaptive Controllers, Coordinators and standing Workers, choose continued work, wait_events within the active turn, or a saved wait before ending a reply. Standing Workers remain available until team end. Adaptive delegates normally continue their bounded work through necessary tool waits and return_task when handing it back; ending a reply with a saved review is an explicit alternative, not a required phase. Whenever a role chooses yield waiting/available during an active run, supply a finite self-selected after_s based on expected progress and review cost. On review merge events, continue enabled work or propose a useful adjustment/request evidence. Reassess waiting rather than merely repeat that authorization is missing. Update pending proposals when facts or delay materially change the decision; elapsed time alone needs no chat message. Normal waiting is not failure.
+For Controllers and standing Workers, choose continued work, wait_events within the active turn, or a saved wait before ending a reply. Standing Workers remain available until team end. Adaptive delegates normally continue their bounded work through necessary tool waits and return_task when handing it back; ending a reply with a saved review is an explicit alternative, not a required phase. Whenever a role chooses yield waiting/available during an active run, supply a finite self-selected after_s based on expected progress and review cost. On review merge events, continue enabled work or propose a useful adjustment/request evidence. Reassess waiting rather than merely repeat that authorization is missing. Update pending proposals when facts or delay materially change the decision; elapsed time alone needs no chat message. Normal waiting is not failure.
 
 Keep the frontier, commitments and verified progress in one compact note. Update satisfied prerequisites explicitly; saved blockers can become stale while another scope executes. Save material changes and before ending. Restore work/history after context gaps; newer mail/executor facts supersede stale notes. Consider late mail returned with yield. The role authorized to finish verifies the whole task; other roles verify their assigned scope before returning. Physical-owner loss ends the run; Meta handles engineering recovery.

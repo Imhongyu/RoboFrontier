@@ -15,17 +15,17 @@ class StoreTests(unittest.TestCase):
     def test_concurrent_send_and_retry_deduplicate_without_loss(self):
         errors=[]
         def send(i):
-            try:self.s.send('Coordinator',['A'],str(i),'key-'+str(i))
+            try:self.s.send('Controller',['A'],str(i),'key-'+str(i))
             except Exception as e:errors.append(e)
         threads=[threading.Thread(target=send,args=(i,)) for i in range(40)]
         for t in threads:t.start()
         for t in threads:t.join()
         self.assertEqual(errors,[]);self.assertEqual(self.s.pending('A')['messages'],40)
-        self.s.send('Coordinator',['A'],'0','key-0')
+        self.s.send('Controller',['A'],'0','key-0')
         self.assertEqual(self.s.pending('A')['messages'],40)
-        with self.assertRaises(ValueError):self.s.send('Coordinator',['A'],'different','key-0')
+        with self.assertRaises(ValueError):self.s.send('Controller',['A'],'different','key-0')
     def test_bounded_batches_and_receipt_survive_reopen(self):
-        for i in range(40):self.s.send('Coordinator',['A'],str(i),str(i))
+        for i in range(40):self.s.send('Controller',['A'],str(i),str(i))
         batch=self.s.delivery('A');self.assertEqual(len(batch['messages']),32)
         self.assertEqual(batch['remaining_messages'],8)
         self.s.close();self.s=RuntimeStore(self.path)
@@ -36,7 +36,7 @@ class StoreTests(unittest.TestCase):
     def test_transaction_failure_does_not_commit_message_or_batch(self):
         with self.assertRaises(RuntimeError):
             with self.s.transaction():
-                self.s.send('Coordinator',['A'],'must roll back','x')
+                self.s.send('Controller',['A'],'must roll back','x')
                 self.s.delivery('A')
                 raise RuntimeError('injected crash before commit')
         self.assertEqual(self.s.history('A'),[])
@@ -45,7 +45,7 @@ class StoreTests(unittest.TestCase):
     def test_peers_can_route_directly_without_a_hidden_coordinator(self):
         self.s.close();self.s=RuntimeStore(Path(self.tmp.name)/'peer.sqlite')
         config=load_harness();config['topology']='peer';self.s.initialize('peer',config,['A','B'])
-        self.assertNotIn('Coordinator',self.s.agents())
+        self.assertNotIn('Controller',self.s.agents())
         self.s.send('A',['B'],'peer work','peer-key')
         self.assertEqual(self.s.pending('B')['messages'],1)
     def test_accepted_physical_call_is_uncertain_after_owner_loss(self):
@@ -54,9 +54,9 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(self.s.call('a')['status'],'uncertain')
         self.assertEqual(self.s.actions()['a']['status'],'uncertain')
     def test_read_receipt_is_not_a_business_reply(self):
-        self.s.send('Coordinator',['A'],'can you help?','x')
+        self.s.send('Controller',['A'],'can you help?','x')
         batch=self.s.delivery('A');self.s.acknowledge('A',batch['delivery_id'])
-        self.assertEqual(len(self.s.history('Coordinator')),1)
+        self.assertEqual(len(self.s.history('Controller')),1)
         self.assertFalse(self.s.events()[-1]['details']['business_acceptance'])
     def test_start_activates_every_policy_role_without_assigning_work(self):
         for mode in ('hierarchical','peer','centralized'):
@@ -76,7 +76,7 @@ class StoreTests(unittest.TestCase):
     def test_messages_and_events_share_byte_budget_and_drain_without_loss(self):
         cfg=self.s.get('config');cfg['max_batch_bytes']=1600;self.s.put('config',cfg)
         for i in range(8):
-            self.s.send('Coordinator',['A'],'m'+str(i)+'汉'*80,'m'+str(i))
+            self.s.send('Controller',['A'],'m'+str(i)+'汉'*80,'m'+str(i))
             self.s.signal('A',{'event':'test_progress','index':i,'text':'文'*100})
         seen_messages=[];seen_events=[]
         while self.s.pending('A')['messages']+self.s.pending('A')['signals']:

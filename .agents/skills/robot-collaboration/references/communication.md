@@ -1,6 +1,6 @@
 # Communication contract v0.10
 
-Meta is the experiment manager, outside the task team. Coordinator is the task planner. A Worker controls one bound arm.
+Meta is the experiment manager, outside the task team. In hierarchical mode, Controller coordinates the task and each Worker controls one bound arm. Peer mode has Workers without a Controller.
 
 Centralized mode has one Controller for all robots and no task teammates. It uses explicit robot selection and the same physical tools; Meta remains outside the policy team. No cross-session task communication is needed in that mode.
 
@@ -8,13 +8,13 @@ Adaptive mode routes Controller ↔ active delegates; returned scopes do not rec
 
 Business messages have one format: `to` (explicit recipients), `text` (natural language), optional `reply_to` (an accessible message ID). The service adds message ID, sender, submission order and time. No request/result/cancel categories are required. Text can discuss any of these subjects.
 
-In hierarchical mode Coordinator ↔ Worker is allowed, Worker ↔ Worker is rejected. In peer mode Workers may address each other and there is no Coordinator. Meta cannot send business messages or control a robot. Global/local camera access does not grant access to another role's private mailbox.
+In hierarchical mode Controller ↔ Worker is allowed, Worker ↔ Worker is rejected. In peer mode Workers may address each other and there is no Controller. Meta cannot send business messages or control a robot. Global/local camera access does not grant access to another role's private mailbox.
 
-Coordinator relays relevant decisions and readiness so Workers can coordinate without contacting forbidden peers. Peers negotiate only with affected teammates. The message format remains the same in both modes.
+Controller relays relevant decisions and readiness so Workers can coordinate without contacting forbidden peers. Peers negotiate only with affected teammates. The message format remains the same in both modes.
 
-When assigning work or materially changing a commitment, describe the outcome, currently executable scope and earliest remaining prerequisite. On updates, identify previous prerequisites now satisfied, citing the relevant report/observation and its time or message ID; state which restrictions remain and which are replaced. Relay enabling facts with the authorization so recipients can resolve earlier conditions. Ordinary progress messages can be brief. The Skill defines standing local authority; Coordinator grants joint hierarchical scopes, while peers agree affected commitments directly. Verified conditions within scope can enable continuation without another approval; Agents still decide and call actions.
+When assigning work or materially changing a commitment, describe the outcome, currently executable scope and earliest remaining prerequisite. On updates, identify previous prerequisites now satisfied, citing the relevant report/observation and its time or message ID; state which restrictions remain and which are replaced. Relay enabling facts with the authorization so recipients can resolve earlier conditions. Ordinary progress messages can be brief. The Skill defines standing local authority; Controller grants joint hierarchical scopes, while peers agree affected commitments directly. Verified conditions within scope can enable continuation without another approval; Agents still decide and call actions.
 
-An illustrative scope: “Complete the assigned outcome. Prepare locally now; enter resource X once you verify its specified release using the agreed evidence. Continue the authorized next stage yourself; ask again if the reservation or outcome changes.” Coordinator can grant this; peers can accept it together. If a needed fact is private to another Worker in a hierarchy, Coordinator relays it. Public observable facts can instead be checked by the authorized executor. Choose the actual scopes, evidence and restrictions from the scene.
+An illustrative scope: “Complete the assigned outcome. Prepare locally now; enter resource X once you verify its specified release using the agreed evidence. Continue the authorized next stage yourself; ask again if the reservation or outcome changes.” Controller can grant this; peers can accept it together. If a needed fact is private to another Worker in a hierarchy, Controller relays it. Public observable facts can instead be checked by the authorized executor. Choose the actual scopes, evidence and restrictions from the scene.
 
 Reserve the actual conflicting resource/time and name its release milestone. Do not impose a whole-batch barrier when an item or path release enables another role. A bounded scope can cover subsequent work without per-item approval. Workers may propose extensions while waiting; informational acknowledgements and unchanged idle notices should not displace useful work.
 
@@ -28,12 +28,12 @@ A pause request uses the same addressed message format. The executor reviews it 
 
 Keep changed conditions, remaining constraints, needed decisions and concise evidence. Unchanged status confirmations do not create work. Pending replies block only dependent work; independently authorized work can continue.
 
-Share a run-local lesson when it changes another role's choices, with evidence and applicability limits or an allowed artifact reference. Hierarchical Workers share through Coordinator, peers with affected Workers, and adaptive delegates through Controller; routine trials need no separate announcement. A lesson is neither a new authorization nor verified object truth.
+Share a run-local lesson when it changes another role's choices, with evidence and applicability limits or an allowed artifact reference. Hierarchical Workers share through Controller, peers with affected Workers, and adaptive delegates through Controller; routine trials need no separate announcement. A lesson is neither a new authorization nor verified object truth.
 
 Messages and system events share the configured batch byte/count budget; remaining_messages and remaining_events identify items still queued. Oversized notices require a shorter message or an artifact reference. Delivery batches have IDs. The client acknowledges receipt on its next call; this is not business acceptance. Until that receipt, the batch may be redelivered with the same message IDs. Do not repeat accepted physical work because its message appears again. `history` retrieves your own conversation without creating commitments.
 
-A Worker explicitly declaring available produces a factual system event for Coordinator. It means the Worker reports availability, not that an evaluator verified its goal. Tool completion and native session idle do not imply availability.
+A Worker explicitly declaring available produces a factual system event for Controller. It means the Worker reports availability, not that an evaluator verified its goal. Tool completion and native session idle do not imply availability.
 
-Messages are batched at tool-return boundaries for both Workers and Coordinator. New messages do not cancel active tools. When the native session is idle, pending mail, an agent-selected deadline, or saved continuing work may trigger a continuation, including during a normal nonblocking action. The arm remains busy; blocking robot actions and uncertain actions still require their existing outcome. There is one pending/in-flight notification per recipient; uncertain notification outcomes are checked rather than blindly resent. No running-turn steer is used by this protocol.
+Messages are batched at tool-return boundaries for both Workers and Controller. New messages do not cancel active tools. When the native session is idle, pending mail, an agent-selected deadline, or saved continuing work may trigger a continuation, including during a normal nonblocking action. The arm remains busy; blocking robot actions and uncertain actions still require their existing outcome. There is one pending/in-flight notification per recipient; uncertain notification outcomes are checked rather than blindly resent. No running-turn steer is used by this protocol.
 
 Message traffic and natural-language misunderstandings remain part of agent behavior; no hidden planner fixes them. Cancellation text is a coordination request, not emergency stop.

@@ -3,7 +3,7 @@
   "topology": "adaptive",
   "startup_protocol": "direct_controller_v2",
   "manager": "Meta",
-  "coordinator": "Coordinator",
+  "coordinator": "Controller",
   "model": "gpt-6-astra",
   "effort": "high",
   "poll_interval_s": 2.0,

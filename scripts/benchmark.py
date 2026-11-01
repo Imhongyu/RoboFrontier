@@ -148,6 +148,8 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
         config_dir=output/'profiles'/name;config_dir.mkdir(parents=True)
         harness=read(ROOT/'configs/harnesses/policy.json')
         harness.update(model=p['model'],effort=p['effort'],observation_renderer='classic',record_realtime_video=False)
+        if p.get('benchmark_topology') in ('hierarchical', 'peer'):
+            harness.update(topology=p['benchmark_topology'], startup_protocol='ready_barrier_v1')
         harness_path=config_dir/'harness.json';write_json(harness_path,harness)
         for case in selected:
             run=output/name/case

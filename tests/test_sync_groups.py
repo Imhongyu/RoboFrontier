@@ -59,14 +59,14 @@ class SyncTests(unittest.TestCase):
                 for part in parts:self.assertEqual(part['result']['execution_status'],'completed')
     def test_no_cross_robot_authority_or_admin_control_and_no_command_disclosure(self):
         s=self.service('hierarchical');j=self.call(s,'A','action_batch',self.part('A'))
-        for actor in ('Meta','Coordinator','B'):
+        for actor in ('Meta','Controller','B'):
             self.assertIn('error',self.call(s,actor,'action_batch',self.part('A'))['result'])
         self.assertEqual(s.world.executed,[])
         self.call(s,'B','action_batch',self.part('B'))
         r=self.call(s,'A','job',{'call_id':j['id']})['result']
         foreign=[v for v in r['executions'].values() if v['arm']=='B']
         self.assertEqual(len(foreign),1);self.assertNotIn('parameters',foreign[0])
-        self.assertNotIn('error',self.call(s,'Coordinator','send',{'to':['A'],'text':'review'})['result'])
+        self.assertNotIn('error',self.call(s,'Controller','send',{'to':['A'],'text':'review'})['result'])
         self.assertIn('error',self.call(s,'A','send',{'to':['B'],'text':'forbidden tree message'})['result'])
     def test_pending_reserves_only_submitted_robot_and_not_other_work(self):
         s=self.service();j=self.call(s,'A','action_batch',self.part('A'))

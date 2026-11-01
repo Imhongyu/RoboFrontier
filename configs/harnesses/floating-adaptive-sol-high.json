@@ -2,7 +2,7 @@
   "schema_version": 1,
   "topology": "adaptive",
   "manager": "Meta",
-  "coordinator": "Coordinator",
+  "coordinator": "Controller",
   "model": "gpt-6.1-sol",
   "effort": "high",
   "poll_interval_s": 2.0,

@@ -339,7 +339,7 @@ class RuntimeService:
                 self.respond(job,{'returned':True,'delegation':event})
             elif op == 'team':
                 if kind != 'coordinator':
-                    raise ValueError('Coordinator team view only')
+                    raise ValueError('Hierarchical Controller team view only')
                 with self.store.transaction():
                     workers={a:{'work':{'note':v['note'], 'saved_at':v.get('work_saved_at'), 'revision':v['work_revision']},
                                 'execution':self.store.latest_execution(a),

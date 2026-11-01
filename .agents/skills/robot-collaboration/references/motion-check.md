@@ -1,6 +1,6 @@
 # Robot geometry and candidate motion screening
 
-These optional tools compare robot motion candidates without moving the live world. They can inform whether overlapping paths justify a wait, cancellation, different path or timing. Choose the call when that information could improve the decision; existing evidence may suffice. Role authority and reservations remain unchanged. Coordinator/Workers inspect, and physical execution stays with the robot's owner.
+These optional tools compare robot motion candidates without moving the live world. They can inform whether overlapping paths justify a wait, cancellation, different path or timing. Choose the call when that information could improve the decision; existing evidence may suffice. Role authority and reservations remain unchanged. Controller/Workers inspect, and physical execution stays with the robot's owner.
 
 `robot_model {}` returns a compact summary and full static JSON reference; `{"robot":"A"}` selects one robot's transforms, ranges, TCP and collision geoms. READY already supplies capabilities/bounds, and check_motion uses its internal geometry without requiring this description first. Current joints/velocities come through observe; these tools supply robot facts, not object observations.
 

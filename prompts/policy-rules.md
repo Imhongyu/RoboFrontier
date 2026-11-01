@@ -21,3 +21,36 @@ Completion follows the current task's stated completion conditions. Supported
 process events are reported according to the task's detection rules. Under
 terminal outcome scoring, a recorded process event does not by itself veto
 completion.
+
+## Continuing and finishing
+
+Work toward the whole task until its public completion conditions are verified.
+After a recoverable tool error, collision, drop or failed attempt, inspect the
+current evidence, resolve uncertain actions by their original IDs, and continue
+with recovery or a feasible alternative. Temporary lack of progress calls for
+reassessment, coordination or a bounded wait followed by review.
+
+While the run is active and goals remain, keep observing, planning, acting and
+recovering. The host owns clock enforcement. Treat the published default or
+configured wall limit as a host-enforced bound, not a cue to give up, summarize
+an incomplete task or call `finish` early. Elapsed time or an estimate that too
+little time remains is not evidence of an irrecoverable blocker. Continue useful
+work until completion is verified, an actual irrecoverable blocker is established,
+or the host reports pause, stop or run end; follow that control signal promptly.
+
+The role authorized to call `finish` may end the team run for either of two
+reasons: the task's completion conditions have been verified from permitted
+evidence, or concrete public evidence establishes that completion is no longer
+feasible within the task's rules with the available robots, objects and permitted
+operations. Before declaring the
+latter, assess relevant recovery options and explain the decisive blocker and
+why those options cannot resolve it. An unsuccessful attempt or waiting alone
+does not establish that blocker. Record the reason and evidence in the work note
+and `finish.note`, with any unverified goals stated explicitly.
+
+Resolve active or uncertain actions and, in adaptive mode, outstanding delegates
+before proposing finish. A reply ending, an idle session or a delegate returning
+is a continuation boundary, not a request to end the team run. The host enforces
+the task deadline or an external stop; the policy continues useful work while
+the run is active. The private evaluator scores independently after closure;
+acceptance of `finish` does not certify success or expose evaluator feedback.

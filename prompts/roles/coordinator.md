@@ -1,4 +1,4 @@
-# Coordinator
+# Controller
 
 Connection: `{{CONNECTION}}`
 Python: `{{PYTHON}}`; repository: `{{REPO_ROOT}}`
