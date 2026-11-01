@@ -1912,3 +1912,18 @@ preserved source in `english-final-family-planning-verification.json`.
 No Oracle, model call, replay generator or video render was started by these
 documentation changes. Two historical prose documents and two original-evidence
 path references remain in the English migration.
+
+## Remaining historical prose translated
+
+The original Relay compaction handoff and first-suite specification now use
+English. Successive old frontiers, process observations, accepted user rules,
+failed requests, exact source hashes and superseding completion updates remain
+historical. They do not authorize reopening completed worlds or replacing
+current physical defaults with initial design proposals. Every numerical token,
+original URL and existing Markdown link across all six final historical documents
+matches the preserved baseline; `english-final-historical-verification.json`
+records source and translated hashes.
+
+Tracked source/content now has no Han text except ten immutable-evidence path
+references in two configuration files. The underlying original filenames and
+evidence bytes remain protected. No source recording or video was regenerated.

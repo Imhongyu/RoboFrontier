@@ -1,454 +1,506 @@
-# Compact 后先读此文件 — 2026-10-27
+# Historical post-compaction handoff — 2026-10-27
 
-这是本轮最新接续说明，覆盖旧 `relay-continuation.md` 中过期的进度、
-5/25mm 标准和“尚未热加载/尚未得到许可”等状态。先读完，再核对原现场。
-**用户刚要求 compact 后仍保留细节，并明确“程序不要停”。不要停止、重启、
-另开原仿真，也不要把 compact 当作取消任务。继续直到9项完成。**
+This preserves the original Relay handoff and successive checkpoints. It superseded
+outdated progress, 5/25mm standards and authorization/hot-loading statements in
+`relay-continuation.md` at the time. All process IDs, active-frontier instructions
+and “latest” labels below refer to that historical session, not current processes.
+Read [unified main](../development/unified-main.md) for present integration work.
 
-## 2026-10-27最新：可迁移剪辑轨迹、简单/工厂18段20倍速全部完成
+The user had requested detailed compaction and “do not stop the program.” The
+original instruction was to continue the same worlds until 9 tasks completed,
+without stopping, restarting or creating duplicate simulations. Compaction did
+not cancel that work. The completion updates below supersede earlier frontiers;
+none authorizes resuming old requests today.
 
-用户要求去静止必须绑定动态轨迹，以便原背景与工厂背景同步剪切；所有视频改20倍速。
-现已完成，不需恢复任何控制任务或媒体进程。没有重跑Oracle，没有向原世界发送命令。
-原物理任务仍使用历史9/9、27/27的验收记录，native分数/原始轨迹/旧MP4均未改。
+## Latest on 2026-10-27: portable edits and all 18 simple/Factory 20x videos complete
 
-最新总览：`outputs/oracle/relay-20x-20261027/report.md`，summary.json complete=true、
-completed_tasks=9/completed_videos=18。新片均30fps、按剪辑后的有效仿真时间20倍速；
-首尾各仅增加一帧证据姿态。旧16fps名义4x片保留，下面旧章节中的4x仍属历史版本。
+The user requested trajectory-bound idle removal shared across backgrounds and
+20x speed. This was complete; no control/media process needed resuming. No Oracle
+rerun or commands to original worlds. Historical physics acceptance remained
+9/9 and 27/27; native scores, raw trajectories and old MP4 files were unchanged.
 
-集中交付目录（每个目录直接9个MP4，按臂数/Level命名）：
-- `outputs/oracle/relay-nine-videos-20x-20261027/`：简单背景九段。
-- `outputs/robo-factory/relay-nine-videos-20x-20261027/`：工厂背景九段。
+Overview: `outputs/oracle/relay-20x-20261027/report.md`; summary.json complete=true,
+completed_tasks=9/completed_videos=18. New videos: 30fps, effective simulation time
+at 20x, one evidence-pose frame at each endpoint. Old nominal 4x/16fps versions
+remain; lower sections mentioning 4x describe history.
 
-九段对应时长（两个背景一致）：8臂L1/L2/L3为17.667/24.467/23.033秒；
-12臂50.300/45.733/58.033秒；16臂87.500/79.500/88.867秒。
-所有18段完整解码、30fps与帧数检查、交付文件SHA256复制核验通过。
-三张qa-08/12/16-paired-first-last.jpg已实际查看；8L1中间帧和12L3/16L2工厂末帧也已查看。
+Delivery directories, each containing 9 MP4 files named by arms/Level:
 
-独立可复用数据包：`outputs/oracle/relay-edited-tracks-20261027/`。
-每case含精确冻结source模型与资源、edit.json保留源时间区间/阈值/既有960段图像复核来源、
-track.npz保留区间内的原60Hz qpos，共570746行；每行原始帧号/源时间/剪辑时间/
-时长/segment均保存；另有首末证据状态、外观事件、初始RGBA及源chunk清单hash。
-原始记录60Hz，仿真2ms=500Hz，去静止判定沿用已审查20Hz mask（0.25/2秒窗口），
-不在新背景重复识别像素，不跨剪切插值或积分物理。track-validation.json九包全部通过。
+- `outputs/oracle/relay-nine-videos-20x-20261027/`: simple backgrounds.
+- `outputs/robo-factory/relay-nine-videos-20x-20261027/`: Factory backgrounds.
 
-工厂重建：`outputs/robo-factory/relay-recorded-20261027/scene.xml`，9个relay视觉工作站，
-每个源都从上述精确冻结记录组成，拒绝旧版本同ID混用。FactoryPlayback.apply_arrays
-向量化FK/共同平移和绕竖直轴旋转；不缩放、不改变相对布局。材料背景可不同。
-所有输出帧验证全部可见几何的源/目标位置与旋转，最大位置差5.03e-15米。
-两种背景共用每case的frame-map.csv。是原记录展示，不是工厂重新跑物理成功。
+Matching durations in both backgrounds: 8-arm L1/L2/L3 17.667/24.467/23.033s;
+12-arm 50.300/45.733/58.033s; 16-arm 87.500/79.500/88.867s. All 18 completely
+decoded and passed 30fps/frame-count/SHA256 delivery-copy checks. All three
+qa-08/12/16-paired-first-last.jpg images were viewed, along with an 8L1 middle
+frame and 12L3/16L2 Factory final frames.
 
-实现：robofrontier/motion_edit.py、scripts/export_relay_edited.py、
-FactoryPlayback.apply_arrays；格式/命令详见docs/relay-recorded-video.md。
-19项剪辑/运动/刚体迁移测试通过；额外7项旧综合测试由于已有非relay生成环境的
-身份贴图缺失/外链，未进入测试主体；没有修改那些环境或降低资源校验。
-原因见新输出test-results.json，不要声称全库测试通过。
+Reusable package: `outputs/oracle/relay-edited-tracks-20261027/`. Each case includes
+exact frozen source model/assets; edit.json with intervals/thresholds and the
+previous 960-window image-review sources; track.npz containing original 60Hz qpos
+inside retained intervals, 570746 rows total. Every row retains source frame/time,
+edited time/duration/segment. It also includes exact endpoint evidence states,
+appearance events, initial RGBA and source-chunk hashes. Physics: 2ms=500Hz;
+recording: 60Hz; selection: reviewed 20Hz mask with 0.25/2-second windows. No new
+background pixel classification, cut interpolation or physics integration. All
+nine track-validation.json checks passed.
 
-进程提醒：本轮只新开离线抽取与渲染辅助进程，现均完成，没有给原仿真发STOP或重启。
-本轮只读ps检查时旧52509/52510未找到，不能根据下面历史章节继续声称它们当前仍活着；
-不要因此重启、重复执行旧控制ID。物理任务在原记录中的9/9完成结论不变。
+Factory: `outputs/robo-factory/relay-recorded-20261027/scene.xml`, 9 visual
+stations built from exact frozen recordings, rejecting older sources sharing IDs.
+FactoryPlayback.apply_arrays vectorizes FK/common translation/vertical yaw, without
+scaling or relative-layout changes. Materials/background may differ. All visible
+geometries' source/destination positions/rotations were checked in every output
+frame; maximum positional difference 5.03e-15m. Backgrounds share each frame-map.csv.
+This displays original records, not new successful Factory physics.
 
-## 九个视频也已全部去静止：L1三段已补齐（历史4倍速版）
+Implementation: robofrontier/motion_edit.py, scripts/export_relay_edited.py,
+FactoryPlayback.apply_arrays; format/commands in docs/relay-recorded-video.md.
+19 edit/motion/rigid-transform tests passed. Another 7 old aggregate checks could
+not reach assertions because existing non-Relay generated scenes had missing or
+external identity textures. Those scenes/checks were not weakened; see new
+test-results.json. Do not call that full-repository acceptance.
 
-用户追问“9个视频都去掉静止了嘛”，如实说明原先只有6段L2/L3，然后补齐三段L1。
-现在同一 `outputs/oracle/relay-active-only-20261027/report.md` 已为**九段新版总览**。
-8臂L1 1:33（1482帧/16fps），12臂L1 4:26（4256帧），16臂L1 7:49（7501帧）。
-L2/L3六段时长仍2:11/2:06/4:08/5:42/7:20/8:06，旧版都保留。
+Only offline extraction/render helpers were started; all completed without STOP
+or restart of original simulations. Read-only ps no longer found old 52509/52510;
+do not claim they were still live from older sections, restart them or replay IDs.
+Original 9/9 completion evidence remains.
 
-L1使用 unchanged_l1 记录里的真实原生成功源，来源是
-`runs/oracle/relay-nine-ab1abec-20261026-032833/relay-aXX-d1/attempt-001`，没有重跑物理。
-旧L1 schema没有beam_bodies和user-goal-report，离线脚本已支持beam_body回退以及
-native report.passed=true的验收源，末帧保留原关闭event精确状态。
-九段全部完整解码、帧数匹配，九段首末图已查看，累计960个较长待删段做图像复核。
-L1三段图见qa-l1-first-last.jpg，全部汇总summary.json complete=true/completed_videos=9。
-所有剪辑辅助进程均已完成，原52509/52510仍运行，原始轨迹、旧MP4与原场景未修改。
-后续用户再问9视频去静止：可以直接答“九段现在全部按同一套规则完成”，链接新版总览。
+## All nine idle-removed videos, including three L1 cases (historical 4x)
 
-## 视频追加要求也已完成：请优先交付去静止新版
+When asked whether all 9 were edited, the initial answer correctly covered
+only 6 L2/L3; then three L1 were added. The same
+`outputs/oracle/relay-active-only-20261027/report.md` became the nine-video overview.
+8-arm L1 1:33 (1482 frames/16fps), 12-arm L1 4:26 (4256), 16-arm L1 7:49 (7501).
+Six L2/L3 durations remained 2:11/2:06/4:08/5:42/7:20/8:06. Old versions retained.
 
-用户随后明确要求：全场检查所有臂关节/夹爪/主物体位姿；0.25s和2s累计窗口过滤
-数值抖动并识别慢动；删除全场静止；砝码单独摆动但没有有效臂动作的等待也删除，
-有臂动作时仍保留；增加图像复核。
+L1 uses real native-success unchanged_l1 sources at
+`runs/oracle/relay-nine-ab1abec-20261026-032833/relay-aXX-d1/attempt-001`, without
+physics reruns. Old L1 schema lacks beam_bodies/user-goal-report; offline fallback
+supports beam_body and native report.passed=true, retaining exact final close
+event. All nine decoded with matching frame counts; all endpoint images viewed;
+960 longer candidate cuts reviewed. L1 montage: qa-l1-first-last.jpg; summary.json
+complete=true/completed_videos=9. Helpers completed. At this checkpoint original
+52509/52510 were reported live; raw trajectories/old MP4/scenes unchanged. The
+latest section above supersedes that historical process observation. The original
+reply to later 9-video questions could point directly to this overview.
 
-原版不完全满足，已在**不碰原仿真与原轨迹**的前提下统一重剪全部六段L2/L3。
-新报告与全部新视频：
-`/Users/fanchangxuan/Repos/roomscript2/outputs/oracle/relay-active-only-20261027/report.md`
-各 `relay-aXX-dY/global.mp4`：8L2 2:11，8L3 2:06，12L2 4:08，12L3 5:42，
-16L2 7:20（7037帧/16fps），16L3 8:06（7768帧/16fps）。原版保留对照，旧报告已加新版入口。
+## Additional video requirements completed: prefer idle-removed versions
 
-实现 `robofrontier/relay_video_motion.py` + `scripts/render_relay_active_only.py`，
-13个规则单测通过，包括单臂动、慢动、数值抖动、砝码单独摆动/与臂同时动、
-主物体滑落、砝码大幅独立落下、四元数符号、画面重量遮挡不能伪造成臂运动等。
-原60Hz记录提取20Hz判定样本，比较0.25/2s净变化与方向一致性；所有臂/夹爪
-按各自关节检测后取全场OR；主木杆和L3被动关节运动保留，疑似脱落的大幅重物位移也保留。
-不再把“存在动作指令”当成整段必须保留。首尾各只留一帧定位，没有静止等待片尾。
+The user required all arm joints/fingers/main-body poses, 0.25s/2s cumulative
+windows to reject numeric jitter and detect slow motion, whole-table idle removal,
+removal of isolated weight sway without useful arm motion, preservation when arms
+move, and image review.
 
-对771个>=0.4s较长/可疑待删段做实际RGB+geom-ID分割复核，排除前后两帧砝码遮挡，
-用轮廓/可见几何中心检查有效臂/主物体运动；0段需要补回。短数值间隙按轨迹判定。
-源时间映射见frame-map.csv；阈值/样本/删除检查见manifest、state-summary、visual-audit和audit JPG。
-六段均全视频解码成功、帧数匹配、首末图QA完成，qa-first-last.jpg已看；旧MP4未覆盖。
+The original did not fully meet this. All six L2/L3 were re-edited without touching
+original simulations/trajectories. Report:
+`/Users/fanchangxuan/Repos/roomscript2/outputs/oracle/relay-active-only-20261027/report.md`.
+Each `relay-aXX-dY/global.mp4`: 8L2 2:11, 8L3 2:06, 12L2 4:08, 12L3 5:42,
+16L2 7:20 (7037 frames/16fps), 16L3 8:06 (7768 frames/16fps). Originals retained;
+old report links new versions.
 
-六段重剪所有辅助进程均已完成。原物理任务仍9/9、27/27，52509/52510仍运行，没有STOP、
-没有新开物理世界、重启或状态回滚。这次只做离线剪辑，不需要恢复任何旧控制请求。
+`robofrontier/relay_video_motion.py` + `scripts/render_relay_active_only.py` passed
+13 rule tests: one active arm, slow motion, numeric jitter, isolated/concurrent
+weight motion, main-body slip, large independent weight fall, quaternion sign,
+and weight occlusion not inventing arm motion. Extract 20Hz from original 60Hz,
+compare 0.25/2s net changes/direction, OR every arm/finger's joints across the table;
+retain main timber/L3 passive motion and large possible falling-weight changes.
+An action command alone no longer protects its entire interval. One endpoint
+frame each, without a stationary tail.
 
-## 最终交付已完成（物理、校验、两段影片全部完成）
+771 suspicious candidate cuts >=0.4s received RGB+geom-ID review, excluding weight
+occlusion and checking visible geometry centers/outlines for useful arm/body
+motion. 0 required restoration. Short numerical gaps used trajectories. See
+frame-map.csv, manifest, state-summary, visual-audit and audit JPG. Six videos
+fully decoded with matching counts; endpoint QA and qa-first-last.jpg viewed;
+old MP4 files untouched.
 
-**9/9、27/27；没有剩余控制任务或媒体任务。** 两个原物理进程52509/52510按用户要求仍运行，
-本轮从未给它们发送STOP。不要再执行历史ID，不要因为旧native评分3/9而重跑已通过用户标准的任务。
+Helpers completed. Physics remained 9/9, 27/27; 52509/52510 were reported live at
+this checkpoint, without STOP/new worlds/restart/rollback. Offline edits needed
+no old control request resumed.
 
-最终报告：
-`/Users/fanchangxuan/Repos/roomscript2/outputs/oracle/relay-user-completed-20261027/completion-report.md`
+## Final delivery complete: physics, verification and both videos
 
-最终新增完整影片（均从原任务初始0秒到通过验收附近，动作4x、等待压缩）：
-- `relay-a16-d2-full/global.mp4`：15255帧/15fps，16:57；完整解码通过，首末PNG已看。
-- `relay-a16-d3-full/global.mp4`：47618帧/15fps，约52:55；完整解码通过，首末PNG已看。
-目录同上输出根，各manifest和video-inspection.json、呈现优化sidecars已保存。
-视频不是新物理模拟、不是闭合episode；原进程继续，截止来自真实原记录，末帧另验实际落地/分离/框内。
-旧四段8/12臂L2/L3完整影片仍在20261026输出目录，最终报告已统一链接。
+**9/9, 27/27; no control or media work remained.** Original 52509/52510 were kept
+running at user request at this checkpoint, without STOP. Do not execute old IDs
+or rerun user-accepted tasks because old native scoring says 3/9.
 
-媒体PID32831/32832及其编码器已完成，不再需要轮询sessions22221/84382。
-L3后段在第22844帧后关闭导出阴影/反射提速，只影响绘图；原动作/姿态/源数据不改。
-等待判定优化只去掉执行区间外机器人关节/夹爪微抖动；全部执行区间和payload自由体/被动关节阈值不变。
-已将生效帧/源时间写入最终manifest，早期画面保留更多等待；没有删失误或真实物体运动。
+Report:
+`/Users/fanchangxuan/Repos/roomscript2/outputs/oracle/relay-user-completed-20261027/completion-report.md`.
+New complete videos span original time 0 to near acceptance, actions 4x/waits compressed:
 
-最终验收根文件：`USER-GOAL-ALL-NINE-COMPLETE.json`、`user-goal-batch-status.json`（9/9），
-原严格native batch-status.json未改写。最近相关检查36项通过，源码/控制修正已commit，
-后续只需根据用户新指令行动，不恢复任何旧重复世界。
+- `relay-a16-d2-full/global.mp4`: 15255 frames/15fps, 16:57; full decode/endpoints viewed.
+- `relay-a16-d3-full/global.mp4`: 47618 frames/15fps, about 52:55; full decode/endpoints viewed.
 
-## 已完成：9/9 项、27/27 根（最新，覆盖下文全部未完成前沿）
+Same output root contains manifests, video-inspection.json and display sidecars.
+These are neither new simulations nor closed episodes. Originals continued;
+cutoffs use real records, with landing/separation/inside checked independently.
+The earlier four complete 8/12-arm L2/L3 videos remain in 20261026 output and are
+linked from the final report.
 
-**物理任务已经全部完成，不再推进任何 Oracle 控制或重跑任务。**
-两个原PID 52509、52510依用户“程序不要停”仍运行；没有给它们写STOP。
-L3最后P1完成最终J/P(v155)、I短撤离(v156)、Goal前移(v158)、下降v159-1..10、
-距表面约13mm时真实完整80mm开口v159-11和观察v160；4/4全部分离落在框内，
-第一验收时L3四根0越线。L2也4/4。根目录user-goal-batch-status.json已独立9/9，
-USER-GOAL-ALL-NINE-COMPLETE.json已保存，原native严格评分与历史不变（汇总仍3/9）。
+Media PID32831/32832 and encoders completed; sessions22221/84382 no longer needed
+polling. After frame22844 in L3, export shadows/reflections were disabled for
+speed, affecting drawing only. Idle optimization removes joint/finger jitter
+outside execution intervals; all executed intervals/payload free-body/passive
+thresholds remain. Effective frame/source times are in final manifests; earlier
+footage retains more waits. No errors or real object motion were deleted.
 
-最终P抓姿问题用O24cm暂接、实际P空手撤离、I/O恢复level，再用完整后续运输
-筛选P58cm Top分支解决。真实v149 P空手free-wrist撤离、v150 level、v151新Top P
-交接、v152/v153 O撤离home、v154实际驶入最终窗、v155 J/P交接均已完成。
-之前v124 Side P及可选整杆roll耗尽腕限位的历史保留，绝无物理checkpoint回滚。
+Root acceptance: `USER-GOAL-ALL-NINE-COMPLETE.json`, `user-goal-batch-status.json`
+(9/9); strict native batch-status.json unchanged. Recent checks: 36 passes;
+source/control fixes committed. Follow later user instructions without duplicate worlds.
 
-最后安装的contact escape为**revision5**，同一52510里已ack，frozen
+## Completed: 9/9 tasks, 27/27 timbers; supersedes all earlier unfinished frontiers
+
+**All physics tasks complete; no further Oracle control/reruns.** At this point
+PID52509/52510 remained alive at user request; no STOP. Final L3 P1: J/P(v155),
+I short retreat(v156), Goal advance(v158), descent v159-1..10, real full 80mm opening
+v159-11 at about13mm clearance, observation v160. All4/4 separated/landed inside;
+first L3 acceptance had 0 boundary excess for all four. L2 also4/4. Independent
+user-goal-batch-status.json reports9/9; USER-GOAL-ALL-NINE-COMPLETE.json saved;
+strict native score/history remain3/9.
+
+Final P grasp was solved by O24cm temporary receiving, actual empty P exit,
+I/O leveling, and a P58cm Top branch screened through complete onward transport.
+v149 free-wrist P exit, v150 leveling, v151 new P Top handoff, v152/v153 O home,
+v154 final-window entry, v155 J/P handoff all executed. Earlier v124 Side P and
+optional full-timber roll exhausted wrist limits; preserve history, no checkpoint rollback.
+
+Last contact escape **revision5** acknowledged in same52510; frozen
 `open-contact-withdraw-v5.py` SHA256
-`6d761f2e3ca1755bd4b5160e124da020d5ee6cbdc76f74aecd7a5f67872137bb`。
-仅当另外两臂有实际双边力支撑时，空手短距6cm撤离可转动最多0.20rad；
-仅Goal接地无双接收臂时仍0.04rad。81+点原几何非加深/无新穿透/机器人世界
-碰撞检查与真实分离后置检查不变，未改physics或monitor。该模块6个单测通过。
-最后Goal组合installer `final-goal-recovery-v2.py` SHA256
-`491e2b39120c79b7bb44d1f96967f7079a5ded87530bbb7313cfcbba499569e3`，
-只安装已测试Goal50、真实支持/低位80mm开口及contact withdrawal；同一实例/world。
-实验性的world-topdown/Top-only新语义从未装入活世界，源码已恢复原语义，不依赖它。
+`6d761f2e3ca1755bd4b5160e124da020d5ee6cbdc76f74aecd7a5f67872137bb`.
+Only with actual bilateral-force support by two other arms may a6cm empty exit
+rotate up to0.20rad; Goal support without two receiving arms retains0.04rad.
+81+ original-geometry samples, no deeper/new penetration, robot/world collision
+and actual-separation postchecks remain. Physics/monitor unchanged;6 tests pass.
+Final `final-goal-recovery-v2.py` installer SHA256
+`491e2b39120c79b7bb44d1f96967f7079a5ded87530bbb7313cfcbba499569e3`
+installs only tested Goal50, real support/low80mm opening and withdrawal in the
+same instance/world. Experimental world-topdown/Top-only semantics were never
+installed; source restored original semantics and did not depend on them.
 
-**仅剩媒体导出/交付（物理已完成）**：
-- 只读前缀校验脚本 `scripts/verify_relay_completion_prefix.py` 已验证L2 565086帧、
-  L3 1517398帧（source从0起），每个chunk checksum/shape/time/finite，最后真记录帧
-  另验inside50/released/grounded/qualified handover；不新增物理episode。
-- 原进程继续运行，不使用close/STOP换视频。renderer现在支持--completion-sim-s，
-  使用真实记录截止帧而不伪造trial-end事件：L2截止9418.100001001016，
-  L3截止25289.960004234537，原始完整motion数据仍持续保留。
-- 输出 `/Users/fanchangxuan/Repos/roomscript2/outputs/oracle/relay-user-completed-20261027/`
-  的 `relay-a16-d2-full/global.mp4`、`relay-a16-d3-full/global.mp4` 正在导出。
-  exec sessions **22221 / 84382**，media PIDs32831/32832，子编码器32835/32836。
-  VideoToolbox硬件编码已smoke通过，ffmpeg线程/filters为1；观察总CPU每case<200%。
-- 仅媒体进程应用等待判定优化：去掉指令执行区间外机器人关节/夹爪微抖动的idle
-  检测，所有指令区间与所有payload自由体/被动关节运动阈值保持原值；原物理进程未触碰。
-  各输出目录 `export-idle-motion-policy.json`保存生效帧/时间，完成后并入manifest。
-  没有删去失败动作或物体真实运动；早期画面保留更多等待。
-- 完成后看首末PNG、ffprobe时长并确认manifest decode_passed，再给用户这两段完整录像。
-  报告 `completion-report.md` 已写在输出根目录；需要把最后两行“导出中”更新为可播放。
-- 还未最终commit的改动：contact escape revision5/6 tests；视频cutoff/hardware选项及
-  verify-prefix新脚本；本checkpoint。不要将9/9重新标成未完成或再次执行旧ID。
+At this earlier sub-checkpoint, **only media export/delivery remained**:
 
-## 最后L3卡点已解开的最新动作
+- `scripts/verify_relay_completion_prefix.py` verified L2 565086 frames,
+  L3 1517398 from time0: every checksum/shape/time/finite plus actual final
+  inside50/released/grounded/qualified handover, without a new episode.
+- No close/STOP for video. Renderer --completion-sim-s uses real cutoff frames,
+  no invented trial-end: L2 9418.100001001016, L3 25289.960004234537. Full original
+  motion remained retained as recording continued.
+- `/Users/fanchangxuan/Repos/roomscript2/outputs/oracle/relay-user-completed-20261027/`
+  contained ongoing exports `relay-a16-d2-full/global.mp4`, `relay-a16-d3-full/global.mp4`.
+  Sessions **22221/84382**, media PIDs32831/32832, encoders32835/32836. VideoToolbox
+  hardware encoding smoke passed; ffmpeg threads/filters1, total CPU per case<200%.
+- Media-only idle optimization removed outside-command arm/finger micro-jitter;
+  command intervals and payload thresholds unchanged. Original physics untouched.
+  export-idle-motion-policy.json records effective frame/time, later merged into
+  manifest. No failure/real object motion removed; early footage has extra waits.
+- Original next steps: view endpoint PNG, ffprobe duration, manifest decode_passed,
+  deliver both full videos and update completion-report.md's two exporting rows.
+- Then-uncommitted changes: contact escape revision5/6 tests, cutoff/hardware
+  options, verify-prefix and this checkpoint. Never mark9/9 incomplete or replay IDs.
 
-仍26/27、8/9；16L2四根实际完成，52509依用户要求继续活着，未STOP。
-16L3最后P1：`r16-p1-N-local-lattice-v117-1` 已实际完成空N局部姿态调整，
-`r16-p1-IO-past-lattice-N-v118` 已实际完成向前250mm，原来N臂阻塞已穿过。
-成功的只读规划器：`runs/engineering/relay-descent-20261026/finite_local_empty_lattice.py`。
-只在N四个相关关节的625/750候选局部网格中检查186个clear状态，135个有完整后续运输，
-局部visibility检查185条边，展开1个状态，用3.229秒找到可执行1段普通空手路线；
-不是再扩大百万次全局IK。原强求home和很多单关节直线未解决，禁止重复那些旧搜索。
+## Historical L3 bottleneck resolved: latest actions at that checkpoint
 
-实际I/O双持P1 Root约[1.5022,.7573,1.2570]，测得yaw1.87037，仍倾斜/roll；
-**当前有限helper**正在执行 `IO-level-after-N-v119`（正常恢复level）→
-`IO-open-P-window-v120`（到[1.5,.65,1.2]等有限候选）→
-`IO-to-IP-final-Top-v121`。先看pending/results，不重放ID。
-然后I/P到J/P，Goal放置，独立50mm复验全部4根和所有原记录。
+Then26/27,8/9;16L2 complete,52509 still alive/no STOP. Last16L3 P1:
+`r16-p1-N-local-lattice-v117-1` completed empty-N local reorientation;
+`r16-p1-IO-past-lattice-N-v118` advanced250mm through N obstruction.
+Read-only planner: `runs/engineering/relay-descent-20261026/finite_local_empty_lattice.py`.
+Four N joints,625/750 candidates,186 clear states,135 with full onward carry,
+185 visibility edges,1 expanded state,3.229s for 1 ordinary empty-hand segment.
+Not another million-sample global IK expansion. Home/single-joint attempts had
+failed; do not repeat those searches.
 
-用户尚未看到16L2完整成功影片；视频要保留全原episode动作/失误/修正，允许压缩静止段。
-当前两个原case都仍活，原renderer --user-goal-complete 要关闭stream后精确final event，
-不要冒充已完成封存/完整影片。最后9/9实际验收后可正常结束并封存记录，用户说九项完结束。
+Actual I/O P1 Root≈[1.5022,.7573,1.2570], yaw1.87037, still tilted/rolled.
+Finite helper at the time: `IO-level-after-N-v119` → `IO-open-P-window-v120`
+([1.5,.65,1.2] and finite alternatives) → `IO-to-IP-final-Top-v121`. Inspect original
+pending/results instead of replaying. Then I/P→J/P→Goal and independent50mm checks
+of all4/original records.
 
-## 最新：26/27根，8/9项（覆盖后文所有早期前沿）
+The user had not yet received the complete16L2 success video. Preserve full
+actions/errors/corrections, allowing idle compression. Both cases were then live;
+renderer --user-goal-complete required closed streams/exact final event, so no
+false sealed/full-video claim. Original instruction allowed closing after9/9
+acceptance; later updates record the user's keep-running requirement.
 
-16L2已真实4/4完成，`user-goal-report.json` passed=true，`USER-GOAL-COMPLETE.json`已保存。
-为遵守用户“程序不要停”，**目前没有给16L2写STOP，52509仍运行**；剩余L3继续。
-16L2最后P1完整I/P→J/P(v78)、Goal(v79)、正常下降(v80)后遇到旧Goal5mm规则，
-新user50接触策略v81允许P1砝码接触P3，release开口P失败但无力；完整80mm开口v85
-及P最终+30mm正常撤离v86已完成，真正松开/无接触，全部Goal50内。旧native/drop历史未改。
+## Historical26/27,8/9; supersedes earlier frontiers
 
-新控制/观察修正（均同一原进程已获授权热加载，记录在各case controller-extensions）：
-- `relay_user_goal_policy.py`：Goal50接触名单、真实Goal堆叠支持/组件离桌30mm低释放。
-  **只是操作策略，不修改native monitor/评分/历史/几何**。
-- 16L2 `goal-stack-open-v1-loaded.json`：49448a4f94d66c3c6788d902d5a54e1dc2dd7a7e4e6419f5f7e6e8e452b5d425，typed open可接受真实支持的
-  user50堆叠并开至80mm；不能打开标记为其他cargo的手，接触存在时保留held标签。
-  新process保留同实例/world和所有原guard；16个live_recovery测试通过。
-- `relay_contact_escape.py`现在revision3：相同短距/81采样/非加深接触约束，接地支持图
-  改用已批准user50 Goal名单，避免框边缘已完成P3被旧strict排除。
-  16L2 frozen `open-contact-withdraw-v3.py`；组合installer
-  `user-goal-withdraw-native-v1.py` SHA256
-  `3c34d1bec3a46a6ca3b021b3a56663b1af0474d707187d192295996edb84557b`。
-- `relay_observation_state.py`：只读native double joints + cached free-body poses，
-  包含砝码与关节，不再依赖最多2simsec旧的float32影片块；没有live qpos写入。
-  两个原case均已加载。`native-kinematic-state.required`要求diagnostic等待发布的
-  rendering窗口结束，**不能在原publisher先写普通JSON后暂缺native字段时fallback旧chunk**。
-  3个单测 + 真实场景全几何FK重建误差0通过。Goal策略4个测试/contact3个测试通过。
+16L2 real4/4, user-goal-report.json passed=true, USER-GOAL-COMPLETE.json saved.
+No STOP to16L2;52509 reported running while L3 continued.16L2 P1 I/P→J/P(v78),
+Goal(v79), descent(v80) encountered old Goal5mm rule. user50 policy v81 allowed
+P1 weight contact with P3. P release failed but force was off; full80mm v85 and
+P+30mm retreat v86 completed actual separation, all Goal50. Native/drop history unchanged.
 
-**现在仅16L3 P1剩余，实际 I/O Top 相对木杆，已经倾斜并绕跨度滚转。**
-- v87空间倾斜约17deg已完成，v88-1/2前移完成；v93/v94继续空间转向，
-  v95 I/O交接已真实完成；v96空闲H已home。
-- v99绕长跨度roll -0.2已完成，v100前移80mm、v102前移至Root约x1.50已完成，
-  v103前移y-50mm已完成；v104再roll -0.15已完成，v105被原guard提前拒绝（无动作）。
-- 最重要的新解：**空N臂不该强求home，也不是只动手腕，应把forearm降到悬挂砝码下面**。
-  旧单关节折叠v54曾把N q[2]抬高.4，导致N_link5挡住O_link2；
-  现在真实v108已把N q[2]降低.15（约-1.74），frame路径4mm终点/10mrad完整扫掠已过。
-  这不是state rollback，是记录完整的普通空手动作。N仍force-free/open/cargo-separated。
-- 当前helper `runs/engineering/relay-descent-20261026/finite_spatial_local_progress.py`
-  是旧局部v92脚本（已结束），**不要重跑**。
-  新正在执行的有限前缀是 `r16-p1-IO-past-N-v110-1..3`，必要时
-  `r16-p1-N-under-cargo-v109-1..3`。先看immutable results/pending，不能重发。
-  目标让Root y降到约.8，再把杆恢复较平姿态，I/O→I/P→J/P→Goal。
-- 其他L3 P2/P3/P4在Goal，之后最终必须复验；大多数v69..107规划未提交，
-  不从编号推断执行。实际原world仍be2204c7cc834e2792271a959a435d9e/PID52510。
+Authorized hot-loaded changes in the same original processes, recorded under
+controller-extensions:
 
-## 更晚的原现场前沿（覆盖后文早期增量）
+- relay_user_goal_policy.py: Goal50 contact list, real stacked support and
+  lowest-component30mm release. Operational policy only, no native scoring/history/geometry changes.
+- 16L2 goal-stack-open-v1-loaded.json:
+  49448a4f94d66c3c6788d902d5a54e1dc2dd7a7e4e6419f5f7e6e8e452b5d425.
+  Typed open permits supported user50 stacks/full80mm, not another cargo's hand;
+  retain held labels while contact remains. Same world/guards;16 live_recovery tests.
+- relay_contact_escape.py revision3: same short distance/81 samples/nondeepening;
+  approved user50 Goal support list includes edge-completed P3. Frozen16L2
+  open-contact-withdraw-v3.py; installer user-goal-withdraw-native-v1.py SHA256
+  `3c34d1bec3a46a6ca3b021b3a56663b1af0474d707187d192295996edb84557b`.
+- relay_observation_state.py: read-only native double joints/cached free-body poses,
+  weight/hinges included, replacing potentially2simsec-old float32 video chunks.
+  No live qpos writes. Both cases loaded. native-kinematic-state.required waits
+  for diagnostic publication; no fallback to old chunks during partially written
+  ordinary/native JSON.3 tests plus actual full-geometry FK reconstruction error0;
+  Goal policy4/contact3 tests.
 
-**25/27根、7/9项**。16L2 P2已完成，Top J/P最终正常release通过，框内0越界，drops0。
-16L2现在3/4，只余P1；16L3仍3/4，只余P1。原PID/world不变。
-- L2 P1：D/M先正常前移，D/M→E/M(v63)、E/M→F/M(v65)、F/M→F/N(v66)、
-  F/N→G/N(v68)均实际完成。负侧站位已交替32/54cm避免相邻手掌重叠。
-  最新有限helper：v69 G/N前移已完成，v70 G/O交接已选择并在原进程执行；
-  随后v71前移、v72 H/O Top待实时反馈。必须先看pending/results，不能重发。
-- L3 P1：3个N空手fold(v65-1..3)和H/O前移v66已完成。
-  实际H/O Top，Root约[1.269,1.181,1.190]，N空手仍停在拥挤肩肘区。
-  大量只读的home、单关节fold、位置IK、整段carry未通过；这些未产生物理请求，
-  不是掉落、不是进程结束。不要重复这些静态搜索。
-- L3新增空间姿态typed接口已按现有用户授权热加载到同一52510的
-  RelayLiveRecovery.process方法；只有已测试target_quaternion_wxyz分支，
-  不替换wait循环或重新构建实例，不改状态/历史。14个相关单测通过。
-  frozen extension `spatial-carry-v1.py` SHA256
-  `93d3e04dab818bb67a7214b360354cd1a06ef93e70a6a0c012b9e6b76b88fbc5`，
-  ack installed=true，同PID/world；LLDB已detach。
-  loader `runs/engineering/relay-descent-20261026/relay_spatial_hotload_loader.py`。
-- 最新L3实际请求v87：绕H负侧握点倾斜17deg抬起正端，完整杆/机器人/硬件 sweep已过；
-  helper随后v88-1..8每段最多5cm，真实反馈后重建自由砝码姿态，不把同一砝码刚性预测
-  到整段远端。**这是当前执行前沿，先读结果**。普通执行/掉落/碰撞guard保持。
-- 普通物理反向退让允许保存真实历史；禁止live状态回滚。v84/v85退让完整方案
-  未通过，只读，无物理动作。其他v69..86静态L3编号多数未提交，勿从编号推断完成。
+Only16L3 P1 remained, I/O Top, tilted/rolled:
 
-## Compact 后继续工作的最新增量（2026-10-27）
+- v87 tilt≈17deg, v88-1/2 advance, v93/v94 spatial turn, v95 I/O handoff,
+  v96 H home completed.
+- v99 long-axis roll-0.2, v100 advance80mm advance, v102Root x≈1.50, v103y-50mm,
+  v104roll-0.15 completed. v105 rejected by guard without action.
+- Key: empty N need not home or move only its wrist; lower forearm under weight.
+  Old v54 raised N q[2] by.4, obstructing O_link2 with N_link5. Actual v108
+  lowered q[2] by.15 to≈-1.74, with4mm endpoint/10mrad sweep checks. Ordinary
+  recorded action, no rollback; N stayed force-free/open/separated.
+- finite_spatial_local_progress.py under runs/engineering/relay-descent-20261026
+  was the ended v92 helper, not to rerun. Then finite prefix:
+  `r16-p1-IO-past-N-v110-1..3`, if needed `r16-p1-N-under-cargo-v109-1..3`.
+  Inspect immutable feedback, not resubmit. Aim Root y≈.8, level, I/O→I/P→J/P→Goal.
+- Other L3 P2/P3/P4 in Goal need final recheck. Most v69..107 planning was not
+  submitted; numbering does not imply execution. World
+  be2204c7cc834e2792271a959a435d9e/PID52510 remained.
 
-以下新进度覆盖下文旧前沿：**24/27根完成，仍7/9项**。原PID/world不变。
-- 16L2 P3：`r16-p3-P-current-normal-escape-v44` 已真实完成分离；独立50mm验收通过，
-  仅约1.56mm越线、无force/robot contact，native completed也为true，drops0。
-  `r16-p3-P-separated-home-v45`已完成，P可重新参与运输。16L2现2/4。
-- 16L2 P2：G/O→H/O(v41)完成；H为Side的中间抓姿不再被错误当作禁用。
-  多个普通carry前移到[1.55,.8,1.2]，`r16-p2-HO-to-IO-palm-clear-Top-v51`
-  已完成I/O Top；最新helper正在执行v52 I/P、v53前移、v54 J/P的有限前缀，
-  **先核对原results和pending，不能重放这些ID**。P1仍D/M Top，当前local站位约-.431/+.320m。
-- 16L3 P1：确认旧N Side张爪后本来已可无接触停留；把立即home当成交接条件是冗余约束。
-  新`robofrontier/suite/relay_donor_staging.py`只预测完整21点普通75mm开口并要求
-  停留点1mm全景无接触，不改活物理；后续carry仍包含静止donor的全部几何。
-  同一52510进程已按既有用户热更新授权加载`parked-donor-v1.py`，SHA256
-  `2fa937b9cbc878075ded78ae0ac6c30cc2b9584e07dad7ae3d95696a83e13126`；
-  ack/queue/detach均确认，runtime source/meta在原16L3 recovery/controller-extensions。
-  新loader `runs/engineering/relay-descent-20261026/relay_parked_hotload_loader.py`。
-  捕获现场正常75mm开口通过、45mm未张开负例拒绝、私有诊断qpos未变；21个已有recovery单测通过。
-- `r16-p1-HN-to-HO-safe-parked-N-v47`已实际完成H/O Top交接；
-  `r16-p1-HO-separate-parked-N-v50`已沿实测N tool Z移动120mm，木杆与N真实分开。
-  N直接home(v51)只规划失败无动作；N局部q[2]+.4的v54已真实完成。
-  下一段H/O forward仍被N_hand/O_link5..7挡住；不要重跑大范围IK。
-  最新helper正在验证/执行`N-compound-future-fold-v58-1..`和`HO-Ncompound-forward-v59`，
-  以完整后续carry清障为目标选有限空手折叠路径。单关节v56、carry v57未提交。
-  N复位并非必须，只需当前无力空手的完整实际短路径让开后续transport。
-- L2和L3两套原世界继续并行，各最多物理1核+辅助1核；不新建/停止原进程。
+## Historical later frontier:25/27,7/9
 
-## 一分钟恢复
+16L2 P2 completed, Top J/P release, 0 excess/drops0. 16L2 at3/4, P1 remaining;16L3 at3/4, P1
+remaining; original worlds unchanged.
 
-1. 工作目录 `/Users/fanchangxuan/.codex/worktrees/relay-continuation/roomscript2`，
-   分支 `codex/relay-continuation`；读本文件，再读旧 continuation 获取更早背景。
-2. `cat /tmp/relay-r16-active-root.txt` 是唯一实际推进的原世界根目录。
-3. 确认 PID **52509、52510** 活着、world ID 未变；监督进程52485。
-4. 读取各 `attempt-001/recovery/observation.json`、最近原始 `results/*.json`，
-   核对 requests/accepted 中没有未决物理动作，再规划。**不得重放已存在ID。**
-5. 最新精确快照：`runs/engineering/relay-descent-20261026/owner-frontier-current.json`。
-   文件快照也会过期，原世界最新不可变反馈优先。
-6. 目前 **7/9项、23/27根** 按用户标准完成。剩4根：16L2的P1/P2/P3、16L3的P1。
-   恢复后继续调度，不只回答“可以继续”。
+- L2 P1: D/M advance, D/M→E/M(v63), E/M→F/M(v65), F/M→F/N(v66), F/N→G/N(v68).
+  Negative-side offsets alternate32/54cm for palm clearance. v69 advance completed,
+  v70G/O selected/executing; v71advance/v72H/O Top needed feedback. Never replay.
+- L3 P1: 3 N folds(v65-1..3), H/O advance v66 completed. Actual H/O Top,
+  Root≈[1.269,1.181,1.190], N still in crowded shoulder/elbow area. Failed read-only
+  home/fold/IK/carry searches were not physical requests/drops/process exits.
+- L3 spatial target_quaternion_wxyz branch hot-loaded into same52510
+  RelayLiveRecovery.process; no wait-loop/instance/state/history replacement.
+  14 tests; spatial-carry-v1.py SHA256
+  `93d3e04dab818bb67a7214b360354cd1a06ef93e70a6a0c012b9e6b76b88fbc5`.
+  installed=true, same world, LLDB detached; loader
+  runs/engineering/relay-descent-20261026/relay_spatial_hotload_loader.py.
+- Actual L3 v87 tilted17deg around H negative grasp, raising positive end; full
+  timber/robot/hardware sweep passed. Helper v88-1..8≤5cm each, reconstructing
+  free-weight pose after feedback rather than rigidly predicting distant motion.
+  This was the frontier then; ordinary action/drop/collision guards retained.
+- Ordinary recorded retreat allowed; live rollback forbidden. v84/v85 full
+  retreats failed planning only. Most v69..86 L3 IDs were not submitted.
 
-当前完整会话JSONL（需要核对用户原话时按角色/关键词读取，不整篇灌入）：
-`/Users/fanchangxuan/.codex/sessions/2026/10/26/rollout-2026-10-26T00-40-13-01a173ef-208f-74d0-ae4c-faf10e1135f1.jsonl`。
+## Historical compaction increment (2026-10-27):24/27,7/9
 
-## 不可丢的用户要求
+Original worlds unchanged:
 
-- 只完成 Oracle 九项（8/12/16臂 × L1/L2/L3），不运行GPT策略。
-- 没有总时间期限；不因慢或超时封存未完成任务。
-- 继续原来的物理进程/现场，禁止重跑前缀、状态回滚、活世界qpos写入、焊接。
-- 最终真实松爪、落入白色Goal，**边界统一允许50mm**。不要求速度/静止时长，
-  不要求木条或砝码先碰桌才松爪；允许Goal内木杆接触、碰撞、稳定叠放。
-- 仍保留真实合格空中交接、实际动作和失败历史。不能伪造旧严格native通过。
-- 每项最多2个计算核心：原物理主进程1 + 最多1个计算辅助进程。
-  `diagnostic_world` 的 `reserve_helper_core` 用 flock 限制辅助槽。
-  不要持同一槽后启动子进程并等待它再获取该槽；需要串联用同进程runpy。
-- 用户反复要求提高速度。不要长时间分析而让已完成动作无人接续；及时收取反馈，
-  批量执行已明确的有限动作，只在新障碍处返回判断。不同case可以并行。
-- 不启动subagent，除非用户或适用指令明确要求；当前开发指令禁止主动委派。
+- 16L2 P3 r16-p3-P-current-normal-escape-v44 actually separated; independent50mm
+  pass, about1.56mm excess, no force/robot contact, native completed=true,drops0.
+  r16-p3-P-separated-home-v45 completed; P reusable.16L2 now2/4.
+- 16L2 P2 G/O→H/O(v41), valid Side H intermediate. Carries to[1.55,.8,1.2],
+  r16-p2-HO-to-IO-palm-clear-Top-v51 completed I/O Top. Helper then v52I/P,
+  v53advance,v54J/P; inspect feedback. P1 D/M Top offsets≈-.431/+.320m.
+- 16L3 P1: open old N Side could remain contact-free; immediate home was redundant.
+  robofrontier/suite/relay_donor_staging.py predicts full21-point75mm opening,
+  requires1mm all-scene clearance, and keeps donor geometry in later carry.
+  Same52510 loaded parked-donor-v1.py SHA256
+  `2fa937b9cbc878075ded78ae0ac6c30cc2b9584e07dad7ae3d95696a83e13126`.
+  Ack/queue/detach confirmed; source/meta in original16L3 recovery/controller-extensions.
+  Loader runs/engineering/relay-descent-20261026/relay_parked_hotload_loader.py.
+  Saved scene75mm positive/45mm insufficient-open negative passed, private qpos
+  unchanged;21 existing recovery tests passed.
+- r16-p1-HN-to-HO-safe-parked-N-v47 completed; r16-p1-HO-separate-parked-N-v50
+  moved120mm along measured N tool Z and separated. Home(v51) planning failed;
+  q[2]+.4 v54 executed. N_hand/O_link5..7 still blocked onward carry. Then helper
+  checked N-compound-future-fold-v58-1.. and HO-Ncompound-forward-v59 for finite
+  empty-hand clearance through full onward carry. v56/v57 not submitted.
+  No mandatory N home, only a real force-free route clear of later transport.
+- L2 and L3 original cases ran concurrently, each≤1 physics+1 helper core;
+  no new/stopped original processes.
 
-## 世界与进程
+## Original one-minute recovery procedure
 
-根目录（runs实际共享到主仓库）：
-`runs/oracle/relay-r16-38b5423-20261026-171651`
+1. Workdir `/Users/fanchangxuan/.codex/worktrees/relay-continuation/roomscript2`,
+   branch codex/relay-continuation; this handoff before older continuation.
+2. `/tmp/relay-r16-active-root.txt` identified the only active original root.
+3. Confirm52509/52510 and world IDs; supervisor52485.
+4. Read attempt-001/recovery/observation.json and recent results/*.json; ensure
+   requests/accepted has no unresolved action. Never replay an existing ID.
+5. Snapshot runs/engineering/relay-descent-20261026/owner-frontier-current.json
+   can be stale; newest immutable original feedback wins.
+6. At this old checkpoint7/9,23/27; 4 remaining:16L2P1/P2/P3 and16L3P1.
+   Continue actual scheduling, not merely an offer. Completion above supersedes it.
 
-| 原世界 | PID | world_id |
+Original session JSONL, read selectively by role/keyword rather than dumping:
+`/Users/fanchangxuan/.codex/sessions/2026/10/26/rollout-2026-10-26T00-40-13-01a173ef-208f-74d0-ae4c-faf10e1135f1.jsonl`.
+
+## Original user requirements
+
+- Oracle nine only:8/12/16 arms×L1/L2/L3; no GPT policy.
+- No global deadline or sealing incomplete tasks due to slowness.
+- Continue original worlds; no prefix reruns, rollback, live qpos writes or welding.
+- Real release inside white Goal, uniform50mm boundary tolerance. No speed/dwell
+  gate or mandatory prior timber/weight contact. Contact/collision/stable stacks allowed.
+- Real qualified airborne handoffs and all actual action/failure history; no
+  fabricated strict native pass.
+- At most2 cores/case:1 physics+at most1 helper, reserve_helper_core flock slot.
+  Do not hold the slot while waiting for a child to acquire it; use same-process runpy.
+- Improve speed; promptly collect feedback and execute bounded known prefixes,
+  return for decisions at new obstacles; different cases can proceed in parallel.
+- No subagents without explicit user/applicable-instruction request; proactive delegation prohibited.
+
+## Original worlds/processes
+
+Shared runs root: `runs/oracle/relay-r16-38b5423-20261026-171651`.
+
+| World | PID | world_id |
 | --- | --- | --- |
 | relay-a16-d2 | 52509 | 9ecf541b82b9407988a5aeb2a58db55f |
 | relay-a16-d3 | 52510 | be2204c7cc834e2792271a959a435d9e |
 
-其余已完成原case已按用户验收关闭并完整保存。**不要恢复重复世界**：
-R17监督74995/子75025–75030、重复8L2 PID66700、旧55214/99193都保留SIGSTOP。
-它们不是当前有效进度。原L1证据沿用，几何未变。
+Other accepted cases were closed/preserved. Duplicate R17 supervisor74995/children
+75025–75030,8L2PID66700,old55214/99193 were SIGSTOP, not effective progress; do
+not resume duplicates. L1 evidence/geometry retained.
 
-## 完成情况与视频
+## Completion/video status at the older frontier
 
-- 三个L1全部完成：8L1 2/2、12L1 3/3、16L1 4/4。
-- 原8L2、8L3各2/2，原12L2、12L3各3/3，均按用户最终Goal标准关闭。
-- 原12L2最后P1约35.9mm越线，**用户50mm内允许，禁止再追修它**。
-- 原12L2完整录像472,741帧；原12L3 1,094,707帧，全部逐块checksum/解码/时间核对。
-  精确最终event状态另验；最后event比60Hz样本最多一个采样间隔，不能伪造stream状态。
-- `USER-GOAL-COMPLETE.json`、`user-goal-report.json`、
-  `RECORDING-VERIFIED-USER-GOAL.json` 是独立验收/完整性证据。
-- 严格native task/stream可能仍为failed，反映旧规则/STOP/历史保护错误，不能改写成成功。
-- 视频绝对目录：
-  `/Users/fanchangxuan/Repos/roomscript2/outputs/oracle/relay-user-completed-20261026/`
-  各 `relay-a08-d2-full/global.mp4`、`relay-a08-d3-full/global.mp4`、
-  `relay-a12-d2-full/global.mp4`、`relay-a12-d3-full/global.mp4`。
-  8L2 6m13s、8L3 6m36s、12L2约7m01s、12L3约17m31s。4x动作、压缩低运动等待，
-  保留全部动作区间、失败及修正。12L3首末画面已视觉核对；12L2视频生成解码通过，
-  首末画面仍可再查看。不是新物理模拟。当前renderer从report读取50mm，并附精确final event。
+- Three L1 complete:8L1 2/2,12L1 3/3,16L1 4/4.
+- Original8L2/8L3 each2/2,12L2/12L3 each3/3, closed under final user rules.
+- Last12L2 P1≈35.9mm excess is inside allowed50mm; no further correction.
+- Complete12L2 recording472,741 frames;12L3 1,094,707, every chunk checked for
+  checksum/decode/time. Exact final event separately checked; it may follow the
+  last60Hz sample by≤one interval, without fabricated stream state.
+- USER-GOAL-COMPLETE.json,user-goal-report.json,RECORDING-VERIFIED-USER-GOAL.json
+  are independent acceptance/integrity evidence.
+- Strict native task/stream may remain failed from old rules/STOP/guard history;
+  never rewrite as success.
+- Videos under
+  `/Users/fanchangxuan/Repos/roomscript2/outputs/oracle/relay-user-completed-20261026/`:
+  relay-a08-d2-full/global.mp4,relay-a08-d3-full/global.mp4,
+  relay-a12-d2-full/global.mp4,relay-a12-d3-full/global.mp4.
+  8L2 6m13s,8L3 6m36s,12L2≈7m01s,12L3≈17m31s.4x actions/low-motion waits
+  compressed, all actions/failures/corrections retained.12L3 endpoints viewed;
+  12L2 decoded, endpoints could be reviewed. No new physics; renderer reads50mm
+  from report and appends exact final event.
 
-## 原16L2，1/4完成
+## Original16L2,1/4 complete
 
-- P4完成，旧严格框约3mm误差已被用户允许，不追修。
-- P3已经Goal内、无夹持力、夹爪80mm打开，但仍搭在P手指/偶发手掌上，
-  **尚未计入完成，不能只看“open”就宣布落好**。这是最关键资源P的阻塞。
-- P1实际D/M，Root约[-.696,1.516,1.294]，已完成
-  `r16-p1-DL-next-positive-Mfreed-v1`，M已从P2释放后真实接过P1。
-- P2实际G/O（Top），Root约[1.102,1.300,1.196]，最新普通前移
-  `r16-p2-GO-open-H-Top-window-v29` 已完成。接下来H54可能已可达；之前在
-  Root[.9,1.4]要求H到达失败是位置问题，不能照搬旧结论。P3解除前不要让P接P2。
+- P4 complete;≈3mm strict error allowed, no correction.
+- P3 inside Goal, no force,80mm open but resting on P fingers/occasional palm;
+  not complete. Open alone is insufficient; P was the key blocked resource.
+- P1 D/M,Root≈[-.696,1.516,1.294], r16-p1-DL-next-positive-Mfreed-v1 complete;
+  M released P2 then actually received P1.
+- P2 G/O Top,Root≈[1.102,1.300,1.196], r16-p2-GO-open-H-Top-window-v29 complete.
+  H54 may now be reachable; earlier failure at Root[.9,1.4] was position-specific.
+  Do not assign P to P2 before P3 separates.
 
-## 原16L3，3/4完成
+## Original16L3,3/4 complete
 
-- P2/P3/P4均真实松爪、Goal内，最近重新核验仍3/4。P2当前约[1.610,-.434,.871]，
-  P3[1.750,-.546,.836]，P4[1.727,-.635,.842]，允许接触叠放。
-- 仅P1在运。实际 **H/N**，H Top（Dot约-.999），N Side（Dot约+.095），
-  负侧H约32mm站位写法是`.32m`，正侧N约`.58m`。
-- 最新 `r16-p1-HN-receiver-height-room-v38` 已完成纯垂直下降到
-  Root约[1.203,1.302,1.158]。保持实际全姿态，最低组件仍高于桌面；之前最低约.961，
-  下降后约.886，不需要人为要求Root1.2/1.3。
-- H原来有已放下P2的过期持物标签，导致choose_team完全不考虑H。
-  已用正常typed `move_empty` 当前关节位置的空手保持反馈清除：
-  `r16-p2-H-empty-stage-feedback-v56`。物理无接触/无力/有桌面支持的真空手，
-  不是直接篡改cache。随后 `r16-p1-GN-to-HN-Hfreed-v35`真实交接完成。
-- 当前剩余O Top接手问题：旧N是Side，禁止把`require_topdown=True`错误用于
-  保留N的负侧换手。H已是Top，**保留H、O新接手时**可以要求两者Top。
-- 最后一次有限搜索（compact前）`r16-p1-HN-to-HO-lowered-Top-v39`：
-  私有候选offset [.32,.54]、[.32,.44]、[.32,.32]、[.32,.24]，
-  全部未找到候选，**没有提交物理v39请求**。重新读取结果确认。
-- 重点检查O endpoint、100/150mm preapproach能否达到以及N forearm/O link2，
-  不要只反复扩大搜索。Root纯下降已解决部分preapproach高度问题。
-- 旧H/N前移到[1.6,1.15,1.2]并改变yaw2.2在N立即IK失败；保持实际姿态的
-  纯下降1.16已通过。N侧姿态/关节分支是局部限制，不是整个机械臂任务死锁。
-- 一旦H/O真正都Top，可用已验证过的临近段继续I/O、I/P、J/P。
-  杆端会扫过固定底座，提前用有限XY/yaw waypoint避开；不可按索引强行直走。
+- P2/P3/P4 released/inside, rechecked3/4. Approximate poses P2[1.610,-.434,.871],
+  P3[1.750,-.546,.836],P4[1.727,-.635,.842]; contact/stacks allowed.
+- P1 H/N: H Top Dot≈-.999,N Side Dot≈+.095. Old prose called H32mm, but its
+  actual offset notation was `.32m`; N `.58m`. Preserve this discrepancy.
+- r16-p1-HN-receiver-height-room-v38 completed vertical descent to
+  [1.203,1.302,1.158], actual orientation retained, lowest component above table;
+  lowest≈.961→.886, no artificial Root1.2/1.3 requirement.
+- Stale P2 held label excluded H from choose_team. Ordinary typed move_empty
+  feedback at current joints r16-p2-H-empty-stage-feedback-v56 cleared it with
+  actual empty/no-force/contact-free/table-supported state, not cache tampering.
+  r16-p1-GN-to-HN-Hfreed-v35 then actually handed over.
+- O Top receiving remained. Do not require_topdown=True while retaining old Side
+  N in negative-side handoff. H already Top; when retaining H/receiving O, both Top is valid.
+- r16-p1-HN-to-HO-lowered-Top-v39 finite offsets [.32,.54],[.32,.44],[.32,.32],
+  [.32,.24] found no candidate; no physical v39 submitted. Recheck results.
+- Check O endpoint/100/150mm preapproach and N forearm/O link2 instead of broader
+  repeated search. Root descent partly solved approach-height problems.
+- Old advance to[1.6,1.15,1.2] with yaw2.2 failed N IK immediately; pure descent
+  to1.16 with actual orientation passed. Local pose/branch limit, not global deadlock.
+- Once H/O both Top, continue validated I/O,I/P,J/P; finite XY/yaw waypoints avoid
+  timber sweep through bases, without blindly moving by station index.
 
-## 已获用户批准并已经完成的原进程热加载（重要）
+## Authorized hot-loading already completed in original process
 
-用户问“热更新是否暂停”，已如实说明加载会短暂停顿、仿真时钟也暂停，
-同一进程继续；随后用户明确：**“如果不是重新开始，而是能够继续，那完全没有问题”**。
-这已经授权本次原进程控制逻辑热加载，不要再次当作未获批准。
+The user was told attachment briefly pauses simulation/time, then continues the
+same process, and replied that continuation without restarting was acceptable.
+This authorized the original control-only hot load; no repeated approval needed.
 
-- 只对原16L2 PID52509加载了**v1**，没有重启/恢复物理状态。
-- 冻结源：原16L2 `recovery/controller-extensions/open-contact-withdraw-v1.py`。
-- SHA256 `11c63d5f1d3e5f3e011e3a8491013740d2cb1f1f066cc3ea72719f813a57cd80`。
-- `open-contact-withdraw-v1-loaded.json` 已确认 installed=true、相同PID/world ID。
-- 加载方式：LLDB attach，调度 `Py_AddPendingCall`，回到安全Python边界才运行
-  code-only callback，再detach。没有在调试器里发动作，没有写live qpos/物理/monitor。
-  **目前没有调试器挂着，进程已恢复正常运行。**
-- 可复核 loader：`runs/engineering/relay-descent-20261026/relay_hotload_loader.py`。
-  已加载ID不能盲目再次排队；先查原ack与queue-result。缓冲区约2KB，无物理状态含义。
-- 新增逻辑仅处理：已张开、无力、Goal有真实地面支持、初始仍接触的短距离撤离。
-  private FK不把旧held标签当作物理焊接，保留真实80mm开口；只许已有接触不加深、
-  无新穿透、无机器人/桌面碰撞。真实动作仍`t.execute`，原速度/关节/记录约束保留。
-- 原非接触 `move_empty` 路径完全不变。实际动作后仍有接触则保留原failed反馈、
-  保留标签，**不会假称成功**；真的完全分离后才按原规则清cache。
-- 代码：`robofrontier/suite/relay_contact_escape.py`。3个单测 +4 empty recovery +
-  14 live recovery测试通过，并用真实保存现场81点检查及mock actuator调度核对。
-- 曾准备支持大角度转动的**实验v2**，所有转动候选未通过完整碰撞检查，
-  **从未加载或执行**。已归档 `open-contact-withdraw-v2-uninstalled.py/.json`。
-  tracked源码现已恢复为与已加载v1相同的SHA。不要把v2当成已生效。
+- Original16L2PID52509 loaded **v1**, without restarting/restoring state.
+- Frozen original16L2 recovery/controller-extensions/open-contact-withdraw-v1.py SHA256
+  `11c63d5f1d3e5f3e011e3a8491013740d2cb1f1f066cc3ea72719f813a57cd80`.
+- open-contact-withdraw-v1-loaded.json confirmed installed=true,samePID/world.
+- LLDB attach→Py_AddPendingCall→safe Python callback→detach. No debugger action
+  command or live qpos/physics/monitor writes; debugger detached/process resumed.
+- Loader runs/engineering/relay-descent-20261026/relay_hotload_loader.py; inspect
+  ack/queue before any enqueue. Buffer≈2KB, with no physical-state meaning.
+- Handles short exits only when open/force-free/ground-supported/still contacting.
+  Private FK does not weld by stale held label; retains80mm opening, nondeepening
+  existing contact, no new penetration or robot/table collision. Actual t.execute
+  retains speeds/joints/recording guards.
+- Ordinary noncontact move_empty unchanged. Remaining actual contact preserves
+  failed feedback/held label; only genuine separation clears cache normally.
+- robofrontier/suite/relay_contact_escape.py:3 unit+4 empty+14 live-recovery tests,
+  actual saved-scene81-point checks/mock actuator scheduling.
+- Experimental **v2** large rotations failed complete collision checks, never
+  loaded/executed. Archived open-contact-withdraw-v2-uninstalled.py/.json;
+  tracked source restored loaded-v1 SHA. Do not claim v2 active.
 
-## P3撤离已经真实执行了什么，别重复
+## Actual P3 withdrawals: never repeat
 
-目标是原16L2 P3，机器人P，始终force-free/open，现仍有接触。
-1. `r16-p3-P-open-contact-withdraw-v16`：约-20mm X/-5mm Z，真实移动，
-   物体跟随手指，后置分离未通过。world/PID/历史不变，没有碰撞violations。
-2. `r16-p3-P-progressive-open-exit-v17-1..4`：又做了4段短移，均真实进展，
-   全部反馈“moved but cargo contact remains”。脚本随后在没有新可用路径时停止。
-3. `r16-p3-P-lower-open-exit-v19-1`：Y约-10mm、Z约-25mm，真实移动，仍有接触。
-   第2段没有可验证路径，**没有提交**。不要重放任何上述ID。
-4. 目前P3 Root约[1.694,-.486,.992]；准确位置以最新observation为准。
-   P_tool也已离开最初的位置，旧80mm长直线IK结论不再适用。
+Original16L2 P3/P remained force-free/open/contacting:
 
-失败报告在这里指“移动已完成但仍有接触”，不是仿真结束，也不是物体瞬移。
-持续friction支持意味着固定木杆FK预测分离不保证真实木杆不跟随。
-下一步应按最新接触面/腕部姿态设计退出（例如张爪换成Top方向，或让桌面接过负载），
-别继续重复同一抓取RRT。旧抓取计划把80mm开口缩成65mm、产生固定木杆起点穿透，
-这正是之前大量搜索无效的原因。
+1. r16-p3-P-open-contact-withdraw-v16:≈-20mmX/-5mmZ, actual motion/object followed,
+   separation postcheck failed; same world/history, no collision violations.
+2. r16-p3-P-progressive-open-exit-v17-1..4:4 real segments, all “moved but cargo
+   contact remains”; script stopped when no new path existed.
+3. r16-p3-P-lower-open-exit-v19-1:≈-10mmY/-25mmZ, real motion/contact remained.
+   Segment2 had no verified path and was not submitted. Never replay IDs.
+4. Then P3 Root≈[1.694,-.486,.992]; newest observation authoritative. P_tool moved,
+   so old80mm straight-exit conclusions were stale.
 
-## 接口/证据/恢复
+Failure means actual motion with remaining contact, not simulation termination
+or teleportation. Friction may make timber follow despite fixed-object FK.
+Design exits from actual contact/wrist pose (Top opening or table taking load),
+not another repeated grasp RRT. Old grasp plans reduced80mm to65mm and introduced
+fixed-timber initial penetration, explaining many futile searches.
 
-- Python `.venv/bin/python`；环境
-  `PYTHONPATH=.:runs/engineering/relay-descent-20261026 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`。
-- 当前venv没有pytest；相关测试用 `python -m unittest discover -s tests -p 'test_relay_*.py'`，
-  不要为测试误装依赖或重建环境。
-- `owner_client.send(run,request)`：唯一原世界typed请求；唯一ID，不可重发。
-  异常可能发生在真实动作后，先看原result +新observation，不能当作“完全没动”。
-- `diagnostic_world(run)` 是只读FK，最多用最新完整motion chunk补weight/hinge，
-  不是新物理仿真。不要从它的零qvel/默认force推断真实稳定或持物；用原observation。
-- `scripts/check_relay_user_goal.py`独立50mm验收，真实release+ground+qualified transfer，
-  不要求速度/静止；保持原strict reports/counters。后来接触会移动已放下物体，需复验。
-- `user_goal_lower_open.py`：真实Goal内小步下降、实际支持后正常release/open。
-  对16L2 P1、16L3 P2已有效；release失败可能**已经张爪且最终完成**，要另验。
-- `original_recovery_lift.py`：仅原custody双实际持物，24mm真实抬升恢复旧接触保护，
-  不清历史drop计数，不改flag；原状态若仍grounded不可让foreign接手。
-- `finite_top_route.py` /`finite_owner_sequence.py` 只执行明确有限前缀，失败回模型判断。
-  `16l3-p1-top-roadmap.json`的v14已执行，v15未发；后续H/N为新实际前沿，
-  **不得从这个旧roadmap开头重跑**。
-- 查看大JSONL只读尾部或指定ID，别打印全部stream manifest/图片base64。
+## Interfaces/evidence/recovery at that checkpoint
 
-## 场景几何（用户最终版）
+- .venv/bin/python; environment
+  `PYTHONPATH=.:runs/engineering/relay-descent-20261026 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`.
+- No pytest in that venv; use `python -m unittest discover -s tests -p 'test_relay_*.py'`
+  without accidental dependency install/rebuild.
+- owner_client.send(run,request) is the sole typed route, unique IDs/no replay.
+  Exceptions can follow real motion; inspect result/new observation first.
+- diagnostic_world(run) is read-only FK, using latest complete chunk for weights/
+  hinges as needed, not new physics. Zero qvel/default force cannot establish
+  actual stability/holding; use original observation.
+- scripts/check_relay_user_goal.py independently checks50mm, real release/ground/
+  qualified transfer, no speed/dwell; strict reports/counters retained. Recheck
+  placed objects after later contact.
+- user_goal_lower_open.py: real small Goal descents/support/normal release/open;
+  worked for16L2P1/16L3P2. Failed release may already open and complete; verify separately.
+- original_recovery_lift.py: original custody/actual bilateral holding only,
+  real24mm lift; preserve drops/flags, no foreign pickup while grounded.
+- finite_top_route.py/finite_owner_sequence.py run bounded prefixes, returning
+  failures for model decisions.16l3-p1-top-roadmap.json v14 executed,v15 not sent;
+  later H/N frontier supersedes it. No replay from old roadmap start.
+- Read tails/specific IDs of large JSONL; never dump manifests/image base64.
 
-L1完全不变；8/12臂L2/L3初始端点直线跨度1.15m，16臂1.20m；
-16臂径向两排距离1.40m。L2圆弧中心角63°；L3折转31.5°、内角148.5°，
-弹性关节只作垂直于初始杆面的弯折（横向轴）， nominal±25°、刚度18/阻尼.55。
-木条底面、距末端100mm直接铁环连接，无短柱；同款双环+170mm木条+600g砝码。
-Goal0.80×1.36m；木条截面45mm。当前R16所有世界已经是这版，不重建。
+## Final user geometry
 
-## 最后检查/对用户沟通
+L1 unchanged;8/12-arm L2/L3 span1.15m,16-arm1.20m,16-arm radial rows1.40m.
+L2 arc63°;L3 bend31.5°/internal148.5°, perpendicular-to-initial-plane bending
+(horizontal axis),nominal±25°,stiffness18/damping.55. Direct underside rings100mm
+from end, no posts; same double rings+170mm timber+600g weight. Goal0.80×1.36m,
+timber section45mm. All R16 worlds already used this geometry; no rebuild.
 
-用户很不满意重复计算和等待，应明确承担诊断顺序/控制状态设计的问题，勿归咎于
-“任务本来就很难”。下一步以直接动作和可验证物理反馈为主，少做泛泛解释。
-保持约60秒内有有意义进展更新。正常权限/用户已授权的热更新不重复询问。
-当前用户要compact，两个后台原物理进程继续；恢复模型先读本文件和新原result。
-不要给进程发STOP/SIGTERM，不要把未完成任务标成complete/paused。
+## Original communication requirements
+
+The user objected to repeated computation/waiting. Own diagnosis/control-state
+problems rather than blaming inherent difficulty. Prefer direct actions and
+verifiable feedback with meaningful updates within about60 seconds. Do not repeat
+permission requests for already authorized hot loads. During original compaction,
+both physics processes continued; recovery required this file/new original
+feedback, no STOP/SIGTERM or false complete/paused status for unfinished work.
+These historical instructions do not reopen the completed worlds today.
