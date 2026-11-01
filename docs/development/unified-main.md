@@ -204,6 +204,20 @@ Docker default. The focused diagnostics/configuration/container/Slurm group
 passed 39 tests. Provider/subscription lifecycle, actual NVIDIA and 36-task
 resource qualification remain outstanding; no paid test was started.
 
+The `4210bf575eb5` image also prepared all four minimum-arm Level 1 tasks through
+the container command, without models. An engineering-only probe loaded each
+frozen world, stepped 0.2 simulation seconds, and called the actual policy capture
+implementation for three cameras per case. All 12 JPEGs decoded at 896 x 560;
+all states remained finite and all frozen input hashes stayed unchanged. This
+is a loading/observation check, not sustained physical stability or task success.
+
+The first actual doctor invocation exposed its own missing temporary Codex-home
+directory, before any model call. The directory is now explicitly created for
+both native CLIs and the regression test asserts that it exists. The independent
+archive command now returns the ZIP SHA-256 as well as its path, matching the
+container export verifier. The focused follow-up group passed 23 tests including
+byte-exact session/image/motion restoration and terminal receipt verification.
+
 ## Second full regression inventory
 
 After the source/fixture corrections and added integration checks, full discovery

@@ -342,7 +342,10 @@ def main(argv=None):
         elif args.command == 'collect':
             emit({'collection': str(collect(args.batch, args.output))})
         elif args.command == 'archive':
-            emit({'archive': str(archive_collection(args.collection, args.output))})
+            archive = archive_collection(args.collection, args.output)
+            with archive.open('rb') as stream:
+                checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
+            emit({'archive': str(archive), 'archive_sha256': checksum})
         elif args.command == 'extract':
             from .evidence_zip import unpack
             emit(unpack(args.archive, args.output))

@@ -37,7 +37,8 @@ class RuntimeDiagnosticTests(unittest.TestCase):
             self.assertNotIn('OPENAI_API_KEY', options['env'])
             self.assertNotIn('ANTHROPIC_API_KEY', options['env'])
             self.assertNotEqual(options['env']['CODEX_HOME'], '/existing/private/home')
-            self.assertTrue(Path(options['env']['CODEX_HOME']).parent.is_dir())
+            self.assertTrue(Path(options['env']['CODEX_HOME']).is_dir())
+            self.assertTrue(Path(options['env']['CLAUDE_CONFIG_DIR']).is_dir())
             return 'version'
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'test-secret',
                     'ANTHROPIC_API_KEY': 'test-secret', 'CODEX_HOME': '/existing/private/home'}), \

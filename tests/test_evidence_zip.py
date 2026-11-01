@@ -1,5 +1,7 @@
 import base64
+import contextlib
 import hashlib
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -29,7 +31,15 @@ class EvidenceZipTests(unittest.TestCase):
                 'schema': 'robofrontier.luna-collection.v1', 'complete': True, 'job_count': 1,
                 'jobs': [{'roles': [{'session': 'sessions/role.jsonl',
                                     'sha256': hashlib.sha256(raw).hexdigest()}]}]}))
-            output = archive_collection(source, root/'result.zip')
+            from robofrontier.cli import main
+            result = root/'result.json'
+            output = root/'result.zip'
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(main(['--result-file', str(result), 'archive', str(source),
+                                       '--output', str(output)]), 0)
+            receipt = json.loads(result.read_text())
+            self.assertEqual(receipt['archive'], str(output.resolve()))
+            self.assertEqual(receipt['archive_sha256'], hashlib.sha256(output.read_bytes()).hexdigest())
             unpack(output, root/'extracted')
             verify(root/'extracted', root/'restored')
             self.assertEqual((root/'restored/sessions/role.jsonl').read_bytes(), raw)

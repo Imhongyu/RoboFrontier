@@ -27,6 +27,8 @@ def _native_probe(engine):
             'PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'SYSTEMROOT')}
         env.update(CODEX_HOME=str(Path(temporary)/'codex'),
                    CLAUDE_CONFIG_DIR=str(Path(temporary)/'claude'))
+        for name in ('CODEX_HOME', 'CLAUDE_CONFIG_DIR'):
+            Path(env[name]).mkdir(mode=0o700)
         version = _checked([engine, '--version'], env=env)
         if engine == 'codex':
             _checked(['codex', 'sandbox', '--', 'sh', '-c',
