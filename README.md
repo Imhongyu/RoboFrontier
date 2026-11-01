@@ -223,6 +223,9 @@ observation settings are separate from later video resolution.
 
 ## Oracle, Factory and media
 
+See [contact physics and commissioning](docs/physics.md) for released parameters,
+candidate scope, reproducible zero-model checks and remaining physical gates.
+
 Mosaic R14 is the default. Relay's independent revision identifiers must not be
 confused with a Mosaic R15 draft. The current release still uses its pinned
 rolling-friction candidate; recommended new Transport/Dial physics are not a
