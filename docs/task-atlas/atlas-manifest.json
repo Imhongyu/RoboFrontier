@@ -3,8 +3,8 @@
   "release_sha256": "b432892f174f9394927905345fc860b68b3ebc64d7c276530635eda79a699d1c",
   "cases": 36,
   "sources": {
-    "scripts/build_task_atlas.py": "5c64b0680a8647d78ddc3bd5cba543382ea00e7178b67d3833bf74eb751a33a9",
-    "web/task-atlas/index.html": "010e2f408261b1f053582a9e81f5344c7bd74ede253e461717b16f25ef0d1fa2",
+    "scripts/build_task_atlas.py": "0c9c0ffd739c10b963d6cf3695e26cca27ea716bc966004cae6c81fa4c0af0cc",
+    "web/task-atlas/index.html": "174e46c4fc1f59bbcf98e4708c16271939503abd3ba9b1d7d04f154c49a35253",
     "web/task-atlas/style.css": "900cb96c2033b303639c756a2ea5b07b7cbcfe0d7797ba636afba1b38e60b82a",
     "web/task-atlas/atlas.js": "b20a8842f110ca7a892788e0f03973942ebc27109bcde8ffdc57f796a6caed58"
   },
@@ -83,7 +83,7 @@
     "images/transport-a12-d2-top.jpg": "2eba5e14fbf62e1e823dab7c1b83e5e4e17be2bf6585434ce1f9326997cf0465",
     "images/transport-a12-d3-global.jpg": "189eff720454c0912ce588107f74b738723395d78fcbbaee7b1a629c500e35ea",
     "images/transport-a12-d3-top.jpg": "213f45b9cb617c4ad56998aeb437e0a8630e0ff73ba38463e029e73fd2e6788b",
-    "index.html": "f37d830168af8a5f26fa5023b3f00f999c570d6fcd24323edf794311e79dd929",
+    "index.html": "fe9eae21ba1ae96acde97bd0874b828cf9fc1c9387843ac0db39bf74be85685d",
     "style.css": "900cb96c2033b303639c756a2ea5b07b7cbcfe0d7797ba636afba1b38e60b82a",
     "tasks/dial-best5-n04-d1.json": "15aa769f50f5997cf44b1e76ff5e73b7323b49a326f1d777b3b6b36d48e569f8",
     "tasks/dial-best5-n04-d2.json": "7848a3f64dab819197c5ff893fbac4f770d3dcf4db38bcc8c9d8508698e924c6",

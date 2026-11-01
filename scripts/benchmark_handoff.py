@@ -25,7 +25,7 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def _pinned_asset_release(root, config):
+def pinned_asset_release(root, config):
     """Admit only the reviewed nine historical-edit metadata substitutions."""
     current = digest(root/RELEASE)
     if current == config['release_sha256']:
@@ -111,7 +111,7 @@ def restore_assets(archive_path, root=ROOT):
         manifest=json.load(archive.extractfile('assets-manifest.json'))
         release = digest(root/RELEASE)
         if manifest.get('release_sha256') != release and (root/'configs/policy-assets.json').is_file():
-            release = _pinned_asset_release(root, read(root/'configs/policy-assets.json'))
+            release = pinned_asset_release(root, read(root/'configs/policy-assets.json'))
         if manifest.get('schema')!='robofrontier.policy-assets.v1' or manifest['release_sha256']!=release:
             raise ValueError('Asset archive belongs to a different task release')
         expected=scene_assets(root)
@@ -150,7 +150,7 @@ def ensure_asset_archive(root=ROOT, archive_path=None):
     """Return a verified pinned archive, including for offline compute-node staging."""
     root = Path(root).resolve()
     config = read(root/'configs/policy-assets.json')
-    _pinned_asset_release(root, config)
+    pinned_asset_release(root, config)
     if archive_path is not None:
         archive_path = Path(archive_path).resolve()
         if digest(archive_path) != config['archive_sha256']:
@@ -180,7 +180,7 @@ def setup_assets(root=ROOT, archive_path=None):
     """Fetch the pinned R14 archive or restore an explicitly supplied local copy."""
     root = Path(root).resolve()
     config = read(root/'configs/policy-assets.json')
-    _pinned_asset_release(root, config)
+    pinned_asset_release(root, config)
     expected = scene_assets(root)
     try:
         if digest(root/'vendor/panda/SOURCE.json') != config['panda_source_sha256']:

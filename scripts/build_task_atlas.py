@@ -198,7 +198,19 @@ def _verify(output, sources):
     if manifest['schema'] not in ('robofrontier.task-atlas-manifest.v1','robofrontier.task-atlas-manifest.v2'):
         raise ValueError('Unknown task atlas schema')
     data = json.loads((output/'tasks.json').read_text())
-    if data != current_data():
+    expected = current_data()
+    if data != expected:
+        # A metadata-only historical-index substitution changes the release
+        # identity, not the original images or any public task contract.
+        from scripts.benchmark_handoff import pinned_asset_release
+        try:
+            original_release = pinned_asset_release(ROOT,
+                json.loads((ROOT/'configs/policy-assets.json').read_text()))
+        except (ValueError, KeyError, OSError):
+            original_release = None
+        if original_release is not None:
+            expected = dict(expected, release_sha256=original_release)
+    if data != expected:
         raise ValueError('Atlas public contracts are stale or changed')
     if manifest['cases'] != len(data['cases']) or manifest['release_sha256'] != data['release_sha256']:
         raise ValueError('Atlas release identity differs')

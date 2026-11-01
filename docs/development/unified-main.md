@@ -1971,3 +1971,29 @@ asset/reference checks now pass, including missing-receipt, changed unrelated
 fields and substituted-index rejection. Original red/build logs remain retained;
 `asset-index-release-compatibility.json` records the independent old/new comparison.
 The image rebuild and complete-discovery results will be recorded separately.
+
+## Original atlas capture identity retained across metadata-only release change
+
+The complete macOS discovery started at `8ddea22` recorded 1,529 checks with
+two failures, 22 errors and 17 skips. Nineteen errors were the already-reproduced
+asset-lock mismatch; the remaining atlas failures/errors correctly rejected its
+old release identity after the metadata change. This diagnostic run remains
+retained, not counted as a passing final-source receipt.
+
+Atlas verification now admits the original capture identity only through the
+same exact-release/unchanged-fields asset receipt, while still comparing every
+public task field. Unknown capture releases, changed rules, rehashed images and
+extra payloads remain rejected. A presentation-only refresh pins the new verifier
+and labels the original capture release explicitly. All 72 JPEGs, individual task
+JSON files and aggregate task payload remain byte-identical; their original
+capture manifest/provenance is retained. No image rendering, world creation or
+model inference occurred. Twenty-nine atlas/asset/reference checks passed.
+
+The rebuilt `86d0d9b` source image passed automatic policy bootstrap after the
+metadata fix. A separate disk-exhaustion attempt is retained. Recovery archived
+the logs/results and reproducibility information of three stopped, disposable
+development volumes before retiring their source/fixture copies, and evicted one
+temporary build-context cache. Original experiments and the recent passing v5/
+failed v4 volumes remain. See `retired-development-volumes-20261102` and
+`atlas-index-metadata-refresh-verification.json`. A final image/discovery of the
+atlas correction is still required.

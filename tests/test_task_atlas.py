@@ -158,6 +158,20 @@ class TaskAtlasTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'contracts are stale'):
                 atlas.verify(output)
 
+    def test_unknown_capture_release_rejected_even_when_public_contracts_match(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)/'atlas'
+            shutil.copytree(atlas.ROOT/'docs/task-atlas', output)
+            data = json.loads((output/'tasks.json').read_text())
+            data['release_sha256'] = '0'*64
+            (output/'tasks.json').write_bytes(atlas.encoded(data))
+            manifest = json.loads((output/'atlas-manifest.json').read_text())
+            manifest['files']['tasks.json'] = atlas.digest(output/'tasks.json')
+            manifest['release_sha256'] = data['release_sha256']
+            (output/'atlas-manifest.json').write_bytes(atlas.encoded(manifest))
+            with self.assertRaisesRegex(ValueError, 'contracts are stale'):
+                atlas.verify(output)
+
     def test_even_manifest_listed_extra_payload_is_not_publishable(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary)/'atlas'
