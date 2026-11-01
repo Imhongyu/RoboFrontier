@@ -1751,3 +1751,15 @@ holding versus airborne retention and no cross-version PASS transfer remain
 explicit. No old run or source snapshot was rewritten. Verification is in
 `english-initial-suite-verification.json`. Remaining migration is 10 tracked
 files / 39,322 Han characters.
+
+## English initial Dial recovery handoff
+
+The 2026-10-26 pre-compaction handoff now uses English. Its original pause,
+worktree and Oracle-only authorization are explicitly historical, not new
+instructions to pause authorized integration. First-round six-pass/three-failure
+results, rejected shoulder geometry, unknown-request fencing, recovery metadata,
+assistance and goal-versus-clean-success boundaries remain. Numerical tokens,
+original URLs and local links were checked in
+`english-dial-recovery-handoff-verification.json`; no source, private code or
+original report was edited. Remaining English migration: nine tracked files /
+36,659 Han characters.
