@@ -1,34 +1,45 @@
-# Factory 服务器交接验收（2026-11-01）
+# Dated native Factory server acceptance: 2026-11-01
 
-实现分支为 `codex/factory-server-handoff`。运行说明见 [交接文档](factory-server.md)，
-数据发布为 [factory-r14-20261101](https://github.com/changxuanfan/robofrontier/releases/tag/factory-r14-20261101)。
-这些检查验证数据迁移和离线渲染，不构成 benchmark 成绩或完整长片验收。
+These checks were recorded on `codex/factory-server-handoff` before unified-main
+integration. See the [native handoff](factory-server.md) for commands and the
+[unified Factory guide](factory.md) for current configuration. Data was published
+as [factory-r14-20261101](https://github.com/changxuanfan/RoboFrontier/releases/tag/factory-r14-20261101).
+This record establishes the scoped native data/rendering checks below, not
+benchmark scores, a full presentation or acceptance of every later integration
+change. New integration checks appear in the
+[implementation ledger](development/unified-main.md).
 
-## 数据绑定
+## Data binding
 
-- 完整归档：5,839,108,494 bytes，分 7 卷发布；各卷大小和 SHA256 由 `configs/factory-assets.json` 固定。
-- 归档 SHA256：`c713bc84b9521000b7d0b166faa409b9a368b842aaa52c9689e0e2a95c8bb3fe`。
-- 数据清单 SHA256：`2d88810bc69b1104e128b72d9c1fc217a0dd0aeb195e49100ec909bfc10bda7e`。
-- 完整导出、归档、另一目录恢复及 123,198 个文件的清单与校验和检查通过。
-- 公开下载链接无需 GitHub 登录；Release 服务端记录的 7 卷 SHA256 与仓库配置一致。
-- 36 工位保持冻结源和资格标记；Mosaic 为 R14，其中两个复用 d2 的 L3 展示仍显式保留 `recorded_case_id`。
+- Complete archive: 5,839,108,494 bytes in seven parts. The lock in
+  `configs/factory-assets.json` pins each part's size and SHA-256.
+- Archive SHA-256:
+  `c713bc84b9521000b7d0b166faa409b9a368b842aaa52c9689e0e2a95c8bb3fe`.
+- Data-manifest SHA-256:
+  `2d88810bc69b1104e128b72d9c1fc217a0dd0aeb195e49100ec909bfc10bda7e`.
+- Full export, archive creation, restoration into another directory and
+  manifest/checksum validation of 123,198 files passed.
+- The public download did not require GitHub login. The release service's
+  SHA-256 values for all seven parts matched the repository lock.
+- All 36 stations retained frozen sources and qualification flags. Mosaic was
+  R14. Two reused d2 recordings in L3 displays retained `recorded_case_id`.
 
-## 本机验证
+## Native macOS checks
 
-环境为 Python 3.12.6、MuJoCo 3.16.0、NumPy 2.5.4、Blender 5.1.2、FFmpeg 7.0.2；
-以下视频检查显式使用 CPU。
+The recorded environment was Python 3.12.6, MuJoCo 3.16.0, NumPy 2.5.4,
+Blender 5.1.2 and FFmpeg 7.0.2. These video checks explicitly selected CPU.
 
-| 检查 | 结果 | 边界 |
+| Check | Observed result | Qualification boundary |
 | --- | --- | --- |
-| 工厂与证据相关自动测试 | 34 项通过 | 包括路径安全、分卷恢复、冻结计划、失败收尾和实际子进程 SIGTERM |
-| 完整播放计划 | 72 项生成 | 36 工位 × front/side；没有渲染 72 条完整视频 |
-| 36 工位 FK | 108 个采样状态通过 | 每桌首/中/末，最大位置误差约 5.03e-15 m；未运行物理积分 |
-| 四类最小 Level 1 工位 | front/side 共 8 段通过 | 每段 3 帧，640×360、8 samples、30fps；完整解码及帧数通过 |
-| 宣传片入口 | 3 帧通过 | 验证镜头/播放重启入口，不是 210.5 秒完整成片 |
-| 新 benchmark motion 导入 | 四类各 1 条通过 | 真实闭合 Luna 记录及其自有冻结源；首/中/末 FK 与正面 3 帧预览通过，保留未删减剪辑 |
-| 证据恢复的工厂诊断采样 | 四类通过 | 独立 MuJoCo 图像/FK 采样；不代替 Cycles 视频检查 |
+| Factory/evidence automatic tests | 34 passed | Includes safe paths, split restore, frozen plans, failure cleanup and actual subprocess SIGTERM |
+| Full playback preparation | 72 items | 36 stations x front/side; not 72 fully rendered videos |
+| 36-station FK | 108 sampled states passed | First/middle/last per desk; maximum position error about 5.03e-15 m; no physics integration |
+| Minimum-arm Level 1, all four families | Eight front/side clips passed | Three frames each, 640 x 360, 8 samples, 30 fps; full decode and frame counts checked |
+| Presentation entry | Three frames passed | Camera/playback-restart entry, not a full 210.5-second delivery |
+| New benchmark motion import | One recording per family passed | Real closed Luna recordings with their own frozen source; first/middle/last FK and three-frame front previews; untrimmed edits retained |
+| Factory diagnostics after evidence restore | Four families passed | Independent MuJoCo image/FK samples; not a substitute for Cycles video checks |
 
-自动测试命令：
+The recorded automatic-test command was:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests:scripts .venv/bin/python -m unittest \
@@ -38,32 +49,45 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tests:scripts .venv/bin/python -m unittest 
   test_factory_materials test_factory_backend
 ```
 
-`test_factory_timeline` 的真实数据测试需要先 setup，否则明确跳过；不能把跳过当作通过。
-本次本机执行已安装完整发布数据，没有跳过这些测试。
+Real-data `test_factory_timeline` checks require setup; otherwise they explicitly
+skip. A skip is not acceptance. The complete data package was installed for the
+recorded local run, and those checks were not skipped. Re-execution on newer
+source may have a different test count and must retain its own result.
 
-## Linux / Slurm
+## Linux and Slurm checks
 
-Ubuntu 22.04 计算节点通过新 clone 和服务器新建的 Python 3.12.11 环境执行。
-资产准备作业 `428551` 从公开 Release 自动下载全部分卷，恢复与完整校验通过，
-123,198 个文件、36 工位和清单 SHA256 均与发布匹配。
-同一 CPU 分配内的验证步骤加载完整工厂和所有冻结源，36 工位 × 首/中/末共 108 个
-几何状态通过，没有物理积分或模型调用。
+A fresh clone ran on an Ubuntu 22.04 compute node with a newly installed
+Python 3.12.11 environment. Asset preparation job `428551` automatically fetched
+all public release parts, restored the package and passed full validation:
+123,198 files, 36 stations and the release manifest SHA-256 matched. The same
+CPU allocation loaded the full Factory and frozen sources, checking 36 stations
+at first/middle/last for 108 geometry states, without physics integration or
+model calls.
 
-计算节点最初缺少 `libxkbcommon.so.0`，设备检查 `428552` 和首轮视频因此失败，
-首轮剩余作业已停止。补齐用户态系统库路径后，设备检查 `428561` 通过：
-Blender 5.1.2、NVIDIA H800、驱动 580.159.03，OPTIX 只看到一张已分配 GPU。
-这个依赖与配置方式已写入交接说明；它不是源数据或 motion 损坏。
+The compute node initially lacked `libxkbcommon.so.0`. Device check `428552`
+and first video attempts failed, and the remaining attempts in that round were
+stopped. After adding a user-space system-library path, device check `428561`
+passed with Blender 5.1.2, NVIDIA H800 and driver 580.159.03. OPTIX saw only its
+one allocated GPU. The dependency/configuration is documented in the handoff;
+it was not source-data or motion corruption.
 
-在同一个冻结计划上重新提交数组 `428562`，8 项均 `COMPLETED / 0:0`。
-四类 Level 1 最小臂数、front/side 各 3 帧、640×360、8 samples、30fps，
-全部视频通过完整解码、帧数校验和带校验和的共享盘回传，生成 `complete.json`。
-失败尝试保留，未被新视频覆盖；Mosaic GPU 视频已下载并目视检查。
-请求并发上限为 2，但共享账号已有 7 个其他运行作业，本次实际逐项运行；
-这不能用作“两张 GPU 同时渲染”的性能或并发验收。
+Re-submitted array `428562` used the same frozen plan; all eight items reported
+`COMPLETED / 0:0`. Each family contributed minimum-arm Level 1 front/side clips,
+three frames each, 640 x 360, 8 samples and 30 fps. Every video passed full decode,
+frame count and checksum-verified return to shared storage, producing
+`complete.json`. Failed attempts were retained rather than overwritten. A Mosaic
+GPU video was downloaded and visually inspected.
 
-独立 CPU 测试作业 `428565` 的上述 34 项自动测试全部通过，用时 14.023 秒、无跳过。
-FFmpeg/FFprobe 使用 7.0.2-static。全部本次验证作业已结束，未更改其他人的作业。
-服务器输出位于该 checkout 的 `runs/factory/linux-smoke/`，CLI status 生成视频清单；
-完整验收日志位于 `runs/engineering/server-validation/`。这些运行产物不进入 Git。
+The requested concurrency ceiling was two. Seven unrelated jobs already ran
+under the shared account, so these render items actually executed serially.
+This is not evidence for simultaneous rendering on two GPUs or its performance.
 
-尚未渲染 72 条完整工位视频或完整 210.5 秒宣传片；短测通过不代替长片验收。
+Independent CPU test job `428565` passed the recorded 34 tests in 14.023 seconds,
+with no skips. FFmpeg/FFprobe were 7.0.2-static. All jobs created for this
+acceptance ended; no other user's jobs were modified. Server outputs were under
+that checkout's `runs/factory/linux-smoke/`, with videos indexed by CLI status.
+Full receipts were under `runs/engineering/server-validation/`. They are ignored
+runtime artifacts and do not arrive through Git clone.
+
+The recorded acceptance did not render 72 complete desk videos or a complete
+210.5-second presentation. Short-preview checks cannot establish those gates.

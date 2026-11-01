@@ -1,207 +1,332 @@
-# 工厂展示与渲染
+# Factory design, rendering and historical acceptance
 
-新机器和 Linux/Slurm 请使用 [Factory 交接入口](factory-server.md)：
-`scripts.factory_server setup/prepare/run/submit/status`。数据由
-`configs/factory-assets.json` 固定，下载后使用包内的 `release.json`，Mosaic 为 R14。
-下文保留美术设计、底层接口和 V9/V10 历史验收；历史 `outputs/`、`runs/` 路径不随
-Git clone 出现，也不作为新服务器的运行依赖。
+For a new checkout, use the [unified Factory guide](factory.md). The native
+[Linux/Slurm handoff](factory-server.md) documents `scripts.factory_server`.
+Both freeze inputs from `configs/factory-assets.json`; the package uses Mosaic
+R14. Policy assets and optional historical Factory playback data are separate.
+New compressed recordings can be imported through the unified entry using their
+own frozen scene and appearance events. Do not replace an old recording's physics
+or colors with a newer task scene.
 
-工厂源码现将每区按俯视图从上到下排列L1/L2/L3、从左到右排列规模；工位标签放在实际桌沿上方。
-既有V10场景与视频为旧布局的历史交付，静态图索引为
-`outputs/robo-factory/v10-centered-labels-review/README.md`。区域标签固定在各矩形上边中间，
-通过移动供给车避让；工位标签放在桌面投影外。固定灯光/相机配置为
-`configs/backgrounds/robo_factory_lookdev.json`与`robo_factory_lookdev_camera.json`。
-大面积柔和补光替代离散光池；低角度暖日光从真实窗洞进入，室外道路已关闭。
-机械臂深色关节与外壳、木制任务件和桌面印刷分别校准展示材质，不改写源状态。
+This page records visual design, lower-level rendering interfaces and dated
+V9/V10 acceptance. Historical `outputs/` and `runs/` paths are local evidence
+references, absent from a normal clone, and are not dependencies for a new
+server. Historical render timings and devices are not current defaults or
+hardware qualifications. The unified Linux default is Cycles OPTIX; native
+macOS uses explicit METAL and CPU rendering must be selected explicitly.
 
-旧V10视频为16秒、30fps、480帧、1080p、Cycles Metal GPU、完整360°环绕。
-同一组10帧的加速比较见`runs/engineering/factory-orbit360-20261027/benchmark-review.md`；
-正式视频输出为`outputs/robo-factory/v10-orbit16-cycles/`。
-以下V9成片与耗时是历史验收，不能用作V10最终画质或速度结论。
+## Layout and visual design
 
-工厂为55×50米、四区36桌。当前构建配置是`configs/backgrounds/robo_factory.json`，
-布局输入为`configs/suites/frontier-current-oracle.json`。新布局需重新构建；旧V10场景
-`outputs/robo-factory/v10-centered-labels/scene.xml`和其历史指针不自动变为新布局。
-离线展示没有物理自由度或执行器。[V7验收记录](history/robo-factory-v7-20261027.md)
-及[V6早期说明](history/robo-factory-before-integration-20261027.md)保留。
+The Factory is 55 x 50 metres with four regions and 36 workstations. The build
+configuration is `configs/backgrounds/robo_factory.json`; its historical layout
+input is `configs/suites/frontier-current-oracle.json`. In the current layout
+source, levels run from L1 to L3 from top to bottom in plan view, and workstation
+sizes increase from left to right. Station labels sit above the actual desk
+edge. Region labels are centered along the upper edge of each rectangle;
+supply carts move clear of them and desk labels stay outside the tabletop's
+plan projection. New layout source requires a new build: historical V10 scene
+`outputs/robo-factory/v10-centered-labels/scene.xml` and old pointers do not
+update themselves. The old static-image index is
+`outputs/robo-factory/v10-centered-labels-review/README.md`.
 
-## 源、剪辑和独立循环
+The offline presentation model has no physical degrees of freedom or actuators.
+[V7 acceptance](history/robo-factory-v7-20261027.md) and the
+[V6 design record](history/robo-factory-before-integration-20261027.md) retain
+their original scopes.
 
-历史 V9/V10 通过当时的 `configs/task_families/current.json` 绑定每桌源场景、录制和剪辑。
-服务器交接现独立冻结这些输入，不再依赖该文件指向的本地 Oracle 缓存。
-Transport 20x、Mosaic 30x、Relay 20x、Dial 10x，输出30fps，原记录60Hz。
-每桌独立跳过自己的无用区间，完成后回到原始起点继续循环；循环时恢复初始RGBA，
-再累积该周期的外观事件。每帧更新所有工位后只提交一次工厂FK、渲染一次。
-旧交接中的“全部完成后停止”由2026-10-27最新要求覆盖。
+The design retains four walls, roof, structural beams, windows and doors, region
+text, original task desks and camera capabilities. The north-wall ROBO FACTORY
+lettering was removed. Transport uses blue-gray flooring, Mosaic gray-green,
+Relay terracotta and Dial ochre. Region floors are flush and do not overlap;
+cabinets and boundary lines share each region's palette. Gray cross aisles and
+yellow safety lines connect the regions. Wooden tabletops, white arms, gray
+structural elements and a painted-metal roof provide a consistent appearance.
 
-新的`robofrontier.station-edit.v2`在
-`outputs/robo-factory/source-edits-v3-20261027/`。它在历史家族剪辑之上，以2/8/32秒
-窗口复核静止、微抖及反复被动振荡，保护定向慢移动、连续旋转、动作和结果/违规/
-失败/恢复/外观事件附近的源上下文。新表绑定selection、源stream和语义日志的哈希。
-原始流、原剪辑、原视频不改写。运动分类为10Hz审查、源选择仍用原60Hz索引；
-不声称测出了接触力，也不把展示删帧作为物理通过证据。
+Under-desk cabinets add labels, status lights and service coils while preserving
+existing power and cable trays. Six rolling service/control racks occupy gaps,
+and eight suspended tool-supply groups occupy corners. Racks avoid planned
+station bounds with at least 0.4 m clearance. This is not certification against
+all swept robot volumes. Mesh sharing, repeated materials/textures and static
+batching are retained. A build uses assets inside its own output; source task
+assets remain unchanged.
 
-工位采用整体平移/水平旋转，不缩放机械臂或载荷，不执行动作、IK或物理积分。
-Transport原Oracle为R13，桌面开孔显示比例0.5；GPT的R14本身已是半孔，比例1。
-桌面显示编辑与源物理几何分开记录，避免重复减半。
+Fixed lighting and camera settings are in
+`configs/backgrounds/robo_factory_lookdev.json` and
+`configs/backgrounds/robo_factory_lookdev_camera.json`. Broad soft fill replaces
+discrete pools of light. Low-angle warm sunlight enters actual window openings;
+the exterior road was removed. Dark robot joints and shells, wooden task pieces
+and printed tabletop elements have separately calibrated display materials.
+These changes do not edit the source state.
 
-## 外观和镜头
+The daytime exterior image was generated with the built-in image tool. Its
+project asset is `assets/robo_factory/textures/exterior-daylight-v1.png`, with a
+sibling `.prompt.txt` recording the prompt. Only the outdoor view uses this
+image; the factory, robots and video are rendered from Blender geometry. Two
+visual references and their prompts were retained locally under
+`outputs/robo-factory/v8-study/references/`.
 
-保留四墙、屋顶、结构梁、窗门、区域文字、原桌面和相机能力；去掉北墙ROBO FACTORY字。
-蓝灰Transport、灰绿Mosaic、陶土Relay、赭黄Dial使用齐平无重叠地坪，柜体与边线同色系，
-共用灰色十字通道和安全黄线。木台面、白色机械臂、灰色结构件统一，顶棚采用涂装金属。
-桌下增加柜体标签、状态灯和服务线圈，原有电源/线槽保留；间隙新增6个滚动检修/控制架，
-角落增加8组悬挂工具供给。检修架避开规划工位且留出至少0.4m余量；不是全动作扫掠体积认证。
-共享网格、重复材质、贴图和静态批处理保留；构建使用输出内资产，不改写任务原资产。
+V10 retained 42 modeled light fixtures. Lighting uses broad diffuse ceiling
+fill to avoid circular floor highlights, together with window-area lights,
+low-angle sun and environment fill. Ceiling fill does not contribute specular
+highlights. Cycles glass retains camera-ray reflection/transmission; shadow
+rays use a thin-glass transmission approximation so sunlight passes through real
+window openings. Tabletops and hard surfaces use flat normals, while robots
+retain smooth shading. Incorrect smoothing must not make flat desks appear
+wavy.
 
-窗外日间厂区图由内置imagegen生成，项目文件为
-`assets/robo_factory/textures/exterior-daylight-v1.png`，同目录`.prompt.txt`记录提示词。
-它只作为窗外景物；工厂、机械臂及视频本身均由Blender三维渲染。
-两张工厂美术参考与提示词保存在`outputs/robo-factory/v8-study/references/`。
+## Frozen sources, edits and independent loops
 
-V10保留42组灯具模型；照明采用宽幅顶棚漫反射补光，避免离散灯源在地坪产生一圈圈亮斑。
-窗侧面积光、低角度太阳及环境光分工，顶棚补光不贡献镜面高光。
-Cycles玻璃保留相机方向的反射/透射，阴影射线使用薄玻璃透光近似，允许日光进入真实窗洞。
-台面/硬表面使用平面法线，机械臂保留平滑表面；避免弧形桌面错误平滑造成波浪条带。
+Historical V9/V10 bound each desk's scene, recording and edits through the then
+current `configs/task_families/current.json`. The portable server handoff freezes
+those inputs independently and does not depend on that file pointing into a
+maintainer's Oracle cache.
 
-`camera-shots.json`先总览6秒、角落小幅环视6秒，再按Transport→Mosaic→Relay→Dial，
-每类L1→L2→L3拍各规模工位。`orbit`默认在厂内缓慢环绕60°，可用`--orbit-degrees 360`选择整圈，导出固定30fps。
-镜头时钟与各桌源时钟独立；可选固定镜头或自行剪辑。
-这是可用的拍摄基础，尚未制作完整讲解、字幕与成片。
+The reviewed presentation speedups were Transport 20x, Mosaic 30x, Relay 20x and
+Dial 10x. Output is 30 fps; original recordings were 60 Hz. Each desk independently
+skips its reviewed unused intervals and loops from its original start after
+completion. Every loop restores initial RGBA before applying the new cycle's
+appearance events. All stations update before one Factory FK pass and one
+render per output frame. The 2026-10-27 request for independent looping
+superseded the older stop-after-all-finish presentation requirement.
 
-工厂离线渲染只使用Cycles；旧的Classic工厂视频入口已停用。交互检查与GPT简单背景仍使用MuJoCo Classic。
-桌面任务物体的显示材质提高色度；源场景、事件及机械臂关节不改写。
+The `robofrontier.station-edit.v2` review was retained under
+`outputs/robo-factory/source-edits-v3-20261027/`. It reviews inactivity, jitter
+and repeated passive oscillation over 2/8/32-second windows on top of historical
+family edits. It protects directed slow movement, continuous rotation and source
+context around actions, results, violations, failures, recovery and appearance
+events. New edit tables bind selection, source stream and semantic-log hashes.
+Original streams, edits and videos are not rewritten. Classification uses 10 Hz
+review; source selection still uses original 60 Hz indices. Presentation frame
+removal is not a contact-force measurement or physical acceptance result.
 
-## 构建、观看与导出
+Stations undergo rigid translation and horizontal rotation. Robot and payload
+scale is unchanged; playback performs no actions, IK or physics integration.
+The historical Transport Oracle source was R13 and used a 0.5 display scale for
+table openings. Its GPT R14 source already had half-size openings and used 1.0.
+Display-only geometry edits are recorded separately from source collision
+geometry, preventing the same reduction from being applied twice.
 
-服务器和新 clone 按上述交接文档操作。以下为已有本地输入的底层构建接口，
-不是独立交接命令；`video/poses` 须显式提供匹配场景的、已解析路径的 `--release`。
-`RESOLVED_RELEASE_JSON` 可使用 `factory_server prepare` 在批次目录生成的 `release.json`。
-生成目录必须是新目录：
+## Camera paths
+
+The historical `camera-shots.json` begins with a six-second overview and a
+six-second corner orbit, then visits Transport, Mosaic, Relay and Dial, with
+L1/L2/L3 and workstation sizes within each family. The `orbit` camera defaults
+to a gentle 60-degree interior arc; `--orbit-degrees 360` requests a full orbit.
+Exports use a fixed 30 fps. Camera time is independent of each desk's source
+clock. Fixed cameras and custom editing are supported.
+
+Those camera paths were a filming basis; their dated acceptance did not include
+a narrated, subtitled full presentation. The current full editable English promo
+has its own delivery gate. An existing historical MP4 alone does not satisfy it.
+
+Production offline Factory rendering uses Cycles. The old Classic Factory-video
+entry is retired; interactive inspection and simple policy observations still
+use MuJoCo Classic. Task-object display materials have stronger chroma, while
+source scenes, events and robot joints remain unchanged.
+
+## Lower-level build, inspect and export
+
+Use the unified or native handoff for new machines. The following interfaces
+assume that matching local inputs already exist. `video` and `poses` require an
+explicit `--release` with resolved paths for the selected scene. The batch's
+`release.json` produced by `factory_server prepare` is one such input. Choose
+new output directories; these examples do not bootstrap historical local paths.
 
 ```sh
 .venv/bin/python -m scripts.factory build --output outputs/robo-factory/my-factory
-.venv/bin/python -m scripts.factory video --scene outputs/robo-factory/my-factory/scene.xml --release RESOLVED_RELEASE_JSON --renderer cycles --camera orbit --duration 8 --output outputs/robo-factory/my-cycles
+.venv/bin/python -m scripts.factory video \
+  --scene outputs/robo-factory/my-factory/scene.xml \
+  --release RESOLVED_RELEASE_JSON --renderer cycles --camera orbit \
+  --duration 8 --output outputs/robo-factory/my-cycles
 ```
 
-`--scene`选择新场景，`--families`选择家族，`--camera`可选tour、orbit、desk-front或相机预设。
-默认Cycles/Metal GPU、fast、64 samples、Noise Threshold 0.10、Min Samples 4，
-Adaptive Sampling与GPU降噪开启。
-`--samples`、`--noise-threshold`、`--min-samples`可单独覆盖。
-Cycles启用GPU降噪，CPU用于源FK、文件与场景更新。`--save-blend`可保存可检查场景。
-需安装Blender和ffmpeg；macOS自动发现Blender，也可传`--blender`指定程序。
-输出包含asset、poses、逐帧源映射、PNG、MP4、日志与report；完整解码并校验视频帧数/30fps。
-动画PNG默认为临时文件：MP4完整解码与帧数校验通过后清理全部动画PNG；失败时不清理。
-`--keep-frames`显式保留全序列，`--no-encode`抽样比较也保留全序列。
-保留PNG到编码完成可以避免JPEG中间帧带来的额外有损压缩，长久保存以MP4与源姿态为主。
-清理数量、回收字节数及仍保留的帧路径写入`report.json`的`frame_storage`与`views[].retained_file`。
-30fps是影片播放帧率，生成每帧耗时另行统计。
+`--scene` selects a scene, `--families` selects families and `--camera` accepts
+`tour`, `orbit`, `desk-front` or a camera preset. The historical native workflow
+used Cycles/Metal, `fast`, 64 samples, noise threshold 0.10, minimum samples 4,
+adaptive sampling and GPU denoising. These are dated native settings; select the
+device through the current unified configuration for portable operation.
+`--samples`, `--noise-threshold` and `--min-samples` provide separate overrides.
+CPU work handles source FK, files and scene updates. `--save-blend` preserves an
+inspectable Blender scene. Install Blender and ffmpeg; the native Mac search
+recognizes the application, or pass `--blender` explicitly.
 
-逐桌固定front使用冻结任务的`global`整桌正面镜头，按工位平移/旋转放入工厂，
-保持源视场角，固定相机，保留周围工厂及其他工位：
+Outputs include assets, poses, per-frame source mappings, PNG frames, MP4, logs
+and a report. The workflow fully decodes the encoded video and checks frame
+count and 30 fps. Intermediate animation PNGs are removed only after successful
+encoding and decode/count checks; a failed export retains them. `--keep-frames`
+retains the full sequence and `--no-encode` comparisons also retain frames.
+Lossless PNG intermediates avoid an extra JPEG encoding stage; long-term video
+storage uses MP4 plus source poses. `report.json` records removed counts and
+bytes in `frame_storage`, and retained-image paths in
+`views[].retained_file`. Playback fps is separate from rendering seconds/frame.
+
+For a fixed desk-front view, the frozen task's `global` camera is placed in the
+Factory using the station's rigid transform. Its original field of view is
+preserved; the surrounding Factory and other stations remain visible:
 
 ```sh
-.venv/bin/python -m scripts.factory video --scene FACTORY_SCENE_XML --release RESOLVED_RELEASE_JSON --camera desk-front --station transport-a04-d1 --duration 1 --width 1920 --height 1080 --output outputs/robo-factory/my-desk-front
+.venv/bin/python -m scripts.factory video \
+  --scene FACTORY_SCENE_XML --release RESOLVED_RELEASE_JSON \
+  --camera desk-front --station transport-a04-d1 --duration 1 \
+  --width 1920 --height 1080 --output outputs/robo-factory/my-desk-front
 ```
 
-`poses`也支持相同的`--camera desk-front --station CASE_ID`组合。
-2026-10-28的Transport A04-D1测试为连续10帧，默认64/0.10/4，1080p，
-预热后9帧平均3.444秒/帧（0.290帧/秒），首帧含准备10.337秒，P95 3.647秒。
-该测试包含PNG写盘，编码另计；历史测试保留三张检查图，当前默认在验证后清理全部动画PNG。
-36个源`global`镜头均确认存在，本轮实际画面/FK验证覆盖A04-D1，尚未逐桌检查遮挡。
-图像、视频与验证回执由`current.json.presentation.desk_front_preview`索引；
-记录在`runs/engineering/factory-desk-front-10frames-20261028/`。
+`poses` supports the same `--camera desk-front --station CASE_ID` selection.
+A 2026-10-28 Transport A04-D1 test rendered ten consecutive 1080p frames with
+64/0.10/4 sampling. The nine warm frames averaged 3.444 s/frame (0.290 fps),
+P95 3.647 s; the first frame including preparation took 10.337 s. PNG writing
+was included and encoding measured separately. That test retained three review
+images; the current default removes animation PNGs after verification. All 36
+source `global` cameras were confirmed present, but actual picture/FK checks in
+that test covered A04-D1 only, without a per-desk occlusion qualification.
+The then current `current.json.presentation.desk_front_preview` indexed the
+video, images and receipt; raw evidence is under
+`runs/engineering/factory-desk-front-10frames-20261028/`.
 
-要复用同一批姿态比较不同Cycles采样参数，可分步导出：
+Reuse the same poses for sample-count comparisons by separating export steps:
 
 ```sh
-.venv/bin/python -m scripts.export_factory_blender --scene outputs/robo-factory/v9-workstations/scene.xml --output outputs/robo-factory/my-blender
-.venv/bin/python -m scripts.factory poses --scene outputs/robo-factory/v9-workstations/scene.xml --release RESOLVED_RELEASE_JSON --duration 8 --camera orbit --output outputs/robo-factory/my-poses
-/Applications/Blender.app/Contents/MacOS/Blender --background --python-exit-code 1 --python scripts/render_factory_blender.py -- --asset outputs/robo-factory/my-blender --animation outputs/robo-factory/my-poses/animation.json --output outputs/robo-factory/my-cycles --engine cycles --device METAL --profile fast --samples 24
+.venv/bin/python -m scripts.export_factory_blender \
+  --scene outputs/robo-factory/v9-workstations/scene.xml \
+  --output outputs/robo-factory/my-blender
+.venv/bin/python -m scripts.factory poses \
+  --scene outputs/robo-factory/v9-workstations/scene.xml \
+  --release RESOLVED_RELEASE_JSON --duration 8 --camera orbit \
+  --output outputs/robo-factory/my-poses
+/Applications/Blender.app/Contents/MacOS/Blender --background \
+  --python-exit-code 1 --python scripts/render_factory_blender.py -- \
+  --asset outputs/robo-factory/my-blender \
+  --animation outputs/robo-factory/my-poses/animation.json \
+  --output outputs/robo-factory/my-cycles --engine cycles \
+  --device METAL --profile fast --samples 24
 ```
 
-可用相同asset/animation和独立output比较Cycles不同采样配置。
-`--benchmark-frames 3 --views interior_diagonal`用于固定机位冷/热帧测试。
-动画加速比较使用`--frame-indices 0 1 96 97 192 193 288 289 384 385 --no-encode`，
-只抽取相同10个源状态；完整相机路径仍决定固定LOD。`--metalrt ON`启用Metal硬件光线追踪，
-`--png-compression 0`减少无损PNG的压缩开销（增加磁盘占用，不降低像素质量）。
-报告区分场景准备、首帧、预热后平均/中位/P95/最慢帧以及编码时间；动画计时包含姿态更新和PNG。
-AGX采样记录整机GPU利用率，包含桌面等其他进程，不能视作Blender独占利用率。
+Keep asset/animation fixed and use separate outputs for comparisons.
+`--benchmark-frames 3 --views interior_diagonal` samples cold/warm frames at a
+fixed view. `--frame-indices 0 1 96 97 192 193 288 289 384 385 --no-encode`
+compares ten identical animation states; the full camera path still determines
+fixed LOD. `--metalrt ON` requests Metal hardware ray tracing.
+`--png-compression 0` reduces lossless compression work at greater disk cost,
+without changing pixels. Reports separate scene preparation, first frame,
+warm mean/median/P95/slowest frame and encoding. Animation timing includes pose
+updates and PNG writing. AGX measurements describe whole-machine utilization,
+including desktop/other processes, rather than Blender-exclusive usage.
 
-fast模式仅对机械臂外观使用三档LOD，按整条镜头路径的最近位置固定细节，避免跨档跳变。
-原始网格保留，`--profile reference`关闭LOD。任务装置、开孔、载荷、原轨迹与物理输入不简化。
-几何按刚体合并并用Geometry Nodes实例复用；逐帧批量更新点位置/朝向，变色只切换对应实例材质。
-没有材质索引变化的实例云不重复刷新静态网格；运动位置和源外观事件照常更新。
-变色采用绑定在网格数据上的缓存材质副本；物体级材质覆盖不能作为实例变色依据。
-Blender集成检查读取最终求值几何的面材质，验证独立变色、运动后位置和立即复位。
-状态及源映射有哈希验证；初始和动画首/中/末帧审计刚体转换，位置误差约1微米。
-导出仍为可视化，不证明Isaac/USD动力学转换。
+Fast mode uses three robot-appearance LOD levels, fixed by the nearest camera
+position over the entire path to prevent popping. Original meshes remain
+available and `--profile reference` disables LOD. Task fixtures, openings,
+payloads, source trajectories and physics inputs are not simplified. Geometry
+is merged per rigid body and shared with Geometry Nodes instances. Position and
+orientation update in batches; color changes switch only the affected instance
+materials. Instance clouds without material-index changes do not refresh static
+meshes unnecessarily. Motion and source appearance events still update.
+Color changes use cached material copies bound to mesh data; object-level
+material overrides do not establish correct instance colors. Blender checks
+inspect evaluated face materials, independent color changes, moved positions
+and immediate reset. State and source mappings have hash checks; initial and
+first/middle/last animation samples audit rigid transforms to approximately one
+micrometre. This is a visualization export, not an Isaac/USD dynamics conversion.
 
-## V10历史完整环视验收
+## Historical V10 full-orbit acceptance
 
-- 当时的视频：`outputs/robo-factory/v10-orbit16-cycles/factory.mp4`，16秒、480帧、30fps、1920×1080、完整360°。
-- Cycles Metal GPU、MetalRT ON、24 samples、GPU降噪；所有36桌源轨迹独立循环，源物理与动作不变。
-- Apple M5 Pro 16核GPU，预热后479帧平均2.126秒/帧，P95 2.279秒。
-  场景准备4.913秒，首帧纯渲染3.120秒，进程启动至首帧8.290秒；
-  编码5.568秒，总耗时1037.374秒。逐帧时间含更新、降噪与PNG，编码另计。
-- 同一组10帧比较64→24 samples及更新/写盘优化：2.517→2.121秒/帧，耗时减少15.72%，
-  平均SSIM 0.99694；完整480帧仅正式渲染一次，没有缩图或补帧。
-- 渲染窗口整机AGX利用率均值94.79%、峰值100%；包含桌面等其他进程。
-- 完整解码、480张PNG、时长/帧率/帧数、480份源姿态哈希及首中末FK通过。
-- 完整记录与限制：`outputs/robo-factory/v10-orbit16-cycles/README.md`和
-  `runs/engineering/factory-orbit360-20261027/final-validation.json`。
+- Video: `outputs/robo-factory/v10-orbit16-cycles/factory.mp4`, 16 seconds,
+  480 frames, 30 fps, 1920 x 1080 and a complete 360-degree orbit.
+- Cycles Metal GPU, MetalRT ON, 24 samples, GPU denoising. All 36 station sources
+  loop independently; source physics and actions are unchanged.
+- Apple M5 Pro, 16-core GPU: 479 warm frames averaged 2.126 s/frame,
+  P95 2.279 s. Scene preparation was 4.913 s, first-frame rendering 3.120 s,
+  process start to first frame 8.290 s, encoding 5.568 s and total 1,037.374 s.
+  Per-frame timings include updates, denoising and PNG; encoding is separate.
+- The same ten frames comparing 64 to 24 samples plus update/write improvements
+  decreased from 2.517 to 2.121 s/frame (15.72%), with mean SSIM 0.99694.
+  The full 480-frame video was rendered once, without resizing or interpolation.
+- Whole-machine AGX utilization averaged 94.79%, peaking at 100%, including
+  desktop and other processes.
+- Full decode, 480 PNGs, duration/fps/count, 480 source-pose hashes and
+  first/middle/last FK passed at acceptance time.
+- Receipts: `outputs/robo-factory/v10-orbit16-cycles/README.md` and
+  `runs/engineering/factory-orbit360-20261027/final-validation.json`.
 
-## 64 samples短片及存储策略复核
+## Historical 64-sample preview and storage review
 
-`outputs/robo-factory/v10-orbit4-cycles64/factory.mp4`为此前16秒轨迹的前4秒，120帧，
-原生1080p，GPU 64 samples（自适应阈值沿用0.15）。预热后平均2.476秒/帧，P95 2.884秒。
-视频通过完整解码后自动清理117张PNG；此前16秒视频也清理477张PNG。
-各保留首、中、末三张无损图，累计释放约4.94GB。
+`outputs/robo-factory/v10-orbit4-cycles64/factory.mp4` contains the first four
+seconds of the preceding 16-second trajectory: 120 frames, native 1080p,
+GPU 64 samples and inherited adaptive threshold 0.15. Warm frames averaged
+2.476 s/frame, P95 2.884 s. Full decode preceded removal of 117 PNGs. The
+16-second video also had 477 PNGs removed. Each retained first/middle/last
+lossless images, releasing approximately 4.94 GB in total. This dated
+three-image retention differs from the current remove-all-animation-PNG default.
 
-直接编码实验位于`runs/engineering/factory-samples64-4s-20261027/`。
-同一组10帧测得PNG流程2.539秒/帧，Blender内置FFmpeg直出2.441秒/帧，约减少3.83%。
-内置编码采用CRF17，原流程CRF18；测试规模小，不保证长片同幅加速。
-直出已验证源像素与AgX一致，仍作为实验入口，生产默认保留编码后清理流程。
-完整限制和质量指标见该目录README与`native17-comparison.json`。
+The direct-encoding experiment is under
+`runs/engineering/factory-samples64-4s-20261027/`. On the same ten frames, the
+PNG path averaged 2.539 s/frame and Blender's native FFmpeg path 2.441 s/frame,
+a 3.83% reduction. Native encoding used CRF17 versus CRF18 for the original
+path; the small test does not establish the same long-video improvement.
+Source pixels and AgX were checked. Direct encoding remains experimental;
+production keeps validated encode-then-cleanup. The directory's README and
+`native17-comparison.json` record quality metrics and limitations.
 
-## V9历史验收
+## Historical V9 acceptance
 
-- V9有34583个视觉geom，实例复用约392份刚体网格；环绕LOD后约725万三角形，原外观约4390万。
-- 两引擎使用相同36桌姿态、相机路径和源级剪辑；本轮只测试GPU。
-- 最终交付为`v2`，修正了Geometry Nodes实例的动态材质传递；旧视频保留并标注superseded。
-- Cycles视频：`outputs/robo-factory/v9-orbit-cycles-v2/factory.mp4`。
-- Eevee比较视频：`outputs/robo-factory/v9-orbit-eevee-v2/factory.mp4`，以对应report为实测依据。
-- 两视频均8秒/240帧/30fps；时间包含姿态更新与PNG写盘，编码另计。
-- Apple M5 Pro 16核GPU：Cycles 24 samples平均1.38秒/帧、P95 1.74秒；Eevee 4 samples平均1.43秒/帧、P95 1.56秒。
-  场景准备分别4.37/4.58秒，首帧渲染2.13/2.09秒；新进程首次可用帧含准备和更新为6.85/6.99秒。
-  系统着色器缓存保留；GPU采样整机均值约93%/69%，不是独占利用率。
-- 全部240帧中，6个新增检修架的保守包围盒均未与任何源任务geom包围盒重叠；不是帧间连续碰撞认证。
-- 片段包含353次Dial源RGBA变化，其余家族在这段时间内无RGBA变化。
-- 性能、几何/外观隔离及源绑定审计保存在`runs/engineering/factory-v9-20261027/`。
-- 1008项离线测试通过，Blender最终求值几何的独立变色/立即复位检查通过；217184份受保护历史文件及36项源绑定通过校验。
-- 对照图、打包贴图的Blender文件与索引在`outputs/robo-factory/v9-review/`。
-- 本轮已重新prepare 36项至`runs/policy/prepared-factory-v9-20261027/`，模型调用0次、仿真未启动。
-  后续再改执行源码时需新prepare，旧准备目录保留。
+- V9 contained 34,583 visual geoms and approximately 392 shared rigid meshes.
+  Orbit LOD reduced about 43.9 million appearance triangles to 7.25 million.
+- Both engines used identical 36-station poses, camera paths and source edits.
+  Only GPU execution was tested.
+- Final delivery was `v2`, correcting Geometry Nodes instance material
+  propagation; older videos were retained as superseded.
+- Cycles: `outputs/robo-factory/v9-orbit-cycles-v2/factory.mp4`.
+  Eevee: `outputs/robo-factory/v9-orbit-eevee-v2/factory.mp4`. Their reports are
+  the authoritative dated performance receipts.
+- Both videos were eight seconds, 240 frames and 30 fps. Timing includes pose
+  updates and PNG writes; encoding is separate.
+- Apple M5 Pro 16-core GPU: Cycles 24 samples averaged 1.38 s/frame,
+  P95 1.74 s; Eevee 4 samples averaged 1.43 s/frame, P95 1.56 s.
+  Preparation was 4.37/4.58 s, first render 2.13/2.09 s and process start to
+  first usable frame including updates 6.85/6.99 s. System shader caches
+  remained populated. Whole-machine GPU utilization averaged about 93%/69%.
+- Conservative boxes for the six added racks did not overlap source-task geom
+  boxes at any of the 240 sampled frames. This is not continuous collision
+  certification between frames.
+- The clip contained 353 source Dial RGBA changes. Other families had none
+  during that interval.
+- Performance, geometry/appearance isolation and source-binding audits:
+  `runs/engineering/factory-v9-20261027/`.
+- 1,008 offline tests, evaluated Blender independent-color/immediate-reset
+  checks, 217,184 protected historical files and 36 source bindings passed.
+- Comparison images, a texture-packed Blender file and index:
+  `outputs/robo-factory/v9-review/`.
+- All 36 tasks were prepared again under
+  `runs/policy/prepared-factory-v9-20261027/`, with zero model calls and no
+  simulation start. Later execution-source changes require a new preparation;
+  old prepared inputs remain retained.
 
-## 数据清理后的交付入口
+## Historical cleanup and delivery pointers
 
-`outputs/final/factory/` 提供当前 top、side 和环视 MP4 的链接。当前场景、Blender导出、光照配置、36条源流和v3剪辑保留；旧版本试图和编码后的逐帧PNG缓存按保留策略清理。旧验收中的帧数／解码结果是当时检查记录，不能据此声称PNG缓存现在仍存在。更新后的独立渲染输出不纳入本轮清理。
+`outputs/final/factory/` provided links to the then current top/side images and
+orbit MP4. Its scene, Blender export, lighting configuration, 36 source streams
+and v3 edits were retained. Earlier study renders and encoded PNG caches were
+cleaned according to retention policy. Dated decode/frame-count receipts do not
+prove those PNG caches still exist. Later independent render outputs were
+outside that cleanup. A new machine should use the pinned portable bundle,
+not attempt to resolve those maintainer-local delivery pointers.
 
-## 单桌正面与侧面
+## Static per-desk front and side views
 
-对已构建的场景先导出 Blender 资源，再生成相机并渲染：
+For an already built scene, export Blender assets and desk cameras:
 
-```bash
-python -m scripts.export_factory_blender --scene SCENE/scene.xml --output ASSET
-python -m scripts.factory_desk_cameras --scene SCENE/scene.xml --output desk-cameras.json
+```sh
+.venv/bin/python -m scripts.export_factory_blender --scene SCENE/scene.xml --output ASSET
+.venv/bin/python -m scripts.factory_desk_cameras --scene SCENE/scene.xml --output desk-cameras.json
 blender --background --python-exit-code 1 --python scripts/render_factory_blender.py -- \
   --asset ASSET --output DESK_OUTPUT --desk-cameras desk-cameras.json \
   --width 1280 --height 800 --samples 16 --profile fast
 ```
 
-默认每桌输出 front、side 两个透视视图，并保留工厂环境；正面沿用任务简单背景的
-global 相机方向，侧面正对工位侧轴。工位标签位于桌子下方的地面；正面取景包含标签，
-侧面优先展示桌子和设备，不要求露出标签文字。正面使用更小的画面留白，避免包含标签后桌子显得过小。
-依据每张桌子的初始几何包围范围调整距离和画面中心，
-使工位在 16:10 画幅内保持适当大小。可用 `--views top` 额外生成旧俯视图；结果是静态初始姿态，
-不代表运行时所有姿态。
+The default exports front and side perspective views of each desk inside the
+Factory. Front follows the simple scene's `global` camera direction; side faces
+the station's lateral axis. Station labels sit on the floor below desks. Front
+framing includes the label with tighter margins to keep the desk large; side
+prioritizes the equipment without requiring visible label text. Distance and
+center adapt to each desk's initial geometry bounds for a 16:10 image.
+`--views top` adds the older overhead view. These are static initial poses,
+not coverage of every pose during execution.

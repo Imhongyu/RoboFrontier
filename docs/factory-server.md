@@ -1,52 +1,64 @@
-# Factory Linux / Slurm 交接
+# Native Factory Linux and Slurm handoff
 
-本入口读取冻结的 motion、外观事件和剪辑，做 FK 和 Blender Cycles 离线渲染。
-没有模型调用、机器人命令、接触仿真或新的任务成绩。真实 benchmark 的 Slurm/SQLite
-存储限制仍见 `server-benchmark.md`，不能用本渲染入口的验收替代。
-实际检查范围与结果见 [本次交接验收](factory-server-validation.md)。
+New unified-main users should start with [Factory replay and offline
+rendering](factory.md). This page documents the underlying
+`scripts.factory_server` commands, including their own Slurm render array.
+They replay frozen motion, appearance events and reviewed edits using FK and
+Blender Cycles. They do not call models, issue robot commands, simulate contact
+or produce new benchmark scores. Policy execution has different SQLite and
+Slurm requirements: see [policy Slurm staging](slurm.md). Dated native acceptance
+is recorded in [Factory server validation](factory-server-validation.md).
 
-## 安装与数据
+## Install software and data
 
-在计算节点可访问的共享大盘目录创建新 checkout，不需要复制维护者的 worktree：
+Create a new checkout on a large filesystem accessible to the compute nodes.
+A new machine does not need a copy of a maintainer's worktree. Select the
+published branch or commit you intend to reproduce, then install the locked
+Python 3.12 environment at the repository root:
 
 ```sh
-git clone --branch codex/factory-server-handoff --single-branch \
-  https://github.com/changxuanfan/robofrontier.git robofrontier-factory
-cd robofrontier-factory
-```
-
-在仓库根安装锁定的 Python 3.12 依赖：
-
-```sh
+git clone https://github.com/changxuanfan/RoboFrontier.git
+cd RoboFrontier
 uv sync --locked
 ```
 
-`.venv` 在服务器重新安装，不从 Mac 复制。若 uv 缓存和仓库跨文件系统，可设置
-`UV_LINK_MODE=copy`，避免依赖安装时反复尝试硬链接。
+Integration changes exist only on `integration/unified-main` until publication;
+cloning remote `main` before that merge does not obtain them. The earlier native
+server handoff was published as `codex/factory-server-handoff`. Record the exact
+commit for a reproducible run. Reinstall `.venv` on the server rather than copying
+it from a Mac. If the uv cache and checkout are on different filesystems,
+`UV_LINK_MODE=copy` avoids repeated hard-link attempts during installation.
 
-另需 Blender 5.1.2、FFmpeg 和 FFprobe，三者应在计算节点可执行。设置
-`BLENDER_BIN=/绝对路径/blender`；FFmpeg/FFprobe 放到 PATH。Linux NVIDIA GPU
-用 OPTIX，显式 CUDA 可作为另一选项；Mac 用 METAL，CPU 仅供显式诊断。
-缺少指定 GPU 后端时失败，不会静默切换 CPU。本仓库不分发集群驱动或复制其他机器的 `.venv`。
+The dated acceptance used Blender 5.1.2, FFmpeg and FFprobe, all executable on the
+compute node. Set `BLENDER_BIN=/absolute/path/to/blender` and put FFmpeg/FFprobe
+on PATH. Linux NVIDIA uses OPTIX; CUDA is another explicit choice. Native macOS
+uses METAL. CPU is an explicit diagnostic/rendering choice. A missing requested
+GPU backend causes failure instead of silent CPU fallback. The repository does
+not distribute cluster drivers or another machine's Python environment.
 
-Blender 的系统动态库也必须在计算节点可用；登录节点能启动不代表计算节点能启动。
-本次实机遇到过缺少 `libxkbcommon.so.0`，补充对应系统库后设备检查才通过。
-可以由管理员安装相应系统包，或使用站点提供的用户态库目录并设置
-`LD_LIBRARY_PATH=/path/to/site-libs:${LD_LIBRARY_PATH:-}`；该环境随 submit 传入作业。
-先在 GPU 分配内运行 doctor，再提交长批次；不需要也不应修改源场景来解决系统库错误。
+Blender's system libraries must also be available on the compute node; a working
+login-node executable does not prove this. The dated server acceptance initially
+failed because `libxkbcommon.so.0` was missing. An administrator can install the
+system package, or the site can supply a user-space library directory with
+`LD_LIBRARY_PATH=/path/to/site-libs:${LD_LIBRARY_PATH:-}`. The submit command
+passes that environment into the job. Run doctor inside an allocation before
+long jobs. System-library errors do not justify editing source scenes.
 
 ```sh
 .venv/bin/python -m scripts.factory_server setup
 ```
 
-默认安装到 `runs/factory-data/r14/`。`configs/factory-assets.json` 固定 Release、
-分卷 SHA256、完整归档 SHA256 和数据清单 SHA256；自动依次下载分卷、拼接、验证和
-恢复，无须手动找到 Release。离线已有完整归档时加 `--archive /path/factory.tar.gz`。
-自选数据目录用 `--data-root /shared/path/factory-r14`，后续命令也传相同目录。
-使用绝对路径方便排队作业；数据目录不要安装在有小额配额的 home。
+Setup defaults to `runs/factory-data/r14/`. `configs/factory-assets.json` pins the
+release, part SHA-256 values, complete archive SHA-256 and data-manifest SHA-256.
+Setup downloads the parts, combines them, verifies and restores the package;
+users need not manually find a release. For an existing complete offline archive,
+add `--archive /path/to/factory.tar.gz`. A custom location uses
+`--data-root /shared/path/factory-r14`; use the same option in later commands.
+Absolute paths simplify queued execution. Avoid small-quota home directories.
 
-本组 slogin 禁止数据处理：不要直接在登录节点解包、校验或 prepare。
-先加载 Slurm 模块，再把这些命令提交到允许 CPU 处理的分区，例如：
+At the originally tested site, `slogin` prohibits data processing. Do not unpack,
+verify or prepare on such a login node. Load the site's Slurm module and request
+an allowed CPU allocation, for example:
 
 ```sh
 module load slurm/slurm/23.02.6
@@ -54,40 +66,49 @@ srun --partition debug --cpus-per-task 8 --mem 16G --time 01:00:00 \
   .venv/bin/python -m scripts.factory_server setup
 ```
 
-下文 prepare 命令也可用相同的 `srun` 前缀执行；submit 是轻量的排队命令。
-其他集群替换 CPU/GPU 分区和模块名。每项命令结束后资源会释放，无须常驻主 session。
+The same `srun` prefix can wrap preparation. Submission itself is a lightweight
+queue operation. Replace module/partition names for your cluster. Each command
+releases its allocation when it finishes; no persistent outer agent is needed.
 
-数据包包括 36 工位、Mosaic R14、各录制自己的冻结场景/资产、motion、事件、剪辑
-及其语义校验证据、相机和预导出的 Blender 场景。与约 186 MB 的 benchmark 场景
-包不同，这是完整历史播放数据，下载约 5.84 GB，解压逻辑大小约 9.8 GB；硬链接会
-减少实际占用。首次准备应留至少 20 GB 可用空间，下载期间还需暂存归档。
-运行和渲染中间帧另需空间，大小随时长和分辨率增长。不要把数据包提供给策略模型作为任务输入。
+The package contains 36 stations, Mosaic R14, each recording's frozen scene and
+assets, motion, events, edits and their semantic verification evidence, cameras
+and pre-exported Blender assets. Unlike the roughly 186 MB policy scene package,
+this historical playback package downloads about 5.84 GB and restores about
+9.8 GB logically; hard links reduce physical use. Allow at least 20 GB free for
+initial setup, including the temporary archive. Render frames need additional
+space according to resolution and duration. Do not expose this private playback
+package to policy models as task input.
 
-新包与 `policy-assets.json` 分开，未修改现有 benchmark 资产清单或物理定义。
-历史录制保持其实际源物理；离线渲染不把旧轨迹冒充为新摩擦参数下重新执行。
-Mosaic 的 a06-d3、a08-d3 展示复用对应 d2 记录，并保留 `recorded_case_id` 和物理
-等价检查；它们不是新增的 Level 3 运行或成功证明。其他来源的资格标记也原样保留。
+The Factory lock is separate from `policy-assets.json` and does not redefine
+benchmark physics. Old recordings retain their actual source parameters.
+Offline rendering does not turn them into new executions under revised friction.
+Mosaic a06-d3 and a08-d3 presentations reuse corresponding d2 recordings, retaining
+`recorded_case_id` and physical-equivalence checks. They are not new Level 3
+runs or success evidence. Other source qualification flags are also retained.
 
-## 先做短测
+## Short commissioning run
 
-在有 GPU 的计算环境检查软件和所选设备：
+Inside a GPU allocation, inspect software and the requested device:
 
 ```sh
 .venv/bin/python -m scripts.factory_server doctor --device OPTIX
 ```
 
-从登录节点排队检查时使用计算分区，例如：
+To queue the inspection from a login node:
 
 ```sh
 srun --partition YOUR_GPU_PARTITION --gres gpu:1 --cpus-per-task 4 \
-  --mem 16G --time 00:20:00 .venv/bin/python -m scripts.factory_server doctor --device OPTIX
+  --mem 16G --time 00:20:00 \
+  .venv/bin/python -m scripts.factory_server doctor --device OPTIX
 ```
 
-登录节点没有 GPU 时，不能用其检查结果推断计算节点 GPU 可用；可先用 `--device CPU`
-检查 CPU 路径，再通过下述短作业验证 GPU。doctor 不产生视频、不调用模型。
+A login node without a GPU cannot verify compute-node GPU availability. An
+explicit `--device CPU` can check the CPU path, followed by the short GPU job
+below. Doctor does not render video or call a model.
 
-下面选择四类的 Level 1 最小臂数、front/side，共 8 个一秒预览。
-默认正式画质为 1920×1080、30fps、64 samples；此短测降低尺寸和采样以检查交接。
+This example selects the minimum-arm Level 1 case in each family and front/side
+views: eight one-second previews. Production defaults are 1920 x 1080, 30 fps
+and 64 samples; this diagnostic deliberately reduces resolution and sampling.
 
 ```sh
 .venv/bin/python -m scripts.factory_server prepare \
@@ -100,25 +121,26 @@ srun --partition YOUR_GPU_PARTITION --gres gpu:1 --cpus-per-task 4 \
   --parallel 2 --cpus 20 --memory 64G --time 01:00:00 --dry-run
 ```
 
-核对生成的 sbatch 参数后，去掉 `--dry-run` 提交。资源和分区由所在集群决定，
-示例不保证即时获得 GPU。某些集群先加载 Slurm 模块；本组当前环境为：
+Review generated sbatch options, then remove `--dry-run` to submit. Resources
+and partitions depend on the site; the example does not guarantee immediate GPU
+allocation. Some sites require the Slurm module before submission.
 
-```sh
-module load slurm/slurm/23.02.6
-```
+The command creates an array with one GPU per render item. `--parallel` limits
+simultaneous renders, not model concurrency. The checkout, Python environment,
+data and `BLENDER_BIN` must be accessible on compute nodes. The template does not
+embed personal accounts or a fixed Lustre path. Its Slurm wall time includes
+preparation, rendering, encoding and stage-out; it is unrelated to policy START.
 
-提交命令自动创建作业数组，一项占一张 GPU；`--parallel` 控制同时运行的渲染项数，
-不是模型并发数。提交目录应是共享、计算节点可访问的 checkout，Python 环境、数据
-和 BLENDER_BIN 也须可访问。模板不包含个人账号或固定 Lustre 路径。
-Slurm 时限涵盖准备、渲染、编码和回传，和 benchmark 的 START 时限无关。
+After submission, `squeue -j JOB_ID` shows pending reasons.
+`QOSMaxJobsPerUserLimit` means the account's concurrent-job quota is full;
+`Resources` means requested resources are unavailable. Neither means rendering
+failed. The array concurrency is only a batch ceiling and remains subject to
+account limits. Never cancel other users' jobs on a shared account.
 
-提交返回 `job_id` 后，用 `squeue -j 作业ID` 查看排队原因。`QOSMaxJobsPerUserLimit`
-表示共享账号的同时运行作业数已满；`Resources` 表示资源暂不可用，均不代表渲染失败。
-数组的 `--parallel` 只是本批次上限，仍受账号配额约束；不要取消同账号其他人的作业。
+## Full desk videos and presentation
 
-## 完整工位视频与宣传片
-
-省略 `--duration-s` 渲染完整剪辑。未指定筛选时 36 工位 × 两相机，共 72 项：
+Omit `--duration-s` to render full reviewed clips. Without filters, 36 stations
+and two views produce 72 render items:
 
 ```sh
 .venv/bin/python -m scripts.factory_server prepare \
@@ -127,12 +149,15 @@ Slurm 时限涵盖准备、渲染、编码和回传，和 benchmark 的 START �
   --plan runs/factory/full/plan.json --partition YOUR_PARTITION --parallel 2
 ```
 
-可用 `--families transport relay`、`--levels 1 2`、`--views front` 缩小范围，或通过
-`--cases 任务ID ...` 精确选择。准备阶段校验完整数据包；每个渲染项重新校验它会使用的
-源记录、场景、资产和相机，避免每项都重新读取其他任务的大型历史记录。
-普通桌面模式按源剪辑独立播放；相机固定，源状态和外观事件不被重新求解。
+Use `--families transport relay`, `--levels 1 2`, `--views front` or explicit
+`--cases CASE_ID ...` to narrow selection. Preparation checks the full data
+package. Each render item checks its own source recording, scene, assets and
+camera rather than repeatedly reading other tasks' large recordings. Desk mode
+uses fixed cameras and each source's independent reviewed edits. No state or
+appearance event is physically re-solved.
 
-宣传片是一个独立作业，默认 210.5 秒，使用全工厂镜头和显式记录的工位播放重启：
+The presentation is a separate job, defaulting to 210.5 seconds, with a full
+Factory camera path and explicitly recorded playback restarts:
 
 ```sh
 .venv/bin/python -m scripts.factory_server prepare \
@@ -141,53 +166,63 @@ Slurm 时限涵盖准备、渲染、编码和回传，和 benchmark 的 START �
   --plan runs/factory/promo/plan.json --partition YOUR_PARTITION --parallel 1
 ```
 
-宣传片中的 `reset-events.json`、逐帧来源和相机计划保留。这是展示剪辑，不是一次
-从头到尾同步执行的多任务实验。
+Its camera plan, `reset-events.json` and per-frame source mapping are retained.
+This is edited presentation playback, not a synchronized end-to-end multitask
+experiment. A render entry alone does not establish delivery of the full editable
+English presentation project.
 
-## 本机执行和结果
+## Native execution and output
 
-本机准备时选 `--device METAL`，CPU 诊断选 `--device CPU`。不需要 Slurm：
+Use `--device METAL` when preparing for native macOS, or explicit `--device CPU`
+for CPU rendering. Slurm is optional:
 
 ```sh
 .venv/bin/python -m scripts.factory_server run --plan runs/factory/local/plan.json --index 0
 .venv/bin/python -m scripts.factory_server status --plan runs/factory/local/plan.json
 ```
 
-`local` 是先用 prepare 创建的批次；每次 prepare 都要选择新输出目录。数据可以搬迁
-后重新 prepare；已经准备的计划绑定该机器的输入位置和源码哈希，不可直接修改计划。
-更改渲染代码或参数后重新 prepare；旧批次和旧结果保留。
+First create `local` with `prepare`; every preparation needs a new output path.
+Data can be relocated and prepared again. An existing plan binds input locations
+and source hashes on that machine, so do not hand-edit it after relocation or
+source/parameter changes. Keep old plans and results, and prepare a new batch.
 
 ```text
-批次/
-├── plan.json、plan.sha256、release.json
-├── logs/                         Slurm 日志
-├── jobs/工位--相机/
-│   ├── complete.json             只在视频验证及回传成功后生成
-│   └── attempt-唯一编号/
-│       ├── poses/                源状态映射、相机、姿态
+batch/
+├── plan.json, plan.sha256, release.json
+├── logs/                         Slurm logs
+├── jobs/CASE--VIEW/
+│   ├── complete.json             Only after video checks and stage-out pass
+│   └── attempt-UNIQUE-ID/
+│       ├── poses/                Source-state mapping, cameras and poses
 │       ├── render/factory.mp4
 │       ├── render/report.json
 │       ├── render.log
 │       └── attempt.json
-└── summary.json                  status 命令生成，含视频地址
+└── summary.json                  Generated by status, including video paths
 ```
 
-脚本在 SLURM_TMPDIR、TMPDIR 或 `/tmp` 中渲染，结束后校验复制回批次目录。
-此流程没有活跃 SQLite。Slurm 终止前预留 180 秒发送信号并尝试收尾；SIGKILL、
-节点丢失或回传失败可能留下未封存尝试，此时保留日志中的本地路径，不能标记成功。
-节点本地空间和集群清理策略仍由站点决定，作业资源需留足收尾时间。
+Rendering uses `SLURM_TMPDIR`, `TMPDIR` or `/tmp`, then verifies copies returned
+to the batch. This path has no live SQLite database. Slurm sends a signal 180
+seconds before termination to attempt cleanup. SIGKILL, node loss or failed
+stage-out can leave unsealed attempts. Retain local paths from logs and do not
+mark those attempts successful. Local storage and cleanup policy depend on the
+site; resource requests need enough time and space for finalization.
 
-MP4 完整解码、帧数/30fps 检查通过后才删除渲染中间 PNG；失败保留已有帧。
-不会删除 source 纹理 PNG、motion 或模型观察 JPG。报告中的原始临时路径作为来源
-记录保留，分析时以本批次实际文件和 complete.json 为准。
+Render PNGs are deleted only after full MP4 decode and frame-count/30-fps checks.
+A failed render keeps existing frames. Source texture PNGs, motion and policy
+observation JPGs are not deleted. Original temporary paths remain in reports as
+provenance; use actual batch files and `complete.json` for analysis.
 
-重新运行同一 index 会验证已完成视频并跳过；失败或中断会使用新的 attempt 目录。
-不会覆盖旧视频、自动恢复半个 Blender 进程或混用不同计划。使用 status 确认哪些
-项目需要补跑；集群作业是否排队/运行仍以 squeue/sacct 为准。
+Re-running the same index verifies and skips an already complete video. Failed
+or interrupted work uses a new attempt directory. It does not overwrite old
+videos, resume a half-running Blender process or combine different plans.
+`status` identifies items needing another attempt; `squeue`/`sacct` remain the
+authority for queued/running cluster jobs.
 
-## 渲染新的 benchmark motion
+## Import a new benchmark recording
 
-等待原任务所有写入停止，使用其 `private/outputs/motion/`，不是图片目录或 session：
+Wait until every original writer has stopped. Import
+`private/outputs/motion/`, not the image or session directory:
 
 ```sh
 .venv/bin/python -m scripts.factory_server import-motion \
@@ -198,19 +233,25 @@ MP4 完整解码、帧数/30fps 检查通过后才删除渲染中间 PNG；失�
   --output runs/factory/my-recording --device OPTIX
 ```
 
-支持本发布 36 个任务 ID；Mosaic 显示源仍须是 R14。程序用该记录自己的冻结
-source 重建对应工位，并导出新的 Blender 场景；其他工位是静态背景。保留完整
-motion 和外观事件，生成全保留剪辑，不猜测任务成功、不套用 Oracle 的完成前缀。
-缺少源资产、记录仍活跃、任务不匹配或运动校验失败时拒绝导入。
-旧 motion 格式由现有 MotionReader 读取；压缩归档请先用对应恢复命令还原目录。
+The published 36 case IDs are supported; Mosaic source display must be R14.
+Import rebuilds the relevant station from the recording's own frozen inputs and
+exports a new Blender asset; other desks become static background. It preserves
+all motion and appearance events and creates an all-retained edit rather than
+inferring task success or borrowing an Oracle completion prefix. Missing source
+assets, an active recording, a task mismatch or failed motion validation cause
+rejection. `MotionReader` supports older motion formats. Restore an evidence
+archive into ordinary files before importing its motion directory.
 
-## 维护者发布
+## Maintainer packaging
 
-`export` 从显式 scene/release/cameras/asset/source-root 生成可迁移数据目录；
-`pack` 验证所有文件并输出 tar.gz。分发包保留编辑与运动的原始字节，内容相同的
-文件使用硬链接去重。分卷清单由 `factory_bundle.split_archive` 生成，发布后固定在
-`configs/factory-assets.json`。更新包使用新文件名和哈希，保留旧发布供历史复现。
-不要改 benchmark 的 current.json 来切换 factory 数据。
+`export` creates a portable directory from explicit scene, release, cameras,
+asset and source-root inputs. `pack` verifies every file and writes tar.gz.
+The package retains original edit and motion bytes; identical files share hard
+links. `factory_bundle.split_archive` creates part metadata, pinned after
+publication in `configs/factory-assets.json`. Publish changed data under a new
+name and hashes; keep older releases for historical reproduction. Do not change
+the policy `current.json` to switch Factory data.
 
-压缩证据验收的 factory 选项使用独立的 MuJoCo 采样图/FK 检查，生产视频继续使用
-Cycles；两者都不运行物理。采样图通过不等于完整视频或任务评分通过。
+The Factory option in evidence replay checks uses independent sampled MuJoCo
+images/FK. Production videos use Cycles. Neither integrates physics, and sampled
+image success does not establish full-video or task-score acceptance.
