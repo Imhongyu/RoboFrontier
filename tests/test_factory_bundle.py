@@ -196,4 +196,49 @@ with patch.object(server.subprocess,'Popen',side_effect=launch):
             with self.assertRaisesRegex(ValueError,'checksum'):bundle.verify(data,cases=['transport-a04-d1'])
 
 
+def tour_fixture(root):
+    """Synthetic 36-station media fixture, not a physical-task qualification."""
+    fixture(root)
+    source = root/'original'
+    families, placements, cameras = {}, [], []
+    for fi, (family, scales) in enumerate((('relay',(8,12,16)), ('transport',(4,8,12)),
+                                          ('mosaic',(4,6,8)), ('dial',(4,6,8)))):
+        specs = []
+        for level in (1,2,3):
+            for rank, arms in enumerate(scales):
+                ident = f'{family}-a{arms:02d}-d{level}'
+                directory = source/'records'/ident
+                shutil.copytree(source/'run', directory)
+                motion = directory/'motion'
+                bundle.write(motion/'source/task.json', {'id':ident,'family':family,'level':level,
+                             'scale':{'scene_revision':14} if family=='mosaic' else {},
+                             'arms':{chr(65+i):{} for i in range(arms)}})
+                workstation = bundle.read(motion/'source/workstation.json')
+                workstation['case']['id'] = ident
+                bundle.write(motion/'source/workstation.json', workstation)
+                stream = bundle.read(motion/'stream.json'); stream['case_id'] = ident
+                bundle.write(motion/'stream.json', stream)
+                edit_dir = source/'edits'/ident
+                shutil.copytree(source/'edit', edit_dir)
+                edit = bundle.read(edit_dir/'edit.json'); edit.update(case_id=ident,
+                    source_stream_sha256=bundle.digest(motion/'stream.json'))
+                bundle.write(edit_dir/'edit.json', edit)
+                specs.append({'id':ident,'directory':str(motion/'source'),'recording':str(motion),
+                              'edit':str(edit_dir/'edit.json'),'edit_sha256':bundle.digest(edit_dir/'edit.json')})
+                x, y = fi*12+rank*3, level*5
+                placements.append({'case_id':ident,'family':family,'translation_m':[x,y,0],
+                                   'planning_bounds_xy_m':[x-1,y-1,x+1,y+1]})
+                for view in ('front','side'):
+                    cameras.append({'id':ident+'--'+view,'position_m':[x+(3 if view=='side' else 0),y-3,3],
+                                    'target_m':[x,y,.8],'vertical_fov_deg':48})
+        families[family] = {'speedup':1,'fps':30,'oracle':specs}
+    factory = source/'factory/scene.xml'
+    bundle.write(factory.parent/'manifest.json', {'scene_sha256':bundle.digest(factory),'placements':placements})
+    bundle.write(source/'cameras.json', cameras)
+    bundle.write(source/'release.json', {'schema':'synthetic-tour','presentation':{'fps':30},'families':families})
+    output = root/'tour-bundle'
+    bundle.export(output, factory, source/'release.json', source/'cameras.json', source/'asset', source)
+    return output
+
+
 if __name__=='__main__':unittest.main()

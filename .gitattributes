@@ -1,0 +1,2 @@
+# SRT cues use blank-line terminators, including the final cue.
+*.srt whitespace=-blank-at-eof

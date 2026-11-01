@@ -23,7 +23,7 @@ repository root. Keep existing module names when reproducing historical evidence
 | `curate_repository` | Plan and verify data cleanup while protecting frozen source recordings |
 | `tasks list/check/prepare/prepare-batch` | Audit current release selection and inputs, or use the retained lower-level preparation interface |
 | `factory build/video/poses` | Low-level scene construction, public pose export, and Cycles video; requires an explicitly matching source |
-| `factory_server setup/doctor/prepare/submit/run/status/import-motion` | Restore independent R14 Factory data, prepare Linux render arrays, import new benchmark motion, and verify outputs; see the [server guide](../docs/factory-server.md) |
+| `factory_server setup/doctor/prepare/submit/run/status/import-motion/project/edit-video` | Restore independent R14 Factory data, prepare Linux render arrays, import motion, edit source-bound camera/subtitle projects and verify movies; see the [server guide](../docs/factory-server.md) and [editorial guide](../docs/factory-editorial.md) |
 | `restore_scene_assets` | Restore ignored historical scene assets by their original SHA; refuse to overwrite drifted files |
 | `check_harness` | Run the offline Python, JavaScript, documentation, and protocol regression inventory; historical fixtures may require separate assets |
 | `check_oracle_preservation` | Check the preservation manifest and frozen Oracle source bindings |

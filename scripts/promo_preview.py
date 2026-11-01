@@ -102,13 +102,18 @@ def camera_at(keys,t):
  return keys[-1]['camera']
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--output',type=Path,required=True);p.add_argument('--duration',type=float,default=210);p.add_argument('--preview-fps',type=int,default=5);p.add_argument('--prep',type=Path,default=PREP);p.add_argument('--scene',type=Path);p.add_argument('--cameras',type=Path);p.add_argument('--release',type=Path,required=True,help='Fully combined release with resolved input paths');args=p.parse_args();prep=args.prep.resolve();scene=args.scene or prep/'scene/scene.xml'
+ p=argparse.ArgumentParser();p.add_argument('--output',type=Path,required=True);p.add_argument('--duration',type=float,default=210.5);p.add_argument('--preview-fps',type=int,default=5);p.add_argument('--prep',type=Path,default=PREP);p.add_argument('--scene',type=Path);p.add_argument('--cameras',type=Path);p.add_argument('--camera-plan',type=Path,help='Frozen editable camera waypoints; omit for the Legacy tour');p.add_argument('--release',type=Path,required=True,help='Fully combined release with resolved input paths');args=p.parse_args();prep=args.prep.resolve();scene=args.scene or prep/'scene/scene.xml'
  if not math.isfinite(args.duration) or args.duration<=0:raise ValueError('Positive finite duration required')
  if args.preview_fps not in (1,2,3,5,6,10,15,30):raise ValueError('Preview fps must divide 30')
  output=args.output;output.mkdir(parents=True,exist_ok=False)
  release=json.loads(args.release.read_text());
  write_json(output/'release.json',release)
  manifest=json.loads((scene.parent/'manifest.json').read_text());cameras={x['id']:x for x in json.loads((args.cameras or prep/'cameras.json').read_text())};keys,visits=plan(manifest,cameras);write_json(output/'camera-plan.json',keys);placements={p['case_id']:p for p in manifest['placements']}
+ if args.camera_plan:
+  from robofrontier.factory_editorial import camera_plan
+  keys=camera_plan(args.camera_plan)
+  if args.duration>keys[-1]['t']+1e-8:raise ValueError('Requested video exceeds the editorial camera timeline')
+  write_json(output/'camera-plan.json',keys)
  timeline=FactoryTimeline(scene,release,loop=False)
  try:
   model,data=timeline.play.model,timeline.play.data;names=timeline.play.manifest['workstation_names']

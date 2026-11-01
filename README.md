@@ -26,6 +26,7 @@ compatibility certificates.
 | Run on Linux Docker or macOS Docker Desktop | [Docker execution](docs/docker.md) |
 | Queue a job with node-local runtime state | [Slurm submission](docs/slurm.md) |
 | Replay motion and render Factory backgrounds | [Factory workflow](docs/factory.md) |
+| Edit the full Factory camera plan and English video titles/subtitles | [Editable video project](docs/factory-editorial.md) |
 | Browse the 36 current tasks and initial scenes | [English task atlas](docs/task-atlas/index.html) |
 | See which integration gates have passed | [Acceptance and source provenance](docs/development/unified-main.md) |
 | Read the policy's role and tool contract | [Robot collaboration skill](.agents/skills/robot-collaboration/SKILL.md) |

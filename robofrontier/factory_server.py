@@ -127,7 +127,7 @@ def import_motion(data_root, recording, output, speedup=1.):
 
 def prepare(data_root, output, families=None, levels=None, views=('front', 'side'), cases=None,
             duration_s=None, width=1920, height=1080, samples=64, mode='desks', device=None,
-            effective_configuration=None, asset_lock_sha256=None):
+            effective_configuration=None, asset_lock_sha256=None, project=None):
     from .motion_recording import MotionReader
     from .station_edit import StationEdit
     initial_code=code_hashes()
@@ -139,6 +139,12 @@ def prepare(data_root, output, families=None, levels=None, views=('front', 'side
         raise ValueError('Positive resolution, samples and finite duration required')
     if len(set(views)) != len(views) or not views or set(views)-{'front','side'}:
         raise ValueError('Choose distinct front/side views')
+    if project is not None and mode != 'promo':
+        raise ValueError('An editorial project is only used for the full Factory tour')
+    editorial = None
+    if project is not None:
+        from .factory_editorial import load
+        editorial = load(project, data_root)
     release = resolved_release(data_root)
     known_cases={s['id'] for f in release['families'].values() for s in f['oracle']}
     if cases and set(cases)-known_cases:raise ValueError('Unknown selected task ID')
@@ -153,7 +159,10 @@ def prepare(data_root, output, families=None, levels=None, views=('front', 'side
     if mode == 'promo':
         if families or levels or cases:
             raise ValueError('The factory-tour camera visits all published workstations')
-        jobs.append(dict(index=0, id='promo', frames=math.ceil((duration_s or 210.5)*fps)))
+        full_duration = editorial['project']['duration_s'] if editorial else 210.5
+        if duration_s is not None and duration_s > full_duration:
+            raise ValueError('Preview cap exceeds the full editorial project')
+        jobs.append(dict(index=0, id='promo', frames=math.ceil((duration_s or full_duration)*fps)))
     elif mode == 'desks':
         for name, family in release['families'].items():
             if families and name not in families:
@@ -178,20 +187,38 @@ def prepare(data_root, output, families=None, levels=None, views=('front', 'side
         raise ValueError('No selected render jobs')
     if code_hashes()!=initial_code:
         raise ValueError('Rendering code changed during prepare; run prepare again')
-    output.mkdir(parents=True)
-    write(output/'release.json', release)
-    manifest = read(data_root/'bundle.json')
-    plan = dict(schema=PLAN_SCHEMA, data_root=str(data_root), bundle_sha256=verified['bundle_sha256'],
-        scene=str(inside(data_root,manifest['scene'])),asset=str(inside(data_root,manifest['asset'])),
-        cameras=str(inside(data_root,manifest['cameras'])), release_sha256=digest(output/'release.json'),
-        code_hashes=initial_code, mode=mode, fps=fps, width=width, height=height, samples=samples,
-        device=device or ('METAL' if platform.system()=='Darwin' else 'OPTIX'), jobs=jobs,
-        scope='Offline recorded-state rendering; no model calls, physics execution or task scores')
-    if effective_configuration is not None:
-        plan['effective_configuration'] = deepcopy(effective_configuration)
-        plan['asset_lock_sha256'] = asset_lock_sha256
-    write(output/'plan.json', plan)
-    (output/'plan.sha256').write_text(digest(output/'plan.json')+'\n')
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='.factory-plan-', dir=output.parent) as temporary:
+        staged = Path(temporary)
+        frozen_editorial = None
+        if mode == 'promo':
+            from .factory_editorial import _create_verified, freeze, load
+            if project is None:
+                _create_verified(data_root, staged/'editorial')
+                loaded = load(staged/'editorial/project.json', data_root)
+                frozen_editorial = {'project':'project.json', 'files':loaded['files']}
+            else:
+                frozen_editorial = freeze(project, staged/'editorial', data_root)
+                if frozen_editorial['files'] != editorial['files']:
+                    raise ValueError('Editorial input changed during preparation')
+        write(staged/'release.json', release)
+        manifest = read(data_root/'bundle.json')
+        plan = dict(schema=PLAN_SCHEMA, data_root=str(data_root), bundle_sha256=verified['bundle_sha256'],
+            scene=str(inside(data_root,manifest['scene'])),asset=str(inside(data_root,manifest['asset'])),
+            cameras=str(inside(data_root,manifest['cameras'])), release_sha256=digest(staged/'release.json'),
+            code_hashes=initial_code, mode=mode, fps=fps, width=width, height=height, samples=samples,
+            device=device or ('METAL' if platform.system()=='Darwin' else 'OPTIX'), jobs=jobs,
+            scope='Offline recorded-state rendering; no model calls, physics execution or task scores')
+        if frozen_editorial is not None:
+            plan['editorial'] = frozen_editorial
+        if effective_configuration is not None:
+            plan['effective_configuration'] = deepcopy(effective_configuration)
+            plan['asset_lock_sha256'] = asset_lock_sha256
+        write(staged/'plan.json', plan)
+        (staged/'plan.sha256').write_text(digest(staged/'plan.json')+'\n')
+        if code_hashes() != initial_code:
+            raise ValueError('Rendering code changed during prepare; run prepare again')
+        staged.rename(output)
     return dict(plan=str(output/'plan.json'), jobs=len(jobs), scope=plan['scope'])
 
 
@@ -210,22 +237,53 @@ def load_plan(path, check_inputs=True):
         raise ValueError('Prepared release changed')
     if digest(Path(plan['data_root'])/'bundle.json') != plan['bundle_sha256']:
         raise ValueError('Prepared data release changed')
+    if 'editorial' in plan:
+        from .factory_editorial import load
+        editorial = plan['editorial']
+        loaded = load(inside(path.parent/'editorial', editorial['project']), plan['data_root'])
+        if loaded['files'] != editorial['files']:
+            raise ValueError('Prepared editorial inputs changed')
     return path, plan
 
 
-def completed(job_dir, verify_video=False):
+def completed(job_dir, verify_video=False, *, plan=None):
     marker = Path(job_dir)/'complete.json'
     if not marker.exists():
         return None
     data = read(marker)
+    if plan is not None and 'editorial' in plan and 'editorial' not in data:
+        raise ValueError('Completed tour is missing its required editorial output')
     attempt = inside(job_dir, data['attempt'])
     video, report = attempt/'render/factory.mp4', attempt/'render/report.json'
     if digest(video) != data['video_sha256'] or digest(report) != data['report_sha256']:
         raise ValueError('Completed output changed')
     if read(report).get('animation',{}).get('full_decode_passed') is not True:
         raise ValueError('Completed video was not verified')
+    editorial = data.get('editorial')
+    if editorial is not None:
+        final = inside(attempt, editorial['video'])
+        final_report = inside(attempt, editorial['report'])
+        if digest(final) != editorial['video_sha256'] or digest(final_report) != editorial['report_sha256']:
+            raise ValueError('Completed editorial output changed')
+        review = read(final_report)
+        if review.get('full_decode_passed') is not True or review.get('video_sha256') != digest(final):
+            raise ValueError('Completed editorial movie was not verified')
+        if plan is not None and 'editorial' in plan:
+            from .factory_editorial import load
+            retained = load(inside(final.parent/'project',plan['editorial']['project']))
+            if (review.get('project_files') != plan['editorial']['files']
+                    or retained['files'] != plan['editorial']['files']):
+                raise ValueError('Completed editorial project differs from the prepared plan')
+            if (review.get('source_video_sha256') != data['video_sha256']
+                    or review.get('media',{}).get('width') != plan['width']
+                    or review.get('media',{}).get('height') != plan['height']
+                    or review.get('media',{}).get('fps') != plan['fps']
+                    or review.get('media',{}).get('frames') != read(report)['animation']['frames']):
+                raise ValueError('Completed editorial media differs from the source render')
     if verify_video:
         subprocess.run(['ffmpeg','-v','error','-i',str(video),'-f','null','-'],check=True)
+        if editorial is not None:
+            subprocess.run(['ffmpeg','-v','error','-i',str(final),'-f','null','-'],check=True)
     return data
 
 
@@ -249,7 +307,7 @@ def run_job(plan_path, index, blender=None, scratch=None):
             fcntl.flock(lock, fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:
             raise ValueError('This render job is already running')
-        if completed(job_dir, verify_video=True):
+        if completed(job_dir, verify_video=True, plan=plan):
             if read(job_dir/'complete.json')['plan_sha256']!=digest(path):
                 raise ValueError('Completed output belongs to a different plan')
             return dict(status='already_complete',job=job['id'])
@@ -268,12 +326,12 @@ def run_job(plan_path, index, blender=None, scratch=None):
         started = time.time()
         write(job_dir/'running.json',dict(pid=os.getpid(),host=platform.node(),attempt=attempt_id,started_unix_s=started,work_dir=str(work)))
         error = None
-        def command(argv):
+        def command(argv, *, cwd=ROOT):
             if stopped:
                 raise InterruptedError('Render interrupted')
             with (work/'render.log').open('a') as log:
                 log.write(json.dumps([str(a) for a in argv])+'\n');log.flush()
-                active[0] = subprocess.Popen([str(a) for a in argv],cwd=ROOT,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+                active[0] = subprocess.Popen([str(a) for a in argv],cwd=cwd,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
                 while True:
                     try:
                         code = active[0].wait(timeout=1)
@@ -288,9 +346,13 @@ def run_job(plan_path, index, blender=None, scratch=None):
                     raise subprocess.CalledProcessError(code,argv)
         try:
             if plan['mode']=='promo':
-                command([sys.executable,'-m','scripts.promo_preview','--output',work/'poses',
+                arguments = [sys.executable,'-m','scripts.promo_preview','--output',work/'poses',
                     '--scene',plan['scene'],'--cameras',plan['cameras'],'--release',path.parent/'release.json',
-                    '--duration',str(job['frames']/plan['fps']),'--preview-fps','30'])
+                    '--duration',str(job['frames']/plan['fps']),'--preview-fps','30']
+                if 'editorial' in plan:
+                    project = read(path.parent/'editorial'/plan['editorial']['project'])
+                    arguments.extend(['--camera-plan', inside(path.parent/'editorial', project['camera_plan'])])
+                command(arguments)
             else:
                 command([sys.executable,'-m','scripts.factory','poses','--scene',plan['scene'],
                     '--release',path.parent/'release.json','--output',work/'poses',
@@ -312,8 +374,17 @@ def run_job(plan_path, index, blender=None, scratch=None):
             if (report.get('animation',{}).get('full_decode_passed') is not True
                     or report['animation']['frames']!=job['frames'] or report['animation']['fps']!=plan['fps']):
                 raise ValueError('Video decode validation did not pass')
+            if 'editorial' in plan:
+                from .factory_editorial import render
+                render(path.parent/'editorial'/plan['editorial']['project'], work/'render/factory.mp4',
+                       work/'editorial', run_command=command)
             if code_hashes()!=plan['code_hashes']:
                 raise ValueError('Rendering code changed during execution; output is not sealed')
+            # Check again after rendering: a camera or subtitle edit during an
+            # attempt must never acquire the original frozen plan's seal.
+            load_plan(path)
+            if 'editorial' in plan and read(work/'editorial/report.json')['project_files'] != plan['editorial']['files']:
+                raise ValueError('Rendered editorial project differs from the prepared plan')
         except Exception as exc:
             error = exc
         finally:
@@ -330,8 +401,13 @@ def run_job(plan_path, index, blender=None, scratch=None):
                         raise ValueError('Result stage-out checksum mismatch')
                 staging.rename(destination)
                 if error is None and not stopped:
-                    write(job_dir/'complete.json',dict(attempt=attempt_id,video_sha256=digest(destination/'render/factory.mp4'),
-                        report_sha256=digest(destination/'render/report.json'),plan_sha256=digest(path)))
+                    marker = dict(attempt=attempt_id,video_sha256=digest(destination/'render/factory.mp4'),
+                        report_sha256=digest(destination/'render/report.json'),plan_sha256=digest(path))
+                    if 'editorial' in plan:
+                        marker['editorial'] = dict(video='editorial/factory.mp4',report='editorial/report.json',
+                            video_sha256=digest(destination/'editorial/factory.mp4'),
+                            report_sha256=digest(destination/'editorial/report.json'))
+                    write(job_dir/'complete.json', marker)
                 shutil.rmtree(work)
                 (job_dir/'running.json').unlink(missing_ok=True)
             except Exception:
@@ -351,7 +427,7 @@ def status(plan_path):
     rows=[]
     for job in plan['jobs']:
         folder=path.parent/'jobs'/job['id']
-        done=completed(folder)
+        done=completed(folder, plan=plan)
         attempts=sorted(folder.glob('attempt-*/attempt.json'),key=lambda p:p.stat().st_mtime) if folder.exists() else []
         row=dict(index=job['index'],id=job['id'],status='complete' if done else read(attempts[-1])['status'] if attempts else 'pending')
         if not done and (folder/'running.json').exists():
@@ -362,7 +438,10 @@ def status(plan_path):
                     fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
                     row['status']='interrupted_unsealed'
                 except BlockingIOError:row['status']='running'
-        if done:row['video']=str(folder/done['attempt']/'render/factory.mp4')
+        if done:
+            row['video']=str(folder/done['attempt']/done.get('editorial',{}).get('video','render/factory.mp4'))
+            if 'editorial' in done:
+                row['source_video']=str(folder/done['attempt']/'render/factory.mp4')
         rows.append(row)
     result=dict(jobs=rows,complete=sum(r['status']=='complete' for r in rows),total=len(rows))
     write(path.parent/'summary.json',result)

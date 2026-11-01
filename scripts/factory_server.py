@@ -23,11 +23,18 @@ def main():
     imported.add_argument('--data-root',type=Path,default=server.ROOT/'runs/factory-data/r14')
     imported.add_argument('--recording',type=Path,required=True);imported.add_argument('--output',type=Path,required=True)
     imported.add_argument('--speedup',type=float,default=1.)
+    project=sub.add_parser('project',help='Create an editable English full-tour project')
+    project.add_argument('--data-root',type=Path,default=server.ROOT/'runs/factory-data/r14')
+    project.add_argument('--output',type=Path,required=True)
+    edit=sub.add_parser('edit-video',help='Text-only post-production; preserve source movie')
+    edit.add_argument('--project',type=Path,required=True);edit.add_argument('--input',type=Path,required=True)
+    edit.add_argument('--output',type=Path,required=True)
     for name in ('verify','doctor','prepare'):
         a=sub.add_parser(name)
         a.add_argument('--data-root',type=Path,default=server.ROOT/'runs/factory-data/r14')
         if name=='doctor':a.add_argument('--blender');a.add_argument('--device',choices=('METAL','OPTIX','CUDA','CPU'))
         if name=='prepare':
+            a.add_argument('--project',type=Path)
             a.add_argument('--output',type=Path,required=True)
             a.add_argument('--families',nargs='+',choices=('transport','mosaic','relay','dial'))
             a.add_argument('--levels',nargs='+',type=int,choices=(1,2,3))
@@ -53,6 +60,12 @@ def main():
     elif command=='verify':result=bundle.verify(args['data_root'])
     elif command=='doctor':result=server.doctor(**args)
     elif command=='import-motion':result=server.import_motion(**args)
+    elif command=='project':
+        from robofrontier.factory_editorial import create
+        result=create(**args)
+    elif command=='edit-video':
+        from robofrontier.factory_editorial import render
+        result=render(args['project'],args['input'],args['output'])
     elif command=='prepare':result=server.prepare(**args)
     elif command=='run':result=server.run_job(args.pop('plan'),**args)
     elif command=='status':result=server.status(args['plan'])

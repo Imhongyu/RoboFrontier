@@ -15,7 +15,7 @@ def _path(value):
 def add_arguments(subparsers):
     parser = subparsers.add_parser('factory', help='Configure frozen-motion replay and offline Cycles rendering')
     actions = parser.add_subparsers(dest='factory_action', required=True)
-    for name in ('setup', 'verify', 'doctor', 'prepare', 'import-motion'):
+    for name in ('setup', 'verify', 'doctor', 'prepare', 'import-motion', 'project'):
         command = actions.add_parser(name)
         command.add_argument('--data-root')
         command.add_argument('--source', choices=('release', 'imported'))
@@ -24,9 +24,10 @@ def add_arguments(subparsers):
         if name in ('doctor', 'prepare'):
             command.add_argument('--device', choices=('OPTIX', 'CUDA', 'METAL', 'CPU'))
             command.add_argument('--blender')
-        if name in ('prepare', 'import-motion'):
+        if name in ('prepare', 'import-motion', 'project'):
             command.add_argument('--output', type=Path, required=True)
         if name == 'prepare':
+            command.add_argument('--project', type=Path, help='Editable English tour project to freeze; omit for generated defaults')
             command.add_argument('--mode', choices=('desks', 'promo'))
             command.add_argument('--views', nargs='+', choices=('front', 'side'))
             command.add_argument('--width', type=int)
@@ -40,6 +41,10 @@ def add_arguments(subparsers):
         if name == 'import-motion':
             command.add_argument('recording', type=Path)
             command.add_argument('--speedup', type=float)
+    edit = actions.add_parser('edit-video', help='Reuse a movie for text-only editorial changes; no scene identity claim')
+    edit.add_argument('--project', type=Path, required=True)
+    edit.add_argument('--input', type=Path, required=True)
+    edit.add_argument('--output', type=Path, required=True)
     for name in ('run', 'status', 'submit'):
         command = actions.add_parser(name)
         command.add_argument('plan', type=Path)
@@ -127,6 +132,9 @@ def _frozen(plan_path):
 
 def execute(args):
     action = args.factory_action
+    if action == 'edit-video':
+        from .factory_editorial import render
+        return render(args.project, args.input, args.output)
     if action in ('run', 'status', 'submit'):
         if action == 'status':
             # Read-only status also remains usable if local source has changed.
@@ -157,13 +165,16 @@ def execute(args):
         if factory['source'] == 'release' and result['bundle_sha256'] != bundle.read(_path(factory['asset_lock']))['bundle_sha256']:
             raise ValueError('Existing Factory bundle differs from the configured release lock')
         return dict(result, model_calls=0)
-    if action in ('prepare', 'import-motion') and args.output.resolve().exists():
+    if action in ('prepare', 'import-motion', 'project') and args.output.resolve().exists():
         raise ValueError('Choose a new Factory output directory')
     if action == 'prepare' and factory['mode'] == 'promo' and any(config['selection'].values()):
         raise ValueError('Full Factory promo visits every station; remove selection filters')
     data, receipt = _data(config, getattr(args, 'archive', None), verify_existing=action=='setup')
     if action == 'setup':
         return dict(receipt, data_root=str(data), model_calls=0)
+    if action == 'project':
+        from .factory_editorial import create
+        return create(data, args.output)
     if action == 'import-motion':
         result = server.import_motion(data, args.recording, args.output, speedup=factory['import_speedup'])
         return dict(result, model_calls=0, next_prepare=['factory', 'prepare', '--source', 'imported',
@@ -172,6 +183,7 @@ def execute(args):
     result = server.prepare(data, args.output, cases=cases, views=factory['views'],
         duration_s=factory['duration_s'] or None, width=factory['width'], height=factory['height'],
         samples=factory['samples'], mode=factory['mode'], device=factory['device'],
+        project=args.project,
         effective_configuration=deepcopy(config),
         asset_lock_sha256=bundle.digest(_path(factory['asset_lock'])) if factory['source']=='release' else None)
     return dict(result, model_calls=0)

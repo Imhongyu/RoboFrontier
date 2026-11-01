@@ -177,9 +177,13 @@ filters are rejected instead of silently producing a different full tour:
 ```
 
 No 30–45 second alternate cut is added by this entry. A diagnostic cap is an
-explicit preview, not a replacement deliverable. Camera/shot/title/subtitle editing
-and the tracked full English video project are separate integration gates; this
-command does not yet claim those editorial artifacts are complete.
+explicit preview, not a replacement deliverable. New full-tour plans freeze an
+editable English project containing camera waypoints, SRT title/subtitle tracks,
+font/license and style. The tracked default is
+[`tour-project.json`](../assets/robo_factory/tour-project.json). Use `--project`
+to freeze your own edited copy. Read the [editorial guide](factory-editorial.md)
+for project creation, camera changes, text-only movie revisions, output locations,
+validation, and the distinction between media validation and scene qualification.
 
 ## Slurm render jobs
 

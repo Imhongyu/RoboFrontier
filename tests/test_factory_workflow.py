@@ -11,7 +11,7 @@ from robofrontier.cli import main, _frozen_configuration
 from robofrontier.configuration import load_configuration, validate_configuration
 from robofrontier import factory_bundle as bundle
 from robofrontier import factory_server as server
-from test_factory_bundle import fixture
+from test_factory_bundle import fixture, tour_fixture
 
 
 class FactoryWorkflowTests(unittest.TestCase):
@@ -48,14 +48,26 @@ class FactoryWorkflowTests(unittest.TestCase):
         self.assertEqual(server.load_plan(plan)[1], document)
 
     def test_full_promo_defaults_to_210_5_seconds_without_a_hidden_short_cut(self):
-        result = self.cli(['prepare', '--mode', 'promo', '--output', self.root/'promo'])
+        (self.root/'tour').mkdir()
+        data = tour_fixture(self.root/'tour')
+        result = self.cli(['prepare', '--data-root', data, '--mode', 'promo', '--output', self.root/'promo'])
         plan = bundle.read(result['plan'])
         self.assertEqual((plan['fps'], plan['jobs'][0]['frames']), (30, 6315))
+        self.assertIn('editorial', plan)
+        self.assertEqual(server.load_plan(result['plan'])[1], plan)
 
     def test_preview_duration_is_an_explicit_cap(self):
-        result = self.cli(['prepare', '--mode', 'promo', '--duration-s', '.1',
+        (self.root/'tour').mkdir()
+        data = tour_fixture(self.root/'tour')
+        result = self.cli(['prepare', '--data-root', data, '--mode', 'promo', '--duration-s', '.1',
                            '--output', self.root/'preview'])
         self.assertEqual(bundle.read(result['plan'])['jobs'][0]['frames'], 3)
+
+    def test_incomplete_full_tour_does_not_publish_a_partial_plan(self):
+        with self.assertRaisesRegex(ValueError,'requires all 36'):
+            server.prepare(self.data,self.root/'incomplete',mode='promo',device='CPU')
+        self.assertFalse((self.root/'incomplete').exists())
+        self.assertFalse(list(self.root.glob('.factory-plan-*')))
 
     def test_import_progress_keeps_stdout_as_one_json_result(self):
         def noisy_import(*args, **kwargs):

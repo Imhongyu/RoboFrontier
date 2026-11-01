@@ -888,3 +888,63 @@ source clock traces, reset events, and hashes. The remaining work is to expose
 editable English titles/subtitles and camera controls through a reproducible
 source-bound project and verify the full-length deliverable. This audit is not
 that implementation or final-video acceptance.
+
+## Editable English Factory project and media verification
+
+The source-bound full-tour project is now tracked at
+`assets/robo_factory/tour-project.json`, with 73 camera waypoints, five English
+title cues, 34 subtitle cues, and the existing licensed Barlow font. It spans
+210.5 seconds/6,315 frames at 30 fps. Task subtitles use the actual inspection
+camera/task metadata. Camera positions, targets, FOV, timing, SRT text and style
+are editable; camera edits do not implicitly retime existing subtitle tracks.
+The [editorial guide](../factory-editorial.md) documents the complete workflow.
+
+Unified and native commands now expose `factory project`, `prepare --project`,
+and `edit-video`. New promo plans generate or copy the complete project into a
+frozen plan. Preparation publishes atomically; incomplete 36-station inputs or
+invalid edits cannot publish a partial plan. Native pose export consumes the
+frozen camera plan. Cycles retains its raw movie; the compositor retains the
+editable project and generates a captioned movie, source/project/output hashes
+and a full-decode report. Completion requires both raw and captioned media,
+matching project bytes, original source movie identity, dimensions, rate and
+frame count. A changed camera/subtitle during rendering, changed retained
+project, missing editorial result, or compositor failure prevents successful
+completion. Legacy plans without editorial inputs retain their raw-media
+contract; they are not implicitly upgraded.
+
+The final Factory regression suite discovered 60 tests on each platform:
+55 executed and passed, five historical generated-data tests skipped. macOS
+took 9.495 seconds; Linux aarch64 took 4.674 seconds. The Linux run used the
+existing `robofrontier:b0129eb66591` dependency image with the current checkout
+mounted read-only at `/work`, a writable temporary filesystem, and networking
+disabled. This is not a claim that that older image contains the new source.
+Checks include the actual FFmpeg/libass CLI path, source immutability, pixel
+changes in title and subtitle regions, portable font/project retention,
+preparation rollback, attempt failure/no-seal behavior, changed-during-render
+rejection and both new and legacy completion paths. The first fixture attempt
+failed because its new synthetic Mosaic task omitted R14 scale metadata; that
+fixture was corrected without weakening production bundle validation.
+
+The checked-in project also completed an actual unified `prepare`/`run`/`status`
+round trip against the pinned 36-station R14 bundle, using CPU Cycles at
+320 x 180, one sample and an explicit 0.1-second preview. All three raw and
+captioned frames were decoded, sealed and input/code hashes verified. Status
+returns both final `video` and original `source_video`. This verifies a small
+current-source render, not full-length current-source GPU/Slurm rendering.
+
+The preserved historical full movie was separately composited without another
+Cycles render: 1,920 x 1,080, 30 fps and all 6,315 frames. Output is 133,064,566
+bytes, SHA-256
+`86f0111abf2c94c7d508f223d841ffdf2541a955882dd341f133798d0e84a876`.
+Full decoding passed, and inspection frames at 0, 16, 66 and 162 seconds were
+viewed. The original SHA-256 remains
+`9c83e1d0ad17c3f6d4a7ed4b7d806322160f5d61d1e58e2471f0d3b300b86f96`.
+The full video's report explicitly qualifies text/media processing only; it
+does not establish that this historical movie depicts current physics or its
+project's declared scene. It is not given a current-source render-plan seal.
+The complete new-source full-length delivery gate therefore remains open.
+
+Logs, projects, raw/final preview media, full edited historical movie, inspection
+JPEGs and `factory-editorial-acceptance.json` are retained under
+`runs/engineering/main-integration-task-atlas-20261101/`, using the
+`factory-editorial-` prefix. No model calls or physics steps were performed.
