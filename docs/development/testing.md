@@ -44,21 +44,21 @@ fixtures from the preserved primary checkout. Scene XML identities and pinned
 asset/report/source hashes were verified, and original files were retained.
 The restoration receipts are under
 `runs/engineering/main-integration-oracle-final-20261102/`. The optional local
-delivery contains `legacy-test-fixtures-v2.tar.gz` and
-`legacy-test-fixtures-v2.json`. It contains original ignored test inputs, not
-new task qualification or native sessions. Its 43,678 files are pinned by
+delivery contains `legacy-test-fixtures-v3.tar.gz` and
+`legacy-test-fixtures-v3.json`. It contains original ignored test inputs, not
+new task qualification or native sessions. Its 44,536 files are pinned by
 individual SHA-256 checksums. The archive checksum is
-`4ba71cce3f56ee72e8820f11ef885e4a773744e24156c91b0a9dc7b68e6f5f00`.
+`be29b7c952a4edff3e4570093abc7cff2745c23a35fb1026b33cbc8e6b60d49d`.
 The manifest checksum, supplied independently of its contents, is
-`31dca637c84c17a90fa6547192ac41292c4ff2814f4158be9657824314acc7cf`.
+`c0eecdab86a0ccbef2cc40f400f088a8c46eba7af4587e8166eeb0e84fc28136`.
 
 Given a copy of this separately supplied bundle, install it into a checkout:
 
 ```sh
 python3 scripts/install_historical_fixtures.py \
-  --archive /path/to/legacy-test-fixtures-v2.tar.gz \
-  --manifest /path/to/legacy-test-fixtures-v2.json \
-  --manifest-sha256 31dca637c84c17a90fa6547192ac41292c4ff2814f4158be9657824314acc7cf \
+  --archive /path/to/legacy-test-fixtures-v3.tar.gz \
+  --manifest /path/to/legacy-test-fixtures-v3.json \
+  --manifest-sha256 c0eecdab86a0ccbef2cc40f400f088a8c46eba7af4587e8166eeb0e84fc28136 \
   --report runs/engineering/historical-fixture-install.json
 ```
 
@@ -69,7 +69,10 @@ files. An existing different file is an error; an identical file is reused.
 Interrupted installation can be retried. Shared content links only newly staged
 copies, never the supplied original recordings or an existing fixture. Extraction
 reads the archive sequentially, including hardlinks, to avoid repeatedly
-decompressing the large bundle.
+decompressing the large bundle. The dated Relay source aliases under
+`outputs/oracle/relay-edited-tracks-20261027/` are included only for the nine
+registered source directories and their original metadata/assets. Other output
+paths are rejected.
 
 This is an explicit optional development bundle, not an automatic download in
 the ordinary policy bootstrap. Public distribution of this separate bundle

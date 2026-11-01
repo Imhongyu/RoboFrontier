@@ -1583,3 +1583,23 @@ every schedule value and all eight unpassed categories, including unresolved
 execution. Numeric tokens, source URLs and local links were checked in
 `english-early-environments-verification.json`. The remaining tracked English
 inventory is 34 files / 63,299 Han characters.
+
+## Independent Linux discovery exposed a fixture packaging omission
+
+Source `53db653` was cloned from its Git bundle into a Linux-local Docker volume,
+without the live worktree, active databases, credentials or network. The v2
+fixture installer verified and installed 43,678 files in 10.744 seconds. Full
+discovery ran 1,511 tests in 232.246 seconds: zero assertion failures, one error
+and 26 conditional skips; all JavaScript and documentation-link checks passed.
+The error was a missing registered Relay Oracle source under `outputs/oracle`,
+which the original export's `configs/environments` / `runs/oracle` roots omitted.
+This failed full-discovery report is retained in `linux-isolated-results-v2/`.
+
+The v3 optional bundle adds all nine registered dated Relay source directories:
+858 original metadata/asset files, verified against unchanged release source
+pins and workstation asset checksums. It now holds 44,536 files / 759,710,326
+compressed bytes. The installer admits only those dated source metadata/assets
+under outputs, with unrelated paths rejected. Eleven focused macOS checks pass.
+The testing guide contains the new independent manifest and archive pins. The
+v2 bundle/report remain retained; neither is silently relabeled complete.
+An independent v3 installation and complete Linux discovery are pending.

@@ -84,12 +84,22 @@ class HistoricalFixtureTests(unittest.TestCase):
 
     def test_path_traversal_and_unrelated_roots_are_rejected(self):
         for name in ('/runs/oracle/a', 'runs/oracle/../../outside', 'runs/oracle//a',
-                     'runs/oracle/./a', 'robofrontier/pipeline.py', '.codex/auth.json'):
+                     'runs/oracle/./a', 'robofrontier/pipeline.py', '.codex/auth.json',
+                     'outputs/oracle/relay-edited-tracks-20261027/relay-a08-d1/session.json',
+                     'outputs/oracle/relay-edited-tracks-20261027/relay-a08-d1/source/unreviewed.py'):
             with self.subTest(name=name):
                 pin = self.bundle({name: b'original'})
                 with self.assertRaises(ValueError):
                     self.run_install(pin)
         self.assertFalse((self.root/'runs').exists())
+
+    def test_dated_relay_source_alias_and_assets_are_portable(self):
+        prefix = 'outputs/oracle/relay-edited-tracks-20261027/relay-a08-d1/source/'
+        files = {prefix+'scene.xml': b'original scene', prefix+'assets/label.png': b'original asset'}
+        pin = self.bundle(files)
+        self.assertEqual(self.run_install(pin)['installed'], 2)
+        for name, content in files.items():
+            self.assertEqual((self.root/name).read_bytes(), content)
 
     def test_destination_symlink_is_rejected(self):
         outside = self.base/'outside'

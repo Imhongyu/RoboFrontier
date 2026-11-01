@@ -27,7 +27,10 @@ def relative_path(value):
     if (not value or path.is_absolute() or '..' in path.parts or '\\' in value
             or str(path) != value):
         raise ValueError('Invalid fixture path: ' + value)
-    if not (value.startswith('configs/environments/') or value.startswith('runs/oracle/')
+    historical_relay = re.fullmatch(
+        r'outputs/oracle/relay-edited-tracks-20261027/relay-a(?:08|12|16)-d[123]/source/'
+        r'(?:scene\.xml|task\.json|environment\.json|workstation\.json|assets/.+)', value)
+    if not (value.startswith('configs/environments/') or value.startswith('runs/oracle/') or historical_relay
             or value == PRESERVATION_RECEIPT):
         raise ValueError('Outside historical fixture roots: ' + value)
     return path
