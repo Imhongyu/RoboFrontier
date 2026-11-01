@@ -1,52 +1,101 @@
-# 四臂方块拼图环境
+# Historical four-arm block Mosaic environment
 
-四台 Franka Panda 7 DoF 固定在 1.6×1.6 m 实体木色桌面的四边，A 南、B 东、C 北、D 西，均朝内。桌高 0.4 m，中央 10×10 网格占地 40×40 cm，格距与方块边长均为 4 cm；网格和行列编号仅为视觉印刷，没有碰撞分隔、吸附或自动对齐。
+Four inward-facing Franka Panda 7 DoF arms are fixed around a physical wood-colored
+1.6×1.6 m table: A south, B east, C north, D west. Table height is 0.4 m. A central
+10×10 grid occupies 40×40 cm; grid pitch and block side length are both 4 cm.
+Grid lines and row/column numbers are visual printing only, without collision
+dividers, attachment or automatic alignment.
 
-100 个 50 g 自由方块，按目标草案颜色计数：A 旁蓝色 40、B 旁红色 30、C 旁黄色 14、D 旁白色 16。整齐单层供料，方块间保留间距。供料位置不限制机器人只能操作某种颜色。
+The 100 free blocks each weigh 50 g. Draft target color counts are blue 40 near
+A, red 30 near B, yellow 14 near C and white 16 near D. Supply is arranged in
+spaced single layers. Supply locations do not restrict arms to a particular color.
 
-浅蓝背景、暖木色桌面。共 12 个固定相机：global、global_side、top、board_top，加 A～D 各 front / side。board_top 是网格近景；top 上北右东，行号由北往南、列号由西往东。initial-* 是初始化截图，不是实时观测。
+The scene has a light-blue background and warm wood table. Its 12 fixed cameras
+are global, global_side, top, board_top and front / side for A–D. board_top is a
+grid closeup. In top view north is up and east right; rows run north to south,
+columns west to east. initial-* files are initialization images, not live observations.
 
-## 打开和复位
+## View and reset
 
-在仓库根目录运行：
+From the repository root:
 
 ```sh
 .venv/bin/mjpython -m scripts.view_mosaic
 ```
 
-F6 依次切换 global / top / board_top / global_side；F7 恢复 initial keyframe。Mac 如需可用 Fn+F6 / Fn+F7。也可启动时指定 `--camera board_top`。鼠标观察操作使用 MuJoCo 原生功能。
+F6 cycles global / top / board_top / global_side; F7 restores the initial keyframe.
+On Mac, use Fn+F6 / Fn+F7 if needed. `--camera board_top` chooses the initial
+view. Mouse navigation uses native MuJoCo controls.
 
-物理持续运行，机器人保持初始执行器目标。上述命令是环境查看器，不接入动作服务。Agent 服务现可通过下述单独准备／启动步骤加载同一场景；尚未接入四臂键盘运动，也没有自动摆放策略。场景已保存 initial keyframe，原始 qpos0 不是可直接使用的初始化姿态；加载后需应用 keyframe。
+Physics runs continuously while robots retain initial actuator targets. This
+command is a viewer without an action service. The separate preparation/start
+steps below allow the agent service to load the same scene. Four-arm keyboard
+motion and an automatic placement policy were not implemented. Apply the saved
+initial keyframe after loading; raw qpos0 is not a usable initialization pose.
 
-## 目标草案与验证边界
+## Draft goal and verification boundaries
 
-assets/reference-original.png 保存用户参考图。task-draft.json 与 target-pattern-draft.png 是规整的四色 10×10 草案：原图第 7 行有半格错位，这版把中间蓝块放在第 6 列；深浅蓝视作同一颜色。运行评测前需确认目标矩阵。矩阵暂存在 robofrontier/mosaic.py 的 PATTERN，修改后重新生成；重新生成会覆盖本目录派生文件。
+assets/reference-original.png stores the user reference. task-draft.json and
+target-pattern-draft.png define a regularized four-color 10×10 draft. Row 7 of
+the original has a half-cell offset; this draft places the central blue block
+in column 6 and treats dark/light blue as one color. The matrix still required
+confirmation before evaluation. It is stored as PATTERN in robofrontier/mosaic.py;
+changes require regeneration, which overwrites this directory's derived files.
+This historical draft is separate from the current released Mosaic specification.
 
-validation.json 记录初始化穿透、一秒静置和机器人点位 IK 检查。当前无超过 1 mm 的初始化穿透，方块静置最大位移约 0.073 mm；各臂自己的供料中心点通过 IK，四臂可达目标格的并集覆盖全部 100 格，每臂固定朝下姿态点位覆盖 86 格。
+validation.json records initialization penetration, one-second settling and
+robot-point IK checks. No initial penetration exceeded 1 mm; maximum block
+displacement during settling was about 0.073 mm. Each arm's own supply center
+passed IK. The union of reachable target cells covered all 100 cells, with
+86 cells per arm at a fixed downward orientation.
 
-这只是几何端点检查，没有证明抓取、接近／撤离、夹指避障、密集零间隙插入、连续轨迹或多臂并行安全。动作服务的私有评分检查共享目标、2 mm XY 中心误差、3 mm 高度误差、约 2° 轴对齐、释放和桌面支撑，并要求连续一秒稳定；目标仍是草案，没有验证完整密集摆放可行性。
+These were geometric endpoint checks. They established neither grasping,
+approach/withdrawal, finger clearance, dense zero-gap insertion, continuous
+trajectories nor concurrent multi-arm safety. Private action-service scoring
+checked the shared goal, 2 mm XY center error, 3 mm height error, about 2° axis
+alignment, release and table support, with one continuous second of stability.
+The goal remained a draft; complete dense placement feasibility was unverified.
 
-重力、0.002 s 时间步、NoSlip 10、摩擦和 Panda 位置执行器沿用现有环境，不改夹持强度或加入吸附。scene.xml 的网格素材通过相对路径引用 vendor/panda/assets，复制整个仓库才保留可加载性。
+Gravity, the 0.002 s timestep, NoSlip 10, friction and Panda position actuators
+were retained from the existing environment. Grasp strength was unchanged and
+no attachment was added. scene.xml references vendor/panda/assets through
+relative paths; loading requires the complete repository.
 
-生成命令：
+Historical generation command:
 
 ```sh
 .venv/bin/python -m scripts.build_mosaic --reference /path/to/reference.png
 ```
 
-## 接入 Agent 动作服务
+## Historical agent action-service integration
 
-生成器同时更新 configs/tasks/mosaic-four-arm-v1.json，使用共享目标，不按机器人分配目标格。以新目录准备一次运行：
+Generation also updated configs/tasks/mosaic-four-arm-v1.json with a shared goal,
+without assigning target cells to individual robots. Prepare in a new directory:
 
 ```sh
 .venv/bin/python -m scripts.create_pipeline_run runs/NEW --task configs/tasks/mosaic-four-arm-v1.json
 .venv/bin/python -m robofrontier.pipeline --run-dir runs/NEW
 ```
 
-第一条仅冻结输入、场景、网格贴图及机器人网格，创建角色连接；第二条才启动共享物理世界和本地认证服务。角色 READY／会话绑定／START 仍沿用现有门控，没有 START 就不能移动机械臂。一个运行只由一个物理进程拥有；其他角色通过各自连接控制同一份世界，不各自启动模拟器。
+The first command froze inputs, scene, grid textures and robot meshes, and created
+role connections. Only the second started the shared physical world and local
+authenticated service. This legacy integration retained role READY/session
+binding/START gating; arms could not move before START. It is not the newer
+unified direct-START protocol. One physical process owned a run; other roles
+controlled that same world through their own connections rather than starting
+independent simulators.
 
-支持位置＋世界坐标四元数姿态、关节目标模式、连续夹爪开度与速度、原动作 ID 上的受控停止。关节速度／加速度、位置跟踪和原执行器力限仍受控制器约束。用机器人模型做重力补偿；不读取物体状态来选动作。夹爪宽度控制并非恒定夹持力控制。完整参数以 READY 和冻结 Skill 的工具契约为准。
+Controls included position plus world-frame quaternion, joint targets, continuous
+gripper aperture/speed and controlled stop on the original action ID. The
+controller retained joint velocity/acceleration, tracking and actuator force
+limits. Gravity compensation used the robot model, without object-state-based
+action selection. Gripper width control was not constant grasp-force control.
+Complete parameters came from READY and the frozen Skill tool contract.
 
-运行 RGB 为 1280×800，READY 返回对应相机配置；本目录静态预览原图为 1280×900，带边框预览另有视口偏移，见 initial-top.json。两者不是同一套像素坐标。
+Runtime RGB was 1280×800, with camera settings returned by READY. Static previews
+here were originally 1280×900; bordered previews also had viewport offsets
+recorded in initial-top.json. These pixel coordinate systems are distinct.
 
-原会话调度和通信拓扑保持不变；更新了机器人动作适配器、运行准备、共享目标评估及通用 Prompt / Skill。没有启动新的模型试验，也没有写入摆图顺序或自动抓放解法。
+Session scheduling and communication topology were retained. Changes covered
+the robot action adapter, run preparation, shared-goal evaluation and generic
+Prompt / Skill. No new model trial or prescribed placement/grasp sequence was run.

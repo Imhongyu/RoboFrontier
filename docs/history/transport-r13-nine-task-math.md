@@ -1,53 +1,66 @@
-> 历史归档。当前规格与状态见 [Transport任务说明](../tasks/transport.md)；合并操作见 [交接](../plans/suite-v2/transport-merge-handoff.md)。本文保留当时的过程与证据。
+> Historical archive. Current specification/status: [Transport task](../tasks/transport.md).
+> Merge procedure: [handoff](../plans/suite-v2/transport-merge-handoff.md).
+> This record retains the original process and evidence.
 
-# 九项Transport数学基线
+# Nine-task Transport mathematical baseline
 
-本次只做数学计算，没有新物理试验。
+This work performed calculations only, without new physics trials.
 
-1.68倍实测是十二臂L1中F_slot2和H_slot3两项局部工作。F独立34.0s、H独立46.8s、共同稳定3.2s，理想串行84.0s、独立并行50.0s；实测83.98s／50.10s。
+The measured 1.68 speedup covered only F_slot2 and H_slot3 in twelve-arm L1.
+F alone took 34.0s, H alone 46.8s and common settling 3.2s: ideal serial 84.0s,
+independent parallel 50.0s; measured 83.98s / 50.10s.
 
-## 统一单位资源模型
+## Uniform-unit resource model
 
-一次抓取／交接／放置或插入各1单位。供料所属臂抓取、目标区臂放置、最少环跳、无中途等待；持物持续占臂，交接占两臂。这是用于计算的假设，不是任务权限。
+Each grasp, handoff, placement or insertion costs 1 unit. Assumptions: the
+supply's owning arm grasps, a target-region arm places, minimum ring hops,
+no intermediate waits, holding occupies an arm and handoff occupies two arms.
+These are calculation assumptions, not task permissions.
 
-|规模|N|H|串行|该模型最优并行|模型倍率|
-|---|---:|---:|---:|---:|---:|
-|4|12|18|42|17|2.47|
-|8|24|48|96|20|4.80|
-|12|36|106|178|27|6.59|
+| Scale | N | H | Serial | Model-optimal parallel | Model speedup |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 4 | 12 | 18 | 42 | 17 | 2.47 |
+| 8 | 24 | 48 | 96 | 20 | 4.80 |
+| 12 | 36 | 106 | 178 | 27 | 6.59 |
 
-L1/L2/L3订单相同，因此统一单位模型相同。三组均由整数规划求解器报告最优，并保存排程。物理最优还取决于其他抓取臂、直交边、关节轨迹、接触和额外换手。
+L1/L2/L3 have identical orders, so their uniform-unit models match. An integer
+programming solver reported optimal schedules for all three groups, and those
+schedules were saved. Physical optima also depend on alternative grasping arms,
+direct handoff edges, joint trajectories, contacts and additional regrasping.
 
-## 工时外推，均为条件模型的仿真秒
+## Duration extrapolation: conditional-model simulation seconds
 
-|任务|串行|并行资源下界|已构造排程|模型倍率|
-|---|---:|---:|---:|---:|
-|4臂L1|1183.0|479.7|545.1|2.17|
-|4臂L2|1010.6|419.9|471.9|2.14|
-|4臂L3|1005.6|418.6|469.8|2.14|
-|8臂L1|1877.3|434.8|534.4|3.51|
-|8臂L2|2175.0|452.2|608.9|3.57|
-|8臂L3|2423.4|551.7|670.8|3.61|
-|12臂L1|4010.0|642.0|901.5|4.45|
-|12臂L2|4741.2|744.7|1041.9|4.55|
-|12臂L3|4789.1|758.3|1051.0|4.56|
+| Task | Serial | Parallel resource lower bound | Constructed schedule | Model speedup |
+| --- | ---: | ---: | ---: | ---: |
+| 4-arm L1 | 1183.0 | 479.7 | 545.1 | 2.17 |
+| 4-arm L2 | 1010.6 | 419.9 | 471.9 | 2.14 |
+| 4-arm L3 | 1005.6 | 418.6 | 469.8 | 2.14 |
+| 8-arm L1 | 1877.3 | 434.8 | 534.4 | 3.51 |
+| 8-arm L2 | 2175.0 | 452.2 | 608.9 | 3.57 |
+| 8-arm L3 | 2423.4 | 551.7 | 670.8 | 3.61 |
+| 12-arm L1 | 4010.0 | 642.0 | 901.5 | 4.45 |
+| 12-arm L2 | 4741.2 | 744.7 | 1041.9 | 4.55 |
+| 12-arm L3 | 4789.1 | 758.3 | 1051.0 | 4.56 |
 
-以上不是完整物理任务成绩。范围只约束这个资源模型，实际可能更慢、失败，或因不同策略更快。L2/L3含尚未通过的动作，不能当作已验证可执行计划。部分十二臂工时借用八臂参考，详见JSON来源。
+These are not complete physical-task scores. Bounds constrain only this resource
+model; actual execution may be slower, fail, or use a different faster strategy.
+L2/L3 include unpassed actions, so these are not verified executable plans.
+Some twelve-arm durations borrow eight-arm references; see the JSON provenance.
 
-数据：runs/oracle/transport-r13-units-20261025/nine-task-math.json。复算：PYTHONPATH=. OPENBLAS_NUM_THREADS=1 .venv/bin/python runs/oracle/transport-r13-units-20261025/calculate_nine.py。
+Data: runs/oracle/transport-r13-units-20261025/nine-task-math.json.
+Recalculate: PYTHONPATH=. OPENBLAS_NUM_THREADS=1 .venv/bin/python runs/oracle/transport-r13-units-20261025/calculate_nine.py.
 
-网页：http://127.0.0.1:56719/transport-r13-study/nine-math/index.html。
+Historical page: http://127.0.0.1:56719/transport-r13-study/nine-math/index.html.
 
+## Meaning of the eight unpassed categories
 
-## 八类未通过的含义
-
-|单元|记录原因|边界／替代|
-|---|---|---|
-|4臂 L2 方块①：插片朝上|抓起通过；现有候选的最终腕部姿态未过筛查，记录到link6/link7接近桌面的冲突。|同一B_item1→B_slot1，改由B空交给C后插入已通过。|
-|4臂 L2 方块②：侧向①|抓起通过；当前单抓姿态未找到连续可达的搬运／插入通路。|该单抓样例尚未补齐，不能据此断言物理无解。|
-|4臂 L2 方块③：侧向②|另一个供料位置／侧向也抓起通过，但最终进槽通路未找到。|尚未逐项隔离关节限制与碰撞筛查的贡献。|
-|4臂 L3 方块①：插片朝上|现有顶部抓姿无法接续到通过筛查的插入姿态。|同一B_item1→B_slot1，换手后插弹簧板已通过。|
-|12臂 L2 圆柱①：插片朝上|抓起通过，保留当前抓姿的直接插入通路未找到。|同一H_item1→H_slot3，H空交给G后插入已通过。|
-|12臂 L2 圆柱②：侧向|抓起通过；当前侧夹姿态的后续进板路径未找到。|不是抓取能力失败，仍需比较其他抓姿／分支。|
-|12臂 L3 圆柱①：插片朝上|抓起通过；本臂保留该抓姿直接插入未跑通。|不代表所有换手／操作者组合都不行。|
-|12臂 L3：左侧已有圆柱，再插中间|左侧已建立；第二个物体曾IK拒绝、超时，最新侧抓试验发生H_hand/H_link5真实自碰撞。|此项是机械邻块夹具，不计真实订单；失败和未结算H动作保留。|
+| Unit | Recorded reason | Boundary / alternative |
+| --- | --- | --- |
+| 4-arm L2 block ①: tabs upward | Lift passed; the candidate's final wrist pose failed screening, with link6/link7 near-table conflicts. | The same B_item1→B_slot1 passed after airborne transfer B→C before insertion. |
+| 4-arm L2 block ②: lateral ① | Lift passed; no continuous carry/insertion route was found for the current single grasp. | This example is incomplete, without proving physical impossibility. |
+| 4-arm L2 block ③: lateral ② | Another supply position/lateral grasp also lifted, but no final slot-entry route was found. | Joint-limit and collision-screening contributions were not individually isolated. |
+| 4-arm L3 block ①: tabs upward | The top grasp could not connect to a screened insertion pose. | The same B_item1→B_slot1 passed spring-board insertion after regrasping. |
+| 12-arm L2 cylinder ①: tabs upward | Lift passed; no direct insertion route was found while retaining this grasp. | The same H_item1→H_slot3 passed after airborne transfer H→G. |
+| 12-arm L2 cylinder ②: lateral | Lift passed; no subsequent board-entry route was found for this side grasp. | This is not a failure to grasp; other grasps/branches still require comparison. |
+| 12-arm L3 cylinder ①: tabs upward | This arm's direct insertion while retaining the grasp did not pass. | This does not exclude every regrasp/operator combination. |
+| 12-arm L3: left cylinder present, then center insertion | Left placement was established; the second object had IK rejection and timeout. The latest side-grasp attempt produced actual H_hand/H_link5 self-collision. | This is a mechanical neighbor fixture, not a real order. Failure and unresolved H actions remain retained. |

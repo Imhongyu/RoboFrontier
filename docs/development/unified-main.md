@@ -1570,3 +1570,16 @@ the inline script parses. No renderer was started. The V7 record retains all
 numeric values, commands, historical limitations and local links. Verification
 is in `english-factory-legacy-verification.json` in the Oracle evidence root.
 The remaining English inventory is 37 files / 66,203 Han characters.
+
+## English original environment notes and Transport math
+
+The early eight-arm beam-handoff and four-arm Mosaic environment notes now use
+English, retaining geometry, contact/IK boundaries, measured results and the
+legacy READY/topology protocol. The latter is explicitly separate from current
+direct START. Missing original beam-run reports remain identified by their exact
+historical paths instead of unusable links. No historical reference is promoted
+to current qualification. The Transport nine-task mathematical baseline retains
+every schedule value and all eight unpassed categories, including unresolved
+execution. Numeric tokens, source URLs and local links were checked in
+`english-early-environments-verification.json`. The remaining tracked English
+inventory is 34 files / 63,299 Han characters.
