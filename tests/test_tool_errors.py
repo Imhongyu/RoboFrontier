@@ -84,6 +84,30 @@ class ToolErrorTests(unittest.TestCase):
         self.assertEqual(client_call(self.connections['A'],'observe',{},'same',log_call_id=False),original)
         self.assertEqual(len(self.received),count)
 
+    def test_query_uses_new_request_id_and_original_action_target(self):
+        client_call(self.connections['A'],'move',{'target_m':[1,2,3]},'action-A',log_call_id=False)
+        count=len(self.received)
+        result=self.cli('A','job',{'call_id':'action-A'},'query-A')
+        self.assertEqual(result.returncode,0)
+        self.assertEqual(len(self.received),count+1)
+        self.assertEqual(self.received[-1]['call_id'],'query-A')
+        self.assertEqual(self.received[-1]['data']['call_id'],'action-A')
+        rejected=self.cli('A','job',{'call_id':'action-A'},'action-A')
+        self.assertEqual(json.loads(rejected.stdout)['error_code'],'CALL_ID_CONFLICT')
+        self.assertEqual(len(self.received),count+1)
+        self.assertIn('data.call_id',json.loads(rejected.stdout)['note'])
+
+    def test_uncertain_physical_call_reuses_id_without_automatic_replay(self):
+        self.mode='lost-response'
+        result=self.cli('A','move',{'target_m':[1,2,3]},'action-uncertain')
+        value=json.loads(result.stdout)
+        self.assertEqual(value['error_code'],'TRANSPORT_UNCERTAIN')
+        self.assertEqual(value['call_id'],'action-uncertain')
+        self.assertEqual(len(self.received),1)
+        self.assertEqual(self.store.call('action-uncertain')['status'],'completed')
+        self.assertEqual(len(client_call(self.connections['A'],'pending',{},log_call_id=False)['pending']),1)
+        self.assertIn('data.call_id',value['note'])
+
     def test_remote_cross_role_conflict_preserves_owner_and_has_no_replay(self):
         client_call(self.connections['A'],'observe',{},'shared-id',log_call_id=False)
         original=self.store.call('shared-id')

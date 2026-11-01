@@ -8,6 +8,7 @@ import copy
 import hashlib
 import json
 import math
+import os
 import queue
 import secrets
 import threading
@@ -30,8 +31,8 @@ from .recording import Video
 from .task_config import load_task, action_limits, panda_control_profile
 from .robot_control import PandaArm
 from .scene_task import camera_names
-from .tool_errors import CallIdConflict, conflict_error
 from .observation_image import observation_profile
+from .tool_errors import CallIdConflict, conflict_error
 from .runtime_service import RuntimeService
 from .motion_check import (CONTROL_DT, JOINT_SPEED_LIMIT, JOINT_ACCEL_LIMIT,
                            TRACKING_LIMIT, RobotGeometry, prepare_check, state_id)
@@ -380,6 +381,7 @@ class World:
 class Service(RuntimeService):
     def __init__(self,directory,hidden=False):
         self.hidden=hidden;self.obs=0
+        self.perf={'world_step_wall_s':0.,'world_steps':0,'capture_wall_s':0.,'captures':0,'pump_wall_s':0.}
         cfg = json.loads((Path(directory)/'private/inputs/harness.json').read_text())
         self.observation_image = observation_profile(cfg)
         video_factory = (lambda:Video(Path(directory).resolve()/'private/outputs'/
@@ -388,6 +390,7 @@ class Service(RuntimeService):
         super().__init__(directory,World,self.capture,video_factory)
 
     def capture(self,cameras):
+        capture_start=time.perf_counter()
         self.obs+=1;paths={}
         mujoco.mjr_setBuffer(mujoco.mjtFramebuffer.mjFB_OFFSCREEN,self.context)
         width, height = self.observation_image['width'], self.observation_image['height']
@@ -400,9 +403,12 @@ class Service(RuntimeService):
             path=self.directory/'public/observations'/f"obs-{uuid.uuid4().hex[:8]}-{self.obs:05d}-{name}{self.observation_image['extension']}"
             options = {'quality': self.observation_image['quality'], 'subsampling': 2, 'optimize': True} if self.observation_image['format']=='JPEG' else {}
             Image.fromarray(rgb[::-1]).save(path, format=self.observation_image['format'], **options);paths[name]=str(path)
-        mujoco.mjr_setBuffer(mujoco.mjtFramebuffer.mjFB_WINDOW,self.context)
-        return {'sim_time_s':self.world.time,'captured_at':time.time(),'images':paths,
+        if not getattr(self,'offscreen_context',None):
+            mujoco.mjr_setBuffer(mujoco.mjtFramebuffer.mjFB_WINDOW,self.context)
+        result={'sim_time_s':self.world.time,'captured_at':time.time(),'images':paths,
                 'robot':{a:r.observe() for a,r in self.world.arms.items()}}
+        self.perf['capture_wall_s']+=time.perf_counter()-capture_start;self.perf['captures']+=1
+        return result
 
     def http_handler(self, observer):
         from http.cookies import SimpleCookie
@@ -447,11 +453,16 @@ class Service(RuntimeService):
         observer=secrets.token_urlsafe(24)
         Handler=self.http_handler(observer)
         try:
-            if not glfw.init():raise RuntimeError('GLFW init failed')
-            glfw.window_hint(glfw.VISIBLE,not self.hidden)
-            self.window=glfw.create_window(1280,800,'RoboFrontier — Shared World',None,None)
-            if not self.window:raise RuntimeError('GLFW window creation failed')
-            glfw.make_context_current(self.window);glfw.swap_interval(1)
+            if self.hidden and os.environ.get('MUJOCO_GL','').lower()=='osmesa':
+                from mujoco.osmesa import GLContext
+                self.offscreen_context=GLContext(1280,800)
+                self.offscreen_context.make_current()
+            else:
+                if not glfw.init():raise RuntimeError('GLFW init failed')
+                glfw.window_hint(glfw.VISIBLE,not self.hidden)
+                self.window=glfw.create_window(1280,800,'RoboFrontier — Shared World',None,None)
+                if not self.window:raise RuntimeError('GLFW window creation failed')
+                glfw.make_context_current(self.window);glfw.swap_interval(1)
             self.context=mujoco.MjrContext(self.world.model,mujoco.mjtFontScale.mjFONTSCALE_150)
             self.scene=mujoco.MjvScene(self.world.model,maxgeom=5000);self.options=mujoco.MjvOption();self.options.geomgroup[3]=0
             self.cam=mujoco.MjvCamera();self.cam.type=mujoco.mjtCamera.mjCAMERA_FIXED
@@ -466,13 +477,20 @@ class Service(RuntimeService):
                 connection=json.loads(p.read_text());connection['url']=url;atomic_json(p,connection);p.chmod(0o600)
             atomic_json(self.directory/'private/state/observer.json',{'url':url+'/viewer/'+observer,'read_only':True})
             print(json.dumps({'url':url,'directory':str(self.directory),'ready':True}),flush=True)
-            previous=time.monotonic();acc=0.;next_frame=previous;next_state=previous;next_record=previous
-            while not glfw.window_should_close(self.window) and not self.shutdown:
-                now=time.monotonic();acc+=min(now-previous,.1);previous=now;glfw.poll_events()
+            previous=time.monotonic();acc=0.;next_frame=previous;next_state=previous;next_record=previous;next_perf=previous
+            perf_file=self.directory/'private/outputs/cpu-performance.jsonl'
+            while not self.shutdown and (not hasattr(self,'window') or not glfw.window_should_close(self.window)):
+                now=time.monotonic();acc+=min(now-previous,.1);previous=now
+                if hasattr(self,'window'):glfw.poll_events()
                 with self.lock:
-                    self.pump()
-                    while acc>=.02 and not self.ended:self.world.step();acc-=.02
+                    tick=time.perf_counter();self.pump();self.perf['pump_wall_s']+=time.perf_counter()-tick
+                    while acc>=.02 and not self.ended:
+                        tick=time.perf_counter();self.world.step();self.perf['world_step_wall_s']+=time.perf_counter()-tick
+                        self.perf['world_steps']+=1;acc-=.02
                     if now>=next_state:self.periodic();next_state=now+1
+                    if now>=next_perf:
+                        with perf_file.open('a') as stream:stream.write(json.dumps({'at':time.time(),**self.perf})+'\n')
+                        next_perf=now+5
                     if not self.hidden and now>=next_frame:
                         mujoco.mjr_setBuffer(mujoco.mjtFramebuffer.mjFB_WINDOW,self.context)
                         w,h=glfw.get_framebuffer_size(self.window);viewport=mujoco.MjrRect(0,0,w,h)
@@ -489,9 +507,16 @@ class Service(RuntimeService):
                     elif not self.video:next_record=now
                 time.sleep(.001)
         finally:
+            if hasattr(self,'context'):
+                with (self.directory/'private/outputs/cpu-performance.jsonl').open('a') as stream:
+                    stream.write(json.dumps({'at':time.time(),**self.perf})+'\n')
             if hasattr(self,'server'):self.server.shutdown()
+            if hasattr(self,'offscreen_context'):
+                if hasattr(self,'context'):self.context.free()
+                self.offscreen_context.free()
             if hasattr(self,'window'):glfw.destroy_window(self.window)
-            glfw.terminate();self.close()
+            if not hasattr(self,'offscreen_context'):glfw.terminate()
+            self.close()
 
 
 def main():
