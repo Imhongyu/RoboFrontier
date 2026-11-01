@@ -1,26 +1,26 @@
 {
   "object": "Tulip",
-  "label": "郁金香",
+  "label": "Tulip",
   "palette": [
     {
       "id": 0,
       "hex": "#F4E7D5",
-      "name": "奶油白"
+      "name": "Cream"
     },
     {
       "id": 1,
       "hex": "#263C4C",
-      "name": "深蓝"
+      "name": "Deep blue"
     },
     {
       "id": 2,
       "hex": "#EF7180",
-      "name": "珊瑚粉"
+      "name": "Coral pink"
     },
     {
       "id": 3,
       "hex": "#4C9B87",
-      "name": "鼠尾草绿"
+      "name": "Sage green"
     }
   ],
   "coordinates": "row-major, top-left origin, indices start at 0",

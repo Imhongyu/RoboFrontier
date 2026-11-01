@@ -4,7 +4,7 @@
   "palettes": [
     {
       "id": "bright",
-      "name": "明亮郁金香",
+      "name": "Bright tulip",
       "hex": [
         "#FFF4DA",
         "#173F73",
@@ -14,7 +14,7 @@
     },
     {
       "id": "fresh",
-      "name": "清爽青蓝",
+      "name": "Fresh cyan-blue",
       "hex": [
         "#F5FCFF",
         "#164E73",
@@ -24,7 +24,7 @@
     },
     {
       "id": "classic",
-      "name": "暖白正红",
+      "name": "Warm white and red",
       "hex": [
         "#FFF8E7",
         "#283B58",
@@ -34,7 +34,7 @@
     },
     {
       "id": "violet",
-      "name": "紫花青叶",
+      "name": "Violet petals and teal leaves",
       "hex": [
         "#FFF7EB",
         "#283B63",
@@ -44,7 +44,7 @@
     },
     {
       "id": "original",
-      "name": "原配色对照",
+      "name": "Original palette reference",
       "hex": [
         "#F4E7D5",
         "#263C4C",

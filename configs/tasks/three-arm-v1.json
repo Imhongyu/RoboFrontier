@@ -1,6 +1,6 @@
 {
   "id": "three-arm-v1",
-  "description": "将正确属性的方块放入各区域目标槽，释放夹爪并让出空间。剩余物料可留在不妨碍任务的位置。",
+  "description": "Place blocks with the required attributes into the target slots in each region, release the gripper and clear the space. Unused materials may remain wherever they do not obstruct the task.",
   "table_height_m": 0.4,
   "cube_size_m": 0.04,
   "cube_mass_kg": 0.05,

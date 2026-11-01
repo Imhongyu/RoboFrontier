@@ -1,6 +1,6 @@
 {
   "id": "three-arm-nine-orders-v1",
-  "description": "各臂将三个指定来源及颜色的方块放入目标槽，释放夹爪并让出接收路径。来源按开局区域定义，接力不改变来源；任务不规定运输顺序或暂放点。",
+  "description": "Each arm must place three blocks with the specified source and color into its target slots, release the gripper and clear the receiving path. Source is defined by the initial region and does not change after handoff. Transport order and temporary placement locations are unrestricted.",
   "table_height_m": 0.4,
   "cube_size_m": 0.04,
   "cube_mass_kg": 0.05,
@@ -242,6 +242,6 @@
     "camera_selection": "agent",
     "image_loading": "agent; returning a path does not prove viewing"
   },
-  "objective": "完成全部目标，并尽量缩短全队完成时间，减少无效搬运、无必要的等待与重复观察。碰撞和操作失误应避免，发生时如实报告。",
-  "execution_context": "独立 MuJoCo 仿真实验。关节、工作空间及运动限值由执行器约束；Agent 在这些硬边界内，根据可用证据自主权衡剩余不确定性并选择并行候选。允许尝试有依据的并行安排，不要求逐动作先取得形式化的完整碰撞认证。"
+  "objective": "Complete all goals while minimizing team completion time, unnecessary transport, avoidable waiting and repeated observations. Avoid collisions and manipulation errors; report any that occur accurately.",
+  "execution_context": "Independent MuJoCo simulation experiment. The executor enforces joint, workspace and motion limits. Within these hard limits, agents independently weigh remaining uncertainty from available evidence and choose concurrent candidates. Evidence-supported concurrency may be attempted without formal complete collision certification before every action."
 }

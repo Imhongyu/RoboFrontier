@@ -1603,3 +1603,15 @@ under outputs, with unrelated paths rejected. Eleven focused macOS checks pass.
 The testing guide contains the new independent manifest and archive pins. The
 v2 bundle/report remain retained; neither is silently relabeled complete.
 An independent v3 installation and complete Linux discovery are pending.
+
+## English palette labels and legacy task prose
+
+Five pattern/task JSON sources now use English display labels, descriptions,
+objectives and execution-context prose. Parsed values outside those text fields
+are identical: palette IDs/hex values, every lattice cell, object/goal constraints,
+control limits, friction and scoring thresholds remain unchanged. The original
+frozen scene pattern copies and recorded run inputs were not rewritten; only
+future generation/preparation reads the translated source text and its new raw
+hash. Original/translated hashes are in `english-pattern-task-verification.json`.
+Existing inventory/schedule and petal-symmetry/round-crank checks pass (three
+checks). The remaining tracked inventory is 29 files / 63,012 Han characters.
