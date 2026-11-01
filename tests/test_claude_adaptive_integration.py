@@ -31,7 +31,7 @@ class StubModel(http.server.BaseHTTPRequestHandler):
             if 'Your current runtime role is Delegate_' in text:
                 return {'op':'return_task','data':{'outcome':'completed','result':'synthetic evidence'}}, 'toolu_return'
             if 'wake_id=' in text or 'experiment has STARTED' in text or not text:
-                return {'op':'delegate','data':{'scopes':[{'robots':['A'],'goal':'synthetic','done_when':'synthetic'}]},'call_id':'synthetic-delegate'}, 'toolu_delegate'
+                return {'op':'delegate','data':{'scopes':[{'robots':['A'],'goal':'synthetic','done_when':'synthetic'}]}}, 'toolu_delegate'
             return {'op':'ready','data':{}}, 'toolu_ready'
         return None, None
     def do_POST(self):
@@ -135,6 +135,7 @@ class AdaptiveIntegrationTests(unittest.TestCase):
                 self.assertTrue(batches, {'parent':host.host.observe(),'last':host.host.last_result,
                     'requests':[(len(r.get('tools',[])), str(r.get('messages',[])[-1].get('content',''))[:500]) for r in StubModel.requests]})
                 batch=next(iter(batches.values()))
+                self.assertTrue(list((run/'private/state/claude-tool-bindings').glob('*.json')))
                 claims=list((run/'private/claude-forks').glob('*.json')) if (run/'private/claude-forks').exists() else []
                 self.assertEqual(batch['status'],'finished',{'batch':batch,'setup':host.dispatcher.setup_result,
                     'claims':[json.loads(p.read_text()) for p in claims], 'errors':errors,

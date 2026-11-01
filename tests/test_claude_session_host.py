@@ -28,6 +28,24 @@ def result(sid, status='ended', code=0, malformed=0):
 
 
 class SessionHostTests(unittest.TestCase):
+    def test_uncapped_turns_keep_cost_evidence_and_continue_when_cost_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = make_run(tmp)
+            costs = iter((.1, None, 0))
+            calls = []
+            def runner(*args, **kwargs):
+                calls.append(kwargs)
+                record = result(kwargs.get('session_id') or kwargs.get('resume'))
+                record['summary']['total_cost_usd'] = next(costs)
+                return record
+            host = ClaudeSessionHost(run, 'Controller', PROFILE, {}, runner=runner)
+            for _ in range(3):
+                host.send('continue')
+                self.assertEqual(host.wait(3)['status'], 'idle')
+            self.assertEqual(host.observe()['reported_spend_usd'], '0.1')
+            self.assertEqual(host.observe()['unreported_cost_count'], 1)
+            self.assertTrue(all(c['timeout'] is None and c['max_budget_usd'] is None for c in calls))
+
     def test_role_config_is_bound_and_manager_cannot_be_selected(self):
         with tempfile.TemporaryDirectory() as tmp:
             run = make_run(tmp)

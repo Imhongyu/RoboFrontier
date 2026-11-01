@@ -67,6 +67,33 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(seen,[600]*4)
         self.assertEqual(result['startup_timeout_s'],600)
 
+    def test_defaults_have_no_cost_caps_and_use_24_hours(self):
+        seen = []
+        def runner(*args, **kwargs):
+            seen.append(kwargs)
+            return {'status': 'finished', 'reason': 'world_ended'}
+        state = run_batch(self.root, self.env, parallel=2, runner=runner, verifier=lambda _: [])
+        self.assertEqual(state['status'], 'closed')
+        self.assertEqual(len(seen), 4)
+        for options in seen:
+            self.assertIsNone(options['turn_budget_usd'])
+            self.assertIsNone(options['total_budget_usd'])
+            self.assertEqual(options['wall_limit_s'], 86400)
+
+    def test_cli_accepts_omitted_cost_caps_and_wall_limit(self):
+        from unittest.mock import patch
+        from scripts.claude_benchmark import main
+        argv = ['claude_benchmark', 'run-engineering', str(self.root), '--parallel', '2',
+                '--confirm-engineering-spend']
+        with patch.object(sys, 'argv', argv), patch('scripts.claude_benchmark.load_env'), \
+             patch('robofrontier.claude.engineering_batch.run_batch', return_value={}) as launch, \
+             patch('builtins.print'):
+            main()
+        options = launch.call_args.kwargs
+        self.assertIsNone(options['turn_budget_usd'])
+        self.assertIsNone(options['total_budget_usd'])
+        self.assertEqual(options['wall_limit_s'], 86400)
+
     def test_stop_marks_active_and_skips_queued(self):
         entered = threading.Event(); finish = threading.Event(); outcome = []
         def runner(*args, **kwargs): entered.set(); finish.wait(3); return {'status':'finished', 'reason':'stop_requested'}

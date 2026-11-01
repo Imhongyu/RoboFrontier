@@ -16,6 +16,7 @@ from robofrontier.claude.provenance import fork_provenance, history, transcript_
 from robofrontier.claude.runner import PreLaunchCancelled, run_turn
 from robofrontier.delegation import Delegations
 from robofrontier.run_setup import write_json
+from robofrontier.claude.request_identity import matches_binding
 
 ACTOR = re.compile(r'Delegate_[a-f0-9]{12}\Z')
 SETUP_PROMPT = ('This is an engineering setup turn with no tools. Do not act on the inherited task. '
@@ -46,7 +47,9 @@ def _pending_history(store, parent, batch_id, actor, owner, config, cancel_event
                 if not isinstance(item, dict) or item.get('type') != 'tool_use': continue
                 data = item.get('input')
                 if (isinstance(data, dict) and data.get('op') == 'delegate'
-                        and data.get('call_id') == batch_id and item.get('name') == 'mcp__robot__robot'):
+                        and item.get('name') == 'mcp__robot__robot'
+                        and (data.get('call_id') == batch_id or matches_binding(
+                            parent.run, batch_id, parent.session_id, row, item))):
                     return source
         time.sleep(.05)
     raise ValueError('Pending delegation was not recorded in the native transcript')
@@ -82,8 +85,8 @@ def create_fork(store, parent_host, batch_id, actor, owner, *, max_budget_usd,
     a caller still needs a task-wide concurrent cost ledger before enabling adaptive.
     """
     if not isinstance(actor, str) or not ACTOR.fullmatch(actor): raise ValueError('Invalid delegate actor')
-    if isinstance(max_budget_usd, bool) or not isinstance(max_budget_usd, (int, float)) or not 0 < max_budget_usd < float('inf'):
-        raise ValueError('A finite positive setup budget is required')
+    if max_budget_usd is not None and (isinstance(max_budget_usd, bool) or not isinstance(max_budget_usd, (int, float)) or not 0 < max_budget_usd < float('inf')):
+        raise ValueError('Setup budget must be a finite positive number or None')
     _boundary(store, parent_host, batch_id, actor, owner)
     run = Path(parent_host.run).resolve()
     config = run / 'private/claude-config'
@@ -128,7 +131,8 @@ def create_fork(store, parent_host, batch_id, actor, owner, *, max_budget_usd,
         record = runner(profile, profile['model'], profile['effort'], None, SETUP_PROMPT, run,
                         parent_host.base_env, session_id=child, fork_from=source_id,
                         enable_robot=False, max_budget_usd=max_budget_usd, timeout=timeout,
-                        binary=parent_host.binary, events_name=claim_name+'-fork-setup.jsonl', cancel_event=cancel_event)
+                        binary=parent_host.binary, events_name=claim_name+'-fork-setup.jsonl', cancel_event=cancel_event,
+                        actor=actor, phase='snapshot_setup' if snapshot else 'fork_setup')
         summary = record.get('summary') or {}
         if (record.get('process') != 'exited' or record.get('exit_code') != 0
                 or summary.get('session_id') != child or summary.get('turn_status') != 'ended'
@@ -137,10 +141,12 @@ def create_fork(store, parent_host, batch_id, actor, owner, *, max_budget_usd,
         cost = summary.get('total_cost_usd')
         try:
             amount = Decimal(str(cost)) if not isinstance(cost, bool) else Decimal('NaN')
-            if not amount.is_finite() or amount <= 0: raise InvalidOperation
+            if not amount.is_finite() or amount < 0 or (max_budget_usd is not None and amount == 0): raise InvalidOperation
         except (InvalidOperation, ValueError) as error:
-            raise ValueError('Fork setup cost is unknown') from error
-        if amount > Decimal(str(max_budget_usd)):
+            if max_budget_usd is not None:
+                raise ValueError('Fork setup cost is unknown') from error
+            amount = None
+        if max_budget_usd is not None and amount > Decimal(str(max_budget_usd)):
             raise ValueError('Fork setup reported cost exceeds its allowance')
         if budget_ledger is not None:
             shared = budget_ledger.settle(reservation, amount, outcome_known=True)
@@ -151,7 +157,9 @@ def create_fork(store, parent_host, batch_id, actor, owner, *, max_budget_usd,
         if proof['source_sha256'] != digest:
             raise ValueError('Parent history changed across fork setup')
         entry.update(status='history_verified_no_authority', completed_at=time.time(), proof=proof,
-                     reported_cost_usd=str(amount))
+                     reported_cost_usd=str(amount) if amount is not None else None,
+                     usage=summary.get('usage'), model_usage=summary.get('model_usage'),
+                     duration_s=record.get('duration_s'))
         if snapshot:
             snapshot_history = history(transcript_rows(config, child), child)
             entry['snapshot_sha256'] = hashlib.sha256(json.dumps(snapshot_history, sort_keys=True).encode()).hexdigest()

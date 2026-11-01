@@ -55,6 +55,33 @@ class AdaptiveSetupTests(unittest.TestCase):
         self.assertNotEqual(self.calls[0]['events_name'],self.calls[1]['events_name'])
         with self.assertRaises(ValueError): host.establish('batch')
 
+    def test_uncapped_snapshot_fork_and_child_continue_without_cost_reports(self):
+        self.ledger.close()
+        self.ledger = BudgetLedger.create(self.run/'private/state/uncapped-budget.sqlite')
+        self.parent.budget_ledger = self.ledger
+        original_runner, original_child = self.runner, self.child_runner
+        def no_cost(*args, **kwargs):
+            record = original_runner(*args, **kwargs)
+            record['summary']['total_cost_usd'] = None
+            return record
+        def no_child_cost(*args, **kwargs):
+            record = original_child(*args, **kwargs)
+            record['summary']['total_cost_usd'] = None
+            return record
+        self.runner, self.child_runner = no_cost, no_child_cost
+        host = AdaptiveForkSetup(self.store, self.parent, self.ledger, 'owner',
+                                 setup_budget_usd=None, child_budget_usd=None,
+                                 fork_factory=self.fork, child_factory=self.child)
+        self.assertEqual(host.establish('batch')['status'], 'active')
+        self.assertEqual(host.hosts[self.actor].wait(3)['status'], 'idle')
+        for call in self.calls + self.child_calls:
+            self.assertIsNone(call['max_budget_usd'])
+        self.assertIsNone(self.child_calls[0]['timeout'])
+        state = self.ledger.snapshot()
+        self.assertEqual(state['status'], 'tracking')
+        self.assertEqual(state['unreported_cost_count'], 3)
+        self.assertIsNone(state['limit_usd'])
+
     def test_uncertain_fork_keeps_reserved_robot_and_known_child_id(self):
         def lost(*args,**kwargs):
             def bad_runner(*a,**kw):

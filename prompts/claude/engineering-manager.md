@@ -21,9 +21,9 @@
 - precheck_budget_usd: 未指定
 - check_fork: true
 - check_blocked_fork: false
-- turn_budget_usd: 未指定
-- task_budget_usd: 未指定
-- wall_limit_s: 未指定
+- turn_budget_usd: null（不设单轮美元上限）
+- task_budget_usd: null（不设整任务美元上限）
+- wall_limit_s: 86400（从 START 起的工程停止时间）
 - startup_timeout_s: 120
 
 按顺序执行，报告每一步的结果：
@@ -46,14 +46,17 @@
    scripts.claude_blocked_precheck，保存独立回执；这仍不是完整任务或计费硬上限。
    取得两份回执后可用 scripts.claude_readiness 核对当前 profile 和 CLI 是否匹配；
    一致仅代表回执检查通过，不代表已完成正式计分资格验证。
-5. mode=engineering：仅在用户明确授权指定模型和工程批次的真实费用，且给出正数
-   turn_budget_usd、task_budget_usd、wall_limit_s 时继续。准备新目录：
+5. mode=engineering：用户已明确授权指定模型和工程批次的真实费用时继续。
+   turn_budget_usd、task_budget_usd 默认 null，不要求用户填写预算；显式指定时须为
+   正数。wall_limit_s 默认 86400，工程短测可缩短，但不会改写公开任务的冻结时限。
+   准备新目录：
    scripts.claude_benchmark prepare-draft，传入选择、topology 和 output；若
    record_video=true 则加 --record-video 并检查 FFmpeg、ffprobe。执行前核对
    batch.json 的 case 和 profile 与第 3 步一致。目录已存在则停下，不覆盖或重用。
    此模式是未计分工程测试，不能代替正式 preflight 或计分 benchmark。
 6. 使用持久终端运行 scripts.claude_benchmark run-engineering OUTPUT --parallel N
-   --turn-budget-usd T --task-budget-usd B --wall-limit-s W --confirm-engineering-spend。
+   --wall-limit-s W --confirm-engineering-spend。只有明确设置对应预算时，才添加
+   --turn-budget-usd T 或 --task-budget-usd B；省略即不设该层美元上限。
    可传 --startup-timeout-s S，控制物理 owner 和策略启动阶段各自的等待上限。
    定期使用 status-engineering 检查本批次，持续观察直到进程结束；需要停止时使用
    stop-engineering，然后检查每项的封存、进程状态与 needs_review。不可重启已领取的

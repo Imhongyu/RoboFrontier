@@ -94,8 +94,12 @@ class ParallelPhysicsSmokeTests(unittest.TestCase):
                 self.assertEqual(detail['seal']['unresolved_action_ids'], [])
                 state = RuntimeStore(run/'private/state/runtime.sqlite')
                 try:
-                    self.assertEqual(state.get('delegations', {})['synthetic-delegate']['status'], 'finished')
-                    self.assertEqual(state.actions()['synthetic-motion']['status'], 'completed')
+                    batches = list(state.get('delegations', {}).values())
+                    self.assertEqual(len(batches), 1)
+                    self.assertEqual(batches[0]['status'], 'finished')
+                    actions = list(state.actions().values())
+                    self.assertEqual(len(actions), 1)
+                    self.assertEqual(actions[0]['status'], 'completed')
                     self.assertEqual(state.get('robot_owners')['A'], 'Controller')
                 finally:
                     state.close()

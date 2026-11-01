@@ -8,14 +8,17 @@ import re
 import sys
 import threading
 import uuid
+import time
 
 from robofrontier.pipeline_client import client_call
 from robofrontier.tool_errors import CallIdConflict, conflict_error, uncertain_error
+from robofrontier.claude.request_identity import bind_delegate, fingerprint
+from robofrontier.run_metrics import host_event
 
 TOOL = {
     'name': 'robot',
-    'description': ('Call the robot API bound to this role. For each new move, gripper, action_batch, delegate or stop, '
-                    'provide a unique stable outer call_id. For job, put the original action ID in data.call_id '
+    'description': ('Call the robot API bound to this role. Omit outer call_id for a new request; '
+                    'the host generates and returns it. For job, put the original action ID in data.call_id '
                     'and omit the outer call_id. Retry an uncertain request only with its original outer ID and identical op and data.'),
     'inputSchema': {'type': 'object', 'properties': {
         'op': {'type': 'string'}, 'data': {'type': 'object'},
@@ -26,7 +29,6 @@ TOOL = {
 POLICY_OPS = frozenset(('public_image', 'ready', 'robot_model', 'check_motion', 'send', 'inbox', 'wait_events',
                         'history', 'work', 'delegate', 'return_task', 'team', 'checkpoint', 'yield',
                         'observe', 'stop', 'move', 'gripper', 'action_batch', 'job', 'finish', 'pending'))
-STABLE_ID_OPS = frozenset(('move', 'gripper', 'action_batch', 'delegate', 'stop'))
 
 
 class RobotBridge:
@@ -42,8 +44,11 @@ class RobotBridge:
         if config.get('run_id') != self.run.name:
             raise ValueError('Role connection belongs to a different run')
         self.invoke = invoke
+        self.actor = config['actor']
+        self.requests = {}
+        self.request_lock = threading.Lock()
 
-    def call(self, args):
+    def call(self, args, request_id=None):
         if not isinstance(args, dict) or set(args) - {'op', 'data', 'call_id', 'views'}:
             raise ValueError('Invalid robot arguments')
         op, data = args.get('op'), args.get('data')
@@ -52,22 +57,56 @@ class RobotBridge:
             raise ValueError('Unknown or administrative robot operation')
         if not isinstance(views, list) or not all(isinstance(v, str) and v for v in views):
             raise ValueError('views must be an array of camera names')
+        with self.request_lock:
+            key = json.dumps(request_id, sort_keys=True) if request_id is not None else None
+            old = self.requests.get(key) if key is not None else None
+            if old and old[0] != fingerprint(args):
+                return {'isError': True, 'content': [{'type': 'text', 'text':
+                    json.dumps(conflict_error(old[1]), ensure_ascii=False)}]}
+            call_id = old[1] if old else args.get('call_id') or uuid.uuid4().hex
+            if not isinstance(call_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', call_id):
+                raise ValueError('Use a simple call ID, not a path')
+            if key is not None: self.requests[key] = (fingerprint(args), call_id)
+        began = time.monotonic()
+        host_event(self.run, 'robot_tool_started', actor=self.actor, op=op, call_id=call_id)
         if op == 'public_image':
-            return self.public_images(data)
-        call_id = args.get('call_id')
-        if op in STABLE_ID_OPS and (not isinstance(call_id, str) or not call_id):
-            raise ValueError('Provide a stable call_id for this operation')
-        call_id = call_id or uuid.uuid4().hex
+            try:
+                result = self.public_images(data)
+            except Exception:
+                host_event(self.run, 'robot_tool_failed', actor=self.actor, op=op, call_id=call_id,
+                           duration_s=time.monotonic()-began, error_code='PUBLIC_IMAGE_UNAVAILABLE')
+                raise
+            result['content'].append({'type':'text','text':json.dumps({'call_id':call_id})})
+            host_event(self.run, 'robot_tool_completed', actor=self.actor, op=op, call_id=call_id,
+                       duration_s=time.monotonic()-began)
+            return result
+        if op == 'delegate' and not args.get('call_id'):
+            try:
+                bind_delegate(self.run, self.actor, args, call_id)
+            except ValueError:
+                host_event(self.run, 'robot_tool_failed', actor=self.actor, op=op, call_id=call_id,
+                           duration_s=time.monotonic()-began, error_code='DELEGATE_IDENTITY_UNVERIFIED')
+                return {'isError': True, 'content': [{'type': 'text', 'text': json.dumps({
+                    'call_id': call_id, 'error_code': 'DELEGATE_IDENTITY_UNVERIFIED',
+                    'request_status': 'rejected', 'execution_status': 'not_submitted',
+                    'note': 'No delegation was submitted: native tool identity could not be verified.'})}]}
         if op in ('move', 'gripper', 'action_batch') and 'cameras' not in data:
             data = {**data, 'cameras': views}
         try:
             result = self.invoke(self.connection, op, data, call_id, log_call_id=False)
         except CallIdConflict:
+            host_event(self.run, 'robot_tool_failed', actor=self.actor, op=op, call_id=call_id,
+                       duration_s=time.monotonic()-began, error_code='CALL_ID_CONFLICT')
             return {'isError': True, 'content': [{'type': 'text', 'text':
                 json.dumps(conflict_error(call_id), ensure_ascii=False)}]}
         except Exception:
+            host_event(self.run, 'robot_tool_failed', actor=self.actor, op=op, call_id=call_id,
+                       duration_s=time.monotonic()-began, error_code='TRANSPORT_UNCERTAIN')
             return {'isError': True, 'content': [{'type': 'text', 'text':
                 json.dumps(uncertain_error(call_id), ensure_ascii=False)}]}
+        result = {**result, 'call_id': call_id}
+        host_event(self.run, 'robot_tool_completed', actor=self.actor, op=op, call_id=call_id,
+                   duration_s=time.monotonic()-began)
         if op == 'work' and 'delegate_id' in data:
             result = self.attach_delegate_report(result, data['delegate_id'])
         content = [{'type': 'text', 'text': json.dumps(result, ensure_ascii=False, allow_nan=False)}]
@@ -165,7 +204,7 @@ def handle(request, bridge):
     if method == 'tools/list': return {'tools': [TOOL]}
     if method == 'tools/call':
         if params.get('name') != 'robot': raise ValueError('Unknown tool')
-        return bridge.call(params.get('arguments'))
+        return bridge.call(params.get('arguments'), request_id=request.get('id'))
     raise ValueError('Unknown MCP method')
 
 

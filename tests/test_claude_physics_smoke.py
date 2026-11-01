@@ -29,8 +29,7 @@ class MotionModel(StubModel):
         if names and has_result:
             ident = blocks[-1].get('tool_use_id')
             if ident == 'toolu_observe':
-                return {'op':'move','data':{'robot':'A','delta_m':[0,0,.005]},
-                        'call_id':'synthetic-motion'}, 'toolu_move'
+                return {'op':'move','data':{'robot':'A','delta_m':[0,0,.005]}}, 'toolu_move'
             if ident == 'toolu_move':
                 return {'op':'return_task','data':{'outcome':'completed','result':'synthetic motion test'}}, 'toolu_return'
         return super().choose_tool(names,text,blocks,has_result)
@@ -72,12 +71,14 @@ class PhysicsSmokeTests(unittest.TestCase):
                 self.assertTrue(result['seal']['video']['readable'], result['seal']['video'])
             state = RuntimeStore(run / 'private/state/runtime.sqlite')
             try:
-                batch = state.get('delegations', {}).get('synthetic-delegate')
-                self.assertIsNotNone(batch)
+                batches = list(state.get('delegations', {}).values())
+                self.assertEqual(len(batches), 1)
+                batch = batches[0]
                 self.assertEqual(batch['status'], 'finished', batch)
                 self.assertEqual(state.get('robot_owners')['A'], 'Controller')
-                action=state.actions().get('synthetic-motion')
-                self.assertIsNotNone(action)
+                actions = list(state.actions().values())
+                self.assertEqual(len(actions), 1)
+                action = actions[0]
                 self.assertEqual(action['status'], 'completed', action)
                 self.assertEqual(action['arm'], 'A')
             finally:

@@ -99,6 +99,20 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(result['error_type'], 'ValueError')
         self.assertEqual(p.cycles, 0)
 
+    def test_capacity_backoff_never_extends_original_deadline(self):
+        p=Policy(); retries=[]
+        supervisor=self.supervisor(p,lambda:None)
+        def bind():
+            p.dispatcher=Dispatcher();p.store.data.update(lifecycle='running',start_at=0)
+            p.host.state='error'
+        p.bind_and_bootstrap=bind
+        def recover(store): retries.append(self.now);return True
+        p.host.recover_capacity=recover
+        result=supervisor.run()
+        self.assertEqual(result['reason'],'wall_limit')
+        self.assertEqual(retries,[0,1,2,3])
+        self.assertEqual(self.now,4)
+
     def test_unknown_turn_stops_without_resending(self):
         p = Policy()
         result = self.supervisor(p, lambda: setattr(p.host, 'state', 'unknown')).run()

@@ -5,6 +5,34 @@ experimental engineering runner can start a simulator and paid inference when
 explicitly invoked; provider profiles are candidates, not compatibility claims.
 The existing Codex benchmark remains separate.
 
+当前调用编号、容量恢复和统计字段以
+[harness 对齐说明](harness-alignment.md) 为准。下面的历史测试记录保留当时条件。
+
+## 当前运行默认值与结束规则
+
+`run-engineering` 的 `--turn-budget-usd`、`--task-budget-usd` 现为可选，默认都不设
+美元上限。省略时不向 Claude CLI 注入 `--max-budget-usd`；仍保存 CLI 报告的费用。
+adaptive 的 Controller、子代理、fork setup 共用运行目录内的账本；没有费用上限时，
+缺失费用会单独记录为未报告，不会被当成零费用或阻止已确认正常的后续轮次。
+执行结果不明、取消后的状态不明、fork 身份验证失败仍要求复核，不会自动重放。
+显式传入预算时仍保留原有的额度检查；只传任务预算时，一轮可能预留全部剩余额度，
+此时另一角色申请额度会被拒绝。需要在预算内并发时，同时设置合适的单轮额度。
+这些额度都是 CLI 估算控制，实际账单以供应商为准。
+
+默认 `--wall-limit-s 86400`，依据持久化 START 计时；工程测试可显式缩短。
+公开任务时限仍使用冻结输入，工程停止时间不会改写它。正常策略轮次默认无独立超时；
+启动等待、RPC 和无机器人权限的 fork setup 超时仍保留。实时 MP4 默认关闭，
+`prepare-draft --record-video` 可开启；motion 和策略观察图照常记录。
+
+```sh
+.venv/bin/python -m scripts.claude_benchmark run-engineering RUN_DIR --parallel 4 --confirm-engineering-spend
+```
+
+新准备任务的共享 [policy rules](../prompts/policy-rules.md) 要求完成后依据公开证据
+核验再 `finish`；未完成时继续恢复，只有证据表明无法恢复才主动结束并说明原因。
+这是策略执行规则，运行时仍独立检查动作和委派收尾，私有评分器独立评分；接受
+`finish` 不代表成功。已有冻结批次保持原输入，使用新规则需在新目录重新准备。
+
 For an agent-independent orchestration prompt, see
 [Claude engineering manager](../prompts/claude/engineering-manager.md).
 The older [multimodel handoff](multimodel-handoff.md) describes the Codex
@@ -322,15 +350,17 @@ API Key profile 使用 `--bare`；Claude CLI 不会在该模式读取 OAuth。�
 用户可自行在安全终端运行 `claude setup-token`，把生成的 token 作为敏感凭据配置到
 `.env` 或环境变量中，不要贴到聊天或提交 Git。托管策略仍可能影响 CLI；不同启动方式
 的系统提示可能不同。候选路径只在真实 CLI 加本地假 token/假模型下验证了图片、续接、
-fork 和项目配置隔离；真实订阅及其成本报告仍未验证。费用不明时账本会暂停，不能将
+fork 和项目配置隔离；真实订阅及其成本报告仍未验证。设置费用上限而费用不明时
+账本会暂停；未设上限时记录费用缺失。不能将
 CLI 报告视为订阅额度或实际账单的硬上限。
 
 `robofrontier/claude/engineering_run.py` 进一步连接了工程草稿校验、一次性启动记录、
 独立物理进程与监督循环；最初只接受未认证的 centralized 工程草稿，尚无正式批次 CLI。
 异常不重启世界，也不强杀可能仍在执行的物理进程；进程仍活着或封存未确认时标记待检查。
 封存证据必须明确列出空的未解决动作列表，否则即使进程已退出也标记待检查。
-`turn_budget_usd` 是 Claude CLI 每个回合的限制。任务还设置一个 CLI 报告费用的
-累计阈值：后续回合按报告的剩余额度启动；费用缺失、零值或无效时停止并要求检查。
+`turn_budget_usd` 是可选的 Claude CLI 每回合限制，任务累计阈值也为可选，默认均不设。
+显式设置任务预算时，后续回合按报告的剩余额度启动；设置额度而费用缺失、零值或无效时
+停止并要求检查。未设置额度时，已确认正常的轮次不会仅因费用缺失而停止。
 这是估算控制，第三方厂商可能不提供可靠成本，账单可能与 CLI 报告不同，也可能超出
 阈值；它不是服务商的硬性扣费上限或整批共享预算。调用此代码可能产生 API 费用；
 该开发阶段仅使用替身测试，后续物理烟雾测试的范围见下文。
@@ -345,7 +375,8 @@ CLI 报告视为订阅额度或实际账单的硬上限。
 停止发生在启动前时，状态为 `stopped_before_start`；停止导致有任务未启动或已启动
 任务按停止请求封存时，批次为 `stopped`。若任何任务需要检查，批次优先显示
 `needs_review`。`closed` 只描述工程批次结束，不代表任务成功或正式计分通过。
-新运行若共享账本含不确定费用或尚未结算的预留，或集中式主机费用未知，单任务与
+新运行若共享账本含执行结果不明、额度约束下费用不明或尚未结算的预留，
+或设有累计预算的集中式主机费用未知，单任务与
 批次均标记为 `needs_review`，即使物理世界已经封存。单任务状态中的
 `budget_status` 和 `budget_review_required` 记录该判断；物理封存结果仍单独保留。
 旧运行的历史状态不会被追溯改写，需结合其原账本检查费用。
@@ -402,7 +433,8 @@ CLI 报告视为订阅额度或实际账单的硬上限。
 SQLite 费用估算账本。真实 Claude CLI 通过本机合成模型与合成世界测试了 READY、
 START、委派、fork、子角色返回及机器人控制权恢复。原生记录写入有时晚于 MCP 请求，
 现在创建 fork 前等待对应委派调用被记录，超时则暂停并要求人工检查。
-CLI 非零退出时，即使输出含费用数字，共享账本也将该回合标为不确定并停止新的预算分配。
+非零退出通常需要复核；新版仅对已确认结束且会话匹配的结构化容量错误允许有界恢复，
+具体条件见 [恢复规则](harness-alignment.md#容量与限流恢复)。设置额度而费用未知时仍停止分配。
 这些测试不验证真实模型、服务商兼容性、MuJoCo 物理、计分、账单或整个批次的总费用；
 adaptive 仍属于未认证工程运行，不能用作正式 benchmark 结果。
 Claude 策略没有文件读取工具：Controller 调用 `robot` 的 `work`，传入

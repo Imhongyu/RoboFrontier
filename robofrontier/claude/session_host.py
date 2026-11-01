@@ -16,6 +16,7 @@ import uuid
 
 from robofrontier.claude.runner import PreLaunchCancelled, run_turn
 from robofrontier.run_setup import verify_inputs, write_json
+from robofrontier.claude.recovery import MAX_CAPACITY_RETRIES, recover
 
 ACTOR_NAME = re.compile(r'[A-Za-z][A-Za-z0-9_-]{0,63}')
 
@@ -59,7 +60,8 @@ class ClaudeSessionHost:
     """Own one policy role's CLI turns; lifecycle events are never task results."""
     def __init__(self, run_dir, actor, profile, base_env, *, python=sys.executable,
                  binary='claude', turn_timeout=None, max_budget_usd=None, total_budget_usd=None,
-                 budget_ledger=None, runner=run_turn, _validated_delegate=False):
+                 budget_ledger=None, runner=run_turn, _validated_delegate=False,
+                 max_capacity_retries=MAX_CAPACITY_RETRIES):
         self.run = Path(run_dir).resolve()
         self.actor = actor
         self.profile = dict(profile)
@@ -67,8 +69,8 @@ class ClaudeSessionHost:
         self.binary = binary
         self.turn_timeout = turn_timeout
         self.max_budget_usd = max_budget_usd
-        if budget_ledger is not None and (total_budget_usd is not None or max_budget_usd is None):
-            raise ValueError('Shared ledger requires a per-turn allowance and no local total budget')
+        if budget_ledger is not None and total_budget_usd is not None:
+            raise ValueError('Shared ledger cannot be combined with a local total budget')
         self.budget_ledger = budget_ledger
         if total_budget_usd is not None:
             if isinstance(total_budget_usd, bool): raise ValueError('Invalid total budget')
@@ -79,6 +81,7 @@ class ClaudeSessionHost:
             total_budget = None
         self.total_budget = total_budget
         self.reported_spend = Decimal('0')
+        self.unreported_cost_count = 0
         self.budget_status = 'tracking' if total_budget is not None or budget_ledger is not None else 'not_set'
         self.runner = runner
         self.mcp = role_mcp_config(self.run, actor, python, _validated_delegate=_validated_delegate)
@@ -89,6 +92,19 @@ class ClaudeSessionHost:
         self.last_result = None
         self.worker = None
         self.cancel_event = threading.Event()
+        if type(max_capacity_retries) is not int or not 0 <= max_capacity_retries <= 10:
+            raise ValueError('Capacity retries must be 0..10')
+        self.max_capacity_retries = max_capacity_retries
+        self.capacity_retry_count = 0
+        self.capacity_retry_due = None
+        self.retryable_capacity = False
+
+    def event(self, event, **fields):
+        from robofrontier.run_metrics import host_event
+        host_event(self.run, event, actor=self.actor, session_id=self.session_id, turn_id=self.turn_id, **fields)
+
+    def recover_capacity(self, store, now=None):
+        return recover(self, store, now)
 
     @classmethod
     def adopt_verified_fork(cls, run_dir, actor, profile, base_env, *, budget_ledger, max_budget_usd,
@@ -200,7 +216,7 @@ class ClaudeSessionHost:
                 resume=self.session_id if previous == 'idle' else None,
                 timeout=self.turn_timeout, max_budget_usd=turn_budget,
                 binary=self.binary, events_name=f'{self.actor}-{turn_id}.jsonl',
-                cancel_event=self.cancel_event)
+                cancel_event=self.cancel_event, actor=self.actor)
             summary = record.get('summary') or {}
             if record.get('process') != 'exited' or record.get('exit_code') != 0:
                 state = 'error' if summary.get('turn_status') == 'failed' else 'unknown'
@@ -223,10 +239,16 @@ class ClaudeSessionHost:
         with self.lock:
             if self.cancel_event.is_set():
                 state = 'unknown'
+            summary = record.get('summary') or {}
+            retryable = (state == 'error' and record.get('process') == 'exited'
+                         and summary.get('session_id') == self.session_id
+                         and summary.get('turn_status') == 'failed'
+                         and summary.get('result_subtype') == 'error_during_execution'
+                         and not summary.get('malformed_lines') and bool(summary.get('capacity_error_code')))
             if self.budget_ledger is not None:
                 summary = record.get('summary') or {}
                 known = (not self.cancel_event.is_set() and record.get('process') == 'exited'
-                         and record.get('exit_code') == 0
+                         and (record.get('exit_code') == 0 or retryable)
                          and summary.get('session_id') == self.session_id
                          and summary.get('turn_status') in ('ended', 'failed')
                          and not summary.get('malformed_lines'))
@@ -238,26 +260,30 @@ class ClaudeSessionHost:
                         shared = self.budget_ledger.settle(turn_id, summary.get('total_cost_usd'), outcome_known=known)
                     self.budget_status = shared['status']
                     self.reported_spend = Decimal(shared['reported_spend_usd'])
+                    self.unreported_cost_count = shared['unreported_cost_count']
                     if shared['status'] == 'uncertain': state = 'unknown'
                     if shared['status'] == 'exhausted' and not any(r['status'] == 'reserved' for r in shared['reservations']):
                         if state == 'idle': state = 'error'
                 except Exception:
                     self.budget_status = 'cost_unknown'
                     state = 'unknown'
-            if self.total_budget is not None and not before_launch:
+            if self.budget_ledger is None and not before_launch:
                 cost = (record.get('summary') or {}).get('total_cost_usd')
                 try:
                     amount = Decimal(str(cost)) if not isinstance(cost, bool) else Decimal('NaN')
-                    if not amount.is_finite() or amount <= 0: raise InvalidOperation
+                    if not amount.is_finite() or amount < 0 or (self.total_budget is not None and amount == 0): raise InvalidOperation
                 except (InvalidOperation, ValueError):
-                    self.budget_status = 'cost_unknown'
-                    state = 'unknown'
+                    self.unreported_cost_count += 1
+                    if self.total_budget is not None:
+                        self.budget_status = 'cost_unknown'
+                        state = 'unknown'
                 else:
                     self.reported_spend += amount
-                    if self.reported_spend >= self.total_budget:
+                    if self.total_budget is not None and self.reported_spend >= self.total_budget:
                         self.budget_status = 'exhausted'
                         if state == 'idle': state = 'error'
             accounting = {'status': self.budget_status, 'reported_spend_usd': str(self.reported_spend),
+                          'unreported_cost_count': self.unreported_cost_count,
                           'limit_usd': str(self.total_budget) if self.total_budget is not None else
                                        shared['limit_usd'] if self.budget_ledger is not None and 'shared' in locals() else None,
                           'source': 'cli_reported_estimate_not_provider_bill'}
@@ -270,6 +296,10 @@ class ClaudeSessionHost:
                 # An unrecorded turn cannot be resumed safely.
                 state = 'unknown'
             self.state = state
+            self.retryable_capacity = retryable and state == 'error'
+            if state == 'idle':
+                self.capacity_retry_count = 0
+                self.capacity_retry_due = None
 
     def observe(self):
         """Return bounded process evidence, not an assertion of physical success."""
@@ -285,6 +315,9 @@ class ClaudeSessionHost:
             return {'actor': self.actor, 'thread_id': self.session_id,
                     'status': self.state, 'turn_id': self.turn_id, 'budget_status': self.budget_status,
                     'reported_spend_usd': str(self.reported_spend),
+                    'unreported_cost_count': self.unreported_cost_count,
+                    'retryable_capacity': self.retryable_capacity,
+                    'capacity_retry_count': self.capacity_retry_count,
                     'last_result_subtype': subtype, 'last_turn_reported_cost_usd': cost}
 
     def wait(self, timeout=None):

@@ -56,6 +56,39 @@ class SharedBudgetTests(unittest.TestCase):
         self.assertEqual(self.ledger.reserve('next','Controller',.6),.4)
         with self.assertRaises(ValueError): self.ledger.settle('parent',.2,outcome_known=True)
 
+    def test_uncapped_ledger_records_missing_cost_without_blocking_known_turns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = BudgetLedger.create(Path(tmp)/'uncapped.sqlite')
+            try:
+                self.assertIsNone(ledger.reserve('first', 'Controller'))
+                self.assertEqual(ledger.snapshot()['uncapped_pending_count'], 1)
+                state = ledger.settle('first', None, outcome_known=True)
+                self.assertEqual(state['status'], 'tracking')
+                self.assertIsNone(state['limit_usd'])
+                self.assertIsNone(state['available_usd'])
+                self.assertEqual(state['unreported_cost_count'], 1)
+                self.assertIsNone(ledger.reserve('second', 'Delegate'))
+                self.assertEqual(ledger.settle('second', 0, outcome_known=True)['status'], 'tracking')
+                self.assertIsNone(ledger.reserve('third', 'Controller'))
+                self.assertEqual(ledger.settle('third', 1234, outcome_known=True)['reported_spend_usd'], '1234')
+                ledger.reserve('uncertain', 'Controller')
+                self.assertEqual(ledger.settle('uncertain', None, outcome_known=False)['status'], 'uncertain')
+                with self.assertRaises(ValueError): ledger.reserve('later', 'Controller')
+            finally: ledger.close()
+
+    def test_task_cap_without_turn_cap_reserves_remaining_allowance(self):
+        self.assertEqual(self.ledger.reserve('turn', 'Controller'), 1)
+        self.ledger.settle('turn', .25, outcome_known=True)
+        self.assertEqual(self.ledger.reserve('next', 'Controller'), .75)
+
+    def test_turn_cap_without_task_cap_is_still_enforced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = BudgetLedger.create(Path(tmp)/'uncapped.sqlite')
+            try:
+                self.assertEqual(ledger.reserve('turn', 'Controller', .2), .2)
+                self.assertEqual(ledger.settle('turn', .3, outcome_known=True)['status'], 'uncertain')
+            finally: ledger.close()
+
     def test_unknown_missing_or_above_reservation_blocks_future(self):
         for cost,known in ((None,True),(0,True),(.7,True),(.1,False)):
             with self.subTest(cost=cost,known=known), tempfile.TemporaryDirectory() as tmp:

@@ -66,7 +66,12 @@ class CentralizedSupervisor:
                         reason = 'dispatch_paused'; break
                     observation = self.policy.host.observe()
                     state = observation['status']
-                    if state in ('unknown', 'error'):
+                    now = self.clock()
+                    if started_at is not None and now-started_at >= self.wall_limit_s:
+                        reason = 'wall_limit'; break
+                    recovering = (state == 'error' and hasattr(self.policy.host, 'recover_capacity')
+                                  and self.policy.host.recover_capacity(self.policy.store))
+                    if state in ('unknown', 'error') and not recovering:
                         session_evidence = {key: observation.get(key) for key in
                                             ('budget_status', 'last_result_subtype', 'last_turn_reported_cost_usd')}
                         reason = 'session_' + state; break

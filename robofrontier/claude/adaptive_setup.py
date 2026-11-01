@@ -41,8 +41,9 @@ class AdaptiveForkSetup:
         if not Path(ledger.path).resolve().is_relative_to(Path(parent.run).resolve()/'private'):
             raise ValueError('Task budget ledger must belong to the run')
         for value in (setup_budget_usd, child_budget_usd):
+            if value is None: continue
             if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) or value <= 0:
-                raise ValueError('Positive finite fork and child budgets are required')
+                raise ValueError('Fork and child budgets must be positive finite numbers or None')
         self.store=store; self.parent=parent; self.ledger=ledger; self.owner=owner
         self.setup_budget_usd=setup_budget_usd; self.child_budget_usd=child_budget_usd
         self.fork_factory=fork_factory; self.child_factory=child_factory

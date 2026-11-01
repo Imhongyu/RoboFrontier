@@ -38,18 +38,18 @@ def _evaluation_present(run):
         return False
 
 
-def run_engineering(run_dir, base_env, *, turn_budget_usd, total_budget_usd, wall_limit_s, startup_timeout_s=120,
+def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd=None, wall_limit_s=86400, startup_timeout_s=120,
                     poll_s=0.5, owner_factory=subprocess.Popen, policy_factory=CentralizedPolicyHost,
                     adaptive_policy_factory=AdaptivePolicyHost,
                     clock=time.monotonic, sleep=time.sleep):
     """Run one explicit engineering draft and conservatively retain uncertain state.
 
-    Total budget is a best-effort limit based on CLI-reported cost, not billing.
+    Optional budgets are best-effort limits based on CLI-reported cost, not billing.
     The caller must authorize model calls before invoking this function.
     """
-    for val, name, limit in ((turn_budget_usd, 'per-turn budget', 1000),
-                             (total_budget_usd, 'task budget', 1000),
-                             (wall_limit_s, 'wall limit', 86400),
+    for val, name in ((turn_budget_usd, 'per-turn budget'), (total_budget_usd, 'task budget')):
+        if val is not None: _positive(val, name, 1000)
+    for val, name, limit in ((wall_limit_s, 'wall limit', 86400),
                              (startup_timeout_s, 'startup timeout', 86400),
                              (poll_s, 'poll interval', 60)):
         _positive(val, name, limit)

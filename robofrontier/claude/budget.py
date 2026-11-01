@@ -9,6 +9,8 @@ import time
 
 from ..sqlite_busy import BUSY_TIMEOUT_SECONDS, begin_immediate
 
+UNLIMITED = 'unlimited'
+
 
 def _money(value, *, positive=True):
     if isinstance(value, bool): raise ValueError('Invalid monetary amount')
@@ -37,8 +39,8 @@ class BudgetLedger:
             self.db.close(); raise ValueError('Budget ledger is not initialized')
 
     @classmethod
-    def create(cls, path, total_usd):
-        total = _money(total_usd)
+    def create(cls, path, total_usd=None):
+        total = _money(total_usd) if total_usd is not None else UNLIMITED
         path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600); os.close(fd)
         db = sqlite3.connect(path)
@@ -62,44 +64,57 @@ class BudgetLedger:
                 raise
 
     def _snapshot(self):
-        limit = Decimal(self.db.execute("SELECT value FROM meta WHERE key='limit'").fetchone()[0])
+        stored_limit = self.db.execute("SELECT value FROM meta WHERE key='limit'").fetchone()[0]
+        limit = None if stored_limit == UNLIMITED else Decimal(stored_limit)
         rows = [dict(r) for r in self.db.execute('SELECT * FROM reservations ORDER BY created, id')]
-        spent = sum((Decimal(r['cost']) for r in rows if r['status'] == 'settled'), Decimal('0'))
-        reserved = sum((Decimal(r['allowance']) for r in rows if r['status'] == 'reserved'), Decimal('0'))
+        for row in rows:
+            if row['allowance'] == UNLIMITED: row['allowance'] = None
+        spent = sum((Decimal(r['cost']) for r in rows if r['status'] == 'settled' and r['cost'] is not None), Decimal('0'))
+        reserved = sum((Decimal(r['allowance']) for r in rows if r['status'] == 'reserved' and r['allowance'] is not None), Decimal('0'))
         unknown = any(r['status'] == 'uncertain' for r in rows)
-        return {'limit_usd': str(limit), 'reported_spend_usd': str(spent), 'reserved_usd': str(reserved),
-                'available_usd': str(max(Decimal('0'), limit-spent-reserved)),
-                'status': 'uncertain' if unknown else 'exhausted' if limit-spent-reserved <= 0 else 'tracking',
+        return {'limit_usd': str(limit) if limit is not None else None,
+                'reported_spend_usd': str(spent), 'reserved_usd': str(reserved),
+                'uncapped_pending_count': sum(r['status'] == 'reserved' and r['allowance'] is None for r in rows),
+                'unreported_cost_count': sum(r['status'] == 'settled' and r['cost'] is None for r in rows),
+                'available_usd': str(max(Decimal('0'), limit-spent-reserved)) if limit is not None else None,
+                'status': 'uncertain' if unknown else 'exhausted' if limit is not None and limit-spent-reserved <= 0 else 'tracking',
                 'reservations': rows, 'source': 'cli_reported_estimates_not_provider_bill'}
 
     def snapshot(self):
         with self.transaction(): return self._snapshot()
 
-    def reserve(self, reservation_id, actor, maximum_usd):
-        maximum = _money(maximum_usd)
+    def reserve(self, reservation_id, actor, maximum_usd=None):
+        maximum = _money(maximum_usd) if maximum_usd is not None else None
         if not isinstance(reservation_id, str) or not reservation_id or not isinstance(actor, str) or not actor:
             raise ValueError('Reservation identity required')
         with self.transaction():
             state = self._snapshot()
             if state['status'] != 'tracking': raise ValueError('Budget is exhausted or uncertain')
-            allowance = min(maximum, Decimal(state['available_usd']))
+            available = Decimal(state['available_usd']) if state['available_usd'] is not None else None
+            allowance = maximum if maximum is not None else available
+            if available is not None and allowance is not None:
+                allowance = min(allowance, available)
             now = time.time()
             try:
                 self.db.execute('INSERT INTO reservations VALUES (?,?,?,?,?,?,?)',
-                                (reservation_id, actor, str(allowance), None, 'reserved', now, now))
+                                (reservation_id, actor, str(allowance) if allowance is not None else UNLIMITED, None, 'reserved', now, now))
             except sqlite3.IntegrityError as error:
                 raise ValueError('Reservation identity already used; never replay') from error
-            return float(allowance)
+            return float(allowance) if allowance is not None else None
 
     def settle(self, reservation_id, reported_usd, *, outcome_known):
         with self.transaction():
             row = self.db.execute('SELECT * FROM reservations WHERE id=?', (reservation_id,)).fetchone()
             if not row or row['status'] != 'reserved': raise ValueError('Reservation is not pending')
+            capped = row['allowance'] != UNLIMITED
             try:
-                cost = _money(reported_usd)
-                known = outcome_known is True and cost <= Decimal(row['allowance'])
+                cost = _money(reported_usd, positive=capped)
+                known = outcome_known is True and (not capped or cost <= Decimal(row['allowance']))
             except ValueError:
-                cost = None; known = False
+                cost = None
+                # Missing cost is accounting evidence, not an unknown execution.
+                # With a cap it still blocks spending; uncapped runs keep going.
+                known = outcome_known is True and not capped
             self.db.execute('UPDATE reservations SET status=?, cost=?, updated=? WHERE id=?',
                             ('settled' if known else 'uncertain', str(cost) if cost is not None else None,
                              time.time(), reservation_id))

@@ -70,16 +70,25 @@ class SignalPhysicsSmokeTests(unittest.TestCase):
                 process.wait(timeout=60)
                 self.assertEqual(process.returncode,0,(directory/'supervisor.log').read_text()[-3000:])
             state=status_batch(batch)
-            self.assertEqual(state['status'],'stopped',state)
             self.assertFalse(state['supervisor_live'],state)
+            budget_review=False
             for item,owner_pid in zip(state['runs'],owner_pids):
                 detail=item['detail']
                 self.assertEqual(detail['reason'],'stop_requested',detail)
-                self.assertEqual(detail['status'],'finished',detail)
+                # Killing an in-flight CLI can leave its reported cost unknown.
+                # Physical closure must still be proved, and accounting review
+                # must stay visible instead of being relabelled as a clean stop.
+                review=detail['budget_review_required'];budget_review |= review
+                self.assertEqual(detail['status'],'needs_review' if review else 'finished',detail)
+                if review: self.assertEqual(detail['budget_status'],'uncertain',detail)
                 self.assertTrue(detail['seal']['sealed'],detail)
+                self.assertEqual(detail['seal']['unresolved_action_ids'],[],detail)
                 self.assertFalse(detail['owner_alive'],detail)
+                self.assertIsNone(detail['error_type'],detail)
+                self.assertIsNone(detail['seal_error_type'],detail)
                 with self.assertRaises(ProcessLookupError): os.kill(owner_pid,0)
-            safely_closed=True
+            self.assertEqual(state['status'],'needs_review' if budget_review else 'stopped',state)
+            safely_closed=not budget_review
         finally:
             if process is not None and process.poll() is None:
                 # Preserve the world and ask the operator to inspect it.

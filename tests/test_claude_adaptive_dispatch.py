@@ -53,6 +53,15 @@ class AdaptiveDispatchTests(unittest.TestCase):
         self.assertTrue(result['paused']); self.assertTrue(self.store.get('dispatch_paused'))
         self.assertEqual(self.setup.hosts[self.child].sent,[])
 
+    def test_recovering_child_does_not_pause_other_roles_or_claim_its_wake(self):
+        child=self.setup.hosts[self.child];child.state='error'
+        child.recover_capacity=lambda store: True
+        result=AdaptiveDispatcher(self.store,self.setup).cycle()
+        self.assertFalse(result['paused'])
+        self.assertFalse(self.store.get('dispatch_paused',False))
+        self.assertEqual(child.sent,[])
+        self.assertEqual(len(self.setup.parent.sent),1)
+
     def test_lost_wake_ack_is_uncertain_and_never_retried(self):
         host=self.setup.hosts[self.child]
         def fail(prompt): host.sent.append(prompt); raise OSError('lost ack')

@@ -98,13 +98,13 @@ def stop_batch(folder):
     return {'stop_requested': True, 'jobs': len(jobs), 'note': 'Request only; inspect status and sealing outcome.'}
 
 
-def run_batch(folder, base_env, *, parallel, turn_budget_usd, total_budget_usd, wall_limit_s,
+def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_usd=None, wall_limit_s=86400,
               startup_timeout_s=120, runner=run_engineering, verifier=verify_inputs, stop_requested=lambda: False):
     """Run drafts once. Caller explicitly authorizes potential paid model calls."""
     folder = Path(folder).resolve()
     if type(parallel) is not int or not 1 <= parallel <= 36: raise ValueError('Parallel must be 1..36')
-    _positive(turn_budget_usd, 'per-turn budget', 1000)
-    _positive(total_budget_usd, 'per-task budget', 1000)
+    if turn_budget_usd is not None: _positive(turn_budget_usd, 'per-turn budget', 1000)
+    if total_budget_usd is not None: _positive(total_budget_usd, 'per-task budget', 1000)
     _positive(wall_limit_s, 'wall limit', 86400)
     _positive(startup_timeout_s, 'startup timeout', 86400)
     jobs = _jobs(folder)

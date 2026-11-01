@@ -13,6 +13,8 @@ import time
 import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
+from robofrontier.claude.recovery import capacity_code
+from robofrontier.run_metrics import host_event
 
 ENV_PASSTHROUGH = ('PATH', 'LANG', 'LC_ALL', 'TMPDIR')
 ROBOT_TOOL = 'mcp__robot__robot'
@@ -145,6 +147,7 @@ def summarize(lines):
         'session_id': (result or init).get('session_id') or init.get('session_id'),
         'reported_model': init.get('model'),
         'turn_status': turn,
+        'capacity_error_code': capacity_code(events),
         'result_subtype': (result or {}).get('subtype'),
         'num_turns': (result or {}).get('num_turns'),
         'result_text': ((result or {}).get('result') or '')[:2000],
@@ -174,8 +177,8 @@ class PreLaunchCancelled(InterruptedError):
 
 
 def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
-             session_id=None, timeout=600, max_budget_usd=None, binary='claude', resume=None, events_name='events.jsonl',
-             cancel_event=None, fork_from=None, enable_robot=True):
+             session_id=None, timeout=None, max_budget_usd=None, binary='claude', resume=None, events_name='events.jsonl',
+             cancel_event=None, fork_from=None, enable_robot=True, actor=None, phase='policy'):
     """Run one turn, persist its raw events under run_dir, and return a status record.
 
     `timeout=None` removes the per-turn deadline; cancellation remains active.
@@ -197,6 +200,9 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
     # Cancellation racing with Popen is still treated as an unknown outcome.
     if cancel_event is not None and cancel_event.is_set():
         raise PreLaunchCancelled('Claude turn cancelled before launch')
+    began = time.monotonic()
+    host_event(run_dir, 'cli_turn_started', actor=actor, session_id=session_id or resume,
+               events_name=events_name, phase=phase)
     process = subprocess.Popen(cmd, cwd=run_dir, env=env, text=True, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, start_new_session=True)
     deadline = None if timeout is None else time.monotonic() + timeout
@@ -231,7 +237,14 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
     summary = summarize(stdout.splitlines())
     if status in ('timeout', 'cancelled'):
         summary['turn_status'] = 'unknown'
+    duration = time.monotonic()-began
+    host_event(run_dir, 'cli_turn_completed', actor=actor, session_id=summary.get('session_id'),
+               events_name=events_name, phase=phase, duration_s=duration,
+               usage=summary.get('usage'), reported_cost_usd=summary.get('total_cost_usd'),
+               model_usage=summary.get('model_usage'),
+               process=status, exit_code=process.returncode)
     return {
+        'duration_s': duration,
         'process': status,
         'exit_code': process.returncode,
         'requested_session_id': session_id or resume,

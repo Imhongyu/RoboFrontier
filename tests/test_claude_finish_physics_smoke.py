@@ -18,7 +18,9 @@ from scripts.export_run_report import export
 class FinishModel(StubModel):
     requests=[]
     def choose_tool(self,names,text,blocks,has_result):
-        if names and not has_result and 'wake_id=' in text:
+        # This synthetic policy always proposes an early finish on its first
+        # tool-enabled request. Do not depend on the CLI's prompt serialization.
+        if names and not has_result:
             return {'op':'finish','data':{'note':'synthetic early finish'}},'toolu_finish'
         return super().choose_tool(names,text,blocks,has_result)
 
@@ -30,7 +32,8 @@ class FinishPhysicsSmokeTests(unittest.TestCase):
         directory=Path(tempfile.mkdtemp(prefix='claude-finish-physics-'))
         server=http.server.ThreadingHTTPServer(('127.0.0.1',0),FinishModel)
         threading.Thread(target=server.serve_forever,daemon=True).start()
-        result=None
+        result=None; passed=False
+        FinishModel.requests.clear()
         try:
             batch=directory/'batch'; case='transport-a04-d1'
             prepare_draft(batch,['opus'],cases=[case],topology='centralized')
@@ -44,7 +47,12 @@ class FinishPhysicsSmokeTests(unittest.TestCase):
             env={'PATH':os.environ['PATH'],'HOME':os.environ['HOME'],'FAKE_KEY':'synthetic'}
             result=run_engineering(run,env,turn_budget_usd=.5,total_budget_usd=2,wall_limit_s=30,poll_s=.1)
             self.assertEqual(result['status'],'finished',result)
-            self.assertEqual(result['reason'],'world_ended',result)
+            request_tools = [b.get('input', {}).get('op') for req in FinishModel.requests
+                             for msg in req.get('messages', []) if msg.get('role') == 'assistant'
+                             for b in (msg.get('content') or []) if isinstance(b, dict) and b.get('type') == 'tool_use']
+            self.assertEqual(result['reason'],'world_ended',{'result':result, 'ops':request_tools,
+                'requests':[(bool(r.get('tools')),str(r.get('messages',[])[-1].get('content',''))[-900:])
+                            for r in FinishModel.requests[-3:]], 'retained':str(directory)})
             self.assertTrue(result['seal']['sealed'],result)
             self.assertFalse(result['owner_alive'],result)
             evaluation=json.loads((run/'private/outputs/evaluation.json').read_text())
@@ -57,9 +65,10 @@ class FinishPhysicsSmokeTests(unittest.TestCase):
             self.assertIn('未取得正式 benchmark 资格',(run/'private/outputs/report.md').read_text())
             self.assertFalse(report['all_requested_models_verified'])
             self.assertEqual(report['changed_inputs'],[])
+            passed=True
         finally:
             server.shutdown();server.server_close()
-            if result and not result.get('owner_alive'): shutil.rmtree(directory)
+            if passed and result and not result.get('owner_alive'): shutil.rmtree(directory)
             else: print('Uncertain finish smoke retained for review:',directory)
 
 

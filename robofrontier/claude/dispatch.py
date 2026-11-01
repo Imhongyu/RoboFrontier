@@ -26,6 +26,7 @@ class ClaudeDispatcher:
         return execute(self.store, op, data or {}, self.owner, time.time())
 
     def observe(self):
+        recovering = hasattr(self.host, 'recover_capacity') and self.host.recover_capacity(self.store)
         observation = self.host.observe()
         if observation['thread_id'] != self.store.agent('Controller')['thread_id']:
             raise ValueError('Observed session does not match runtime binding')
@@ -39,7 +40,7 @@ class ClaudeDispatcher:
                 'status': state, 'turn_id': observation['turn_id'], 'observed_at': time.time(),
                 'source': 'claude.host', 'turn_status': 'failed' if state == 'error' else None}
         self.admin('observe-sessions', {'observations': [item]})
-        return item
+        return None if recovering and state == 'error' else item
 
     def cycle(self):
         """Observe and dispatch eligible scheduler wakes; START remains explicit."""
@@ -47,7 +48,8 @@ class ClaudeDispatcher:
         if snapshot['paused'] or snapshot['lifecycle'] in ('ended', 'interrupted', 'recovery_required'):
             return {'dispatched': [], 'lifecycle': snapshot['lifecycle'], 'paused': snapshot['paused']}
         if not self.observe():
-            return {'dispatched': [], 'lifecycle': snapshot['lifecycle'], 'paused': True}
+            return {'dispatched': [], 'lifecycle': snapshot['lifecycle'],
+                    'paused': self.store.get('dispatch_paused', False)}
         if snapshot['lifecycle'] != 'running':
             return {'dispatched': [], 'lifecycle': snapshot['lifecycle'], 'paused': False}
         sent = []

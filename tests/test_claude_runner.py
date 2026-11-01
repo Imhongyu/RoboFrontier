@@ -150,7 +150,7 @@ class ClaudeRunnerTests(unittest.TestCase):
             base = {'PATH': '/usr/bin:/bin', 'KIMI_API_KEY': SECRET}
             binary = fake_claude(tmp, 'time.sleep(.15)\nprint(json.dumps({"type":"result", "subtype":"success", "is_error":False}))\n')
             record = run_turn(PROFILE, 'm', 'high', None, 'go', run, base,
-                              binary=str(binary), timeout=None, enable_robot=False)
+                              binary=str(binary), enable_robot=False)
             self.assertEqual(record['process'], 'exited')
             self.assertEqual(record['summary']['turn_status'], 'ended')
             binary = fake_claude(tmp, 'time.sleep(30)\n')

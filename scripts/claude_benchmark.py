@@ -173,9 +173,12 @@ def main():
             p.add_argument('--record-video', action='store_true', help='Record a real-time MP4 during the engineering run')
     p = sub.add_parser('run-engineering', help='Unqualified centralized or adaptive experiments; may spend API funds')
     p.add_argument('batch', type=Path); p.add_argument('--parallel', type=int, required=True)
-    p.add_argument('--turn-budget-usd', type=float, required=True)
-    p.add_argument('--task-budget-usd', type=float, required=True)
-    p.add_argument('--wall-limit-s', type=float, required=True)
+    p.add_argument('--turn-budget-usd', type=float, default=None,
+                   help='Optional CLI-reported cost allowance per turn; unset means no per-turn cost cap')
+    p.add_argument('--task-budget-usd', type=float, default=None,
+                   help='Optional shared task cost allowance; unset means no task cost cap')
+    p.add_argument('--wall-limit-s', type=float, default=86400,
+                   help='Engineering stop after START in seconds (default: 86400); frozen task limit still applies')
     p.add_argument('--startup-timeout-s', type=float, default=120,
                    help='Seconds allowed for owner startup and, for legacy READY-barrier runs, policy startup (default: 120)')
     p.add_argument('--confirm-engineering-spend', action='store_true',

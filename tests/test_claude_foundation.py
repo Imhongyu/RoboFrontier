@@ -73,8 +73,6 @@ class ClaudeFoundationTests(unittest.TestCase):
                 calls.append((conn, op, data, call_id))
                 return {'observation': {'images': {'top': str(image)}}}
             bridge = RobotBridge(run, connection, invoke)
-            with self.assertRaisesRegex(ValueError, 'stable call_id'):
-                bridge.call({'op': 'move', 'data': {}})
             response = bridge.call({'op': 'move', 'data': {}, 'call_id': 'move-1', 'views': ['top']})
             self.assertEqual(calls[0][1:], ('move', {'cameras': ['top']}, 'move-1'))
             self.assertEqual(base64.b64decode(response['content'][1]['data']), png)

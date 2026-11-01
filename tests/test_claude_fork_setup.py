@@ -57,6 +57,25 @@ class ForkSetupTests(unittest.TestCase):
         self.assertEqual(self.store.agent(self.actor)['delegation_state'],'creating')
         with self.assertRaises(FileExistsError): self.create()
         self.assertEqual(len(self.calls),1)
+
+    def test_generated_delegate_id_is_bound_to_native_tool_use(self):
+        from robofrontier.claude.request_identity import bind_delegate
+        item = self.row['message']['content'][0]
+        item['id'] = 'native-delegate'
+        item['input'].pop('call_id')
+        (self.folder/(PARENT+'.jsonl')).write_text(json.dumps(self.row)+'\n')
+        bind_delegate(self.run, 'Controller', item['input'], 'batch', timeout=0)
+        self.assertEqual(self.create()['status'], 'history_verified_no_authority')
+
+    def test_ambiguous_native_delegation_is_rejected_before_submission(self):
+        from robofrontier.claude.request_identity import bind_delegate
+        item = self.row['message']['content'][0]
+        item['id'] = 'native-1'; item['input'].pop('call_id')
+        self.row['message']['content'].append({**item, 'id': 'native-2'})
+        (self.folder/(PARENT+'.jsonl')).write_text(json.dumps(self.row)+'\n')
+        with self.assertRaisesRegex(ValueError, 'Ambiguous'):
+            bind_delegate(self.run, 'Controller', item['input'], 'batch', timeout=0)
+        self.assertEqual(self.calls, [])
     def test_uncertain_fork_is_saved_and_never_repeated(self):
         def lost(*args,**kwargs): raise OSError('lost acknowledgement')
         with self.assertRaises(OSError): self.create(lost)

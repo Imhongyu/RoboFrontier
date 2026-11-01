@@ -15,6 +15,7 @@ class AdaptiveDispatcher:
             raise ValueError('Setup does not own this runtime and parent')
         self.store=store; self.setup=setup; self.owner=setup.owner
         self.setup_thread=None; self.setup_result=None
+        self.recovering=set()
 
     def _establish(self, batch_id):
         try:
@@ -41,8 +42,17 @@ class AdaptiveDispatcher:
         agent=self.store.agent(actor); host=self.host(actor)
         if host is None or getattr(host,'actor',None) != actor or getattr(host,'session_id',None) != agent['thread_id']:
             return self.pause('Missing or mismatched Claude role host')
-        try: value=host.observe()
+        try:
+            recovering = hasattr(host, 'recover_capacity') and host.recover_capacity(self.store)
+            value=host.observe()
         except Exception: value=None
+        if isinstance(value,dict) and value.get('status') == 'error' and recovering:
+            self.recovering.add(actor)
+            self.admin('observe-sessions', {'observations': [{'actor': actor, 'thread_id': value['thread_id'],
+                'status': 'error', 'turn_id': value['turn_id'], 'observed_at': time.time(),
+                'source': 'claude.host', 'turn_status': 'failed'}]})
+            return True
+        self.recovering.discard(actor)
         if (not isinstance(value,dict) or value.get('thread_id') != agent['thread_id']
                 or value.get('status') not in ('idle','active')
                 or not isinstance(value.get('turn_id'),str) or not value['turn_id']):
@@ -95,6 +105,7 @@ class AdaptiveDispatcher:
         for command in self.admin('plan')['commands']:
             actor=command['actor']
             if not self.observe(actor): return {'dispatched':sent, 'paused':True}
+            if actor in self.recovering: continue
             claimed=self.admin('claim',{'wake_id':command['wake_id']})['command']
             if not claimed: continue
             try:

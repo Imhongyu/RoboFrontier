@@ -7,6 +7,7 @@ from pathlib import Path
 from robofrontier.runtime_store import RuntimeStore
 from robofrontier.run_setup import write_json, verify_inputs
 from robofrontier.action_batch import external_wait
+from robofrontier.run_metrics import export_metrics, native_codex_sessions
 
 
 def occupancy(intervals, start, end):
@@ -22,7 +23,7 @@ def occupancy(intervals, start, end):
             'overlap_seconds':sum(value for key,value in durations.items() if key>=2)}
 
 
-def model_evidence(directory, actor, thread, config):
+def model_evidence(directory, actor, thread, config, codex_home=None):
     if config.get('engine', 'codex') == 'claude':
         # CLI reports are useful observations but do not establish the effective
         # provider model or rule out remapping and auxiliary requests.
@@ -41,7 +42,7 @@ def model_evidence(directory, actor, thread, config):
         return {'thread_id':thread, 'turns':turns, 'verified':False,
                 'source':'claude_host_reported_model_not_provider_identity'}
     turns=[]
-    paths=list((Path.home()/'.codex/sessions').rglob('*'+thread+'*.jsonl')) if thread else []
+    paths=native_codex_sessions(directory, thread, codex_home)
     for path in paths:
         with path.open() as stream:
             for line in stream:
@@ -53,7 +54,7 @@ def model_evidence(directory, actor, thread, config):
             'verified':bool(turns) and all(t['model']==config['model'] and t['effort']==config['effort'] for t in turns)}
 
 
-def export(directory):
+def export(directory, codex_home=None):
     directory=Path(directory).resolve();output=directory/'private/outputs'
     manifest=directory/'private/inputs/manifest.json'
     if not manifest.is_file() or json.loads(manifest.read_text()).get('schema_version')!=3 or not (directory/'private/state/runtime.sqlite').is_file():
@@ -75,13 +76,14 @@ def export(directory):
     models={}
     for actor,agent in agents.items():
         if agent['kind']=='manager':continue
-        models[actor]=model_evidence(directory, actor, agent['thread_id'], config)
+        models[actor]=model_evidence(directory, actor, agent['thread_id'], config, codex_home)
     evaluation_path=output/'evaluation.json'
     evaluation=json.loads(evaluation_path.read_text()) if evaluation_path.exists() else None
     metric_evaluation=evaluation
     if metric_evaluation is None and (output/'interruption-evaluation.json').exists():
         metric_evaluation=json.loads((output/'interruption-evaluation.json').read_text()).get('evaluation')
     report={'lifecycle':lifecycle,'evaluation':evaluation,
+            'host_metrics': export_metrics(directory, config.get('engine', 'codex')),
             'scope':'One run, potentially multiple native sessions; public initial information, RGB and robot feedback. No population or architecture superiority claim.',
             'topology':config['topology'],'robot_count':robot_count,
             'run_id':run_id,'start_sim_time_s':start_sim_time,
@@ -128,4 +130,6 @@ def export(directory):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('run_dir',type=Path)
-    print(json.dumps(export(p.parse_args().run_dir),ensure_ascii=False,indent=2))
+    p.add_argument('--codex-home', type=Path, help='Explicit native session home; otherwise use collected mapping/batch marker/environment')
+    args=p.parse_args()
+    print(json.dumps(export(args.run_dir, args.codex_home),ensure_ascii=False,indent=2))
