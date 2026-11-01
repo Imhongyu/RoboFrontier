@@ -1,77 +1,78 @@
-# Relay合并交接
+# Relay branch merge handoff
 
-当前任务与默认入口以[docs/relay.md](../../relay.md)为准。
-无需重读数十轮接续日志来推断默认状态；历史全文保留在`docs/history/`。
+This is the dated family-branch handoff. Pending work describes that stage;
+current integrated progress is in the [acceptance ledger](../../development/unified-main.md).
+The then-planned hold-final playback was later superseded by independent loops.
+Current task/default entries are in [docs/relay.md](../../relay.md), without
+requiring reconstruction from dozens of continuation logs. Full history remains
+in `docs/history/`.
 
-## 已完成的本类整理
+## Completed family cleanup
 
-- 增加Relay专属九项catalog，入口读取仓库内正式servo2配置，无旧run隐式配置依赖。
-- 本类规则唯一来源为`relay_contract.py`；九项任务／公开任务同步为最终说明。
-  50mm容差、允许堆叠、低位30mm松爪、无额外静止／速度门槛已经接入Relay判定。
-  只对有新规则版本的任务生效；旧冻结记录保留原语义与分数。
-- Goal、受限退出、停放供方和精确状态修正接入正常函数调用，去除4套install包装。
-- 退役4个脚本：旧限时批次、一次性追加规则、旧进度影片、装置提案预览。
-  原文件在`runs/engineering/relay-cleanup-20261027/retired/`逐字节保留。
-- 分析入口更名为`analyze_relay_motion.py`，只产出剪辑表；唯一新版视频出口仍是20x／30fps。
-- Relay剪辑实现与测试改为`relay_motion_edit.py`／`test_relay_motion_edit.py`，
-  不再与Mosaic的通用同名文件碰撞。新包schema为`robofrontier.relay-motion-edit.v1`；
-  已交付的旧包不改写，读取时必须验证Relay轨迹字段，不能只凭旧v1字符串认格式。
-- 两批关键executor的16个worktree依赖链接已改为稳定依赖归档；21份相关场景保存。
-  `manifest.json`保留旧目标、新目标、原hash；原报告和冻结Python字节不改写。
-- 长接续文档移至`docs/history/`，旧入口为简短导航；没有清掉场景演进依赖或其他家族目录。
+- Added a Relay-specific nine-case catalog using the repository's formal servo2 settings, without implicit old-run configuration dependencies.
+- `relay_contract.py` became the single rule authority; all nine tasks/public tasks matched final guidance. Relay evaluation included 50mm tolerance, permitted stacking, low 30mm release and no extra stillness/velocity gate. Only explicitly versioned tasks used these rules; old frozen records retained original semantics/scores.
+- Goal handling, bounded exit, sender parking and exact-state corrections became normal function calls, replacing 4 install wrappers.
+- Retired 4 scripts: old timed batch, one-off rule appender, old progress movie and mechanism-proposal preview. Original bytes remained in `runs/engineering/relay-cleanup-20261027/retired/`.
+- Renamed analysis to `analyze_relay_motion.py`, producing edit tables only; the sole new video entry remained 20x / 30fps.
+- Renamed Relay editing/tests to `relay_motion_edit.py` / `test_relay_motion_edit.py`, avoiding Mosaic's generic filenames. New schema: `robofrontier.relay-motion-edit.v1`. Delivered old packages stayed unchanged. Readers must validate Relay trajectory fields, not just old v1 text.
+- Replaced 16 worktree dependency links for key executors in two batches with durable dependency archives; retained 21 related scenes. `manifest.json` recorded old/new targets and original hashes. Original reports/frozen Python bytes were unchanged.
+- Moved long continuation notes to `docs/history/` and left short navigation entries. Scene-evolution dependencies and other families' directories were retained.
 
-## 合并范围
+## Merge scope
 
-独立内容：Relay契约、任务／公开任务、专属catalog、参考／恢复／剪辑模块、测试和当前说明。
+Independent changes: Relay contracts, task/public task files, catalog,
+reference/recovery/edit modules, tests and current guidance.
 
-需要主session审查的共享文件改动：
+Shared changes requiring main-session review:
 
-| 文件 | 本类改动与合并要求 |
+| File | Family change and integration requirement |
 | --- | --- |
-| `suite/evaluate_v2.py` | 仅Relay类读取显式规则参数；保留其他家族与旧任务语义 |
-| `suite/v2.py`、`rigid_relay.py` | 本分支既有Relay版本选择／公开投影／构建变更；不覆盖其他分支的新catalog |
-| `factory_workstations.py` | 精确源绑定与向量化只读放置；需与其他家族播放器共同集成 |
-| `.gitignore` | 仅本地／生成数据忽略，不清除未跟踪素材 |
+| `suite/evaluate_v2.py` | Read explicit rule parameters for Relay only; preserve other families and old-task semantics |
+| `suite/v2.py`, `rigid_relay.py` | Existing Relay version/public-projection/build changes; retain other branches' new catalogs |
+| `factory_workstations.py` | Exact source binding and vectorized read-only placement; integrate with other family players |
+| `.gitignore` | Ignore only local/generated data; do not remove untracked materials |
 
-不要直接覆盖共享catalog或以ours/theirs整文件选边。
-各worktree的最新专属catalog才是输入来源；公共R10目录不代表其他家族当前状态。
+Do not replace shared catalogs or choose entire files with ours/theirs. Each
+worktree's latest family catalog is authoritative; shared R10 directories do
+not describe other families' current state.
 
-## 正式GPT前仍需主session完成
+## Work remaining before formal GPT at that stage
 
-1. 合并四类最终任务／Prompt／Skill输入与加载方式；正式就绪状态应绑定规则、控制、源与证据。
-   当前Relay仍`environment_preview_only`；不批量翻转oracle_verified，也不自动继承旧限时probe预算。
-2. 通用harness、角色／并发／冻结／观测回归；本轮没有改通用控制器或启动GPT。
-   通用`freeze_executor`未来仍会创建worktree别名；本轮修复的是已选两批历史依赖，
-   公共后续运行的持久打包策略还需在合并时统一。
-3. 统一各家族剪辑格式。Mosaic引用原帧的格式与Relay完整派生轨迹包不同；
-   文件名冲突已避开，语义适配仍不能省略。
-4. 多桌同屏播放器：每桌按自己的倍速和剪辑时钟取原始帧，全部更新后一次绘图；
-   完成后保持终态。当前只有逐项视频，未宣称九桌／36桌联合回放已实现。
-5. 扩充对明显而长期无进展的主杆／弹簧被动振荡识别，保留真实释放、掉落和恢复证据。
-   现有960段复核和时间表仍可直接复用；不能把所有被动物体运动都删除。
-6. 工厂丰富度、桌子精确源替换、去墙面Robo Factory展示字、近远景／镜头Demo及成本对照。
-   素材、来源和许可均保留。上下文／compact设置属于Codex宿主，不作为仓库已实现功能。
+1. Integrate final task/Prompt/Skill inputs/loading across all four families. Readiness must bind rules, control, source and evidence. Relay remained `environment_preview_only`; do not bulk-flip oracle_verified or inherit an old bounded-probe budget.
+2. Regress generic harness, roles/concurrency/freezing/observations. This cleanup neither changed the generic controller nor started GPT. Generic `freeze_executor` could still create worktree aliases; this work repaired two selected historical batches. Future durable packaging needed shared integration.
+3. Adapt family edit formats. Mosaic's original-frame references differ from Relay's complete derived trajectory package. Avoiding filename conflicts does not eliminate semantic adaptation.
+4. Implement same-screen multi-table playback: sample each table using its own speed/edit clock, update all, then render once; hold completion state. At that point only individual videos existed, without claimed nine-/36-table combined replay.
+5. Extend prolonged no-progress main-beam/spring oscillation review while retaining genuine release, drop and recovery evidence. Existing 960-interval review/timelines remained reusable; not all passive motion should be removed.
+6. Integrate Factory detail, exact station sources, Robo Factory wall-lettering removal, near/far camera demos and cost comparisons. Retain assets, provenance and licenses. Context/compact settings belong to the Codex host, rather than claimed repository features.
 
-## 数据不能遗漏
+## Data retention
 
-`runs/`、`outputs/`、`vendor/`、`.venv/`是共享链接，不属于Git提交。
-两批原始轨迹、完成截止、用户／native报告、辅助标签、控制扩展、请求结果和hash全部保留。
-旧用户验收9/9不是native原评分9/9，也不是当前整理代码的一轮新自主Oracle结果。
+`runs/`, `outputs/`, `vendor/` and `.venv/` were shared links outside Git commits.
+Retain both original motion batches, completion cutoffs, user/native reports,
+assistance labels, control extensions, request results and hashes. The historical
+user acceptance of 9/9 was neither native original-scoring 9/9 nor a new autonomous
+Oracle result from cleaned code.
 
-集中视频目录各直接9个MP4：
-`outputs/oracle/relay-nine-videos-20x-20261027/`与
-`outputs/robo-factory/relay-nine-videos-20x-20261027/`。
-剪辑轨迹／完整冻结源在`outputs/oracle/relay-edited-tracks-20261027/`。
-原始包保留源帧号、源时间、编辑时间、cut边界、外观事件与hash，不需要从视频重新找静止。
+Each consolidated video directory directly held 9 MP4s:
+`outputs/oracle/relay-nine-videos-20x-20261027/` and
+`outputs/robo-factory/relay-nine-videos-20x-20261027/`.
+Edited motion/full frozen sources were in
+`outputs/oracle/relay-edited-tracks-20261027/`. Original packages retained source
+frame/time, edit time, cut boundaries, appearance events and hashes, without
+requiring stillness reconstruction from video.
 
-运行时依赖归档保留在共享`runs/engineering/relay-cleanup-20261027/`。
-它专为已选择Relay输入复核保存，不是可执行其他家族所有历史构建的完整仓库副本。
-任何物理新运行仍需显式授权与独立目录，不自动重复旧ID或旧控制请求。
+Runtime dependency archives remained in shared
+`runs/engineering/relay-cleanup-20261027/`. They support review of the selected
+Relay inputs, rather than providing a complete repository for every other
+family's historical builds. New physical trials still require explicit user
+authorization and independent directories, without reusing old IDs/control calls.
 
-本次164项Relay回归、40项相关检查通过（两组有重叠）；九项输入只读检查通过。
-18段视频完整解码及哈希、九份剪辑轨迹哈希、43,032份证据文件校验通过；
-当前45份几何／物理／注册表文件与整理前逐字节一致。
-删除95份本地pyc缓存，约1.8MiB。未宣称全项目所有历史测试都通过；
-已有部分非Relay环境的缺失／外链贴图问题仍由主session处理。
+The recorded 164 Relay regressions and 40 related checks passed, with overlap,
+alongside read-only checks of nine inputs. Full decoding/hashes passed for
+18 videos, hashes for nine edited trajectories and checksums for 43,032 evidence
+files. The 45 geometry/physics/registry files matched pre-cleanup bytes.
+Removal was limited to 95 local pyc cache files, about 1.8MiB. This did not claim
+all historical project tests passed; missing/external textures in some non-Relay
+environments remained main-session work.
 
-本次检查结果和删减清单见`runs/engineering/relay-cleanup-20261027/cleanup-result.json`。
+Results/removal list: `runs/engineering/relay-cleanup-20261027/cleanup-result.json`.

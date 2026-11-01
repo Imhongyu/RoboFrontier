@@ -1681,8 +1681,8 @@ English migration: 23 files / 60,692 Han characters.
 ## English Mosaic review and color-design history
 
 The original Mosaic review-package and supply-color design records now use
-English. They retain every numerical value, source path and local specification
-link, with the explanatory document described in prose rather than retaining a
+English. They retain numerical values, source bindings and local specification
+links, with the explanatory document described in prose rather than retaining a
 Chinese display filename. Original scorer/hold-final requirements remain dated
 history and explicitly defer to later terminal-outcome/looping rules. Design
 geometry, private matching evidence and sampled reachability remain distinct
@@ -1690,3 +1690,15 @@ from full paths, parallel safety, model scores and revised Oracle qualification.
 No source assets or evidence were changed. The comparison receipt is
 `english-mosaic-design-verification.json`. Remaining English migration is
 21 tracked files / 57,911 Han characters.
+
+## English family integration handoffs
+
+The Transport, Relay and Mosaic branch handoffs now use English. Their original
+C1–C5/shared integration plans, source/data preservation, assistance labels,
+qualification boundaries, edit adapters, cleanup evidence and every numeric token
+remain intact. They explicitly identify their dated stage and defer to this
+ledger for subsequently completed work. Original hold-final/end-after-all plans
+are preserved as superseded history, not reintroduced as current looping policy.
+Local links resolve; `english-family-handoff-verification.json` records the source
+comparison. No task, scene, control source or frozen record was edited.
+Remaining English migration is 18 tracked files / 53,061 Han characters.
