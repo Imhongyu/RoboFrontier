@@ -1702,3 +1702,12 @@ are preserved as superseded history, not reintroduced as current looping policy.
 Local links resolve; `english-family-handoff-verification.json` records the source
 comparison. No task, scene, control source or frozen record was edited.
 Remaining English migration is 18 tracked files / 53,061 Han characters.
+
+## English concept-illustration source
+
+The old candidate-task illustration generator now has concise English labels
+and explicitly describes concepts rather than implemented simulations. Its
+bridge, gear, balance, packing and domino concepts remain historical proposals.
+Python syntax and every non-text AST node are unchanged; no image or world was
+rendered. Source comparisons are in `english-task-concept-verification.json`.
+Remaining tracked English migration: 17 files / 52,497 Han characters.

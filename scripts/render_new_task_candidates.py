@@ -18,46 +18,46 @@ def card(x,y,w,h,num,title,tag,color,goal,actions,reason,arms,complexity):
     text(x+94,y+24,title,30,INK)
     text(x+w-24,y+38,tag,19,color,'ra')
     d.line((x+24,y+88,x+w-24,y+88),fill='#E4DED4',width=2)
-    text(x+28,y+109,'任务指令',19,MUTED)
+    text(x+28,y+109,'Task',19,MUTED)
     # Wrap the quoted, concrete goal over two lines.
     goal_lines=goal.split('|')
     for i,line in enumerate(goal_lines): text(x+28,y+142+i*34,'“'+line+'”' if i==0 else ' '+line,22,INK)
     yy=y+142+len(goal_lines)*34+15
-    text(x+28,yy,'动作',18,MUTED); text(x+93,yy,actions,20,INK)
-    text(x+28,yy+43,'长程难点',18,MUTED); text(x+125,yy+43,reason,20,INK)
-    text(x+28,yy+85,'多臂参与',18,MUTED); text(x+125,yy+85,arms,20,INK)
+    text(x+28,yy,'Act.',18,MUTED); text(x+93,yy,actions,20,INK)
+    text(x+28,yy+43,'Planning',18,MUTED); text(x+125,yy+43,reason,20,INK)
+    text(x+28,yy+85,'Multi-arm',18,MUTED); text(x+125,yy+85,arms,20,INK)
     d.rounded_rectangle((x+w-180,y+h-43,x+w-24,y+h-12),radius=12,fill='#F0ECE5')
-    text(x+w-102,y+h-27,'仿真复杂度：'+complexity,16,MUTED,'mm')
+    text(x+w-102,y+h-27,'Sim cost: '+complexity,16,MUTED,'mm')
 
-text(60,38,'比现有四项不同的长程操作任务',47)
-text(65,102,'保持抓、移动、旋转、推等原子动作；用任务状态依赖产生长程规划。',24,MUTED)
+text(60,38,'Long-horizon task concepts beyond the existing four',47)
+text(65,102,'Grasp, move, rotate and push; state dependencies create long-horizon planning. Concepts only.',24,MUTED)
 
 cw,ch=810,415
-card(55,155,cw,ch,1,'承重桥搭建','结构稳定',BLUE,
-     '用6块支柱和2块桥面跨过桌面缺口。|小球必须能从桥上滚到另一侧。',
-     '抓取 · 放置 · 推',
-     '先搭两侧支撑，再铺桥面；放错顺序会挡住支点或导致桥面塌落。',
-     '两侧机械臂可同时搭支柱；其他臂随后铺设桥面并测试。','中')
-card(925,155,cw,ch,2,'齿轮传动','因果配置',PURPLE,
-     '从托盘选齿轮，把输入轴连到输出轴。|转动输入轴一圈，输出须反向转两圈。',
-     '抓取 · 放置 · 旋转',
-     '推理齿数与转向；中间齿轮选择会改变输出方向与圈数。',
-     '多臂可并行布置不同齿轮，最后由一臂转动输入轴验证。','中高')
-card(55,600,cw,ch,3,'天平配重','数量与物理',GREEN,
-     '用桌上的砝码让天平指针进入绿色区并稳定2秒。|随后取下钥匙。',
-     '抓取 · 放置 · 移动',
-     '根据支点距离和砝码重量调整两侧力矩，观察结果后决定增减。',
-     '两臂可同时放置两侧砝码；其他臂准备或移走挡路砝码。','中')
-card(925,600,cw,ch,4,'限容积装箱','空间与顺序',GOLD,
-     '把8个不同形状的积木装进箱子并盖上箱盖。|每块都必须完全放入。',
-     '抓取 · 旋转 · 放置 · 推',
-     '先放哪些形状、朝向如何，会决定剩余空间和后续可放入的积木。',
-     '机械臂可并行准备互不遮挡的物件；箱口附近需要安排放置次序。','中')
-card(55,1045,1680,415,5,'骨牌连锁','传播与并行',RED,
-     '把骨牌从起点排到铃铛前。|轻推第一块，整条链必须倒下并敲响铃。',
-     '抓取 · 旋转 · 放置 · 推',
-     '间距和朝向的小误差会沿链传播；先规划路线，再逐段核实连接。',
-     '多臂可同时摆不同路段；合拢路段时核对连接，最后再触发。','中高')
+card(55,155,cw,ch,1,'Load-bearing bridge','Structural stability',BLUE,
+     'Span the gap with 6 supports and 2 deck panels.|A ball must roll across the bridge.',
+     'Grasp · Place · Push',
+     'Supports before deck; wrong order can block or collapse it.',
+     'Build supports in parallel, then place and test the deck.','Med')
+card(925,155,cw,ch,2,'Gear train','Causal configuration',PURPLE,
+     'Select gears to connect input and output shafts.|One input turn must produce two opposite output turns.',
+     'Grasp · Place · Rotate',
+     'Tooth counts and intermediate gears set ratio/direction.',
+     'Place gears in parallel; one arm turns the input to test.','Med-high')
+card(55,600,cw,ch,3,'Balance weights','Quantity and physics',GREEN,
+     'Use weights to hold the pointer in green for 2 seconds.|Then retrieve the key.',
+     'Grasp · Place · Move',
+     'Adjust weight and lever arm; observe before changing.',
+     'Load both sides; other arms prepare or clear weights.','Med')
+card(925,600,cw,ch,4,'Constrained packing','Space and order',GOLD,
+     'Pack 8 different shapes and close the lid.|Every block must fit completely inside.',
+     'Grasp · Rotate · Place · Push',
+     'Order and orientation set free space and later access.',
+     'Prepare in parallel; sequence placements at the opening.','Med')
+card(55,1045,1680,415,5,'Domino chain','Propagation and concurrency',RED,
+     'Arrange dominoes from the start to the bell.|Push the first; the chain must fall and ring the bell.',
+     'Grasp · Rotate · Place · Push',
+     'Spacing/orientation errors propagate; plan the route and check segment joins.',
+     'Place separate segments concurrently, verify joins, then trigger the chain.','Med-high')
 
-text(66,1500,'区分方式：桥搭建测结构支撑；齿轮测因果；天平测物理反馈；装箱测空间规划；骨牌测误差传播。',21,MUTED)
+text(66,1500,'Bridge: support. Gears: causality. Balance: physical feedback. Packing: space. Dominoes: error propagation.',21,MUTED)
 im.save(OUT);print(OUT)
