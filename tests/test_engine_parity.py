@@ -118,8 +118,14 @@ class EngineRenderingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, patch('mujoco.mj_step', side_effect=AssertionError('No physics')):
             run = self.prepared(tmp, 'claude')
             settings = policy_settings(run)
-            self.assertIn('Read(/'+str((run/'private').resolve()).lstrip('/')+'/**)', settings['permissions']['deny'])
-            self.assertIn('Edit(/'+str((run/'public').resolve()).lstrip('/')+'/**)', settings['permissions']['deny'])
+            # Absolute rules (//path). Claude has no most-specific-wins, so the repository
+            # holding the run is denied around it: its source is denied, the run is not.
+            deny = settings['permissions']['deny']
+            self.assertIn('Read(//'+str((run/'private').resolve()).lstrip('/')+'/**)', deny)
+            self.assertIn('Edit(//'+str((run/'public').resolve()).lstrip('/')+'/**)', deny)
+            # This run lies outside the repository, so the whole checkout is denied.
+            self.assertIn('Read(//'+str(ROOT.resolve()).lstrip('/')+'/**)', deny)
+            self.assertFalse(any(rule.startswith('Read(//'+str(run.resolve()).lstrip('/')+'/**') for rule in deny))
             self.assertIn(str((run/'workspace').resolve()), settings['sandbox']['filesystem']['allowWrite'])
             self.assertEqual(settings['sandbox']['network']['allowedDomains'], [])
             cmd = build_command('m', 'high', 'mcp.json', 'go', session_id='s', settings=settings,

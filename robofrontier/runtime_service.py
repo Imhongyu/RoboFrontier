@@ -428,6 +428,23 @@ class RuntimeService:
                     if not data.get('wait', True):
                         self.respond(job, {'execution_status':'running', 'execution':action,
                                            'note':'Submitted, not completed; query job or wait_events with this call_id'})
+            elif op == 'recover_action':
+                if set(data)!={'call_id'}:raise ValueError('recover_action requires only the original call_id')
+                original=self.store.call(data['call_id'],actor)
+                action=self.store.actions(actor).get(data['call_id'])
+                if not action or action['status']!='uncertain' or not action.get('local_recovery'):
+                    raise ValueError('No locally recoverable action for this role')
+                robot=self.store.action_robot(actor,action['arm'])
+                if self.store.get('lifecycle')!='running' or self.store.get('physics_state')!='running' or self.store.get('dispatch_paused',False):
+                    raise ValueError('Recovery requires the original live and running world')
+                recovered=self.world.recover_action(robot,data['call_id'])
+                if recovered is None:
+                    self.respond(job,{'recovered':False,'execution':action,
+                        'note':'Stop is not yet confirmed stable; observe and retry recovery later. Do not replay the action.'})
+                else:
+                    action=self.store.reconcile_stopped_action(data['call_id'],actor,recovered,float(self.world.time))
+                    self.respond(job,{'recovered':True,'execution':action,
+                        'note':'The original action failed and is now confirmed stopped. Decide any new action independently.'})
             elif op == 'job':
                 call = self.store.call(data['call_id'], None if manager else actor)
                 if call['op']=='action_batch':
@@ -489,7 +506,14 @@ class RuntimeService:
             job = self.requests[result['call_id']]
             with self.store.transaction():
                 if result['status']=='uncertain':
-                    action=self.store.uncertain_action(job['id'],result['reason'])
+                    action=self.store.actions().get(job['id'],{})
+                    arm=getattr(self.world,'arms',{}).get(action.get('arm'))
+                    locally_stopping=(result.get('reason')=='Stop did not settle; engineering review required'
+                        and result.get('stop_reason')=='Action timeout; stopped at current reference'
+                        and arm is not None and arm.job==job['id'] and arm.stopping and arm.uncertainty_reported
+                        and not action.get('batch_id') and not action.get('sync_group_id'))
+                    if locally_stopping:action=self.store.isolate_stopping_action(job['id'],result['reason'])
+                    else:action=self.store.uncertain_action(job['id'],result['reason'])
                     self.respond(job,{'execution_status':'uncertain','execution':action,
                                       'execution_feedback':{k:v for k,v in result.items() if k not in ('call_id','status','reason')},
                                       'error':result['reason']})

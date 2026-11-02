@@ -36,6 +36,38 @@ ALLOWED_POLICY_TOOLS = ('Bash', 'Read', 'Glob', 'Grep', ROBOT_TOOL)
 CLAUDE_COMPACT_BUFFER = 33000
 
 
+def _denied_paths(table):
+    """Paths to deny for Claude, whose rules have no "most specific path wins".
+
+    A denied folder that contains an allowed path (the repository holding this run)
+    becomes denies on everything beside the route to that path, level by level, read
+    when each turn starts so folders created later are covered too.
+    """
+    entries = {Path(p): mode for p, mode in table.items()}
+    denied = []
+    for path, mode in entries.items():
+        if mode != 'deny':
+            continue
+        allowed = [a for a, m in entries.items() if m != 'deny' and a != path and path in a.parents]
+        if not allowed:
+            denied.append(path)
+            continue
+        frontier = [path]
+        while frontier:
+            folder = frontier.pop()
+            keep = {a.relative_to(folder).parts[0] for a in allowed if folder in a.parents}
+            try:
+                children = list(folder.iterdir())
+            except OSError:
+                continue
+            for child in children:
+                if child.name not in keep:
+                    denied.append(child)
+                elif not any(a == child for a in allowed):
+                    frontier.append(child)
+    return sorted(set(denied))
+
+
 def policy_settings(run_dir):
     """Settings for a policy turn rendered from the run's frozen access table, or None
     for runs prepared before the table existed.
@@ -50,12 +82,13 @@ def policy_settings(run_dir):
         return None
     access = json.loads(path.read_text())
     table = access['filesystem']
-    hidden = sorted(p for p, mode in table.items() if mode == 'deny')
+    hidden = [str(p) for p in _denied_paths(table)]
     writable = sorted(p for p, mode in table.items() if mode == 'write')
-    # acceptEdits accepts edits only inside the working folder and every other edit
-    # is refused; these rules also keep hidden paths and the frozen inputs out of reach.
-    deny = ['Read(/'+p.lstrip('/')+'/**)' for p in hidden]
-    deny += ['Edit(/'+p.lstrip('/')+'/**)' for p in hidden+[str(run/'public')]]
+    # Claude rules take absolute paths as //path. acceptEdits accepts edits only inside
+    # the working folder and every other edit is refused; these rules also keep hidden
+    # paths and the frozen inputs out of reach.
+    rule = lambda tool, p: tool+'(//'+p.lstrip('/')+'/**)'
+    deny = [rule('Read', p) for p in hidden] + [rule('Edit', p) for p in hidden+[str(run/'public')]]
     return {'permissions': {'deny': deny},
             'sandbox': {'enabled': True, 'allowUnsandboxedCommands': False,
                         'filesystem': {'allowWrite': writable, 'denyRead': hidden},

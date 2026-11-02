@@ -51,6 +51,15 @@ def normalized_digest(source, rule):
                 raise ValueError('Observation initialization differs from reviewed source')
             original = ast.parse("profile=json.loads(hand_cfg.read_text()).get('gripper_position_servo','legacy') if hand_cfg.exists() else 'legacy'").body
             init.body[indices[0]:indices[0]+3] = original
+            # Reviewed addition: the owner's entry for single-arm recovery. It only reads
+            # and ends an action whose timed-out stop is already uncertain; stepping,
+            # control and every other World method are unchanged.
+            recovery = ast.parse("def recover_action(self,actor,call_id):\n return self.arms[actor].recover_stopped(call_id)").body[0]
+            found = [node for node in world.body if isinstance(node, ast.FunctionDef) and node.name == 'recover_action']
+            if found:
+                if len(found) != 1 or ast.dump(found[0]) != ast.dump(recovery):
+                    raise ValueError('Single-arm recovery entry differs from reviewed source')
+                world.body.remove(found[0])
             facts = next(node for node in world.body if isinstance(node, ast.FunctionDef) and node.name == 'robot_facts')
             expected_size = ast.parse("[self.observation_image['width'],self.observation_image['height']]", mode='eval').body
             sizes = [node for node in ast.walk(facts) if isinstance(node, ast.List) and ast.dump(node) == ast.dump(expected_size)]

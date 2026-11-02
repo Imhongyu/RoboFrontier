@@ -410,6 +410,42 @@ class RuntimeStore:
             self.event('EXECUTION_OUTCOME_UNCERTAIN','Meta',value)
             return value
 
+    def isolate_stopping_action(self, call_id, reason):
+        """Keep the live world running while one known stopped command settles."""
+        with self.transaction():
+            row = self.db.execute('SELECT * FROM actions WHERE id=?', (call_id,)).fetchone()
+            if not row: raise ValueError('Unknown action')
+            value = json.loads(row['value'])
+            if value['status'] != 'running' or value.get('batch_id') or value.get('sync_group_id'):
+                raise ValueError('Only an independently running action can be isolated')
+            value.update(status='uncertain', reason=reason, local_recovery=True)
+            self.db.execute("UPDATE actions SET status='uncertain',value=? WHERE id=?", (packed(value), call_id))
+            self.db.execute("UPDATE calls SET status='uncertain' WHERE id=?", (call_id,))
+            notice={'event':'arm_recovery_required','robot':value['arm'],'call_id':call_id,
+                    'reason':reason,'note':'Original action was stopped but not confirmed stable; inspect and call recover_action. Never replay it.'}
+            self.signal(row['actor'],notice)
+            cfg=self.get('config')
+            if cfg.get('topology')=='adaptive' and row['actor']!='Controller':
+                self.signal('Controller',notice)
+            self.event('ARM_RECOVERY_REQUIRED',row['actor'],value)
+            return value
+
+    def reconcile_stopped_action(self, call_id, actor, result, sim_time):
+        with self.transaction():
+            row=self.db.execute('SELECT * FROM actions WHERE id=? AND actor=?',(call_id,actor)).fetchone()
+            if not row: raise ValueError('Unknown action for role')
+            value=json.loads(row['value'])
+            if value.get('status')!='uncertain' or not value.get('local_recovery'):
+                raise ValueError('Action is not in local recovery')
+            if result.get('call_id')!=call_id or result.get('status')!='failed':
+                raise ValueError('A confirmed stopped failure is required')
+            value.update(status='failed', reason=result.get('reason'), finished_sim_s=sim_time,
+                         finished_at=time.time(), recovered_from_uncertain=True)
+            self.db.execute("UPDATE actions SET status='failed',value=? WHERE id=?",(packed(value),call_id))
+            self.db.execute("UPDATE calls SET status='failed',updated=? WHERE id=?",(time.time(),call_id))
+            self.event('ARM_RECOVERY_CONFIRMED',actor,value)
+            return value
+
     def finish_action(self, call_id, status, sim_time, reason=None):
         if status not in ('completed', 'failed'):
             raise ValueError('Invalid terminal action status')

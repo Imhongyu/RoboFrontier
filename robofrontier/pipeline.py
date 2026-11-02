@@ -333,6 +333,9 @@ class World:
         if arm.job!=call_id:raise ValueError('Stop target is not the active action on this robot')
         arm.request_stop(self.time)
 
+    def recover_action(self,actor,call_id):
+        return self.arms[actor].recover_stopped(call_id)
+
     def _stop_action(self,arm,status,reason=None):
         return arm.end(status,reason)
 
