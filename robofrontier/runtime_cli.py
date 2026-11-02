@@ -154,6 +154,16 @@ def execute(store, op, data, owner, now):
         with log_path.open('a') as log:
             print('call_id='+call_id,file=log,flush=True)
         return client_call(connection,'start',{},call_id,log_call_id=False)
+    if op=='request-resume':
+        # A continued run (docs/run-segments.md): the owner resumes the prepared segment
+        # and returns each working role's frozen resume message.
+        from .pipeline_client import client_call
+        connection=store.path.parent/'connections'/f"{cfg['manager']}.json"
+        call_id='resume-'+str(store.get('segment',0))+'-'+__import__('hashlib').sha256(store.get('run_id').encode()).hexdigest()[:24]
+        log_path=run_layout.for_store(store.path,'admin_log');log_path.parent.mkdir(parents=True,exist_ok=True)
+        with log_path.open('a') as log:
+            print('call_id='+call_id,file=log,flush=True)
+        return client_call(connection,'resume',{},call_id,log_call_id=False)
     if op=='plan':return {'commands':Scheduler(store).plan(owner,now)}
     if op=='claim':return {'command':Scheduler(store).claim(data['wake_id'],owner,now)}
     if op=='dispatch-result':
@@ -182,7 +192,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run-dir',type=Path,required=True)
     p.add_argument('--owner',default='Meta')
-    p.add_argument('op',choices=['snapshot','observe-sessions','request-start','plan','claim','dispatch-result','pause','resume-dispatch','export','model-restart',
+    p.add_argument('op',choices=['snapshot','observe-sessions','request-start','request-resume','plan','claim','dispatch-result','pause','resume-dispatch','export','model-restart',
                                'delegate-claim','delegate-snapshot-bind','delegate-bind','delegate-activate','delegate-started','delegate-uncertain','session-unavailable','seal'])
     p.add_argument('--data',default='{}')
     args=p.parse_args()

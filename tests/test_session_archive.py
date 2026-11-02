@@ -74,9 +74,13 @@ class SessionArchiveTests(unittest.TestCase):
             self.assertEqual({r['actor'] for r in index['threads']}, {'Controller', 'snapshot:d1'})
             # Reports read the run's own copy first.
             self.assertEqual(native_codex_sessions(run, THREAD), [folder/sessions[0].name])
-            # An interrupted run may still continue, so it is not archived without --final.
-            with self.assertRaisesRegex(ValueError, 'can still be continued'): session_archive.archive_run(run)
+            # An interrupted run that may still continue is not archived without --final.
+            from robofrontier import run_segments
+            with patch.object(run_segments, 'retry_eligibility', lambda run, store: (True, None)):
+                with self.assertRaisesRegex(ValueError, 'can still be continued'): session_archive.archive_run(run)
             self.assertTrue(all(s.exists() for s in sessions))
+            # One that can no longer continue (here: it never recorded motion) is final.
+            self.assertEqual(session_archive.archive_run(run)['archived'], 2)
 
     def test_a_final_run_is_archived_and_releases_its_home_copies(self):
         with tempfile.TemporaryDirectory() as tmp:

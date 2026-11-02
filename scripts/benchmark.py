@@ -16,6 +16,7 @@ from robofrontier.launch_schedule import LaunchSchedule
 
 from robofrontier.task_families import ROOT, RELEASE, read, prepare
 from robofrontier.run_setup import write_json, verify_inputs
+from robofrontier.run_segments import try_continue
 
 
 def load_env(path):
@@ -242,6 +243,13 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
     return output/'batch.json'
 
 
+def read_lifecycle(run):
+    from robofrontier.runtime_store import RuntimeStore
+    store=RuntimeStore(Path(run)/'private/state/runtime.sqlite')
+    try:return store.get('lifecycle')
+    finally:store.close()
+
+
 def initialize_codex_home(launch, folder, timeout_s=90, *, env=None):
     """Serialize the real app-server handshake for processes sharing CODEX_HOME."""
     home=codex_home(env)
@@ -285,26 +293,35 @@ def memory_snapshot():
     return info
 
 
-def run_batch(folder, parallel):
+def run_batch(folder, parallel, continuing=False):
+    """Run a prepared batch; with `continuing`, pick up a batch whose supervisor died.
+
+    Continuing never restarts a world: a run that had started continues in its next
+    segment, at most once (docs/run-segments.md); runs that never started start now.
+    """
     folder=Path(folder).resolve();batch=read(folder/'batch.json')
-    if batch['status']!='prepared_not_started':raise ValueError('Never automatically restart a batch/world')
+    expected='running' if continuing else 'prepared_not_started'
+    if batch['status']!=expected:raise ValueError('Never automatically restart a batch/world' if not continuing
+                                                  else 'Only a batch whose supervisor stopped while running can continue')
     if not 1<=parallel<=36:raise ValueError('Parallel tasks must be 1..36')
     lock_path=run_layout.batch_path(folder,'supervisor_lock');lock_path.parent.mkdir(parents=True,exist_ok=True)
     with lock_path.open('a+') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         # Another supervisor may have changed the batch before the lock.
         batch=read(folder/'batch.json')
-        if batch['status']!='prepared_not_started':raise ValueError('Never automatically restart a batch/world')
-        return _run_batch_locked(folder, parallel, batch)
+        if batch['status']!=expected:raise ValueError('Batch status changed before the lock')
+        return _run_batch_locked(folder, parallel, batch, continuing)
 
 
-def _run_batch_locked(folder, parallel, batch):
+def _run_batch_locked(folder, parallel, batch, continuing=False):
+    # Continuing picks up the jobs that never reached a final status.
+    jobs=[j for j in batch['jobs'] if j['status']=='prepared'] if continuing else batch['jobs']
     execution=batch.get('execution',{})
     schedule=LaunchSchedule(execution.get('startup_interval_s',.3))
     scope=execution.get('codex_home_scope','shared')
     if scope not in ('task','shared'):raise ValueError('Unknown Codex home scope')
     environments={}
-    for job in batch['jobs']:
+    for job in jobs:
         run=Path(job['run_directory']);launch=read(run/'private/inputs/codex.json')
         if verify_inputs(run):raise ValueError('Prepared code/inputs changed; prepare a new batch')
         key=launch['profile'].get('env_key')
@@ -345,7 +362,7 @@ def _run_batch_locked(folder, parallel, batch):
                        check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,env=env)
     # Handshake is local and occurs before any task process or model turn.
     initialized=set()
-    for job in batch['jobs']:
+    for job in jobs:
         run=Path(job['run_directory']);env=environments[str(run)]
         if env['CODEX_HOME'] not in initialized:
             initialize_codex_home(read(run/'private/inputs/codex.json'),run_layout.path(run,'owner_log','codex').parent,env=env)
@@ -353,10 +370,29 @@ def _run_batch_locked(folder, parallel, batch):
     resources=memory_snapshot()
     batch['resource_snapshot']=resources
     print('Resource snapshot (not a concurrency guarantee): '+json.dumps(resources),file=sys.stderr)
-    batch.update(status='running',parallel=parallel,started_at=time.time(),model_calls=None,
-                 model_calls_note='Per-task native usage events are recorded; aggregate API request count is not measured')
+    if continuing:batch.setdefault('continued_at',[]).append(time.time())
+    else:batch.update(status='running',parallel=parallel,started_at=time.time(),model_calls=None,
+                      model_calls_note='Per-task native usage events are recorded; aggregate API request count is not measured')
     write_json(folder/'batch.json',batch)
     def task(job):
+        # An unexpected exit continues the same run once (docs/run-segments.md).
+        run=Path(job['run_directory'])
+        # A segment prepared just before the supervisor died starts as it is.
+        if continuing and read_lifecycle(run) not in ('prepared','resuming'):
+            continued,why=try_continue(run,'batch supervisor exited')
+            job.setdefault('segments',[]).append({'host_exit_code':None,'continued':continued,'reason':why})
+            write_json(folder/'batch.json',batch)
+            if not continued:raise ValueError('Run cannot continue: '+why)
+        while True:
+            result=launch(job)
+            if result is None:return result
+            # Even a clean host exit can follow a world that died; the eligibility
+            # check tells normal ends (finish, stop, wall limit, live seal) apart.
+            continued,why=try_continue(run,'host exit code '+str(result))
+            job.setdefault('segments',[]).append({'host_exit_code':result,'continued':continued,'reason':why})
+            write_json(folder/'batch.json',batch)
+            if not continued:return result
+    def launch(job):
         run=Path(job['run_directory'])
         stop,batch_stop=run_layout.path(run,'stop','codex'),run_layout.batch_path(folder,'stop')
         if stop.exists():return None
@@ -370,7 +406,7 @@ def _run_batch_locked(folder, parallel, batch):
             write_json(run_layout.path(run,'host_process','codex'),dict(pid=proc.pid,started_at=time.time()))
             return proc.wait()
     with ThreadPoolExecutor(max_workers=parallel) as pool:
-        futures={pool.submit(task,job):job for job in batch['jobs']}
+        futures={pool.submit(task,job):job for job in jobs}
         for future in as_completed(futures):
             job=futures[future]
             try:
@@ -401,6 +437,8 @@ def main():
         a.add_argument('--cases',nargs='+');a.add_argument('--model-config',type=Path)
         a.add_argument('--level',type=int,choices=(1,2,3))
         a.add_argument('--min-arms',action='store_true',help='Smallest released arm count within each selected family')
+    a=sub.add_parser('continue',help='Continue a batch whose supervisor died (docs/run-segments.md)')
+    a.add_argument('batch',type=Path);a.add_argument('--parallel',type=int,default=9)
     a=sub.add_parser('run');a.add_argument('batch',type=Path);a.add_argument('--parallel',type=int,default=9)
     a=sub.add_parser('status');a.add_argument('batch',type=Path)
     a=sub.add_parser('stop');a.add_argument('batch',type=Path)
@@ -441,6 +479,7 @@ def main():
             if result.returncode:raise SystemExit(result.returncode)
     elif args.command=='prepare':print(prepare_batch(args.output,args.models,args.families,args.cases,args.model_config,args.level,args.min_arms,args.wall_limit_s))
     elif args.command=='run':run_batch(args.batch,args.parallel)
+    elif args.command=='continue':run_batch(args.batch,args.parallel,continuing=True)
     elif args.command=='status':
         batch=read(args.batch/'batch.json')
         for j in batch['jobs']:

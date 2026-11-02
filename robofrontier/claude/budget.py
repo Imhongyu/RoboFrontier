@@ -83,6 +83,17 @@ class BudgetLedger:
     def snapshot(self):
         with self.transaction(): return self._snapshot()
 
+    def settle_interrupted(self):
+        """Before a run continues in a new segment (docs/run-segments.md): turns cut off by
+        the unexpected exit have ended, with an unknown cost. Without a task cap that cost
+        cannot breach anything, so they become settled with no reported cost; under a cap
+        they stay uncertain and keep blocking."""
+        with self.transaction():
+            if self._snapshot()['limit_usd'] is None:
+                self.db.execute("UPDATE reservations SET status='settled', cost=NULL, updated=? "
+                                "WHERE status IN ('reserved','uncertain')", (time.time(),))
+            return self._snapshot()
+
     def reserve(self, reservation_id, actor, maximum_usd=None):
         maximum = _money(maximum_usd) if maximum_usd is not None else None
         if not isinstance(reservation_id, str) or not reservation_id or not isinstance(actor, str) or not actor:

@@ -44,12 +44,20 @@ class CentralizedSupervisor:
         hosts.extend(getattr(setup, 'hosts', {}).values())
         return [host.observe()['status'] for host in hosts]
 
+    def _projected_start(self):
+        """The persisted START on the monotonic clock; downtime between segments is not counted."""
+        started_wall = self.policy.store.get('start_at')
+        if not isinstance(started_wall, (int, float)) or isinstance(started_wall, bool) or not math.isfinite(started_wall):
+            raise ValueError('Running policy is missing a valid START time')
+        return self.clock() - max(0., self.wall_clock() - started_wall - self.policy.store.get('downtime_s', 0.))
+
     def run(self):
         if self.used:
             raise ValueError('Supervisor cannot restart a world')
         self.used = True
         reason = 'supervisor_error'
         error_type = None
+        error_message = None
         sealed = None
         seal_error_type = None
         started_at = None
@@ -62,13 +70,11 @@ class CentralizedSupervisor:
             elif not self.owner_alive():
                 reason = 'owner_unavailable'
             else:
-                self.policy.bind_and_bootstrap()
+                # A run continued after an unexpected exit resumes its sessions (docs/run-segments.md).
+                if getattr(self.policy, 'resuming', False): self.policy.resume_segment()
+                else: self.policy.bind_and_bootstrap()
                 if self.policy.store.get('lifecycle') == 'running':
-                    # Project the persisted START onto the monotonic clock.
-                    started_wall = self.policy.store.get('start_at')
-                    if not isinstance(started_wall, (int, float)) or isinstance(started_wall, bool) or not math.isfinite(started_wall):
-                        raise ValueError('Running policy is missing a valid START time')
-                    started_at = self.clock() - max(0., self.wall_clock() - started_wall)
+                    started_at = self._projected_start()
                 while True:
                     if self.stop_requested():
                         reason = 'stop_requested'; break
@@ -96,10 +102,7 @@ class CentralizedSupervisor:
                             reason = 'startup_timeout'; break
                         if state == 'idle' and self.policy.store.agent('Controller')['ready']:
                             self.policy.start_when_ready()
-                            started_wall = self.policy.store.get('start_at')
-                            if not isinstance(started_wall, (int, float)) or isinstance(started_wall, bool) or not math.isfinite(started_wall):
-                                raise ValueError('Running policy is missing a valid START time')
-                            started_at = self.clock() - max(0., self.wall_clock() - started_wall)
+                            started_at = self._projected_start()
                     else:
                         if now - started_at >= self.wall_limit_s:
                             reason = 'wall_limit'; break
@@ -109,6 +112,7 @@ class CentralizedSupervisor:
                     self.sleep(self.poll_s)
         except Exception as error:
             error_type = type(error).__name__
+            error_message = str(error)[:300]
         finally:
             # finish has already frozen the terminal world. Allow only the
             # existing native turns to receive its reply and settle their
@@ -143,7 +147,7 @@ class CentralizedSupervisor:
                     sealed = seal_run(self.policy.store, self.seal_timeout_s)
             except Exception as error:
                 seal_error_type = type(error).__name__
-        return {'reason': reason, 'error_type': error_type, 'seal': sealed,
+        return {'reason': reason, 'error_type': error_type, 'error': error_message, 'seal': sealed,
                 'seal_error_type': seal_error_type, 'started': started_at is not None,
                 'session_evidence': session_evidence,
                 'finish_turns_drained': finish_turns_drained,

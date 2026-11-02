@@ -26,6 +26,13 @@ def snapshot(run):
     return files
 
 
+def prepared(root, engine, case='transport-a04-d1'):
+    """A prepared run of `case` for `engine` with the frozen policy harness."""
+    path = Path(root)/(engine+'-harness.json')
+    path.write_text(json.dumps(dict(HARNESS, engine=engine)))
+    return prepare(case, Path(root)/engine, path)
+
+
 class EngineParityTests(unittest.TestCase):
     def prepare_pair(self, tmp, case, topology):
         runs = {}
@@ -74,6 +81,18 @@ class EngineParityTests(unittest.TestCase):
                         if info['kind'] != 'manager':
                             text = (runs['codex']/'private/inputs/bootstrap'/(actor+'.md')).read_text()
                             self.assertIn(policy_bootstrap.STARTUP[STARTUP[topology]], text)
+
+    def test_resume_message_is_one_frozen_template_for_both_engines(self):
+        with tempfile.TemporaryDirectory() as tmp, patch('mujoco.mj_step', side_effect=AssertionError('No physics')):
+            root = Path(tmp).resolve()
+            runs = {engine: prepared(root, engine) for engine in ('claude', 'codex')}
+            record = {'restored_sim_s': 12.345, 'interrupted': {'Controller': ['Controller-call_1']}}
+            texts = {e: policy_bootstrap.fill_resume(r, 'Controller', record) for e, r in runs.items()}
+            self.assertEqual(texts['claude'], texts['codex'])
+            self.assertIn('12.35', texts['claude']); self.assertIn('Controller-call_1', texts['claude'])
+            self.assertIn('Yours: none.', policy_bootstrap.fill_resume(runs['codex'], 'Delegate_x', record))
+            for run in runs.values():
+                self.assertEqual((run/'private/inputs/bootstrap/resume.md').read_text(), policy_bootstrap.RESUME)
 
 
 class PolicyAccessTests(unittest.TestCase):

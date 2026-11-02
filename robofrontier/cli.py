@@ -173,7 +173,9 @@ def _frozen_configuration(batch):
     return config
 
 
-def run(batch, *, engineering=False):
+def run(batch, *, engineering=False, continuing=False):
+    """Run a prepared batch. `continuing` picks up a batch whose supervisor died: a run that
+    had started continues once in its next segment and unstarted runs start (docs/run-segments.md)."""
     config = _frozen_configuration(batch)
     if config['policy']['engine'] == 'claude' and not engineering:
         raise ValueError('Claude runs remain unqualified; explicitly select run --engineering')
@@ -187,10 +189,10 @@ def run(batch, *, engineering=False):
         state = run_batch(batch, dict(os.environ), parallel=config['batch']['parallel'],
                           startup_interval_s=config['batch']['startup_interval_s'],
                           startup_timeout_s=config['batch']['startup_timeout_s'],
-                          wall_limit_s=config['batch']['task_wall_limit_s'])
+                          wall_limit_s=config['batch']['task_wall_limit_s'], continuing=continuing)
     else:
         from scripts.benchmark import run_batch
-        run_batch(batch, config['batch']['parallel'])
+        run_batch(batch, config['batch']['parallel'], continuing=continuing)
         state = json.loads((Path(batch)/'batch.json').read_text())
     result = {'batch': str(Path(batch).resolve()), 'status': state['status']}
     if config['evidence']['auto_collect']:
@@ -258,6 +260,8 @@ def argument_parser(*, prog=None):
             p.add_argument('--engineering', action='store_true', help='Explicitly run an unqualified Claude engineering draft')
             p.add_argument('--durable', action='store_true',
                            help='Run under the macOS user launchd service, so it outlives this terminal')
+            p.add_argument('--continue', dest='continuing', action='store_true',
+                           help='Continue a batch whose supervisor died; started runs continue once (docs/run-segments.md)')
     p = sub.add_parser('collect', help='Collect stopped native sessions, motion and evidence')
     p.add_argument('batch', type=Path)
     p.add_argument('--output', type=Path, required=True)
@@ -351,12 +355,13 @@ def main(argv=None):
             else:
                 emit({'batch': str(prepare(args.output, config)), 'model_calls': 0})
         elif args.command == 'run' and args.durable:
+            if args.continuing: raise ValueError('Continue a batch in the foreground; --durable starts only fresh batches')
             from .durable import submit as submit_durable
             emit(submit_durable(args.batch, engineering=args.engineering))
         elif args.command == 'run':
             from scripts.benchmark import load_env
             load_env(ROOT/'.env')
-            emit(run(args.batch, engineering=args.engineering))
+            emit(run(args.batch, engineering=args.engineering, continuing=args.continuing))
         elif args.command == 'status':
             # Read the supervisor's atomic snapshot, never open a writer's SQLite.
             snapshot = run_layout.batch_path(args.batch, 'engineering_status')

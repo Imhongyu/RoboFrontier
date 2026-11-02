@@ -133,14 +133,33 @@ def _files(root):
 
 
 def motion_inventory(run):
-    """Check recorded dependencies without importing MuJoCo or altering evidence."""
-    path = run/'private/outputs/motion'
+    """Check every segment's recorded dependencies without importing MuJoCo or altering evidence."""
+    from robofrontier import run_segments
     task_path = run/'private/inputs/task.json'
     try:
         task = load(task_path) if task_path.is_file() else {}
         if not isinstance(task, dict): raise ValueError('Task must be an object')
     except ValueError:
         return ['task metadata unreadable; motion inventory requires review']
+    folders = [run/'private/outputs/motion']
+    if run_segments.supported(run):
+        # A continued run records one motion stream per segment (docs/run-segments.md).
+        folders += [run_segments.output_dir(run, k)/'motion' for k in range(1, load_segment(run)+1)]
+    issues = []
+    for k, path in enumerate(folders):
+        found = _motion_folder_inventory(path, task)
+        issues += found if k == 0 else ['segment %d: %s' % (k, issue) for issue in found]
+    return issues
+
+
+def load_segment(run):
+    """The run's current segment from its exported segment record (0 when never continued)."""
+    record = run/'private/outputs/segments.json'
+    try: return int(load(record).get('segment', 0)) if record.is_file() else 0
+    except (ValueError, TypeError, AttributeError): return 0
+
+
+def _motion_folder_inventory(path, task):
     if not (path/'stream.json').is_file():
         return ['missing motion recording'] if task.get('kind') == 'frontier_suite' else []
     def checked(name, checksum=None):

@@ -49,7 +49,7 @@ class _TeamStatus:
 
 class StandingTeamPolicyHost:
     def __init__(self, run_dir, profile, base_env, ledger, *, turn_budget_usd=None,
-                 host_factory=ClaudeSessionHost, client=client_call, verifier=verify_inputs):
+                 host_factory=ClaudeSessionHost, client=client_call, verifier=verify_inputs, resume=False):
         self.run = Path(run_dir).resolve()
         if not Path(ledger.path).resolve().is_relative_to(self.run/'private'):
             raise ValueError('A run-local shared budget ledger is required')
@@ -63,7 +63,13 @@ class StandingTeamPolicyHost:
             if cfg.get('model') != profile.get('model') or cfg.get('effort') != profile.get('effort'):
                 raise ValueError('Profile differs from frozen runtime configuration')
             agents = {a: v for a, v in self.store.agents().items() if v['kind'] != 'manager'}
-            if self.store.get('lifecycle') != 'prepared' or not agents or any(a['thread_id'] for a in agents.values()):
+            # A run continued after an unexpected exit (docs/run-segments.md) keeps every
+            # role's session; any other bound or started world is never restarted.
+            self.resuming = resume
+            if resume:
+                if self.store.get('lifecycle') != 'resuming' or not agents or not all(a['thread_id'] for a in agents.values()):
+                    raise ValueError('No prepared segment to resume')
+            elif self.store.get('lifecycle') != 'prepared' or not agents or any(a['thread_id'] for a in agents.values()):
                 raise ValueError('A previously bound or started world cannot be restarted')
             changed = verifier(self.run)
             if changed:
@@ -74,6 +80,8 @@ class StandingTeamPolicyHost:
                                           max_budget_usd=turn_budget_usd, budget_ledger=ledger) for a in agents}
             if any(h.actor != a for a, h in self.hosts.items()):
                 raise ValueError('Native host identity differs from its standing role')
+            if resume:
+                for actor, host in self.hosts.items(): host.adopt(agents[actor]['thread_id'])
             ids = [h.session_id for h in self.hosts.values()]
             if len(set(ids)) != len(ids):
                 raise ValueError('Every initial role needs a distinct native session')
@@ -113,6 +121,19 @@ class StandingTeamPolicyHost:
                 raise ValueError('Initial role acknowledgement mismatch; review instead of retrying')
             acknowledgements[actor] = ack
         return acknowledgements
+
+    def resume_segment(self):
+        """Resume the prepared segment and send each working role its frozen resume message."""
+        if not self.resuming or self.bind_attempted:
+            raise ValueError('Not a prepared segment')
+        self.bind_attempted = True
+        reply = self.admin('request-resume')
+        if not reply.get('resumed') or self.store.get('lifecycle') != 'running':
+            raise ValueError('World did not confirm the resumed segment')
+        self.bound = True
+        for actor, text in reply['messages'].items():
+            if actor in self.hosts: self.hosts[actor].send(text)
+        return reply
 
     def _valid_observation(self, actor, value):
         return (isinstance(value, dict) and

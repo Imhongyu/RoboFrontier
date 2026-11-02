@@ -179,8 +179,9 @@ class Arm(PandaArm):
 
 
 class World:
+    segment=0
     def __init__(self,directory,task=None):
-        self.directory=Path(directory);self.task=task or load_task()
+        self.directory=Path(directory);self.task=task or load_task();segment_restore=None
         self.command_bounds=copy.deepcopy(self.task.get('workspace_world_m'))
         if self.task.get('scene_asset'):
             from collections import deque
@@ -193,7 +194,18 @@ class World:
             self.xml=ET.tostring(root,encoding='unicode');self.model=mujoco.MjModel.from_xml_string(self.xml)
             self.data=mujoco.MjData(self.model)
             mujoco.mj_resetDataKeyframe(self.model,self.data,self.model.key('initial').id);mujoco.mj_forward(self.model,self.data)
+            from .run_segments import restore_world
+            # A continued run (docs/run-segments.md) rebuilds its world from the last recorded pose.
+            segment_restore=restore_world(self.directory,self.task,self.model,self.data)
+            if segment_restore:self.segment=segment_restore['segment'];mujoco.mj_forward(self.model,self.data)
             self.arms={a:Arm(self.model,self.data,a,initialized=True) for a in self.task['arms']}
+            if segment_restore:
+                # Reinitialize references to measured positions. No old action
+                # or force-controlled grasp is inferred or replayed.
+                for arm in self.arms.values():
+                    arm.qref=self.data.qpos[arm.qids].copy();self.data.ctrl[arm.act]=arm.qref
+                    control=arm.width_to_grip(arm.observe()['gripper_width_m'])
+                    arm.gripper=control;arm.grip_goal=control;self.data.ctrl[arm.grip]=control
             self.evaluation_samples=deque(maxlen=math.ceil(self.task['completion']['stable_duration_sim_s']/.02)+3)
             self.object_names={o['id'] for o in self.task['objects']}
             self.robot_bodies={b for ids in RobotGeometry(self.model,self.arms).bodies.values() for b in ids}
@@ -209,6 +221,28 @@ class World:
         self.observation_image=observation_profile(frozen_cfg)
         profile=frozen_cfg.get('gripper_position_servo','legacy')
         for arm in self.arms.values():arm.configure_hand_position_servo(profile)
+        if self.task.get('scene_asset') and segment_restore:
+            # Only recent, independently logged completed grasps are
+            # approximated. This is not restoration of actuator history.
+            holds=segment_restore.get('held_grasps',{})
+            self.restored_holds=[]
+            for name,evidence in holds.items():
+                if name not in self.arms:raise ValueError('Recorded grasp names an absent arm')
+                arm=self.arms[name];width=arm.observe()['gripper_width_m']
+                # A hold snapshot can predate a release; keep only grasps the pose shows.
+                if abs(width-evidence['observed_width_m'])>.005:continue
+                self.restored_holds.append(name)
+                force=float(evidence['force_n']);arm.grasp_force=force
+                arm.grasp_width=float(evidence['target_width_m'])
+                arm.grasp_epsilon=(float(evidence['epsilon_inner_m']),float(evidence['epsilon_outer_m']))
+                arm.grasp_phase='hold';arm.grasp_confirmed=True;arm.gripper_command_mode='grasp'
+                arm.grasp_force_started=-.4;arm.grasp_drive_force=force
+                self.model.actuator_gainprm[arm.grip,:]=0;self.model.actuator_gainprm[arm.grip,0]=1
+                self.model.actuator_biasprm[arm.grip,:]=0
+                ceiling=min(70.,-arm.grip_position_parameters[3][0],arm.grip_position_parameters[3][1])
+                self.model.actuator_forcerange[arm.grip]=[-ceiling,ceiling]
+                self.model.actuator_ctrlrange[arm.grip]=[-ceiling,ceiling]
+                self.data.ctrl[arm.grip]=-min(force,ceiling-1e-6)
         self.beam_sampler=None;self.spring_sampler=None;self.suite_sampler=None;self.motion_recorder=None
         if self.task.get('kind')=='spring_dial':
             from .spring_dial import update_display
@@ -218,6 +252,15 @@ class World:
 
     @property
     def time(self):return float(self.data.time)
+
+    def held_grasps(self):
+        """Arms holding a confirmed grasp, as a continued segment would restore them."""
+        holds={}
+        for name,arm in self.arms.items():
+            if arm.job is None and arm.gripper_command_mode=='grasp' and arm.grasp_phase=='hold' and arm.grasp_confirmed:
+                holds[name]=dict(sim_s=self.time,observed_width_m=arm.observe()['gripper_width_m'],force_n=arm.grasp_force,
+                                 target_width_m=arm.grasp_width,epsilon_inner_m=arm.grasp_epsilon[0],epsilon_outer_m=arm.grasp_epsilon[1])
+        return holds
 
     def tcp_command_bounds(self,actor,cfg):
         bounds=getattr(self,'command_bounds',None)
@@ -311,13 +354,15 @@ class World:
             harness=self.directory/'private/inputs/harness.json'
             frozen=json.loads(harness.read_text()) if harness.exists() else {}
             self.suite_sampler=Monitor(self,secret=secret,log_path=self.directory/'private/outputs/suite-process.jsonl',
-                                       log_format=frozen.get('process_log','full'))
+                                       log_format=frozen.get('process_log','full'),append=self.segment>0)
             source=self.directory/Path(self.task['scene_asset']).parent
             if (source/'workstation.json').exists():
                 from .motion_recording import MotionWriter
                 # Runs frozen before motion_hz existed keep the original 60 Hz.
                 hz=frozen.get('motion_hz',60)
-                self.motion_recorder=MotionWriter(self.directory/'private/outputs/motion',source,self.model,self.data,hz=hz,
+                from .run_segments import output_dir
+                folder=output_dir(self.directory,self.segment);folder.mkdir(parents=True,exist_ok=True)
+                self.motion_recorder=MotionWriter(folder/'motion',source,self.model,self.data,hz=hz,
                                                   cache=ROOT/'runs/state-assets')
         if self.task.get('kind')=='spring_dial':
             from .spring_dial_task import SpringDialSampler
@@ -345,6 +390,20 @@ class World:
 
     def start_action(self,actor,call_id,command):
         self.arms[actor].start(call_id,command,self.time)
+
+    def inject_fault(self,actor,call_id,op):
+        """Apply this run's engineering fault, if any, to an independent action just started."""
+        if not hasattr(self,'fault'):
+            from .fault_injection import load
+            self.fault=load(self.directory);self.fault_moves={}
+        spec=self.fault
+        if not spec or spec.get('applied') or op!=spec['op'] or spec['robot'] not in ('*',actor):return None
+        counter='*' if spec['robot']=='*' else actor
+        self.fault_moves[counter]=self.fault_moves.get(counter,0)+1
+        if self.fault_moves[counter]!=spec['action_index']:return None
+        arm=self.arms[actor];arm.execution_timeout_s=spec['timeout_sim_s'];arm.fault_hold_s=spec['hold_unsettled_sim_s']
+        spec['applied']=True
+        return {'call_id':call_id,'arm':actor,**{k:spec[k] for k in ('kind','robot','op','action_index','timeout_sim_s','hold_unsettled_sim_s')}}
 
     def request_stop(self,actor,call_id):
         arm=self.arms[actor]
@@ -405,10 +464,14 @@ class Service(RuntimeService):
         self.perf={'world_step_wall_s':0.,'world_steps':0,'capture_wall_s':0.,'captures':0,'pump_wall_s':0.}
         cfg = json.loads((Path(directory)/'private/inputs/harness.json').read_text())
         self.observation_image = observation_profile(cfg)
-        video_factory = (lambda:Video(Path(directory).resolve()/'private/outputs'/
+        from .run_segments import output_dir
+        video_factory = (lambda:Video(output_dir(Path(directory).resolve(),self.world.segment)/
                          (self.task.get('recording_camera','global')+'-realtime.mp4'),1280,800,self.config['video_fps'])) \
                          if cfg.get('record_realtime_video', True) else None
         super().__init__(directory,World,self.capture,video_factory)
+        # This owner closes the world when the host that started it is gone, so an
+        # unexpected host exit never leaves an orphan holding the world.
+        self.parent_pid=os.getppid()
 
     def capture(self,cameras):
         capture_start=time.perf_counter()
@@ -507,6 +570,10 @@ class Service(RuntimeService):
             previous=time.monotonic();acc=0.;next_frame=previous;next_state=previous;next_record=previous;next_perf=previous
             perf_file=self.directory/'private/outputs/cpu-performance.jsonl'
             while not self.shutdown and (not hasattr(self,'window') or not glfw.window_should_close(self.window)):
+                # The world closes by itself once its host is gone, so a crashed host
+                # leaves no orphan holding the world lock (docs/run-segments.md).
+                if os.getppid()!=self.parent_pid:
+                    self.store.event('HOST_LOST','Meta',{'parent_pid':self.parent_pid});break
                 now=time.monotonic();acc+=min(now-previous,.1);previous=now
                 if hasattr(self,'window'):glfw.poll_events()
                 with self.lock:

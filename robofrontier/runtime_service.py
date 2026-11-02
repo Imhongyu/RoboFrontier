@@ -78,7 +78,10 @@ class RuntimeService:
         self.motion_check = None
         self.shutdown = False
         lifecycle = self.store.get('lifecycle')
-        if lifecycle != 'prepared' or self.store.get('execution_owner_attached'):
+        # A run that continues after an unexpected exit was prepared for it explicitly
+        # (run_segments.prepare_retry); every other restart is refused.
+        resuming = lifecycle == 'resuming' and not self.store.get('execution_owner_attached')
+        if (lifecycle != 'prepared' and not resuming) or self.store.get('execution_owner_attached'):
             # Reading a run must never silently recreate its physical world.
             if lifecycle not in ('ended', 'interrupted'):
                 self.store.recover_execution()
@@ -94,7 +97,11 @@ class RuntimeService:
         self.store.put('execution_owner_attached', True)
         self.owns_world = True
         self.world = world_factory(self.directory, self.task)
-        self.store.event('EXECUTION_OWNER_ATTACHED', 'Meta')
+        self.store.event('EXECUTION_OWNER_ATTACHED', 'Meta', {'segment': self.store.get('segment', 0)})
+        if resuming:
+            # The trial's recorders start now; the run itself resumes on the host's `resume`.
+            begin = getattr(self.world, 'start_trial', None)
+            if begin is not None: begin()
 
     @property
     def started(self):
@@ -122,10 +129,13 @@ class RuntimeService:
                             self.store.put('physics_state', 'stopped')
                             self.store.event('RUN_INTERRUPTED', 'Meta', {'reason':'Execution owner closed; no physical replay'})
                             try:
-                                write_json(self.directory/'private/outputs/interruption-evaluation.json',
+                                from .run_segments import output_dir
+                                folder = output_dir(self.directory, self.store.get('segment', 0))
+                                folder.mkdir(parents=True, exist_ok=True)
+                                write_json(folder/'interruption-evaluation.json',
                                     {'task_success':False,'scope':'Postmortem geometry only; interrupted trial is not a success',
                                      'sim_time_s':float(self.world.time),'evaluation':self.world.evaluate()})
-                                self.save_evaluation_evidence('interruption-evaluation-window.json')
+                                self.save_evaluation_evidence('interruption-evaluation-window.json', folder)
                             except Exception as error:
                                 self.store.event('INTERRUPTION_EVALUATION_UNAVAILABLE','Meta',{'reason':str(error)})
                         self.check_integrity()
@@ -155,7 +165,8 @@ class RuntimeService:
             job = {'id': call_id, 'actor': actor, 'op': op, 'data': data, 'done': threading.Event(), 'result': None}
             self.requests[call_id] = job
             if old['status'] in ('completed', 'failed'):
-                job['result'] = json.loads(old['result'])
+                job['result'] = json.loads(old['result']) if old['result'] else \
+                    {'call_id': call_id, 'execution_status': 'failed', 'error': 'Call ended without a recorded result; do not replay'}
                 job['done'].set()
             elif old['status'] == 'uncertain':
                 job['result'] = {'call_id': call_id, 'execution_status': 'uncertain', 'error': 'Query original execution; do not replay'}
@@ -190,6 +201,8 @@ class RuntimeService:
     def snapshot(self):
         agents = self.store.agents()
         return {'schema_version': 3, 'lifecycle': self.store.get('lifecycle'), 'started': self.started,
+                'segment': self.store.get('segment', 0), 'segments': self.store.get('segments') or [],
+                'downtime_s': self.store.get('downtime_s', 0.),
                 'ended': self.ended, 'sim_time_s': float(self.world.time) if self.world else None, 'agents': agents,
                 'unread': {a: self.store.pending(a)['messages'] for a in self.policy_roles},
                 'messages': [self.store._message(r) for r in self.store.db.execute('SELECT * FROM messages ORDER BY seq')],
@@ -225,9 +238,9 @@ class RuntimeService:
         kind = self.store.agent(actor)['kind']
         manager = kind == 'manager'
         try:
-            if op in ('bind','start','state','shutdown') and not manager:
+            if op in ('bind','start','resume','state','shutdown') and not manager:
                 raise ValueError('Meta administrative operation')
-            if manager and op not in ('bind','start','state','shutdown','observe'):
+            if manager and op not in ('bind','start','resume','state','shutdown','observe'):
                 raise ValueError('Meta observes/administers; business decisions and robot actions belong to policy roles')
             # Queued before the run ended but reached after it: still never started.
             if op in self.PHYSICAL_OPS and self.ended:
@@ -300,6 +313,28 @@ class RuntimeService:
                 self.store.put('start_sim_time',float(self.world.time))
                 self.last_integrity_check = time.monotonic()
                 self.respond(job, {'started': True})
+            elif op == 'resume':
+                # Continue the same trial in the segment prepared after an unexpected exit.
+                if self.store.get('lifecycle') != 'resuming':
+                    raise ValueError('No segment is waiting to resume')
+                changed = verify_inputs(self.directory)
+                if changed:
+                    raise ValueError('Prepared inputs changed: '+str(changed))
+                from .run_segments import begin_segment, export, resume_message
+                with self.store.transaction():
+                    record = begin_segment(self.store)
+                    self.store.put('lifecycle', 'running')
+                    self.store.put('physics_state', 'running')
+                    self.store.put('dispatch_paused', False)
+                if self.video_factory:
+                    self.video = self.video_factory()
+                self.last_integrity_check = time.monotonic()
+                export(self.directory, self.store)
+                # Roles still at work: not returned delegates, and only roles with a session.
+                working = [a for a in self.policy_roles if self.store.agent(a)['thread_id'] and
+                           (self.store.agent(a)['kind'] != 'delegate' or self.store.agent(a).get('delegation_state') == 'active')]
+                messages = {a: resume_message(self.directory, a, record) for a in working}
+                self.respond(job, {'resumed': True, 'segment': record['index'], 'messages': messages})
             elif op == 'send':
                 with self.store.transaction():
                     m = self.store.send(actor, data['to'], data['text'], job['id'], data.get('reply_to'))
@@ -420,6 +455,9 @@ class RuntimeService:
                     action = self.store.start_action(job['id'], actor, op, data, float(self.world.time),prepared.get('timing'))
                 try:
                     self.world.start_action(robot, job['id'], prepared)
+                    inject = getattr(self.world, 'inject_fault', None)
+                    injected = inject(robot, job['id'], op) if callable(inject) else None
+                    if injected: self.store.event('ENGINEERING_FAULT_INJECTED', 'Meta', injected)
                 except Exception as error:
                     self.store.uncertain_action(job['id'],'Executor acknowledgement failed: '+str(error))
                     self.respond(job,{'execution_status':'uncertain','error':'Execution owner failed; engineering review required'})
@@ -605,11 +643,11 @@ class RuntimeService:
             self.store.put('video', self.finished_video)
             self.video = None
 
-    def save_evaluation_evidence(self, filename):
+    def save_evaluation_evidence(self, filename, folder=None):
         method=getattr(self.world,'evaluation_evidence',None)
         if callable(method):
             evidence=method()
-            if evidence is not None:write_json(self.directory/'private/outputs'/filename,evidence)
+            if evidence is not None:write_json((folder or self.directory/'private/outputs')/filename,evidence)
 
     def check_integrity(self):
         changed = verify_inputs(self.directory)
@@ -630,6 +668,9 @@ class RuntimeService:
         return changed
 
     def periodic(self):
+        holds = getattr(self.world, 'held_grasps', None)
+        if callable(holds) and self.store.get('lifecycle') == 'running':
+            self.store.put('arm_holds', holds())
         if self.store.get('lifecycle') == 'running' and time.monotonic() >= self.last_integrity_check + self.config['integrity_check_interval_s']:
             if self.check_integrity():
                 self.export_records()

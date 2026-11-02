@@ -198,18 +198,20 @@ def main():
             p.add_argument('--topology', choices=('adaptive', 'centralized', 'hierarchical', 'peer'), default='adaptive',
                            help='Engineering draft topology; no topology qualifies a scored run')
             p.add_argument('--record-video', action='store_true', help='Record a real-time MP4 during the engineering run')
-    p = sub.add_parser('run-engineering', help='Unqualified native Claude topology experiments; may spend API funds')
-    p.add_argument('batch', type=Path); p.add_argument('--parallel', type=int, required=True)
-    p.add_argument('--turn-budget-usd', type=float, default=None,
-                   help='Optional CLI-reported cost allowance per turn; unset means no per-turn cost cap')
-    p.add_argument('--task-budget-usd', type=float, default=None,
-                   help='Optional shared task cost allowance; unset means no task cost cap')
-    p.add_argument('--wall-limit-s', type=float, default=86400,
-                   help='Engineering stop after START in seconds (default: 86400); frozen task limit still applies')
-    p.add_argument('--startup-timeout-s', type=float, default=120,
-                   help='Seconds allowed for owner startup and, for legacy READY-barrier runs, policy startup (default: 120)')
-    p.add_argument('--confirm-engineering-spend', action='store_true',
-                   help='Acknowledge model calls and estimated costs for this engineering batch')
+    for command, text in (('run-engineering', 'Unqualified native Claude topology experiments; may spend API funds'),
+                          ('continue-engineering', 'Continue a batch whose process died (docs/run-segments.md); may spend API funds')):
+      p = sub.add_parser(command, help=text)
+      p.add_argument('batch', type=Path); p.add_argument('--parallel', type=int, required=True)
+      p.add_argument('--turn-budget-usd', type=float, default=None,
+                     help='Optional CLI-reported cost allowance per turn; unset means no per-turn cost cap')
+      p.add_argument('--task-budget-usd', type=float, default=None,
+                     help='Optional shared task cost allowance; unset means no task cost cap')
+      p.add_argument('--wall-limit-s', type=float, default=86400,
+                     help='Engineering stop after START in seconds (default: 86400); frozen task limit still applies')
+      p.add_argument('--startup-timeout-s', type=float, default=120,
+                     help='Seconds allowed for owner startup and, for legacy READY-barrier runs, policy startup (default: 120)')
+      p.add_argument('--confirm-engineering-spend', action='store_true',
+                     help='Acknowledge model calls and estimated costs for this engineering batch')
     for command in ('status-engineering', 'stop-engineering'):
         p = sub.add_parser(command); p.add_argument('batch', type=Path)
     args = parser.parse_args()
@@ -221,7 +223,7 @@ def main():
     elif args.command == 'stop-engineering':
         from robofrontier.claude.engineering_batch import stop_batch
         result = stop_batch(args.batch)
-    elif args.command == 'run-engineering':
+    elif args.command in ('run-engineering', 'continue-engineering'):
         if not args.confirm_engineering_spend:
             result = {'status': 'not_started', 'reason': 'Missing --confirm-engineering-spend',
                       'model_calls': 0, 'simulator_started': False}
@@ -239,7 +241,7 @@ def main():
                 result = run_batch(args.batch, dict(os.environ), parallel=args.parallel,
                                    turn_budget_usd=args.turn_budget_usd, total_budget_usd=args.task_budget_usd,
                                    wall_limit_s=args.wall_limit_s, startup_timeout_s=args.startup_timeout_s,
-                                   stop_requested=stop.is_set)
+                                   stop_requested=stop.is_set, continuing=args.command == 'continue-engineering')
             finally:
                 for sig, handler in previous.items(): signal.signal(sig, handler)
     else:

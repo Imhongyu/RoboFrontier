@@ -98,6 +98,8 @@ private/state/runtime.sqlite  Authoritative run-local execution database
 private/state/connections/    Role authentication and service addresses
 private/state/client-state/   Submitted requests, results and delivery receipts
 private/outputs/              Motion, events, exports, evaluation and sealing evidence
+private/inputs/segments/<k>/  Restore pose of segment k after an unexpected exit (docs/run-segments.md)
+private/outputs/segments/<k>/ Segment k's own motion, video and post-mortem evaluation
 ```
 
 `public` and `private` define the evidence contract, not operating-system

@@ -132,7 +132,12 @@ def compress_verified(path):
 
 def continuable(run, meta):
     """Whether this run may still be continued as a new segment, and so must keep its sessions."""
-    return meta.get('lifecycle') != 'ended'
+    if meta.get('lifecycle') == 'ended': return False
+    from .run_segments import retry_eligibility
+    from .runtime_store import RuntimeStore
+    store = RuntimeStore(run/'private/state/runtime.sqlite')
+    try: return retry_eligibility(run, store)[0]
+    finally: store.close()
 
 
 def _host_alive(pid):

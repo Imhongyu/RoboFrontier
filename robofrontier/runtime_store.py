@@ -524,6 +524,53 @@ class RuntimeStore:
                 self.event('EXECUTION_RECOVERY_REQUIRED','Meta',{'actions':list(rows)})
             return len(rows)
 
+    def interrupt_for_segment(self, reason, sim_time):
+        """Before a run continues in a new segment: end every unfinished physical call.
+
+        The old world is gone and the new one starts from a recorded pose, so nothing
+        that was running can still be running. Each such action becomes failed with
+        `reason`; nothing is replayed. Returns the interrupted action IDs by actor.
+        """
+        with self.transaction():
+            from .action_batch import cancel_collecting
+            cancel_collecting(self, 'segment_interrupted', sim_time)
+            interrupted = {}
+            prior = {row['id']: row['status'] for row in self.db.execute(
+                "SELECT id, status FROM calls WHERE status IN ('accepted','running','uncertain')")}
+            for call in self.db.execute("SELECT * FROM calls WHERE status IN ('accepted','running','uncertain') AND op IN ('move','gripper')").fetchall():
+                if not self.db.execute('SELECT 1 FROM actions WHERE id=?', (call['id'],)).fetchone():
+                    parameters = json.loads(call['parameters'])
+                    value = {'action_id': call['id'], 'arm': parameters.get('robot', call['actor']), 'type': call['op'],
+                             'parameters': parameters, 'status': 'uncertain'}
+                    self.db.execute('INSERT INTO actions VALUES (?,?,?,?)', (call['id'], call['actor'], 'uncertain', packed(value)))
+            def receipt(call_id, action_status=None):
+                # Asking for the call by its original ID returns this definite failure: what was
+                # last observed of it, and how the new segment settled it.
+                return packed({'call_id': call_id, 'execution_status': 'failed', 'error': reason,
+                               'interrupted_by_segment': True,
+                               'original_observed': {'call_status': prior.get(call_id), 'action_status': action_status},
+                               'reconciliation': {'status': 'failed', 'sim_time_s': sim_time, 'reason': reason}})
+            for row in self.db.execute("SELECT * FROM actions WHERE status IN ('pending','running','uncertain')").fetchall():
+                value = json.loads(row['value'])
+                observed = value.get('status')
+                value.update(status='failed', finished_sim_s=sim_time, finished_at=time.time(), reason=reason,
+                             interrupted_by_segment=True)
+                self.db.execute("UPDATE actions SET status='failed',value=? WHERE id=?", (packed(value), row['id']))
+                self.db.execute("UPDATE calls SET status='failed',result=?,updated=? WHERE id=?",
+                                (receipt(row['id'], observed), time.time(), row['id']))
+                interrupted.setdefault(row['actor'], []).append(row['id'])
+            for (call_id,) in self.db.execute("SELECT id FROM calls WHERE status IN ('accepted','running','uncertain') AND op='action_batch'").fetchall():
+                self.db.execute("UPDATE calls SET status='failed',result=?,updated=? WHERE id=?", (receipt(call_id), time.time(), call_id))
+            from .delegation import Delegations
+            failed = Delegations(self).fail_creating(reason)
+            for actor in self.agents():
+                if self.agent(actor).get('recovery_required'): self.update_agent(actor, recovery_required=False)
+            # Leases held by the previous dispatcher process died with it.
+            self.db.execute('DELETE FROM leases')
+            if interrupted or failed:
+                self.event('ACTIONS_INTERRUPTED_BY_SEGMENT', 'Meta', {'actions': interrupted, 'delegations': failed, 'reason': reason})
+            return interrupted
+
     def observe_session(self, actor, status, turn_id, observed_at, source, turn_status=None):
         engine = self.get('config').get('engine', 'codex')
         if source not in SESSION_SOURCES.get(engine, ()) or status not in ('idle', 'active', 'notLoaded', 'error', 'needsAttention'):

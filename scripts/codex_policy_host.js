@@ -155,6 +155,14 @@ class PolicyHost {
     this.turns.set(threadId,result.turn); return {threadId};
   }
   stopRequested() { return this.stopped || fs.existsSync(this.hostPath('stop')); }
+  // The world process is gone: stop dispatching so the run is sealed and can continue
+  // in its next segment (docs/run-segments.md) instead of failing every robot call.
+  ownerExited() {
+    const gone=Boolean(this.owner && (this.owner.exitCode!==null || this.owner.signalCode!==null));
+    if (gone && !this.ownerExitLogged) {this.ownerExitLogged=true;
+      this.event({event:'owner_exited',exit_code:this.owner.exitCode,signal:this.owner.signalCode});}
+    return gone;
+  }
   async retryCapacity() {
     if (this.stopped) return;
     const snapshot=await this.admin('snapshot');
@@ -274,6 +282,23 @@ Use your assigned native session and bound robot tools. Read public task evidenc
       '--connection',connection,'--call-id','bind-'+actor,'bind','--data',JSON.stringify({actor,thread_id:id})],{cwd:this.cwd});
     return JSON.parse(stdout);
   }
+  // A run continued after an unexpected exit (docs/run-segments.md): reopen every role's
+  // own thread, let the world resume, then send each working role its frozen resume message.
+  async resumeSessions() {
+    const snapshot=await this.admin('snapshot');
+    for (const [actor,agent] of Object.entries(snapshot.agents)) {
+      if (agent.kind==='manager' || !agent.thread_id) continue;
+      await this.rpc.call('thread/resume',{threadId:agent.thread_id,cwd:this.hostPath('policy_cwd'),model:this.launch.model,
+        modelProvider:this.launch.provider,approvalPolicy:'never',baseInstructions:frozenText(this.run,'system.md')??undefined,
+        config:{web_search:'disabled','features.multi_agent':false}},STARTUP_ACK_MS);
+      this.actors.set(agent.thread_id,actor);
+      this.event({event:'role_resumed',actor,thread_id:agent.thread_id});
+    }
+    const resumed=await this.admin('request-resume');
+    if (!resumed.resumed) throw new Error('World did not confirm the resumed segment');
+    this.event({event:'segment_resumed',segment:resumed.segment});
+    for (const [id,actor] of this.actors) if (resumed.messages[actor]) await this.send(id,resumed.messages[actor]);
+  }
   async runTask() {
     const manifest=read(path.join(this.run,'private/inputs/manifest.json'));
     if (manifest.model_requested!==this.launch.model || manifest.effort_requested!==this.launch.effort)
@@ -295,7 +320,9 @@ Use your assigned native session and bound robot tools. Read public task evidenc
       }
       const roles=read(path.join(this.run,'public/inputs/roles.json')).roles;
       const startupProtocol=read(path.join(this.run,'private/inputs/harness.json')).startup_protocol || 'ready_barrier_v1';
-      await this.startInitialRoles(roles,startupProtocol);
+      // A run continued after an unexpected exit reopens its roles' own threads instead.
+      if ((await this.admin('snapshot')).lifecycle==='resuming') await this.resumeSessions();
+      else await this.startInitialRoles(roles,startupProtocol);
       const wrap=value=>({content:[{type:'text',text:JSON.stringify(value)}]});
       const createNativeFork=async (p,isSnapshot=false)=>{
         const forkStarted=Date.now();
@@ -330,7 +357,7 @@ Use your assigned native session and bound robot tools. Read public task evidenc
           outcome=await runMetaDispatcher({runDir:this.run,python:this.python,cwd:this.cwd,tools,owner,
             startWhenReady:true,observationSource:'codex.app-server',onEvent:e=>this.event(e),
             createSnapshot:async p=>JSON.parse((await createNativeFork(p,true)).content[0].text),
-            stopRequested:()=>this.stopRequested()||this.rpcLost});
+            stopRequested:()=>this.stopRequested()||this.rpcLost||this.ownerExited()});
         } catch (error) { if (!this.rpcLost) throw error; }
         if (!this.rpcLost || this.stopRequested()) return outcome;
         const claim=restartable?await this.admin('model-restart',{actor:'Meta',engine:'codex'}):{allowed:false};

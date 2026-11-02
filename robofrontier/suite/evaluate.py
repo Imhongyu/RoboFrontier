@@ -73,7 +73,7 @@ class SupportQualification:
         return bool(present and self.qualified)
 
 class Monitor:
-    def __init__(self,world,secret=None,log_path=None,log_format='full'):
+    def __init__(self,world,secret=None,log_path=None,log_format='full',append=False):
         self.w=world;self.m=world.model;self.d=world.data;self.task=world.task;self.family=self.task['family'];self.robots=list(world.arms);self.robot_index={r:i for i,r in enumerate(self.robots)}
         self.geom_owner=np.full(self.m.ngeom,-1,dtype=int);self.finger=np.full(self.m.ngeom,-1,dtype=int)
         roots={self.m.body(r+'_link0').id:i for i,r in enumerate(self.robots)}
@@ -93,7 +93,8 @@ class Monitor:
         from .contact_episodes import ContactEpisodes
         self.contact_episodes = ContactEpisodes()
         self.motion_overlap_s=0.;self.any_motion_s=0.;self.robot_motion_s=0.;self.max_moving=0
-        self.log=Path(log_path).open('w') if log_path else None;self.active=True
+        # A continued segment appends to the same process log (docs/run-segments.md).
+        self.log=Path(log_path).open('a' if append else 'w') if log_path else None;self.active=True
         if log_format not in PROCESS_LOG_FORMATS:raise ValueError('Unknown process log format')
         self.log_format=log_format;self.snapshot_interval=PROCESS_LOG_FORMATS[log_format];self.last_event=None;self.final_logged=False
         if self.log and log_format!='full':

@@ -12,6 +12,7 @@ from robofrontier.claude.native_home import config_directory
 from robofrontier import run_layout
 from robofrontier.run_setup import verify_inputs, write_json
 from robofrontier.launch_schedule import LaunchSchedule
+from robofrontier.run_segments import try_continue
 
 ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z')
 
@@ -54,10 +55,43 @@ def _jobs(folder):
     return jobs
 
 
-def _preflight(jobs, env, verifier):
+# Supervisor results that mean the physical world stopped under a live host.
+WORLD_DIED = ('owner_unavailable', 'world_interrupted')
+
+
+def _run_once_continued(runner, run_dir, base_env, continuing=False, **options):
+    """One run, continued once in a new segment after an unexpected exit (docs/run-segments.md).
+
+    With `continuing`, a run that had started before the batch process died is first
+    prepared for its next segment; a run that never started starts normally.
+    """
+    from robofrontier.runtime_store import RuntimeStore
+    segments = []
+    if continuing:
+        store = RuntimeStore(Path(run_dir) / 'private/state/runtime.sqlite')
+        try: lifecycle = store.get('lifecycle')
+        finally: store.close()
+        if lifecycle not in ('prepared', 'resuming'):
+            continued, why = try_continue(run_dir, 'batch process exited')
+            segments.append({'reason': 'batch process exited', 'continued': continued, 'why': why})
+            if not continued:
+                return {'status': 'needs_review', 'reason': 'not_continued', 'segments': segments}
+    while True:
+        result = runner(run_dir, base_env, **options)
+        # Only a world that died continues. The host's own wall limit, a STOP, a finish or
+        # any other end it chose is final, even if its seal could not be recorded.
+        if result.get('reason') not in WORLD_DIED: break
+        continued, why = try_continue(run_dir, 'engine run ended: ' + str(result.get('reason')))
+        segments.append({'reason': result.get('reason'), 'continued': continued, 'why': why})
+        if not continued: break
+    result['segments'] = segments
+    return result
+
+
+def _preflight(jobs, env, verifier, continuing=False):
     for job in jobs:
         run = Path(job['run_directory'])
-        if _r(run, 'stop').exists() or _r(run, 'engineering_claim').exists():
+        if _r(run, 'stop').exists() or (_r(run, 'engineering_claim').exists() and not continuing):
             raise ValueError('A run is stopped or already claimed')
         changed = verifier(run)
         if changed: raise ValueError('Frozen inputs changed: ' + ', '.join(changed))
@@ -124,8 +158,12 @@ def stop_batch(folder):
 
 def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_usd=None, wall_limit_s=86400,
               startup_timeout_s=120, runner=run_engineering, verifier=verify_inputs, stop_requested=lambda: False,
-              startup_interval_s=.3):
-    """Run drafts once. Caller explicitly authorizes potential paid model calls."""
+              startup_interval_s=.3, continuing=False):
+    """Run drafts once. Caller explicitly authorizes potential paid model calls.
+
+    `continuing` picks up a batch whose process died: unfinished runs continue in their
+    next segment (at most once each) and runs that never started start now.
+    """
     folder = Path(folder).resolve()
     if type(parallel) is not int or not 1 <= parallel <= 36: raise ValueError('Parallel must be 1..36')
     if turn_budget_usd is not None: _positive(turn_budget_usd, 'per-turn budget', 1000)
@@ -139,21 +177,32 @@ def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_
     with lock_path.open('a+') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         claim = _b(folder, 'engineering_claim')
-        if claim.exists(): raise ValueError('Batch already claimed; never restart')
-        if _b(folder, 'stop').exists() or stop_requested(): raise ValueError('Batch was stopped before launch')
-        _preflight(jobs, base_env, verifier)
-        if _b(folder, 'stop').exists() or stop_requested(): raise ValueError('Batch was stopped before launch')
-        with claim.open('x') as out:
-            import os
-            os.fchmod(out.fileno(), 0o600)
-            json.dump({'claimed_at': time.time(), 'pid': os.getpid()}, out)
-            out.flush(); os.fsync(out.fileno())
-        state = {'schema': 'robofrontier.claude-engineering-status.v1', 'status': 'running',
-                 'started_at': time.time(), 'parallel': parallel, 'scored': False,
-                 'turn_budget_usd': turn_budget_usd, 'task_budget_usd': total_budget_usd, 'wall_limit_s': wall_limit_s,
-                 'startup_timeout_s': startup_timeout_s,
-                 'jobs': [{'profile': j['profile'], 'case_id': j['case_id'], 'status': 'queued'} for j in jobs]}
         state_path = _b(folder, 'engineering_status')
+        if continuing:
+            state = json.loads(state_path.read_text())
+            if not claim.exists() or state.get('status') != 'running':
+                raise ValueError('Only a batch whose process stopped while running can continue')
+            unfinished = [i for i, j in enumerate(state['jobs']) if j['status'] in ('queued', 'starting')]
+            jobs = [jobs[i] for i in unfinished]
+        elif claim.exists(): raise ValueError('Batch already claimed; never restart')
+        if _b(folder, 'stop').exists() or stop_requested(): raise ValueError('Batch was stopped before launch')
+        _preflight(jobs, base_env, verifier, continuing)
+        if _b(folder, 'stop').exists() or stop_requested(): raise ValueError('Batch was stopped before launch')
+        if continuing:
+            state.setdefault('continued_at', []).append(time.time())
+            positions = unfinished
+        else:
+            with claim.open('x') as out:
+                import os
+                os.fchmod(out.fileno(), 0o600)
+                json.dump({'claimed_at': time.time(), 'pid': os.getpid()}, out)
+                out.flush(); os.fsync(out.fileno())
+            state = {'schema': 'robofrontier.claude-engineering-status.v1', 'status': 'running',
+                     'started_at': time.time(), 'parallel': parallel, 'scored': False,
+                     'turn_budget_usd': turn_budget_usd, 'task_budget_usd': total_budget_usd, 'wall_limit_s': wall_limit_s,
+                     'startup_timeout_s': startup_timeout_s,
+                     'jobs': [{'profile': j['profile'], 'case_id': j['case_id'], 'status': 'queued'} for j in jobs]}
+            positions = list(range(len(jobs)))
         write_json(state_path, state)
         next_job = 0
         pending = {}
@@ -168,9 +217,9 @@ def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_
                         stopping = True
                         _stop_all(folder, jobs)
                         break
-                    index = next_job
+                    local = next_job; index = positions[local]
                     future = schedule.launch(lambda: pool.submit(
-                        runner, jobs[index]['run_directory'], base_env,
+                        _run_once_continued, runner, jobs[local]['run_directory'], base_env, continuing=continuing,
                         turn_budget_usd=turn_budget_usd, total_budget_usd=total_budget_usd,
                         wall_limit_s=wall_limit_s, startup_timeout_s=startup_timeout_s),
                         stopped=lambda:_b(folder, 'stop').exists() or stop_requested())
@@ -183,7 +232,7 @@ def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_
                     write_json(state_path, state)
                     pending[future] = index
                 if stopping and next_job < len(jobs):
-                    for index in range(next_job, len(jobs)): state['jobs'][index]['status'] = 'stopped_before_start'
+                    for local in range(next_job, len(jobs)): state['jobs'][positions[local]]['status'] = 'stopped_before_start'
                     next_job = len(jobs); write_json(state_path, state)
                 if not pending: break
                 done, _ = wait(pending, timeout=.25, return_when=FIRST_COMPLETED)
@@ -193,6 +242,7 @@ def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_
                         result = future.result()
                         state['jobs'][index]['status'] = 'closed' if result.get('status') == 'finished' else 'needs_review'
                         state['jobs'][index]['reason'] = result.get('reason')
+                        if result.get('segments'): state['jobs'][index]['segments'] = result['segments']
                     except Exception as error:
                         state['jobs'][index].update(status='needs_review', error_type=type(error).__name__)
                     write_json(state_path, state)

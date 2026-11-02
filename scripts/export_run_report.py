@@ -72,6 +72,13 @@ def export(directory, codex_home=None):
         start_sim_time=store.get('start_sim_time');run_id=store.get('run_id');robot_count=len(store.get('robots',[]))
         messages=[store._message(row) for row in store.db.execute('SELECT * FROM messages ORDER BY seq')]
         async_actions=sum('started_sim_s' in a and not external_wait(store,a) for a in actions.values())
+        # A run continued after an unexpected exit (docs/run-segments.md) counts as one trial.
+        segments={'count':len(store.get('segments') or [{}]),'continued':store.get('segment',0)>0,
+                  'downtime_s':store.get('downtime_s',0.),'segments':store.get('segments') or []}
+        from robofrontier.run_segments import motion_dirs, process_summary
+        segments['process']=process_summary(directory)
+        # Every segment's motion recording, in order; their timelines are continuous.
+        segments['motion']=[str(p.relative_to(directory)) for p in motion_dirs(directory)]
     finally:store.close()
     start=next((e for e in events if e['kind']=='START'),None)
     end=next((e for e in events if e['kind']=='TEAM_FINISH_PROPOSED'),None)
@@ -104,6 +111,9 @@ def export(directory, codex_home=None):
             'native_subagent_review_required':any(v.get('native_subagent_calls') for v in models.values()),
             # The policy's shared lessons in this run: what it chose to record, entry by entry.
             'run_skills':run_skills(directory),
+            # Engineering-only injected faults (robofrontier/fault_injection.py); never a scored trial.
+            'fault_injection':json.loads((directory/'private/inputs/manifest.json').read_text()).get('fault_injection'),
+            'segments':segments,
             'changed_inputs':verify_inputs(directory),
             'late_messages':sum(e['kind']=='LATE_MESSAGE_AFTER_FINISH' for e in events),
             'wait_returns':dict(Counter(e['details'].get('result',{}).get('wait_status') for e in events

@@ -159,7 +159,7 @@ class ClaudeFoundationTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / 'robofrontier/runtime_service.py').read_text()
         ops = set(re.findall(r"op == '([a-z_]+)'", source))
         ops |= {o for group in re.findall(r"op in \(([^)]*)\)", source) for o in re.findall(r"'([a-z_]+)'", group)}
-        admin = {'bind', 'start', 'state', 'shutdown'}
+        admin = {'bind', 'start', 'resume', 'state', 'shutdown'}
         self.assertIn('recover_action', ops)
         self.assertEqual(ops - POLICY_OPS, admin)
         self.assertFalse(admin & POLICY_OPS)

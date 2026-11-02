@@ -209,6 +209,29 @@ class Delegations:
             self.s.event('DELEGATION_NEEDS_REVIEW','Meta',{'id':key,'reason':reason})
             return b
 
+    def fail_creating(self, reason):
+        """Before a run continues in a new segment: end every delegation still being created.
+
+        Its native forks may or may not exist; none was started. Each child ends as a
+        finished delegate with outcome `failed`, its arms return to the parent, and the
+        parent is told. Returns the failed delegation IDs."""
+        failed=[]
+        with self.s.transaction():
+            owners=self.owners()
+            for b in self.batches().values():
+                if b['status']!='creating':continue
+                for c in b['children']:
+                    c.update(status='finished',outcome='failed',start_status=c.get('start_status') if c.get('start_status')!='pending' else 'not_started',
+                             returned_at=time.time(),reason=reason)
+                    for r in c['robots']:owners[r]=b['parent']
+                    self.s.update_agent(c['actor'],delegation_state='finished',work_state='available',ready=False,next_check=None)
+                # Finished, so nothing waits on it; the outcome says it failed.
+                b.update(status='finished',outcome='failed',reason=reason);self.save(b);failed.append(b['id'])
+                event={'event':'delegation_failed','id':b['id'],'robots':[r for c in b['children'] for r in c['robots']],'reason':reason}
+                self.s.signal(b['parent'],event);self.s.event('DELEGATION_FAILED','Meta',event)
+            self.s.put('robot_owners',owners)
+        return failed
+
     def return_task(self, actor, outcome, result):
         with self.s.transaction():
             a = self.s.agent(actor)

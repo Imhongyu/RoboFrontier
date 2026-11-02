@@ -51,6 +51,11 @@ class RunLayoutTests(unittest.TestCase):
         with self.assertRaises(run_layout.LayoutError):
             run_layout.path(self.run, 'stop')
 
+    def test_new_runs_record_where_their_segments_live(self):
+        record = run_layout.manifest_record('codex')
+        self.assertEqual(record['layout_paths']['segment_inputs'], 'private/inputs/segments')
+        self.assertEqual(record['layout_paths']['segment_outputs'], 'private/outputs/segments')
+
     def test_an_unreadable_or_unknown_manifest_fails_instead_of_falling_back(self):
         for broken in ('{not json', '[1, 2]', json.dumps({'layout': 'run-v9', 'layout_paths': {}}),
                        json.dumps({'layout': 'run-v6', 'layout_paths': 'STOP'})):

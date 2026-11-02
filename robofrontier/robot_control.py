@@ -93,6 +93,9 @@ class PandaArm:
         self.grasp_settling=deque()
         self.job=None;self.job_op=None;self.stable=0;self.stopping=False;self.status='holding'
         self.execution_timeout_s=None;self.stop_reason=None;self.stop_details={};self.uncertainty_reported=False
+        # Engineering fault injection only (robofrontier/fault_injection.py): after a stop,
+        # the arm is treated as unsettled until this simulation time.
+        self.fault_hold_s=None;self.fault_hold_until=None
         self.recovery_last_sample=None
 
     def configure_hand_position_servo(self,profile):
@@ -260,6 +263,7 @@ class PandaArm:
         if self.stopping:return # Repeated requests must not extend the stop deadline.
         if self.job_op=='gripper':self.hold_aperture()
         self.stop_started_at=now
+        if self.fault_hold_s is not None:self.fault_hold_until=now+3.+self.fault_hold_s
         self.stopping=True;self.goal=None;self.joint_goal=None;self.rotation_goal=None
         self.tcp_ref=None;self.cartesian_integral[:]=0
         self.grip_goal=self.gripper if self.grasp_force is None else self.width_to_grip(self.grasp_width);self.stable=0
@@ -351,6 +355,7 @@ class PandaArm:
                 fingers_settled=self.finger_stationary(now) if self.job_op=='gripper' else False
                 reached=(np.max(np.abs(self.velocity))<1e-5 and
                          (fingers_settled if self.job_op=='gripper' else np.max(np.abs(self.data.qvel[self.dofs]))<.03))
+                if self.fault_hold_until is not None and now<self.fault_hold_until:reached=False
                 self.stable=self.stable+1 if reached else 0
             return None
         age=now-self.job_start;feedback=self.observe();details={}
@@ -361,6 +366,7 @@ class PandaArm:
                 self.request_stop(now,'Finger joint outside configured range');return None
         if self.stopping:
             reached=(np.max(np.abs(self.velocity))<1e-5 and (fingers_settled if self.job_op=='gripper' else np.max(np.abs(self.data.qvel[self.dofs]))<.03))
+            if self.fault_hold_until is not None and now<self.fault_hold_until:reached=False
             reason=self.stop_reason;details=self.stop_details
         elif self.job_op=='move':
             if self.joint_goal is not None:reached=np.max(np.abs(self.data.qpos[self.qids]-self.joint_goal))<.004
@@ -417,6 +423,7 @@ class PandaArm:
         return result
 
     def end(self,status,reason=None,details=None):
+        self.fault_hold_s=None;self.fault_hold_until=None
         result={'call_id':self.job,'status':status,'reason':reason,**(details or {})}
         if self.job_op=='gripper' and self.gripper_command_mode=='grasp' and status!='completed':
             result.update(is_grasped=False,grasp_verified=False,measured_grasp_force_n=None)
