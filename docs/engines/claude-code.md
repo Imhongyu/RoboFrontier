@@ -24,8 +24,8 @@ not be reinterpreted as direct-start experiments.
 
 The default task limit is 86,400 seconds from persisted START. A separately
 selected engineering stop does not rewrite that public limit. Normal policy
-turns have no separate default timeout; startup, RPC, tool waits and tool-free
-fork creation still have their own bounds. Host creation time is not a second
+turns have no separate default timeout; startup, RPC, tool waits and delegate
+fork setup still have their own bounds. Host creation time is not a second
 24-hour experiment clock. `run-engineering --startup-timeout-s` defaults to
 120 seconds; the unified TOML startup default is 600 seconds. Record the entry
 and its frozen settings rather than treating these as one parameter.
@@ -193,8 +193,8 @@ directory as private and inspect it before sharing.
 `--turn-budget-usd` and `--task-budget-usd` are optional and unset by default;
 new default engineering runs have no dollar ceiling. Without a turn allowance,
 `--max-budget-usd` is not injected into the Claude CLI. Reported cost is still
-retained. The run-local budget ledger is shared by the Adaptive Controller,
-children and fork setup. Missing cost without a ceiling is recorded as
+retained. The run-local budget ledger is shared by the Adaptive Controller
+and its children; a child's fork is its first turn. Missing cost without a ceiling is recorded as
 unreported rather than zero, and does not alone block a confirmed normal turn.
 Unknown execution, uncertain cancellation or failed fork provenance still needs
 review regardless of whether a budget exists.
@@ -288,27 +288,49 @@ itself cannot show that a trusted host created a child at the intended time or
 bound the correct MCP authority. The internal Adaptive engineering path claims
 a delegation, checks the parent's outstanding native tool call and binds the
 delegation to that unique unmatched call
-([request binding](README.md#new-requests-queries-and-delegation)). It persists
-one child UUID before invocation, creates a tool-free native fork and verifies
-that the parent history is unchanged and the child prefix/session/cost records
-match. Only then does it bind scope and enable child MCP authority. Native
+([request binding](README.md#new-requests-queries-and-delegation)). It pins the
+parent's history at that pending call, then forks each child from the blocked
+Controller exactly as the Codex route does: the child's history ends at the
+delegate call and its first input is the frozen delegate message.
+
+Claude Code creates a fork only by running its first turn, so the fork is the
+child's first turn: `--resume CONTROLLER --fork-session --session-id CHILD` with
+the delegate message as its prompt and the role's ordinary tools and robot MCP.
+The child UUID is persisted before that turn. Until the batch is activated, a
+PreToolUse hook (`runner.gate_settings`) holds every tool call, robot or file,
+on gate files under `private/claude-forks/`; the runtime also refuses robot
+operations of a delegate that is not active. Setup verifies that the child's
+transcript copies exactly the pinned parent history, with no later parent row,
+and that its first input is the delegate message, then binds scope, activates
+the batch and opens each gate. A failure closes the gates of children not yet
+released, stops them and pauses the run for review; no tool of theirs runs.
+
+The fork turn is the child's first ordinary turn: it is charged to the shared
+ledger under the child's turn allowance, and no separate setup turn or setup
+allowance exists. The batch's `setup_deadline` (`native_setup_timeout_s`)
+bounds verification and the gate; a gate never opens after it. Native
 transcript writes can lag; the bounded match wait pauses on timeout/ambiguity.
 Unknown, failed or uncertain setup keeps its record and is never automatically
 reforked. Role hosts, original transcripts and referenced parent `tool-results`
 must stay available during the run.
 
-`fork_setup.py` supplies that creation boundary. `adaptive_setup.py` connects
-claiming, creation, provenance, scope binding, activation and the first child
-assignment. Only after verification does
-`ClaudeSessionHost.adopt_verified_fork` create the role's MCP configuration and
-resume its native child ID. Frozen input/profile matching and a one-time adoption
-marker prevent ordinary repeated adoption. Host-side evidence does not protect
-against another process with the same OS account tampering with files.
+`fork_setup.py` supplies the creation boundary and `adaptive_setup.py` connects
+claiming, forking, provenance, scope binding, activation and the gates.
+`ClaudeSessionHost.fork_delegate` creates the role's MCP configuration for a
+delegate that is still being created; later turns resume the child's own
+session without fork or gate. Host-side evidence does not protect against
+another process with the same OS account tampering with files. Runs prepared
+before fork-at-call setup keep their tool-free snapshot/fork records; only their
+metrics are read now.
 
-The native blocked-parent loopback test created a no-tool child while the parent
-waited on MCP; the child tool list was empty and the parent remained active.
-This proved a finite native CLI boundary, not production security, full task
-qualification or arbitrary provider compatibility.
+The native blocked-parent loopback test
+(`tests/test_claude_fork_boundary_integration.py`) forks a child while the parent
+waits on MCP: the model receives the parent's history up to the pending call,
+the CLI's own error result for that unanswered call, then the delegate message;
+the child's robot call waits until its gate opens, and a closed gate refuses it
+without reaching the world. This proves a finite native CLI boundary, not
+production security, full task qualification or arbitrary provider
+compatibility.
 
 `adaptive_dispatch.py` routes deterministic wakes to the bound parent/child
 sessions. A missing role, unknown state/send, leftover creation claim or failed
@@ -335,9 +357,14 @@ facts for that version, not claims about every future CLI release.
    to persist the intended child identity before launch.
 3. Fork creation requires a CLI turn. Codex can `thread/fork` before binding,
    activation and a first prompt; Claude cannot verify a nonexistent child
-   transcript before its creation turn. The implemented engineering path uses a
-   tool-free creation turn, verifies it, then activates role-bound robot access.
-   This setup work and its cost remain visible.
+   transcript before its creation turn. With CLI 2.1.316 the child transcript
+   is written as that turn starts, before the model replies (the model request
+   itself can precede the end of the write). A fork taken at a pending tool call
+   adds two rows after the parent's: an error result for the unanswered call and
+   a short assistant reply, then the turn's prompt. The adaptive path therefore
+   makes the delegate message the fork's prompt and holds the child's tools
+   behind a PreToolUse hook passed in `--settings` until activation (`--bare`
+   skips hooks, so a gated turn uses `--setting-sources ''`).
 4. Child history can reference images in the parent's `tool-results/` directory.
    Preserve that directory during execution and include required references in
    collection; deleting it can break inherited visual history.
@@ -686,7 +713,8 @@ parent, and checks its image response. One turn can generate multiple provider
 requests. The two concurrent turn allowances share the remaining estimated
 budget. A receipt with `cost_complete: false` does not account for every turn;
 neither this check nor the CLI-reported budget proves a provider billing cap,
-physical execution, or scored-run qualification.
+physical execution, or scored-run qualification. Its fork is a tool-free CLI
+probe: it does not exercise the gated delegate fork the adaptive host now uses.
 
 ### Receipt comparison
 

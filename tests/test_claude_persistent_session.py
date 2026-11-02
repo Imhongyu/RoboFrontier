@@ -17,6 +17,7 @@ from robofrontier.claude.runner import PersistentSession
 from robofrontier.run_layout import manifest_record
 
 SESSION = '44444444-4444-4444-8444-444444444444'
+CHILD = '55555555-5555-4555-8555-555555555555'
 
 
 class SlowStub(http.server.BaseHTTPRequestHandler):
@@ -98,6 +99,40 @@ class PersistentSessionTests(unittest.TestCase):
                 self.assertIn('FIRST', ' '.join(SlowStub.prompts))
         finally:
             session.close(); server.shutdown(); server.server_close()
+
+    def test_a_delegate_fork_is_the_first_turn_of_its_process(self):
+        SlowStub.prompts = []
+        server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), SlowStub)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        parent, child = PersistentSession(), PersistentSession()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve(); run = root / 'repo/runs/b/p/case'
+                (run / 'private/inputs').mkdir(parents=True); (run / 'workspace').mkdir()
+                (run / 'private/inputs/manifest.json').write_text(json.dumps(manifest_record('claude')))
+                (run / 'private/inputs/policy-access.json').write_text(json.dumps(policy_access.record(
+                    run, repo=root/'repo', home=root/'home', tmp_dirs=(), checkouts=[root/'repo'])))
+                profile = {'provider': 'anthropic', 'model': 'claude-opus-5-5', 'env_key': 'ANTHROPIC_API_KEY', 'effort': 'high',
+                           'base_url': 'http://127.0.0.1:%d' % server.server_port}
+                env = {'PATH': os.environ.get('PATH', ''), 'ANTHROPIC_API_KEY': 'local-fake-key'}
+                turn = lambda host, prompt, n, **kw: host(profile, 'claude-opus-5-5', 'high', '{"mcpServers":{}}', prompt, run,
+                                                          env, events_name='turn-%d.jsonl' % n, **kw)
+                turn(parent, 'PARENT', 1, session_id=SESSION)
+                gate = {'open': run/'gate-open', 'closed': run/'gate-closed', 'deadline': time.time()+60}
+                forked = turn(child, 'CHILD', 2, session_id=CHILD, fork_from=SESSION, gate=gate); pid = child.process.pid
+                again = turn(child, 'AGAIN', 3, resume=CHILD)
+                self.assertEqual((forked['process'], again['process']), ('exited', 'exited'))
+                self.assertEqual({forked['summary']['session_id'], again['summary']['session_id']}, {CHILD})
+                self.assertEqual(child.process.pid, pid)
+                # The fork inherits the parent's cumulative counter. The live parent has not yet
+                # recorded it, so the fork's whole counter is kept as an upper bound, never
+                # charged from zero as if it had no history.
+                self.assertIsNone(forked['summary']['native_cost_baseline_usd'])
+                self.assertEqual(forked['summary']['cost_scope'], 'session_total_upper_bound')
+                with self.assertRaisesRegex(ValueError, 'first turn'):
+                    turn(child, 'REFORK', 4, session_id=CHILD, fork_from=SESSION, gate=gate)
+        finally:
+            parent.close(); child.close(); server.shutdown(); server.server_close()
 
 
 if __name__ == '__main__': unittest.main()

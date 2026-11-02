@@ -5,13 +5,12 @@ This module does not start a world, schedule subsequent wakes, or qualify a batc
 """
 from robofrontier.claude.native_home import history_directory
 import json
-import hashlib
 import math
-import threading
 from pathlib import Path
+import threading
 import time
 
-from robofrontier.claude.fork_setup import _boundary, create_fork
+from robofrontier.claude.fork_setup import _boundary, close_gate, create_fork, fork_gate, open_gate, pending_history
 from robofrontier.claude.provenance import fork_provenance
 from robofrontier.claude.session_host import ClaudeSessionHost
 from robofrontier.delegation import Delegations
@@ -35,8 +34,8 @@ def child_prompt(actor, child, run=None):
 
 
 class AdaptiveForkSetup:
-    def __init__(self, store, parent, ledger, owner, *, setup_budget_usd, child_budget_usd,
-                 fork_factory=create_fork, child_factory=ClaudeSessionHost.adopt_verified_fork):
+    def __init__(self, store, parent, ledger, owner, *, child_budget_usd,
+                 fork_factory=create_fork, child_factory=ClaudeSessionHost.fork_delegate):
         cfg = store.get('config')
         if cfg.get('engine') != 'claude' or cfg.get('topology') != 'adaptive':
             raise ValueError('Expected adaptive Claude runtime')
@@ -46,19 +45,18 @@ class AdaptiveForkSetup:
             raise ValueError('Parent and children must share the exact task budget ledger')
         if not Path(ledger.path).resolve().is_relative_to(Path(parent.run).resolve()/'private'):
             raise ValueError('Task budget ledger must belong to the run')
-        for value in (setup_budget_usd, child_budget_usd):
-            if value is None: continue
-            if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) or value <= 0:
-                raise ValueError('Fork and child budgets must be positive finite numbers or None')
+        if child_budget_usd is not None and (isinstance(child_budget_usd,bool) or not isinstance(child_budget_usd,(int,float))
+                                             or not math.isfinite(child_budget_usd) or child_budget_usd <= 0):
+            raise ValueError('Child budget must be a positive finite number or None')
         self.store=store; self.parent=parent; self.ledger=ledger; self.owner=owner
-        self.setup_budget_usd=setup_budget_usd; self.child_budget_usd=child_budget_usd
+        self.child_budget_usd=child_budget_usd
         self.fork_factory=fork_factory; self.child_factory=child_factory
         self.hosts={}
         self.cancel_event=threading.Event()
         self.launch_lock=threading.RLock()
 
     def request_stop(self):
-        """Prevent new child turns and interrupt any tool-free fork creation."""
+        """Prevent new child turns and stop every child, including one still being forked."""
         self.cancel_event.set()
         with self.launch_lock:
             for host in list(self.hosts.values()): host.stop()
@@ -67,33 +65,30 @@ class AdaptiveForkSetup:
         return execute(self.store, op, data, self.owner, time.time())
 
     def establish(self, batch_id):
-        """Claim and set up once; errors preserve reservations and pause the run."""
+        """Claim, fork every child at the pending call, verify, activate, then open the gates.
+
+        Errors preserve reservations and pause the run; a child whose gate is still
+        closed is stopped and never runs a tool.
+        """
         delegates=Delegations(self.store)
         batch=self.admin('delegate-claim', {'id':batch_id})['delegation']
+        gates={}; opened=set()
         try:
-            first=batch['children'][0]['actor']
-            snap=self.fork_factory(self.store,self.parent,batch_id,first,self.owner,
-                                   max_budget_usd=self.setup_budget_usd,budget_ledger=self.ledger,
-                                   cancel_event=self.cancel_event,snapshot=True)
-            snap_path=Path(self.parent.run)/'private/claude-forks'/('snapshot-'+hashlib.sha256(batch_id.encode()).hexdigest()+'.json')
-            if (json.loads(snap_path.read_text()) != snap or snap.get('status') != 'history_verified_no_authority'
-                    or not snap.get('snapshot') or snap.get('batch_id') != batch_id
-                    or snap.get('actor') != first or snap.get('owner') != self.owner
-                    or snap.get('parent_session') != self.parent.session_id
-                    or snap.get('source_session') != self.parent.session_id
-                    or snap['proof']['source_sha256'] != snap['parent_history_sha256']
-                    or not isinstance(snap.get('snapshot_sha256'),str)):
-                raise ValueError('Trusted snapshot record is incomplete or changed')
-            # create_fork already checked the parent while creating the snapshot;
-            # the parent may append afterwards, so retain that verified proof.
-            delegates.snapshot_bind(batch_id,snap['child_session'],
-                                    {**snap['proof'],'snapshot_sha256':snap['snapshot_sha256']},self.owner)
+            # Every child copies the parent's history as it is at the pending call.
+            source=pending_history(self.store,self.parent,batch_id,batch['children'][0]['actor'],self.owner,
+                                   self.cancel_event)
             for child in batch['children']:
-                if self.cancel_event.is_set(): raise ValueError('Fork setup cancelled')
                 actor=child['actor']
-                result=self.fork_factory(self.store, self.parent, batch_id, actor, self.owner,
-                                         max_budget_usd=self.setup_budget_usd, budget_ledger=self.ledger,
-                                         cancel_event=self.cancel_event,source_session=snap['child_session'])
+                gates[actor]=fork_gate(self.parent.run,actor,batch['setup_deadline'])
+                with self.launch_lock:
+                    if self.cancel_event.is_set(): raise ValueError('Fork setup cancelled')
+                    host=self.child_factory(self.parent.run,actor,self.parent.profile,self.parent.base_env,
+                                            budget_ledger=self.ledger,max_budget_usd=self.child_budget_usd,
+                                            fork_from=self.parent.session_id,gate=gates[actor])
+                    self.hosts[actor]=host
+                result=self.fork_factory(self.store,self.parent,batch_id,actor,self.owner,host=host,
+                                         prompt=child_prompt(actor,child,host.run),source=source,
+                                         cancel_event=self.cancel_event)
                 if self.cancel_event.is_set(): raise ValueError('Fork setup cancelled')
                 _boundary(self.store,self.parent,batch_id,actor,self.owner)
                 # The known ID is committed before any further fallible checks.
@@ -102,14 +97,15 @@ class AdaptiveForkSetup:
                     delegates.created(batch_id,actor,result['child_session'],self.owner)
                 claim_path=Path(self.parent.run)/'private/claude-forks'/(actor+'.json')
                 claim=json.loads(claim_path.read_text())
-                if claim != result or result.get('status') != 'history_verified_no_authority':
+                if claim != result or result.get('status') != 'history_verified_gated':
                     raise ValueError('Trusted fork record is incomplete or changed')
                 if (result['actor'] != actor or result['batch_id'] != batch_id or result['owner'] != self.owner
                         or result['parent_session'] != self.parent.session_id
-                        or result.get('source_session') != snap['child_session']
+                        or result['source_session'] != self.parent.session_id
+                        or result['child_session'] != host.session_id
                         or result['proof']['source_sha256'] != result['parent_history_sha256']
                         or fork_provenance(result['source_session'],result['child_session'],
-                                           history_directory(self.parent.run)) != result['proof']):
+                                           history_directory(self.parent.run),at=source) != result['proof']):
                     raise ValueError('Trusted fork record does not match requested scope')
                 with self.store.transaction():
                     self.store.lease(self.owner,time.time(),self.store.get('config')['manager_lease_s'])
@@ -121,15 +117,20 @@ class AdaptiveForkSetup:
                 actor=child['actor']
                 with self.launch_lock:
                     if self.cancel_event.is_set(): raise ValueError('Fork setup cancelled')
-                    host=self.child_factory(self.parent.run,actor,self.parent.profile,self.parent.base_env,
-                                            budget_ledger=self.ledger,max_budget_usd=self.child_budget_usd)
-                    self.hosts[actor]=host
-                    ack=host.send(child_prompt(actor,child,host.run))
-                if ack.get('threadId') != child['thread_id']:
-                    raise ValueError('Child start acknowledgement has wrong session')
+                    open_gate(gates[actor]); opened.add(actor)
+                # The delegate message was its first input; from here it may act on it.
                 self.admin('delegate-started', {'id':batch_id,'actor':actor,'outcome':'sent'})
             return {'status':'active','actors':list(self.hosts)}
         except Exception as error:
+            # A child not yet released must never run a tool.
+            for actor,gate in gates.items():
+                if actor in opened: continue
+                try: close_gate(gate)
+                except OSError: pass
+                host=self.hosts.get(actor)
+                if host is not None:
+                    try: host.stop()
+                    except Exception: pass
             # Even a failed fork may have created its explicitly allocated ID.
             for child in delegates.batch(batch_id)['children']:
                 path=Path(self.parent.run)/'private/claude-forks'/(child['actor']+'.json')

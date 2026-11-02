@@ -18,7 +18,7 @@ from robofrontier.runtime_store import RuntimeStore
 
 
 class AdaptivePolicyHost:
-    def __init__(self, run_dir, profile, base_env, ledger, *, turn_budget_usd, setup_budget_usd,
+    def __init__(self, run_dir, profile, base_env, ledger, *, turn_budget_usd,
                  host_factory=ClaudeSessionHost, setup_factory=AdaptiveForkSetup,
                  client=client_call, verifier=verify_inputs, resume=False):
         self.run=Path(run_dir).resolve()
@@ -46,7 +46,7 @@ class AdaptivePolicyHost:
                                    max_budget_usd=turn_budget_usd,budget_ledger=ledger)
             if resume: self.host.adopt(self.store.agent('Controller')['thread_id'])
             self.ledger=ledger; self.setup_factory=setup_factory; self.client=client
-            self.setup_budget_usd=setup_budget_usd; self.turn_budget_usd=turn_budget_usd
+            self.turn_budget_usd=turn_budget_usd
             self.bound=False; self.bind_attempted=False; self.setup=None; self.dispatcher=None
         except Exception:
             self.store.close(); raise
@@ -62,7 +62,7 @@ class AdaptivePolicyHost:
             raise ValueError('Role binding outcome unknown; review instead of retrying')
         self.bound=True
         self.setup=self.setup_factory(self.store,self.host,self.ledger,'claude-meta-'+uuid.uuid4().hex,
-                                      setup_budget_usd=self.setup_budget_usd,child_budget_usd=self.turn_budget_usd)
+                                      child_budget_usd=self.turn_budget_usd)
         self.dispatcher=AdaptiveDispatcher(self.store,self.setup)
         if self.store.get('config').get('startup_protocol') == 'direct_controller_v2':
             reply=self.dispatcher.admin('request-start')
@@ -75,7 +75,7 @@ class AdaptivePolicyHost:
         if not self.resuming or self.dispatcher: raise ValueError('Not a prepared segment')
         self.bound=True
         self.setup=self.setup_factory(self.store,self.host,self.ledger,'claude-meta-'+uuid.uuid4().hex,
-                                      setup_budget_usd=self.setup_budget_usd,child_budget_usd=self.turn_budget_usd)
+                                      child_budget_usd=self.turn_budget_usd)
         for actor,agent in self.store.agents().items():
             if agent['kind']=='delegate' and agent.get('delegation_state')=='active' and agent['thread_id']:
                 self.setup.hosts[actor]=self.host_factory(self.run,actor,self.profile,self.base_env,

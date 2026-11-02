@@ -113,7 +113,7 @@ class EngineeringRunTests(unittest.TestCase):
                                  adaptive_policy_factory=adaptive, owner_factory=lambda *a, **k: Owner(1))
         self.assertEqual(result['status'], 'needs_review')
         self.assertEqual(seen[0][0], '2')
-        self.assertEqual(seen[0][1]['setup_budget_usd'], .5)
+        self.assertEqual(seen[0][1], {'turn_budget_usd': .5})
         self.assertTrue((self.run/'private/state/claude-budget.sqlite').exists())
 
     def test_default_adaptive_launch_has_an_uncapped_shared_ledger(self):
@@ -127,7 +127,7 @@ class EngineeringRunTests(unittest.TestCase):
         self.assertEqual(len(seen), 1)
         self.assertIsNone(seen[0][0]['limit_usd'])
         self.assertIsNone(seen[0][1]['turn_budget_usd'])
-        self.assertIsNone(seen[0][1]['setup_budget_usd'])
+        self.assertNotIn('setup_budget_usd', seen[0][1])
 
     def test_uncertain_shared_budget_requires_review_even_when_world_sealed(self):
         (self.run/'private/inputs/harness.json').write_text(json.dumps({'engine':'claude','topology':'adaptive'}))

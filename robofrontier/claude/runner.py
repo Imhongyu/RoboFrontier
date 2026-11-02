@@ -8,6 +8,7 @@ the runtime and is never inferred here.
 import json
 import os
 import queue
+import shlex
 import signal
 import subprocess
 import tempfile
@@ -117,15 +118,34 @@ def _oauth_endpoint_allowed(base):
         return False
 
 
+def gate_settings(gate):
+    """A PreToolUse hook that holds every tool call until `gate['open']` exists.
+
+    It refuses the call once `gate['closed']` exists or `gate['deadline']` (epoch seconds)
+    passes. A forked delegate starts its first turn before its runtime activation; this
+    keeps it from running any tool until then. The hook's own timeout outlasts its
+    deadline, so it never times out into allowing a call.
+    """
+    deadline = int(gate['deadline'])
+    opened, closed = shlex.quote(str(gate['open'])), shlex.quote(str(gate['closed']))
+    script = (f'while :; do [ -e {opened} ] && exit 0; [ -e {closed} ] && break; '
+              f'[ "$(date +%s)" -lt {deadline} ] || break; sleep 0.1; done; '
+              'echo "Delegate setup has not completed; this tool call was not run." >&2; exit 2')
+    timeout = max(0, deadline - int(time.time())) + 30
+    return {'hooks': {'PreToolUse': [{'matcher': '*', 'hooks': [
+        {'type': 'command', 'command': script, 'timeout': timeout}]}]}}
+
+
 def build_command(model, effort, mcp_config, prompt, session_id=None, max_budget_usd=None, binary='claude', resume=None,
                   fork_from=None, enable_robot=True, auth_mode='api_key', prompt_via_stdin=False, settings=None,
-                  system_prompt=None, stream_input=False):
+                  system_prompt=None, stream_input=False, gate=None):
     """Return argv for one headless turn.
 
     With `settings` (see `policy_settings`) a policy turn gets the bound robot tool plus
     file and shell tools confined by those settings; without it, only the robot tool.
-    A fork-creation turn has no tools. `resume` continues an existing session by its
-    explicit ID; it never picks the most recent one.
+    `resume` continues an existing session by its explicit ID; it never picks the most
+    recent one. `fork_from` starts session `session_id` as a fork of that session;
+    a delegate fork passes `gate` (see `gate_settings`).
     """
     if effort not in EFFORTS:
         raise ValueError('Unsupported effort: ' + str(effort))
@@ -133,23 +153,29 @@ def build_command(model, effort, mcp_config, prompt, session_id=None, max_budget
         raise ValueError('Model ID is required')
     if resume and (session_id or fork_from):
         raise ValueError('Give either session_id or resume, not both')
-    if fork_from and (not session_id or enable_robot):
-        raise ValueError('Fork creation requires an explicit child ID and no robot tools')
+    if fork_from and not session_id:
+        raise ValueError('Fork creation requires an explicit child ID')
+    hooks = gate_settings(gate) if gate is not None else None
     session_flags = (['--resume', fork_from, '--fork-session', '--session-id', session_id] if fork_from else
                      ['--resume', resume] if resume else ['--session-id', session_id or str(uuid.uuid4())])
     mcp_arg = str(mcp_config) if enable_robot else '{"mcpServers":{}}'
     if auth_mode not in ('api_key','oauth_token','native_login'):
         raise ValueError('Unsupported Claude authentication mode')
     # --bare would expose only Bash, Read and Edit, so confined policy turns load no
-    # user, project or local settings instead.
-    isolation = ['--bare'] if auth_mode == 'api_key' and settings is None else ['--setting-sources', '']
+    # user, project or local settings instead. --bare also skips hooks, so a gated turn
+    # does the same.
+    isolation = (['--bare'] if auth_mode == 'api_key' and settings is None and hooks is None
+                 else ['--setting-sources', ''])
     cmd = [binary, '-p'] + isolation + ['--model', model, '--effort', effort] + session_flags + [
            '--mcp-config', mcp_arg, '--strict-mcp-config']
     if enable_robot and settings is not None:
         cmd += ['--tools', ','.join(POLICY_TOOLS), '--permission-mode', 'acceptEdits', '--permission-prompts', 'none',
-                '--settings', json.dumps(settings, sort_keys=True), '--allowedTools', *ALLOWED_POLICY_TOOLS]
+                '--settings', json.dumps({**settings, **(hooks or {})}, sort_keys=True),
+                '--allowedTools', *ALLOWED_POLICY_TOOLS]
     else:
         cmd += ['--tools', '', '--permission-mode', 'dontAsk']
+        if hooks is not None:
+            cmd += ['--settings', json.dumps(hooks, sort_keys=True)]
         if enable_robot:
             cmd += ['--allowedTools', ROBOT_TOOL]
     if system_prompt is not None:
@@ -309,7 +335,7 @@ class PreLaunchCancelled(InterruptedError):
 
 def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
              session_id=None, timeout=None, max_budget_usd=None, binary='claude', resume=None, events_name='events.jsonl',
-             cancel_event=None, fork_from=None, enable_robot=True, actor=None, phase='policy'):
+             cancel_event=None, fork_from=None, enable_robot=True, actor=None, phase='policy', gate=None):
     """Run one turn, persist its raw events under run_dir, and return a status record.
 
     `timeout=None` removes the per-turn deadline; cancellation remains active.
@@ -337,7 +363,8 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
     settings = policy_settings(run_dir) if enable_robot else None
     cmd = build_command(model, effort, mcp_config, prompt, session_id, native_limit, binary, resume,
                         fork_from=fork_from, enable_robot=enable_robot, auth_mode=profile.get('auth_mode','api_key'),
-                        prompt_via_stdin=True, settings=settings, system_prompt=policy_system_prompt(run_dir))
+                        prompt_via_stdin=True, settings=settings, system_prompt=policy_system_prompt(run_dir),
+                        gate=gate)
     env = build_env(profile, base_env, config_dir)
     launch = run_dir/'private/inputs/claude.json'
     frozen = json.loads(launch.read_text()) if launch.is_file() else {}
@@ -445,8 +472,9 @@ class PersistentSession:
     its outcome is still unknown. A dead process is replaced on the next turn with
     --resume, continuing the same transcript.
 
-    --max-budget-usd binds at process launch, so a turn with a per-turn budget, a
-    fork-creation turn and a tool-free turn close the live process and use run_turn.
+    --max-budget-usd binds at process launch, so a turn with a per-turn budget and a
+    tool-free turn close the live process and use run_turn. A delegate's fork is its
+    first turn and starts the process.
     Reported cost is cumulative for the session: each turn is charged its increase
     over the previous report of the same process (the first turn of a process over
     the native transcript's recorded total, as run_turn does).
@@ -462,20 +490,22 @@ class PersistentSession:
         with self.lock:
             _stop_process(self.process); self.process = None
 
-    def _start(self, profile, model, effort, mcp_config, run_dir, base_env, binary, session_id, resume):
+    def _start(self, profile, model, effort, mcp_config, run_dir, base_env, binary, session_id, resume,
+               fork_from=None, gate=None):
         config_dir = config_directory(run_dir, profile)
         if profile.get('auth_mode') != 'native_login':
             config_dir.mkdir(parents=True, exist_ok=True)
-        cmd = build_command(model, effort, mcp_config, None, session_id, None, binary, resume,
+        cmd = build_command(model, effort, mcp_config, None, session_id, None, binary, resume, fork_from=fork_from,
                             auth_mode=profile.get('auth_mode', 'api_key'), settings=policy_settings(run_dir),
-                            system_prompt=policy_system_prompt(run_dir), stream_input=True)
+                            system_prompt=policy_system_prompt(run_dir), stream_input=True, gate=gate)
         env = build_env(profile, base_env, config_dir)
         launch = Path(run_dir)/'private/inputs/claude.json'
         frozen = json.loads(launch.read_text()) if launch.is_file() else {}
         if frozen.get('auto_compact_token_limit'):
             env['CLAUDE_CODE_AUTO_COMPACT_WINDOW'] = str(int(frozen['auto_compact_token_limit'])+CLAUDE_COMPACT_BUFFER)
         try:
-            self.reported_total = baseline(config_dir, resume) if resume else amount(0)
+            source = fork_from or resume
+            self.reported_total = baseline(config_dir, source) if source else amount(0)
         except ValueError:
             self.reported_total = None
         self.process = subprocess.Popen(cmd, cwd=policy_cwd(run_dir), env=env, text=True,
@@ -501,22 +531,27 @@ class PersistentSession:
     def __call__(self, profile, model, effort, mcp_config, prompt, run_dir, base_env, session_id=None, timeout=None,
                  max_budget_usd=None, binary='claude', resume=None, events_name='events.jsonl', cancel_event=None,
                  actor=None, phase='policy', **one_shot):
-        if (max_budget_usd is not None or one_shot.get('fork_from') or one_shot.get('enable_robot') is False
+        if (max_budget_usd is not None or one_shot.get('enable_robot') is False
                 or policy_settings(run_dir) is None):
             self.close()
             return run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env, session_id=session_id,
                             timeout=timeout, max_budget_usd=max_budget_usd, binary=binary, resume=resume,
                             events_name=events_name, cancel_event=cancel_event, actor=actor, phase=phase, **one_shot)
+        fork_from, gate = one_shot.pop('fork_from', None), one_shot.pop('gate', None)
+        one_shot.pop('enable_robot', None)
+        if one_shot: raise TypeError('Unexpected turn options: ' + ', '.join(sorted(one_shot)))
         run_dir = Path(run_dir).resolve()
         evidence = run_layout.path(run_dir, 'engine_turns', 'claude'); evidence.mkdir(parents=True, exist_ok=True)
         if cancel_event is not None and cancel_event.is_set():
             raise PreLaunchCancelled('Claude turn cancelled before launch')
         with self.lock:
             self.secret = base_env.get(profile.get('env_key')) if profile.get('env_key') else None
+            if fork_from and self.process is not None and self.process.poll() is None:
+                raise ValueError('A fork is the first turn of its process')
             if self.process is None or self.process.poll() is not None:
                 # A new process continues the transcript; only the first turn creates it.
                 self._start(profile, model, effort, mcp_config, run_dir, base_env, binary,
-                            session_id, None if session_id else resume)
+                            session_id, None if session_id else resume, fork_from, gate)
             before = self.reported_total
             began = time.monotonic()
             host_event(run_dir, 'cli_turn_started', actor=actor, session_id=session_id or resume,

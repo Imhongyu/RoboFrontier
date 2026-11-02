@@ -212,11 +212,14 @@ Each delegate receives its current assignment and explicit first-turn model and
 effort; native defaults are not evidence that effort was inherited.
 
 Claude's generic `delegate-bind` stays disabled. Its experimental adaptive host
-independently creates a tool-free snapshot, verifies two-stage native history
-and snapshot integrity, then creates and grants delegates. Snapshot creation
-uses a model call charged to the shared ledger. Unknown creation, wrong lineage
-or snapshot mutation requires review, never an automatic retry. This mechanism
-has not earned formal scored qualification.
+forks each delegate from the blocked Controller at the same pending call and
+sends the same first message; because Claude Code forks by running the child's
+first turn, that turn carries the delegate message while a hook holds every
+tool call until activation. It verifies each child's copy against the pinned
+parent history before granting authority. Unknown creation or wrong lineage
+requires review, never an automatic retry. This mechanism has not earned formal
+scored qualification (see
+[the Claude delegate fork](engines/claude-code.md#trusted-internal-adaptive-fork)).
 
 Initial sessions are named with role/model/run identifiers. Delegate naming is
 best-effort UI metadata after identity and initial delivery are confirmed. A
@@ -226,8 +229,8 @@ describes initial roles only. Connections are mutable runtime credentials, not
 an operating-system security boundary against malicious credential reuse.
 
 The Controller's history can change while waiting on delegation. Codex freezes
-one batch boundary without requiring parent idle; Claude keeps its separate
-parent-history checks. Physics continues during setup. Completed notices arrive
+one batch boundary without requiring parent idle; Claude pins the parent's
+history at the pending call and checks every child against it. Physics continues during setup. Completed notices arrive
 as they occur, rather than waiting for an entire batch. Only the Controller
 proposes team finish. Unknown native creation/delivery becomes `needs_review`,
 retaining known IDs, lineage and authority without reforking automatically.

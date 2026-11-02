@@ -4,10 +4,8 @@ The supervisor creates one host per role. Native turns are asynchronous so the
 physical owner and deterministic scheduler can keep progressing. Unknown turn
 outcomes are terminal for this host: never issue another turn automatically.
 """
-from robofrontier.claude.native_home import history_directory
 import json
 import math
-import os
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 import re
@@ -38,7 +36,8 @@ def role_mcp_config(run_dir, actor, python=sys.executable, *, _validated_delegat
         store = RuntimeStore(path)
         try:
             agent = store.agent(actor)
-            if agent['kind'] != 'delegate' or agent.get('delegation_state') != 'active':
+            # A delegate being created is held by its fork gate until activation.
+            if agent['kind'] != 'delegate' or agent.get('delegation_state') not in ('creating', 'active'):
                 raise ValueError('Delegate is not active')
         finally: store.close()
     elif roles[actor].get('kind') == 'manager':
@@ -92,6 +91,7 @@ class ClaudeSessionHost:
         self.runner = runner
         self.mcp = role_mcp_config(self.run, actor, python, _validated_delegate=_validated_delegate)
         self.session_id = str(uuid.uuid4())
+        self.fork_from = self.gate = None  # Set by fork_delegate for the first turn only.
         self.lock = threading.RLock()
         self.state = 'new'
         self.turn_id = None
@@ -115,16 +115,18 @@ class ClaudeSessionHost:
         return recover(self, store, now) or recover_model_loss(self, store)
 
     @classmethod
-    def adopt_verified_fork(cls, run_dir, actor, profile, base_env, *, budget_ledger, max_budget_usd,
-                            _verifier=verify_inputs, **kwargs):
-        """Resume one host-created fork only after runtime activation and identity checks.
+    def fork_delegate(cls, run_dir, actor, profile, base_env, *, budget_ledger, max_budget_usd, fork_from, gate,
+                      _verifier=verify_inputs, **kwargs):
+        """A host whose first turn forks `fork_from` into this delegate's new session.
 
-        This is an engineering primitive, not an adaptive admission switch. Its
-        local evidence assumes the host and runtime are trusted by the OS user.
+        The parent is blocked at its pending `delegate` call, so the child's history
+        ends there and its first input is the prompt given to `send`. `gate` (see
+        `runner.gate_settings`) holds every tool call of that first process until the
+        runtime activates the delegate. This is an engineering primitive, not an
+        adaptive admission switch; its local evidence assumes the host and runtime are
+        trusted by the OS user.
         """
         from robofrontier.claude.fork_setup import ACTOR
-        from robofrontier.claude.provenance import fork_provenance
-        from robofrontier.delegation import Delegations
         from robofrontier.runtime_store import RuntimeStore
         run = Path(run_dir).resolve()
         if not isinstance(actor, str) or not ACTOR.fullmatch(actor): raise ValueError('Invalid delegate actor')
@@ -134,10 +136,6 @@ class ClaudeSessionHost:
         launch = json.loads((run/'private/inputs/claude.json').read_text())
         if launch.get('profile') != profile:
             raise ValueError('Delegate profile differs from frozen launch profile')
-        claim_path = run/'private/claude-forks'/(actor+'.json')
-        claim = json.loads(claim_path.read_text())
-        if claim.get('status') != 'history_verified_no_authority' or claim.get('actor') != actor:
-            raise ValueError('Fork creation was not verified')
         store_path = run/'private/state/runtime.sqlite'
         if not store_path.is_file(): raise ValueError('Runtime state missing')
         store = RuntimeStore(store_path)
@@ -145,40 +143,16 @@ class ClaudeSessionHost:
             config = store.get('config')
             if (config.get('engine') != 'claude' or config.get('topology') != 'adaptive'
                     or config.get('model') != profile.get('model') or config.get('effort') != profile.get('effort')
-                    or store.get('lifecycle') != 'running' or store.get('dispatch_paused',False)):
-                raise ValueError('Run or profile cannot adopt a delegate')
-            agent = store.agent(actor); batch = Delegations(store).batch(claim['batch_id'])
-            child = next((c for c in batch['children'] if c['actor'] == actor), None)
-            if (agent.get('kind') != 'delegate' or agent.get('delegation_state') != 'active'
-                    or batch['status'] != 'active' or batch['claimed_by'] != claim.get('owner')
-                    or not child or not child.get('verified') or child.get('start_status') != 'pending'
-                    or child['thread_id'] != claim.get('child_session') or agent['thread_id'] != child['thread_id']
-                    or batch['source_thread_id'] != claim.get('parent_session')
-                    or batch.get('source_provenance') != claim.get('proof')):
-                raise ValueError('Delegate runtime identity or activation mismatch')
-            call = store.call(claim['batch_id'], 'Controller')
-            if call['op'] != 'delegate' or call['status'] != 'accepted':
-                raise ValueError('Parent delegation boundary is no longer pending')
-            source = claim.get('source_session', claim['parent_session'])
-            if batch.get('snapshot_thread_id'):
-                if (source != batch['snapshot_thread_id'] or not batch.get('snapshot_provenance')
-                        or batch['snapshot_provenance'].get('snapshot_sha256') != claim['proof']['source_sha256']):
-                    raise ValueError('Delegate snapshot identity mismatch')
-            elif source != claim['parent_session']:
-                raise ValueError('Delegate source identity mismatch')
-            if fork_provenance(source, claim['child_session'], history_directory(run)) != claim['proof']:
-                raise ValueError('Fork history changed after verification')
-            # A consumed claim survives crashes; an uncertain child is never resent.
-            adopted = run/'private/claude-forks'/(actor+'.adopted')
-            with adopted.open('x') as out:
-                os.fchmod(out.fileno(), 0o600)
-                json.dump({'actor': actor, 'session_id': child['thread_id'], 'delegation_id': claim['batch_id']}, out)
-                out.flush(); os.fsync(out.fileno())
+                    or store.get('lifecycle') != 'running' or store.get('dispatch_paused', False)):
+                raise ValueError('Run or profile cannot fork a delegate')
+            agent = store.agent(actor)
+            if (agent.get('kind') != 'delegate' or agent.get('delegation_state') != 'creating' or agent['thread_id']
+                    or store.agent('Controller')['thread_id'] != fork_from):
+                raise ValueError('Delegate is not an uncreated scope of this parent')
         finally: store.close()
         host = cls(run, actor, profile, base_env, budget_ledger=budget_ledger,
                    max_budget_usd=max_budget_usd, _validated_delegate=True, **kwargs)
-        host.session_id = child['thread_id']
-        host.state = 'idle'  # The no-tool creation turn completed under this exact ID.
+        host.fork_from, host.gate = fork_from, gate
         return host
 
     def send(self, prompt):
@@ -216,6 +190,7 @@ class ClaudeSessionHost:
 
     def _run(self, prompt, previous, turn_id, turn_budget):
         before_launch = False
+        fork = {'fork_from': self.fork_from, 'gate': self.gate} if previous == 'new' and self.fork_from else {}
         try:
             record = self.runner(
                 self.profile, self.profile['model'], self.profile['effort'], self.mcp,
@@ -224,7 +199,7 @@ class ClaudeSessionHost:
                 resume=self.session_id if previous == 'idle' else None,
                 timeout=self.turn_timeout, max_budget_usd=turn_budget,
                 binary=self.binary, events_name=f'{self.actor}-{turn_id}.jsonl',
-                cancel_event=self.cancel_event, actor=self.actor)
+                cancel_event=self.cancel_event, actor=self.actor, **fork)
             summary = record.get('summary') or {}
             if record.get('process') != 'exited' or record.get('exit_code') != 0:
                 state = 'error' if summary.get('turn_status') == 'failed' else 'unknown'
