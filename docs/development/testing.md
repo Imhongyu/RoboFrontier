@@ -32,6 +32,14 @@ or measured model-solving runs. Existing explicit physical/provider qualificatio
 switches remain separate; inspect skipped tests rather than counting them as
 executed qualifications.
 
+The `c830202` follow-up passes 1,536 checks on each of macOS and Linux,
+with zero failures/errors and 17 conditional skips. Two captured-state placement
+regressions reproduce the prior search failures. All 19 related Transport/Oracle
+checks pass on both platforms, and a fresh current-scene Transport L1 reference
+completes all 12 goals with clean process/physics/action verdicts. This is private
+Oracle engineering, not model qualification or a new physical-candidate release.
+Older opt-in native/replay receipts retain their exact source and data scope.
+
 The ordinary policy bootstrap restores the current 36-case policy inputs. Full
 historical discovery also reads older scene assets/previews, the original
 source-preservation receipt, selected closed Oracle reports/streams and their

@@ -1,8 +1,9 @@
 # Unified main integration
 
 This document tracks implementation gates. It is not a statement that all gates
-have passed. Work is isolated on `integration/unified-main`; existing worktrees
-and `main` remain intact until the integration is reviewed.
+have passed. The reviewed engineering integration is published on `main`.
+Follow-up Oracle repairs use `codex/oracle-placement-ik-fallback` until their
+source-pinned checks and review are complete. Existing source worktrees remain retained.
 
 ## Product
 
@@ -33,39 +34,55 @@ these fields from Git history or the repository owner.
 - [x] Integrate Luna, multi-topology and Claude with targeted regression checks.
 - [x] Provide one validated TOML configuration and CLI; resolve defaults once and freeze the effective configuration per run.
 - [x] Launch initial task hosts through one scheduler with a default 0.3-second interval.
-- [ ] Isolate task runtime state, verify Codex initialization/authentication, and stage Slurm SQLite state on node-local storage.
-- [ ] Preserve shared START, scoring, safe call-ID and stop semantics across native engines.
-- [ ] Keep R14 as the Mosaic default; validate recommended physical candidates before publishing changed assets.
+- [x] Isolate task runtime state and verify native initialization against synthetic loopback providers.
+- [ ] Qualify real-provider/subscription authentication and the unified Slurm node-local SQLite/stage-out lifecycle.
+- [x] Verify shared START, scoring, safe call-ID and stop semantics across native engines with synthetic endpoints and real physical owners; retain separate formal provider gates.
+- [x] Keep R14 as the Mosaic default and retain existing physical assets while unqualified candidates remain gated.
+- [ ] Qualify physical candidates before publishing changed defaults; no full candidate qualification is inferred from local recovery or a different case.
 - [x] Verify automatic pinned policy-asset installation from a fresh checkout.
-- [ ] Verify old and compressed motion, image references, evidence restore and frozen-source Factory replay.
-- [ ] Integrate qualified Oracle functionality without exposing private solutions to policies.
-- [ ] Publish English-only current content, task atlas, editable full video project, detailed README and documentation.
-- [ ] Exercise CPU, native macOS, NVIDIA/EGL and Slurm paths where hardware is available; record unavailable checks explicitly.
+- [x] Verify supported old/compressed motion, image references, evidence restore and frozen-source Factory replay; preserve the recorded historical-data scope.
+- [x] Integrate repaired Oracle semantics without exposing private solutions to policies; qualify the current Transport L1 full reference separately from other cases.
+- [x] Publish English-only tracked content, offline task atlas, editable full video project, detailed README and documentation; retain the original published full movie as requested.
+- [x] Exercise CPU/native macOS and real Slurm/H800 EGL/minimal-JPEG paths with explicit scope receipts.
+- [ ] Qualify full unified Slurm policy execution/observations/stage-out and 36-task execution capacity.
 - [x] Run offline suites and clean-checkout checks; record any remaining paid/hardware qualification separately.
 - [x] Review the engineering integration before publishing or merging it into main; retain the separate qualification gates below.
 
 ## Latest scoped acceptance snapshot
 
-As of 2026-11-02, the Oracle repair regression group passes on macOS and Linux
-(391 checks each). Full discovery at `a595709` passes on both platforms: 1,534
-checks each, zero failures/errors and 17 conditional skips. Linux used an
-independent bundle clone, pinned historical fixtures and a newly built image
-containing that source. All JavaScript/dispatcher and portable-link checks pass.
-All 17 conditional Mac checks were exercised separately with their explicit
-switches/original data. The eight native Claude/physical-world checks also pass
-on Linux with explicit CPU preparation and launcher settings. No real provider
-inference or formal scored Claude execution is implied.
+As of 2026-11-02, full discovery at `c830202` passes on macOS and Linux:
+1,536 checks each, zero failures/errors and 17 conditional skips. The follow-up
+adds two real-state placement regressions. All 19 Transport coverage/physical
+Oracle checks pass on both platforms. Linux uses a fresh source checkout,
+authenticated closed fixture bytes and the unchanged runtime from the earlier
+`a595709` source image; this does not relabel that image as a new source build.
+JavaScript/dispatcher and portable-link checks pass on both platforms.
 
-The optional historical fixture installer and separate local bundle now support
-independent installation. Tracked source/content and filenames are English; frozen
-ignored evidence keeps its original bytes/names. The separate development-fixture
-release supplies the optional full-discovery inputs. Final publication checks
-and main integration remain separate from the passing engineering receipts.
-Real-provider/subscription lifecycle, 36-task capacity, complete task observations
-and the unified Slurm execution/stage-out path remain distinct qualification
-gates. A bounded real Slurm/H800 allocation passed NVIDIA EGL and a minimal-scene
-896×560 JPEG check; its limited scope is recorded below. Claude formal scored
-execution remains closed. The user's deferred full video rerender stays deferred.
+Two fresh current-scene Transport L1 references, at `9b5511e` and final code
+`c830202`, each complete all 12 goals in one real world. Independent reports
+confirm task completion, valid physics, resolved actions and a clean process,
+with no inter-arm contact, model call or external repair input. The final run
+uses a separately recorded 600-second engineering limit and finishes in 408.258
+seconds. Its public task limits and original scene/goal tolerances are unchanged.
+The earlier `d433f91` 4/12 interruption remains retained as incomplete evidence.
+This qualifies that case/reference, not all Transport geometry or model ability.
+
+The earlier `a595709` discovery passed 1,534 checks per platform using its newly
+built source image. All 17 conditional Mac checks were exercised separately at
+that source; eight native Claude/physical-world checks also passed on Linux with
+explicit CPU preparation and launcher settings. These native model endpoints
+are synthetic loopback services. No real-provider or formal scored Claude
+qualification is implied; the precise older-source receipts remain unchanged.
+
+Main `d433f91` and the five optional fixture/atlas assets were published and
+independently verified. Its atlas validation CI passed with publishing disabled.
+All 6,570 tracked paths/text files at `c830202` have no Han characters; frozen
+ignored evidence keeps its original bytes/names. Follow-up source integration
+and image/publication receipts are recorded separately below. Real-provider/
+subscription lifecycle, 36-task capacity, full task observations and unified
+Slurm execution/stage-out remain qualification gates. The H800 allocation covers
+only EGL/minimal-scene JPEG generation. Claude formal scored execution remains
+closed. The user's deferred full video rerender stays deferred.
 
 ## Invariants
 
@@ -2113,3 +2130,29 @@ The injected route rejection models actual cooperative admission failure; real
 IK/collision checks still run and no rejected route executes. All 19 combined
 Transport coverage/physical Oracle checks pass after both changes. Full-task,
 Linux and broader follow-up receipts remain separate from these local results.
+
+## Final placement follow-up acceptance at c830202
+
+Both complete discoveries pass 1,536 checks, zero failures/errors and 17
+conditional skips. The final current-scene Transport L1 reference completes
+12/12 goals, with all independent v2 verdicts true and no inter-robot contact
+or process violation. Physics advances 466.38 simulated seconds through ordinary
+actuator commands; the owner stops with no unresolved action. No LLM or external
+engineering repair input is used and no live object state is written after
+initialization. Earlier failed/intermediate runs and their source identities
+remain retained. This source has both IK-seed fallback and preserved vector
+offset fixes. Its full-reference result is separate from the passing `9b5511e`
+run and the incomplete `d433f91` attempt.
+
+Source inspection confirms the production delta from delivered main is confined
+to those two finite placement searches. Collision/support checks, physics, goals,
+public policy projections and native engine lifecycles are unchanged. The two
+regressions went red before their respective fixes. The archived FK diagnostic
+never executes a robot or resumes the old episode. There is no blocking finding
+from the follow-up source review; broader physical/provider gates above remain.
+
+Receipts include `full-{mac,linux}-placement-c830202.json`, the final trial's
+`report.json`/closed motion recording, `placement-followup-local-receipt.json`
+and `final-engineering-acceptance-c830202.json` under the engineering root.
+The public acceptance artifact summarizes the same scoped assertions; its source
+identity does not cover later documentation-only commits automatically.
