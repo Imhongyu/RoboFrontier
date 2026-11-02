@@ -61,5 +61,13 @@ class CodexTaskHomesTests(unittest.TestCase):
                     self.assertNotIn(b'never-persist-this', path.read_bytes())
 
 
+class SharedCodexHomeTests(unittest.TestCase):
+    def test_batches_never_default_to_the_personal_codex_home(self):
+        self.assertEqual(benchmark.codex_home({}), benchmark.BENCHMARK_CODEX_HOME.resolve())
+        self.assertNotEqual(benchmark.codex_home({}), (Path.home()/'.codex').resolve())
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(benchmark.codex_home({'CODEX_HOME': tmp}), Path(tmp).resolve())
+
+
 if __name__ == '__main__':
     unittest.main()

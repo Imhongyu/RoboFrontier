@@ -192,6 +192,12 @@ session IDs, and verifies fork lineage through parent ID, source ordinal, and
 history hashes. Initial task sessions are clean; only an authorized in-task
 delegate inherits its own Controller's allowed current-task history.
 
+Subscription batches share one dedicated home, `~/.robofrontier/codex-home`
+(or `CODEX_HOME` when set), never the personal `~/.codex`, so personal
+configuration, MCP servers, apps and sessions stay out of trials. Log in there
+once with `CODEX_HOME=~/.robofrontier/codex-home codex login`; a batch refuses to
+start without that login. The policy permission profile denies the home.
+
 New API runs isolate Codex homes per task. That task's Controller, snapshots,
 and delegates share its home to retain native lineage. Different tasks have
 different homes. The resolved home is recorded in `<run>/codex-home.json`;

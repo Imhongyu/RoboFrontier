@@ -142,7 +142,8 @@ def preflight(config, *, confirm_spend=False, smoke_only=False, max_budget_usd=N
             fingerprint = hashlib.sha256(json.dumps(selected, sort_keys=True).encode()).hexdigest()[:20]
             home = ROOT/'.robofrontier/preflight'/fingerprint
         else:
-            home = Path(config['runtime']['codex_home'] or env.get('CODEX_HOME', Path.home()/'.codex')).expanduser().resolve()
+            from scripts.benchmark import codex_home
+            home = Path(config['runtime']['codex_home']).expanduser().resolve() if config['runtime']['codex_home'] else codex_home(env)
         home.mkdir(parents=True, exist_ok=True, mode=0o700)
         env['CODEX_HOME'] = str(home)
         folder = ROOT/'runs/engineering'/('model-smoke' if smoke_only else 'model-compatibility')/policy['profile']

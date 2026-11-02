@@ -6,10 +6,10 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 import time
-import shlex
 import tomllib
 from robofrontier import run_layout
 from robofrontier.launch_schedule import LaunchSchedule
@@ -77,6 +77,19 @@ def hidden_skills(home=None, repo=ROOT):
                   for f in root.glob('*/SKILL.md'))
 
 
+BENCHMARK_CODEX_HOME = Path.home()/'.robofrontier/codex-home'
+
+
+def codex_home(env=None):
+    """CODEX_HOME if set, else the shared benchmark home; never the user's ~/.codex.
+
+    Keeps personal configuration, MCP servers, apps and sessions out of trials. Log
+    in once with `CODEX_HOME=~/.robofrontier/codex-home codex login`.
+    """
+    environment = os.environ if env is None else env
+    return Path(environment.get('CODEX_HOME') or BENCHMARK_CODEX_HOME).expanduser().resolve()
+
+
 def launch_config(p, folder, run_dir=None):
     args = []
     # Account apps and goals are personal Codex features, not task tools, and no
@@ -90,7 +103,7 @@ def launch_config(p, folder, run_dir=None):
         # Shared subscription homes retain native auth, but their MCP servers
         # are not benchmark tools. Disable known layers without editing them;
         # the host checks the effective configuration again before inference.
-        home = Path(os.environ.get('CODEX_HOME', Path.home()/'.codex'))
+        home = codex_home()
         directory = Path(folder).resolve()
         configs = {home/'config.toml', *(parent/'.codex/config.toml'
                     for parent in (directory, *directory.parents))}
@@ -116,7 +129,7 @@ def launch_config(p, folder, run_dir=None):
             prefix+'request_max_retries':3, prefix+'stream_max_retries':3})
     # Local Codex model catalog teaches the CLI that this exact model accepts
     # images. No global provider/auth/default settings are modified.
-    cache_path=Path(os.environ.get('CODEX_HOME',Path.home()/'.codex'))/'models_cache.json'
+    cache_path=codex_home()/'models_cache.json'
     cached = read(cache_path).get('models', []) if p.get('use_cached_model_metadata',True) and cache_path.is_file() else []
     # Preserve exact OpenAI model metadata if available; the checked-in generic
     # template also permits an empty CODEX_HOME on a new server.
@@ -231,8 +244,7 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
 
 def initialize_codex_home(launch, folder, timeout_s=90, *, env=None):
     """Serialize the real app-server handshake for processes sharing CODEX_HOME."""
-    environment=os.environ if env is None else env
-    home=Path(environment.get('CODEX_HOME', Path.home()/'.codex')).expanduser().resolve()
+    home=codex_home(env)
     home.mkdir(parents=True, exist_ok=True)
     deadline=time.monotonic()+timeout_s
     with (home/'robofrontier-init.lock').open('a+') as lock:
@@ -319,10 +331,12 @@ def _run_batch_locked(folder, parallel, batch):
             key=hashlib.sha256(str(run).encode()).hexdigest()[:20]
             base=Path(execution.get('codex_home') or ROOT/'.robofrontier/codex')
             env['CODEX_HOME']=str((base/key).resolve())
-        home=Path(env.get('CODEX_HOME',Path.home()/'.codex')).expanduser().resolve()
+        home=codex_home(env)
         if home.is_relative_to(folder):
             raise ValueError('Keep credential/configuration directories outside collected batch evidence')
         home.mkdir(parents=True,exist_ok=True,mode=0o700)
+        if launch['profile'].get('provider')=='openai' and not (home/'auth.json').is_file() and not env.get('OPENAI_API_KEY'):
+            raise ValueError('No Codex login in '+str(home)+'; run once: CODEX_HOME='+shlex.quote(str(home))+' codex login')
         env['CODEX_HOME']=str(home)
         environments[str(run)]=env
         write_json(run_layout.path(run,'codex_home_marker','codex'),{'schema':'robofrontier.codex-home.v1','codex_home':str(home),'scope':scope})
@@ -371,6 +385,8 @@ def _run_batch_locked(folder, parallel, batch):
 
 def main():
     load_env(ROOT/'.env')
+    # Every child (app-server, policy host, runtime_cli) inherits this home.
+    os.environ['CODEX_HOME']=str(codex_home())
     p=argparse.ArgumentParser(description=__doc__);sub=p.add_subparsers(dest='command',required=True)
     sub.add_parser('models')
     a=sub.add_parser('preflight');a.add_argument('--models',nargs='+',default=['astra']);a.add_argument('--model-config',type=Path)
