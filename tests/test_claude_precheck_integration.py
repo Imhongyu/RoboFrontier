@@ -1,5 +1,6 @@
 """Real CLI precheck with local synthetic inference; no real provider calls."""
 import http.server
+import json
 import os
 from pathlib import Path
 import shutil
@@ -53,6 +54,13 @@ class PrecheckIntegrationTests(unittest.TestCase):
                 self.assertTrue(any(not req.get('tools') for req in PrecheckModel.requests))
                 self.assertTrue(PrecheckModel.auth_headers)
                 self.assertTrue(all(h['x_api_key'] and not h['bearer'] for h in PrecheckModel.auth_headers))
+                # The native fork carries the parent's complete cost history.
+                # Summed new work must equal that final cumulative counter,
+                # rather than charging inherited usage once per invocation.
+                events=Path(tmp)/'out/run/private/evidence/fork.jsonl'
+                native=[json.loads(line) for line in events.read_text().splitlines()]
+                total=next(row['total_cost_usd'] for row in reversed(native) if row.get('type')=='result')
+                self.assertAlmostEqual(result['total_cost_usd'],total,places=10)
         finally:
             server.shutdown();server.server_close()
 

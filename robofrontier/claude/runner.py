@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from robofrontier.claude.recovery import capacity_code
 from robofrontier.claude.native_home import config_directory
+from robofrontier.claude.cost_state import amount, baseline, invocation_cost
 from robofrontier.run_metrics import host_event
 
 ENV_PASSTHROUGH = ('PATH', 'LANG', 'LC_ALL', 'TMPDIR')
@@ -224,7 +225,17 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
     config_dir = config_directory(run_dir, profile)
     if profile.get('auth_mode') != 'native_login':
         config_dir.mkdir(parents=True, exist_ok=True)
-    cmd = build_command(model, effort, mcp_config, prompt, session_id, max_budget_usd, binary, resume,
+    before = baseline(config_dir, fork_from or resume)
+    native_limit = max_budget_usd
+    if max_budget_usd is not None:
+        if isinstance(max_budget_usd, bool) or not isinstance(max_budget_usd, (int, float)):
+            raise ValueError('max_budget_usd must be a positive number')
+        maximum = amount(max_budget_usd)
+        if maximum is None or maximum <= 0:
+            raise ValueError('max_budget_usd must be a positive number')
+        if before is not None:
+            native_limit = float(before + maximum)
+    cmd = build_command(model, effort, mcp_config, prompt, session_id, native_limit, binary, resume,
                         fork_from=fork_from, enable_robot=enable_robot, auth_mode=profile.get('auth_mode','api_key'),
                         prompt_via_stdin=True)
     env = build_env(profile, base_env, config_dir)
@@ -274,12 +285,21 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
         os.fchmod(output.fileno(), 0o600)
         output.write(stdout)
     summary = summarize(stdout.splitlines())
+    invocation_cost(summary, before)
+    try:
+        after = baseline(config_dir, summary.get('session_id')) if summary.get('session_id') else None
+        if after is not None and amount(summary.get('native_session_total_cost_usd')) != after:
+            summary.update(total_cost_usd=None, cost_scope='unknown')
+    except ValueError:
+        summary.update(total_cost_usd=None, cost_scope='unknown')
     if status in ('timeout', 'cancelled'):
         summary['turn_status'] = 'unknown'
     duration = time.monotonic()-began
     host_event(run_dir, 'cli_turn_completed', actor=actor, session_id=summary.get('session_id'),
                events_name=events_name, phase=phase, duration_s=duration,
                usage=summary.get('usage'), reported_cost_usd=summary.get('total_cost_usd'),
+               native_session_total_cost_usd=summary.get('native_session_total_cost_usd'),
+               cost_scope=summary.get('cost_scope'),
                model_usage=summary.get('model_usage'),
                process=status, exit_code=process.returncode)
     return {

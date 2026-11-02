@@ -100,3 +100,26 @@ The Slurm entry continues to accept API credentials only. See the
 Official references: [Codex authentication](https://learn.chatgpt.com/docs/auth),
 [Codex account refresh](https://learn.chatgpt.com/docs/app-server), and
 [Claude Code authentication](https://code.claude.com/docs/en/authentication).
+
+## Native cumulative cost accounting
+
+Claude Code 2.1.312 persists a session-wide cost-state counter in its transcript.
+Resuming or forking a session inherits that counter. The runner retains the raw
+native total and subtracts only a verified prior native counter to report new
+invocation work. A per-invocation allowance is translated to the corresponding
+cumulative native CLI ceiling. Task-wide reservations continue to cover only new
+work; inherited history is not charged again. Raw event bytes remain unchanged.
+
+Missing historical cost bookkeeping permits no deduction: the complete native
+counter is kept as a conservative upper bound. Unknown native model cost blocks
+another invocation; a counter decrease or inconsistent final native state makes
+cost unknown. Neither an old stopped world's budget nor its outcome is repaired.
+Native modelUsage metadata remains unmodified and may contain cumulative usage;
+it is not an independent invoice or another amount to add to invocation cost.
+
+The genuine bounded engineering trial exposed both cumulative-cost duplication
+and confusion about the native CLI ceiling. It completed eight physical actions
+and was stopped and sealed before repair. The counter regression uses the actual
+native CLI against a synthetic local provider: the sum of fresh text, image,
+resume and fork work must equal the final child's inherited cumulative counter.
+No genuine provider or credential is used by that regression.
