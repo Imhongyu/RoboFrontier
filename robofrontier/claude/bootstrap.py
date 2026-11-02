@@ -2,12 +2,19 @@
 import json
 from pathlib import Path
 
+from robofrontier.policy_bootstrap import frozen_bootstrap
+
 
 MAX_BOOTSTRAP_BYTES = 400_000
 
 
 def bootstrap_prompt(run_dir, *, topology='centralized', startup_protocol='ready_barrier_v1', actor='Controller'):
     run = Path(run_dir).resolve()
+    # Runs prepared with robofrontier/policy_bootstrap.py send that frozen message unchanged,
+    # the same one the Codex route sends. The text below is for earlier runs.
+    frozen = frozen_bootstrap(run, actor)
+    if frozen is not None:
+        return frozen
     public = (run / 'public/inputs').resolve()
     task = json.loads((public / 'task.json').read_text())
     roles = json.loads((public / 'roles.json').read_text())

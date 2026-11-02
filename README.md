@@ -42,8 +42,8 @@ user's request; the editable English project remains available.
 | Edit the full Factory camera plan and English video titles/subtitles | [Editable video project](docs/factory-editorial.md) |
 | Browse the 36 current tasks and initial scenes | [Download the offline atlas](https://github.com/changxuanfan/RoboFrontier/releases/download/development-fixtures-20261102/robofrontier-task-atlas-20261102.zip) · [Atlas guide](docs/task-atlas.md) |
 | See which integration gates have passed | [Acceptance and source provenance](docs/development/unified-main.md) |
-| Read the policy's role and tool contract | [Robot collaboration skill](.agents/skills/robot-collaboration/SKILL.md) |
-| Read completion and recovery rules | [Shared policy rules](prompts/policy-rules.md) |
+| Read the policy's role and tool contract | [Robot collaboration skill](prompts/skills/robot-collaboration/SKILL.md) |
+| Read completion and recovery rules | [Shared policy rules](prompts/rules.md) |
 | Run privileged references and interpret recovery checks | [Oracle execution](docs/oracle.md) and [recovery boundaries](docs/oracle-recovery.md) |
 
 Current source, documentation and historical prose use English. Frozen legacy
@@ -304,7 +304,7 @@ be preserved; assisted execution is not automatically an autonomous benchmark.
 | `robofrontier.toml` | Public defaults for newly prepared unified batches |
 | `robofrontier/` | Simulation, native hosts, runtime protocol and evidence interfaces |
 | `configs/` | Released task registries, model catalogs, scenes and asset locks |
-| `prompts/`, `.agents/skills/` | Public policy and role/tool contracts |
+| `prompts/` | Public policy and role/tool contracts |
 | `scripts/`, `tests/` | Engineering entries and regression checks |
 | `docker/` | Unified image and explicitly retained legacy image |
 | `docs/` | Current guides, tracked public task atlas, provenance and historical migration records |

@@ -11,6 +11,8 @@ import math
 from pathlib import Path, PurePosixPath
 import shutil
 
+from .. import prompt_archive
+
 ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = 'configs/task_families/mosaic/r13.json'
 CONTROL_FILES = ('robot_control.py', 'sim.py', 'motion_check.py', 'task_config.py', 'pipeline.py')
@@ -38,7 +40,7 @@ def local(root, relative):
     if value.is_absolute() or '..' in value.parts or not value.parts:
         raise ValueError('Expected a repository-relative reference')
     # runs/outputs are intentionally external data symlinks in managed worktrees.
-    return Path(root).joinpath(*value.parts)
+    return Path(root).joinpath(*PurePosixPath(prompt_archive.source(value)).parts)
 
 
 def _pinned(path, expected):

@@ -3,7 +3,7 @@
 The current geometry is the **R14 half-opening** family, with nine cases in
 `configs/suites/frontier-transport-r14.json`. Specification and acceptance metadata
 are in `configs/task_families/transport/half-opening-r14.json`; policy guidance is
-`prompts/tasks/transport.md`. New experiments use the released entries selected
+`prompts/archive/tasks/transport.md`. New experiments use the released entries selected
 by `configs/task_families/current.json` and the [unified CLI](../unified-cli.md).
 The current policy asset lock also identifies the rolling-friction revision;
 R14 geometry alone does not prove equality of all physical parameters.

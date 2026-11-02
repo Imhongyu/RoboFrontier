@@ -10,6 +10,8 @@ import shutil
 from .runtime_store import RuntimeStore, packed
 from .observation_image import DEFAULT_PROFILE, observation_profile
 from .suite.provenance import environment_logic_manifest
+from . import run_layout
+from .policy_bootstrap import SKILLS_HEADER, write_bootstraps
 from .task_config import ROOT, load_task, load_harness, public_task,physical_control_fingerprint
 
 
@@ -62,7 +64,7 @@ def prepare_run(directory, task_path=None, harness_path=None, private_puzzle_pat
         raise ValueError('Private puzzle input applies only to spring_dial')
     directory.mkdir(parents=True)
     for name in ('public/inputs/roles', 'public/observations', 'public/results', 'private/inputs',
-                 'private/state/connections', 'private/state/client-state', 'private/outputs'):
+                 'private/state/connections', 'private/state/client-state', 'private/outputs', *run_layout.FOLDERS):
         (directory/name).mkdir(parents=True)
     if task.get('scene_asset'):
         from .scene_task import freeze_scene
@@ -76,7 +78,8 @@ def prepare_run(directory, task_path=None, harness_path=None, private_puzzle_pat
     from .scene_task import camera_names
     public['cameras'] = camera_names(task)
     for key,name in (('robot_layout_image','robot-layout.png'),('camera_calibration','camera-guide.json')):
-        if (directory/'public/inputs'/name).is_file():public[key]='public/inputs/'+name
+        # Like every other task.json reference, relative to public/inputs/.
+        if (directory/'public/inputs'/name).is_file():public[key]=name
     public['observation_image'] = {k: image_profile[k] for k in ('width', 'height', 'format')}
     if 'quality' in image_profile: public['observation_image']['quality'] = image_profile['quality']
     # Preserve the signed family asset; publish a run-specific calibration copy
@@ -90,9 +93,20 @@ def prepare_run(directory, task_path=None, harness_path=None, private_puzzle_pat
                 calibration['image_size_pixel'] = [image_profile['width'], image_profile['height']]
                 calibration['source_calibration'] = calibration_ref
                 calibration['scope'] = str(calibration.get('scope', 'Camera calibration')) + '; image size matches this run observation profile'
-                derived = directory/'public/inputs/observation-camera-calibration.json'
-                write_json(derived, calibration)
-                public['camera_calibration'] = 'public/inputs/observation-camera-calibration.json'
+                if family_release is not None and calibration_ref == 'family/'+calibration_path.name:
+                    # The policy sees one calibration, sized for this run; the signed
+                    # release copy moves to private/ and keeps its recorded hash.
+                    original = directory/'private/inputs/release-family'/calibration_path.name
+                    original.parent.mkdir()
+                    shutil.move(calibration_path, original)
+                    calibration['source_calibration'] = str(original.relative_to(directory))
+                    family_release['public_files'][str(original.relative_to(directory))] = \
+                        family_release['public_files'].pop('public/inputs/family/'+calibration_path.name)
+                    write_json(calibration_path, calibration)
+                else:
+                    derived = directory/'public/inputs/observation-camera-calibration.json'
+                    write_json(derived, calibration)
+                    public['camera_calibration'] = 'observation-camera-calibration.json'
     write_json(directory/'public/inputs/task.json', public)
     write_json(directory/'private/inputs/harness.json', cfg)
     roles = {cfg['manager']: {'kind':'manager'}}
@@ -104,16 +118,19 @@ def prepare_run(directory, task_path=None, harness_path=None, private_puzzle_pat
         roles.update({a: {'kind':'worker', 'robot':a} for a in task['arms']})
     write_json(directory/'public/inputs/roles.json', {'topology':cfg['topology'], 'manager':cfg['manager'], 'coordinator':cfg['coordinator'] if cfg['topology']=='hierarchical' else None, 'roles':roles})
     templates = ROOT/'prompts'
-    common = (templates/'common.md').read_text().replace('{{RUN_DIR}}',str(directory))
-    (directory/'public/inputs/common.md').write_text(common)
-    shutil.copyfile(templates/'policy-rules.md', directory/'public/inputs/policy-rules.md')
-    shutil.copytree(ROOT/'.agents/skills/robot-collaboration', directory/'public/inputs/skill')
-    shutil.copy2(ROOT/'scripts/role_tools.js', directory/'public/inputs/role_tools.js')
+    rules = (templates/'rules.md').read_text().replace('{{RUN_DIR}}',str(directory))
+    (directory/'public/inputs/rules.md').write_text(rules)
+    shutil.copytree(templates/'skills/robot-collaboration', directory/'public/inputs/skill')
+    # The run's shared lessons file, inside the policy's only writable folder. Its
+    # rules live in the frozen Skill, which no role can edit.
+    (directory/run_layout.LAYOUTS[run_layout.CURRENT]['skills_file']).write_text(SKILLS_HEADER)
+    # Meta is engineering, outside the policy team: its role file and runbook stay private.
+    (directory/'private/inputs/meta').mkdir()
     runbook=(ROOT/'docs/meta-runbook.md').read_text()
     for target in ('architecture.md','harness-v2-verification.md'):
         runbook=runbook.replace(']('+target+')','](frozen-source/docs/'+target+')')
-    runbook=runbook.replace('](../.agents/','](frozen-source/.agents/')
-    (directory/'private/inputs/meta-runbook.md').write_text(runbook)
+    runbook=runbook.replace('](../prompts/','](frozen-source/prompts/')
+    (directory/'private/inputs/meta/meta-runbook.md').write_text(runbook)
     python = ROOT/'.venv/bin/python'
     for actor, info in roles.items():
         kind = info['kind']
@@ -127,7 +144,8 @@ def prepare_run(directory, task_path=None, harness_path=None, private_puzzle_pat
         text = (templates/'roles'/f'{filename}.md').read_text()
         for key,value in values.items():
             text = text.replace('{{'+key+'}}',value)
-        (directory/'public/inputs/roles'/f'{actor}.md').write_text(text)
+        role_file = directory/('private/inputs/meta' if kind=='manager' else 'public/inputs/roles')/f'{actor}.md'
+        role_file.write_text(text)
         connection = directory/'private/state/connections'/f'{actor}.json'
         write_json(connection, {'schema_version':3, 'run_id':directory.name, 'url':None,
                                 'actor':actor, 'token':secrets.token_urlsafe(24)})
@@ -135,12 +153,16 @@ def prepare_run(directory, task_path=None, harness_path=None, private_puzzle_pat
     store = RuntimeStore(directory/'private/state/runtime.sqlite')
     store.initialize(directory.name, cfg, task['arms'])
     store.close()
+    # One frozen first message per policy role, sent unchanged by either engine.
+    write_bootstraps(directory)
+    # What the policy may read and write, rendered by each engine's own sandbox.
+    from .policy_access import record as access_record
+    write_json(directory/'private/inputs/policy-access.json', access_record(directory))
     paths = list((ROOT/'robofrontier').rglob('*.py'))
-    paths += list((ROOT/'prompts').rglob('*.md'))
-    paths += list((ROOT/'.agents/skills/robot-collaboration').rglob('*'))
+    paths += [path for path in (ROOT/'prompts').rglob('*.md') if 'archive' not in path.relative_to(ROOT/'prompts').parts]
     # Freeze only the policy-host scripts of this run's engine, so editing the other
     # engine's host never invalidates a prepared batch.
-    paths += [ROOT/'scripts'/name for name in ('create_pipeline_run.py','meta_dispatcher.js','export_run_report.py','role_tools.js')
+    paths += [ROOT/'scripts'/name for name in ('create_pipeline_run.py','meta_dispatcher.js','export_run_report.py')
               + ENGINE_SCRIPTS[cfg.get('engine','codex')]]
     paths += [ROOT/'docs'/name for name in ('meta-runbook.md','architecture.md','harness-v2-verification.md')]
     source_hashes = {}
@@ -160,13 +182,17 @@ def prepare_run(directory, task_path=None, harness_path=None, private_puzzle_pat
     if puzzle is not None:
         p=directory/puzzle_relative
         inputs[str(puzzle_relative)]=hashlib.sha256(p.read_bytes()).hexdigest()
-    p=directory/'private/inputs/meta-runbook.md'
+    p=directory/'private/inputs/policy-access.json'
     inputs[str(p.relative_to(directory))]=hashlib.sha256(p.read_bytes()).hexdigest()
+    for folder in ('private/inputs/meta','private/inputs/bootstrap','private/inputs/release-family'):
+        for p in sorted((directory/folder).glob('*')):
+            if p.is_file():inputs[str(p.relative_to(directory))]=hashlib.sha256(p.read_bytes()).hexdigest()
     if family_release is not None:
         p=directory/'private/inputs/family-release.json'
         inputs[str(p.relative_to(directory))]=hashlib.sha256(p.read_bytes()).hexdigest()
     logic=environment_logic_manifest(source_hashes,task) if task.get('kind')=='frontier_suite' else None
     write_json(directory/'private/inputs/manifest.json', {'schema_version':3,'run_id':directory.name,
+        **run_layout.manifest_record(cfg.get('engine','codex')),
         'task_sha256':hashlib.sha256(packed(task).encode()).hexdigest(),
         'harness_sha256':hashlib.sha256(packed(cfg).encode()).hexdigest(),
         'source_sha256':source_hashes,'input_sha256':inputs,
@@ -178,7 +204,9 @@ def prepare_run(directory, task_path=None, harness_path=None, private_puzzle_pat
         'family_release':family_release,
         'observation_contract':task['observation_contract'],
         'manager':'Meta session executes deterministic dispatcher; no independent desktop takeover',
-        'isolation':'Role authentication and protocol/integrity checks; not an OS filesystem sandbox',
+        'isolation':('Role authentication and protocol/integrity checks, plus each engine\'s file sandbox: '
+                     'policies write only inside workspace/ and temporary folders, and cannot read private/, '
+                     'other runs, source code, configuration or credentials'),
         'physical_restart':'unsupported; interrupted worlds require a new run',
         'status':'prepared; no simulator or inference started'})
     return directory

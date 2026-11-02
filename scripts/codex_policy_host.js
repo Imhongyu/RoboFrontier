@@ -8,6 +8,10 @@ const {CodexRpc,STARTUP_ACK_MS,capacityFailure,requireNoMcpServers} = require('.
 const {runMetaDispatcher} = require('./meta_dispatcher');
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const read = file=>JSON.parse(fs.readFileSync(file,'utf8'));
+// Frozen at preparation by robofrontier/policy_bootstrap.py; absent from runs prepared earlier.
+const frozenText=(run,name)=>{const file=path.join(run,'private/inputs/bootstrap',name);
+  return fs.existsSync(file)?fs.readFileSync(file,'utf8'):null;};
+const LEGACY_SYSTEM_PROMPT='You are a RoboFrontier policy agent running in Codex. Follow the frozen public task, current role, tool protocol and evidence boundaries. Use your assigned robot tools. Preserve original call IDs across uncertain results. Do not manage the model host, modify the benchmark, or read private evaluation data.';
 function toolFailure(callId, stdout) {
   let detail;
   try { if (typeof stdout==='string' && stdout.length<=16384) detail=JSON.parse(stdout); } catch {}
@@ -161,6 +165,8 @@ class PolicyHost {
     }
   }
   bootstrap(actor, startupProtocol='direct_controller_v2') {
+    const frozen=frozenText(this.run,actor+'.md');
+    if (frozen!==null) return frozen;
     return `Run a fresh, independent RoboFrontier experiment. Run directory: ${this.run}. Current role: ${actor}.
 Read this run's public/inputs/common.md, policy-rules.md, task.json, roles/${actor}.md, skill/SKILL.md, skill/references/tools.md and skill/references/communication.md; read skill/references/adaptive.md only in adaptive mode. Use this task's public inputs, your own work notes and authorized images.
 CLI transport: use the bound robot tool. Its op/data match the frozen Skill's role API. Omit outer call_id for a new request; the response returns its ID. To query an existing action, issue a new job request with the original action ID in data.call_id. For an uncertain result, retry only the same outer ID with identical op/data. Select returned cameras with views. The tool binds your own connection and returns complete JSON and actual RGB image content; a path alone is not an observation. After permitted local image analysis or other non-robot work, refresh your inbox with robot inbox.
@@ -179,9 +185,12 @@ Use your assigned native session and bound robot tools. Read public task evidenc
     const bound=[];
     for (const [actor] of policy) {
       if (this.stopRequested()) throw new Error('Stop requested during initial session setup');
+      // A run with a frozen access table runs under its permission profile from launch;
+      // a thread `sandbox` would replace that profile, so only earlier runs send one.
+      const system=frozenText(this.run,'system.md');
       const result=await this.rpc.call('thread/start',{model:this.launch.model,modelProvider:this.launch.provider,
-        cwd:this.hostPath('policy_cwd'),approvalPolicy:'never',sandbox:'workspace-write',ephemeral:false,dynamicTools:[robotTool],
-        baseInstructions:'You are a RoboFrontier policy agent running in Codex. Follow the frozen public task, current role, tool protocol and evidence boundaries. Use your assigned robot tools. Preserve original call IDs across uncertain results. Do not manage the model host, modify the benchmark, or read private evaluation data.',
+        cwd:this.hostPath('policy_cwd'),approvalPolicy:'never',ephemeral:false,dynamicTools:[robotTool],
+        ...(system===null?{sandbox:'workspace-write'}:{}),baseInstructions:system??LEGACY_SYSTEM_PROMPT,
         threadSource:'robofrontier-benchmark',config:{web_search:'disabled','features.multi_agent':false}},STARTUP_ACK_MS);
       const id=result.thread.id; this.actors.set(id,actor);
       this.event({event:'role_created',actor,thread_id:id,provider:this.launch.provider,model:this.launch.model});

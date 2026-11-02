@@ -107,9 +107,10 @@ class StandingTeamTests(unittest.TestCase):
                 self.assertEqual(len({h.session_id for h in policy.hosts.values()}), len(expected))
                 for actor, host in policy.hosts.items():
                     self.assertEqual(len(host.prompts), 1)
-                    self.assertIn('Your current runtime role is '+actor, host.prompts[0])
-                    self.assertIn('experiment has STARTED', host.prompts[0])
-                    self.assertIn('no filesystem tools', host.prompts[0])
+                    # The frozen first message, the same one the Codex route sends.
+                    self.assertIn('Your role is '+actor+'.', host.prompts[0])
+                    self.assertIn('experiment has started for the whole team', host.prompts[0])
+                    self.assertIn('with your file tools', host.prompts[0])
                     self.assertNotIn('Await the host START', host.prompts[0])
                     self.assertNotIn('{{', host.prompts[0])
                 with self.assertRaisesRegex(ValueError, 'Never repeat'):

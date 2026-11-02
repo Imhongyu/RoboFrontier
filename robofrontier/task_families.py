@@ -125,26 +125,51 @@ def freeze_public(task, directory, public, root=ROOT):
         public['rules'].append('Collisions, drops and other process events are recorded separately. Recover using ordinary robot actions; do not reset, respawn or erase history.')
         public['completion']['required_airborne_handover'] = False
         public['completion']['scope'] = 'All assemblies released, actually supported and inside GOAL tolerance; process events are reported separately.'
+    if terminal:
+        # Released public projections carry statements that contradict the current task
+        # or address engineers; the private evaluator task is unchanged.
+        if family_name == 'mosaic':
+            public['rules'] = [rule.split('. ')[0]+'.' if rule.startswith('Build the supplied') else rule
+                               for rule in public.get('rules', [])]
+        if family_name == 'transport':
+            public.get('completion', {}).pop('scope', None)
     family_dir = directory/'public/inputs/family'
     family_dir.mkdir()
     hashes = {}
+    # task.json is the only statement of what a terminal run requires; the family Skill
+    # (how to do it well) comes from prompts/skills in place of released guidance,
+    # which mostly repeated task.json. Relay keeps its terminal description.
+    current, dropped = {}, set()
+    if terminal and family_name in ('relay', 'transport', 'dial', 'mosaic'):
+        current = {'skill.md': root/'prompts/skills'/family_name/'SKILL.md'}
+        dropped = {'family-guidance.md', 'task-guide.md'}
+        if terminal_relay:
+            current['family-guidance.md'] = root/'prompts/archive/tasks/relay-terminal-v2.md'
     for name, source in case['public_files'].items():
         if Path(name).name != name or sha(root/source['path']) != source['sha256']:
             raise ValueError('Invalid/changed public family file: '+name)
-        overlays = {'relay':'relay-terminal-v2.md', 'transport':'transport-terminal-v2.md', 'dial':'dial-terminal-v2.md'}
-        selected = root/'prompts/tasks'/overlays[family_name] if terminal and name == 'family-guidance.md' and family_name in overlays else root/source['path']
+    delivered = (set(case['public_files']) - dropped) | set(current)
+    for name in sorted(delivered):
+        selected = current.get(name) or root/case['public_files'][name]['path']
         shutil.copyfile(selected, family_dir/name)
         hashes['public/inputs/family/'+name] = sha(selected)
-    public['family_guidance'] = 'family/family-guidance.md'
-    public['family_materials'] = sorted('family/'+n for n in case['public_files'])
+    # The Mosaic target image joins the other family materials.
+    target_image = directory/'public/inputs/target-pattern.png'
+    if terminal and target_image.is_file() and isinstance(public.get('target'), dict):
+        shutil.move(target_image, family_dir/target_image.name)
+        public['target']['reference_image'] = 'family/'+target_image.name
+        delivered.add(target_image.name)
+    if 'family-guidance.md' in delivered:
+        public['family_guidance'] = 'family/family-guidance.md'
+    public['family_materials'] = sorted('family/'+n for n in delivered)
     for key, name in [('static_workstation', 'table-geometry.json')]:
         if key in public and name in case['public_files']:
             public[key]['geometry_reference'] = 'family/'+name
     if 'camera-calibration.json' in case['public_files']:
         public['camera_calibration'] = 'family/camera-calibration.json'
-    if 'task-guide.md' in case['public_files']:
+    if 'task-guide.md' in delivered:
         public['task_guide'] = 'family/task-guide.md'
-    if 'skill.md' in case['public_files']:
+    if 'skill.md' in delivered:
         public['task_skill'] = 'family/skill.md'
     if 'initial_reference_images' in review:
         images = review['initial_reference_images']
@@ -156,7 +181,7 @@ def freeze_public(task, directory, public, root=ROOT):
     return dict(release_sha256=sha(private_release), family=family_name, case_id=task['id'],
                 qualification=case['qualification'], public_files=hashes,
                 public_projection=projection,
-                public_overlay=(family_name+'-terminal-v2') if terminal and family_name in ('relay','transport','dial','mosaic') else None)
+                public_overlay=sorted(str(path.relative_to(root)) for path in current.values()) or None)
 
 
 def prepare(case_id, directory, harness=None, private_puzzle_path=None, wall_limit_s=86400):

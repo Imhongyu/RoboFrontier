@@ -130,7 +130,13 @@ async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAda
         }
         await runtime('delegate-activate',{id:batch.id}); activated = true;
         for (const child of claimed.children) {
-          const prompt = 'Your current identity is temporary delegate '+child.actor+' for this task. This runtime authority replaces inherited parent-role identity, connection and team-finish permissions; shared task and evidence restrictions remain in force. The parent session\'s unfinished calls and plans are history: do not retry them or execute them for the parent.'+
+          // Runs prepared with policy_bootstrap.py freeze the delegate message; fill every
+          // placeholder, as robofrontier/policy_bootstrap.py delegate_prompt does.
+          // Required here, not at load: Meta may load these definitions where no I/O is allowed.
+          const fs = require('node:fs'), frozenDelegate = require('node:path').join(runDir,'private/inputs/bootstrap/delegate.md');
+          const prompt = fs.existsSync(frozenDelegate) ? fs.readFileSync(frozenDelegate,'utf8').split('{{ACTOR}}').join(child.actor)
+              .split('{{SCOPE}}').join(JSON.stringify({robots:child.robots,goal:child.goal,done_when:child.done_when,constraints:child.constraints||''})) :
+            'Your current identity is temporary delegate '+child.actor+' for this task. This runtime authority replaces inherited parent-role identity, connection and team-finish permissions; shared task and evidence restrictions remain in force. The parent session\'s unfinished calls and plans are history: do not retry them or execute them for the parent.'+
             '\nThe task Controller submitted this scope verbatim: '+JSON.stringify({robots:child.robots,goal:child.goal,done_when:child.done_when,constraints:child.constraints??''})+
             '\nUse only your own connection '+runDir+'/private/state/connections/'+child.actor+'.json; Python '+python+'. Prefix future call IDs with '+child.actor+'; do not reuse parent call IDs.'+
             '\nYou are a temporary delegate, not a permanent per-arm Worker. Follow the frozen Skill\'s references/adaptive.md for lifecycle and handback rules; restore that reference if context is missing. The team has STARTED. Act independently within this scope, process parent messages, and report milestones or blockers when useful. On normal completion, call return_task and end. Follow the reference for waiting, pauses and incomplete handback. Do not create more sessions, use management APIs, modify the harness, read private evaluation or execute team finish.';

@@ -4,7 +4,7 @@ This historical pilot used a local standard-library loopback service, without
 MuJoCo or a separate model API. Actual inference ran in two new tasks in the
 Codex desktop project, both fixed to `gpt-6-luna` / `xhigh`.
 
-See the [current communication protocol](../../.agents/skills/robot-collaboration/references/communication.md)
+See the [current communication protocol](../../prompts/skills/robot-collaboration/references/communication.md)
 for the later tree Meta–Worker and distributed Worker–Worker design. That
 protocol has since changed; its capabilities must not be attributed to this pilot.
 

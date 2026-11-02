@@ -23,6 +23,52 @@ from robofrontier import run_layout
 ENV_PASSTHROUGH = ('PATH', 'LANG', 'LC_ALL', 'TMPDIR')
 ROBOT_TOOL = 'mcp__robot__robot'
 EFFORTS = ('low', 'medium', 'high', 'xhigh', 'max')
+# Runs with a frozen access table (robofrontier/policy_access.py) give policy turns the
+# same working tools as the Codex route: files, shell and the bound robot tool. Web
+# tools stay off on both engines.
+POLICY_TOOLS = ('Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep')
+# Write and Edit are not pre-allowed: acceptEdits accepts edits inside the working
+# folder, and with permission prompts off every other edit is refused.
+ALLOWED_POLICY_TOOLS = ('Bash', 'Read', 'Glob', 'Grep', ROBOT_TOOL)
+# Claude Code has no compact-at-N setting: it compacts at CLAUDE_CODE_AUTO_COMPACT_WINDOW
+# minus a fixed 33,000-token summary buffer (measured on CLI 2.1.312 and 2.1.316), so the
+# window is set to land on the run's frozen compaction threshold.
+CLAUDE_COMPACT_BUFFER = 33000
+
+
+def policy_settings(run_dir):
+    """Settings for a policy turn rendered from the run's frozen access table, or None
+    for runs prepared before the table existed.
+
+    Permission rules cover the file tools; the sandbox covers Bash. Both are needed
+    because neither applies to the other. Harness processes (the robot MCP, the CLI's
+    own configuration) are not sandboxed and keep their access.
+    """
+    run = Path(run_dir).resolve()
+    path = run/'private/inputs/policy-access.json'
+    if not path.is_file():
+        return None
+    access = json.loads(path.read_text())
+    table = access['filesystem']
+    hidden = sorted(p for p, mode in table.items() if mode == 'deny')
+    writable = sorted(p for p, mode in table.items() if mode == 'write')
+    # acceptEdits accepts edits only inside the working folder and every other edit
+    # is refused; these rules also keep hidden paths and the frozen inputs out of reach.
+    deny = ['Read(/'+p.lstrip('/')+'/**)' for p in hidden]
+    deny += ['Edit(/'+p.lstrip('/')+'/**)' for p in hidden+[str(run/'public')]]
+    return {'permissions': {'deny': deny},
+            'sandbox': {'enabled': True, 'allowUnsandboxedCommands': False,
+                        'filesystem': {'allowWrite': writable, 'denyRead': hidden},
+                        'network': {'allowedDomains': ['*'] if access.get('network') else []}}}
+
+
+def policy_system_prompt(run_dir):
+    path = Path(run_dir)/'private/inputs/bootstrap/system.md'
+    return path.read_text() if path.is_file() else None
+
+
+def policy_cwd(run_dir):
+    return run_layout.path(run_dir, 'policy_cwd', 'claude')
 
 
 def _oauth_endpoint_allowed(base):
@@ -36,10 +82,14 @@ def _oauth_endpoint_allowed(base):
 
 
 def build_command(model, effort, mcp_config, prompt, session_id=None, max_budget_usd=None, binary='claude', resume=None,
-                  fork_from=None, enable_robot=True, auth_mode='api_key', prompt_via_stdin=False):
-    """Return argv for one headless turn with only the bound robot MCP tool exposed.
+                  fork_from=None, enable_robot=True, auth_mode='api_key', prompt_via_stdin=False, settings=None,
+                  system_prompt=None):
+    """Return argv for one headless turn.
 
-    `resume` continues an existing session by its explicit ID; it never picks the most recent one.
+    With `settings` (see `policy_settings`) a policy turn gets the bound robot tool plus
+    file and shell tools confined by those settings; without it, only the robot tool.
+    A fork-creation turn has no tools. `resume` continues an existing session by its
+    explicit ID; it never picks the most recent one.
     """
     if effort not in EFFORTS:
         raise ValueError('Unsupported effort: ' + str(effort))
@@ -54,14 +104,22 @@ def build_command(model, effort, mcp_config, prompt, session_id=None, max_budget
     mcp_arg = str(mcp_config) if enable_robot else '{"mcpServers":{}}'
     if auth_mode not in ('api_key','oauth_token','native_login'):
         raise ValueError('Unsupported Claude authentication mode')
-    isolation = ['--bare'] if auth_mode == 'api_key' else ['--setting-sources', '']
+    # --bare would expose only Bash, Read and Edit, so confined policy turns load no
+    # user, project or local settings instead.
+    isolation = ['--bare'] if auth_mode == 'api_key' and settings is None else ['--setting-sources', '']
     cmd = [binary, '-p'] + isolation + ['--model', model, '--effort', effort] + session_flags + [
-           '--mcp-config', mcp_arg, '--strict-mcp-config',
-           '--tools', '',
-           '--permission-mode', 'dontAsk',
-           '--output-format', 'stream-json', '--verbose']
-    if enable_robot:
-        cmd += ['--allowedTools', ROBOT_TOOL]
+           '--mcp-config', mcp_arg, '--strict-mcp-config']
+    if enable_robot and settings is not None:
+        cmd += ['--tools', ','.join(POLICY_TOOLS), '--permission-mode', 'acceptEdits', '--permission-prompts', 'none',
+                '--settings', json.dumps(settings, sort_keys=True), '--allowedTools', *ALLOWED_POLICY_TOOLS]
+    else:
+        cmd += ['--tools', '', '--permission-mode', 'dontAsk']
+        if enable_robot:
+            cmd += ['--allowedTools', ROBOT_TOOL]
+    if system_prompt is not None:
+        # Replaces Claude Code's own system prompt, as the Codex route replaces Codex's.
+        cmd += ['--system-prompt', system_prompt]
+    cmd += ['--output-format', 'stream-json', '--verbose']
     if max_budget_usd is not None:
         if not isinstance(max_budget_usd, (int, float)) or max_budget_usd <= 0:
             raise ValueError('max_budget_usd must be a positive number')
@@ -237,10 +295,16 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
         # Native reports retain session history, but the CLI budget limits
         # this invocation. Adding historical cost here would enlarge the cap.
         native_limit = float(maximum)
+    settings = policy_settings(run_dir) if enable_robot else None
     cmd = build_command(model, effort, mcp_config, prompt, session_id, native_limit, binary, resume,
                         fork_from=fork_from, enable_robot=enable_robot, auth_mode=profile.get('auth_mode','api_key'),
-                        prompt_via_stdin=True)
+                        prompt_via_stdin=True, settings=settings, system_prompt=policy_system_prompt(run_dir))
     env = build_env(profile, base_env, config_dir)
+    launch = run_dir/'private/inputs/claude.json'
+    frozen = json.loads(launch.read_text()) if launch.is_file() else {}
+    if frozen.get('auto_compact_token_limit'):
+        env['CLAUDE_CODE_AUTO_COMPACT_WINDOW'] = str(int(frozen['auto_compact_token_limit'])+CLAUDE_COMPACT_BUFFER)
+    cwd = policy_cwd(run_dir)
     raw = evidence / events_name
     # A queued worker may reach this point after its supervisor has stopped it.
     # Do not launch a potentially paid CLI turn when cancellation is already set.
@@ -255,7 +319,7 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
     with tempfile.TemporaryFile() as prompt_input:
         prompt_input.write(prompt.encode('utf-8'))
         prompt_input.seek(0)
-        process = subprocess.Popen(cmd, cwd=run_dir, env=env, text=True, stdout=subprocess.PIPE,
+        process = subprocess.Popen(cmd, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, stdin=prompt_input, start_new_session=True)
     deadline = None if timeout is None else time.monotonic() + timeout
     while True:

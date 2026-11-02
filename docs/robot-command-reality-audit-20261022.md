@@ -14,7 +14,7 @@ Implementation follow-up: after the pre-grasp-v2 audit below, the shared multi-a
 controller gained `gripper.mode=grasp`, requested force of 30..70 N, width
 tolerances and explicit drive feedback; total aperture speed was limited to
 0.10 m/s. Position mode remains available. Continuous end-effector force control
-remains unavailable. See the [current tool reference](../.agents/skills/robot-collaboration/references/tools.md)
+remains unavailable. See the [current tool reference](../prompts/skills/robot-collaboration/references/tools.md)
 for behavior. Related validation and Oracle physics records are in the ignored
 `runs/beam-handoff-grasp-20261022/`. This is not a completed hardware calibration.
 

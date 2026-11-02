@@ -28,7 +28,7 @@ A pause request uses the same addressed message format. The executor reviews it 
 
 Keep changed conditions, remaining constraints, needed decisions and concise evidence. Unchanged status confirmations do not create work. Pending replies block only dependent work; independently authorized work can continue.
 
-Share a run-local lesson when it changes another role's choices, with evidence and applicability limits or an allowed artifact reference. Hierarchical Workers share through Controller, peers with affected Workers, and adaptive delegates through Controller; routine trials need no separate announcement. A lesson is neither a new authorization nor verified object truth.
+Share a run-local lesson when it changes another role's choices, with evidence and applicability limits, or point to its entry in the run's `skills.md`. Hierarchical Workers share through Controller, peers with affected Workers, and adaptive delegates through Controller; routine trials need no separate announcement. A lesson is neither a new authorization nor verified object truth.
 
 Messages and system events share the configured batch byte/count budget; remaining_messages and remaining_events identify items still queued. Oversized notices require a shorter message or an artifact reference. Delivery batches have IDs. The client acknowledges receipt on its next call; this is not business acceptance. Until that receipt, the batch may be redelivered with the same message IDs. Do not repeat accepted physical work because its message appears again. `history` retrieves your own conversation without creating commitments.
 

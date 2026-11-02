@@ -14,7 +14,9 @@ on:
       - 'robofrontier/task_config.py'
       - 'robofrontier/suite/tasks.py'
       - 'robofrontier/suite/v2.py'
-      - 'prompts/tasks/**'
+      - 'prompts/**'
+      - 'scripts/benchmark_handoff.py'
+      - 'configs/policy-assets.json'
       - 'uv.lock'
       - 'pyproject.toml'
   workflow_dispatch:

@@ -91,12 +91,12 @@ def main():
     # Validate runnable documentation as syntax, without executing its tools.
     doc_js="const fs=require('fs');const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;const s=fs.readFileSync(process.argv[1],'utf8');for(const m of s.matchAll(/```javascript\\n([\\s\\S]*?)```/g))new AsyncFunction(m[1]);"
     runbook=subprocess.run(['node','-e',doc_js,str(ROOT/'docs/meta-runbook.md')],capture_output=True,text=True)
-    tool_docs=subprocess.run(['node','-e',doc_js,str(ROOT/'.agents/skills/robot-collaboration/references/tools.md')],capture_output=True,text=True)
-    documents=[ROOT/'README.md',*(ROOT/'docs').rglob('*.md'),*(ROOT/'.agents/skills/robot-collaboration').rglob('*.md')]
+    tool_docs=subprocess.run(['node','-e',doc_js,str(ROOT/'prompts/skills/robot-collaboration/references/tools.md')],capture_output=True,text=True)
+    documents=[ROOT/'README.md',*(ROOT/'docs').rglob('*.md'),*(ROOT/'prompts').rglob('*.md')]
     broken_links=documentation_links(ROOT,documents)
     validator=None
     if args.skill_validator:
-        validator=subprocess.run([args.skill_python,str(args.skill_validator),str(ROOT/'.agents/skills/robot-collaboration')],capture_output=True,text=True)
+        validator=subprocess.run([args.skill_python,str(args.skill_validator),str(ROOT/'prompts/skills/robot-collaboration')],capture_output=True,text=True)
         print(validator.stdout,end='');print(validator.stderr,end='',file=sys.stderr)
     dispatcher_count=re.search(r'^PASS: (\d+) dispatcher scenarios:',node.stdout,re.MULTILINE)
     dispatcher_passed=node.returncode==0 and dispatcher_count is not None

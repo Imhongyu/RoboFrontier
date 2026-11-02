@@ -60,7 +60,9 @@ def public_case(case_id):
         (root/'public/inputs').mkdir(parents=True)
         (root/'private/inputs').mkdir(parents=True)
         freeze_public(task, root, public)
-        guidance = (root/'public/inputs/family/family-guidance.md').read_text()
+        # Relay keeps a terminal description; the other families publish their Skill.
+        family = root/'public/inputs/family'
+        guidance = (family/'family-guidance.md' if (family/'family-guidance.md').is_file() else family/'skill.md').read_text()
     family, _, case = resolve_case(case_id)
     record = {key: public[key] for key in PUBLIC_FIELDS if key in public}
     record['arm_count'] = len(task['arms'])
@@ -187,18 +189,20 @@ def _verify_capture(manifest):
     if set(original['sources'])!=set(SOURCE_FILES) or set(original['files'])!=set(manifest['files']):
         raise ValueError('Atlas capture inventory differs')
     for name,checksum in original['files'].items():
-        if name not in ('index.html','style.css','atlas.js') and manifest['files'][name]!=checksum:
+        # Public contract text may be refreshed; captured images may not.
+        if (name not in ('index.html','style.css','atlas.js','tasks.json') and not name.startswith('tasks/')
+                and manifest['files'][name]!=checksum):
             raise ValueError('Atlas captured payload changed: '+name)
 
 
-def _verify(output, sources):
+def _verify(output, sources, expected=None):
     from PIL import Image
     output = Path(output)
     manifest = json.loads((output/'atlas-manifest.json').read_text())
     if manifest['schema'] not in ('robofrontier.task-atlas-manifest.v1','robofrontier.task-atlas-manifest.v2'):
         raise ValueError('Unknown task atlas schema')
     data = json.loads((output/'tasks.json').read_text())
-    expected = current_data()
+    expected = current_data() if expected is None else expected
     if data != expected:
         # A metadata-only historical-index substitution changes the release
         # identity, not the original images or any public task contract.
@@ -291,7 +295,8 @@ def refresh(source, output, source_revision):
     if original_bytes!=committed('docs/task-atlas/atlas-manifest.json'):
         raise ValueError('Atlas does not match the committed publication')
     sources={name:committed(name) for name in SOURCE_FILES}
-    _verify(source,sources)
+    # The source must match its own publication; its contracts may predate current ones.
+    _verify(source,sources,json.loads(committed('docs/task-atlas/tasks.json')))
     original=json.loads(original_bytes)
     if original['schema']=='robofrontier.task-atlas-manifest.v1':
         if encoded(original)!=original_bytes:
@@ -304,7 +309,20 @@ def refresh(source, output, source_revision):
     for name in original['files']:
         target=output/name;target.parent.mkdir(parents=True,exist_ok=True)
         shutil.copy2(source/name,target)
-    data=json.loads((source/'tasks.json').read_text())
+    old=json.loads((source/'tasks.json').read_text())
+    data=current_data()
+    if data['release_sha256']!=old['release_sha256']:
+        # The reviewed metadata-only historical-index substitution keeps the captured
+        # release identity (see _verify); any other release change needs a new capture.
+        from scripts.benchmark_handoff import pinned_asset_release
+        if old['release_sha256']==pinned_asset_release(ROOT,json.loads((ROOT/'configs/policy-assets.json').read_text())):
+            data=dict(data,release_sha256=old['release_sha256'])
+    # Text-only refresh: the same cases, scenes and captured views; only contract text may change.
+    if (data['release_sha256']!=old['release_sha256'] or
+            [(c['id'],c['views'],c['source']) for c in data['cases']]!=[(c['id'],c['views'],c['source']) for c in old['cases']]):
+        raise ValueError('Release, cases or scenes changed; build and capture a new atlas instead')
+    (output/'tasks.json').write_bytes(encoded(data))
+    for record in data['cases']:(output/'tasks'/(record['id']+'.json')).write_bytes(encoded(record))
     (output/'index.html').write_text(page(data))
     for name in ('style.css','atlas.js'):
         (output/name).write_bytes((ROOT/'web/task-atlas'/name).read_bytes())

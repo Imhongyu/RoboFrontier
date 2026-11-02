@@ -5,7 +5,7 @@ This is the 2026-10-20/21 plan and its historical progress, not the current
 handshake described below belongs to that experiment. New unified runs use the
 direct-START protocol. Consult the current [architecture](architecture.md),
 [runbook](meta-runbook.md), assigned public task and
-[collaboration skill](../.agents/skills/robot-collaboration/SKILL.md).
+[collaboration skill](../prompts/skills/robot-collaboration/SKILL.md).
 The historical coordinating role was named `Coordinator`; current naming uses
 Controller. The role descriptions below use Controller for readability without
 renaming original session IDs or stored evidence.
@@ -118,7 +118,7 @@ physical 2.375-times speedup.
   every peer's vote on every step.
 
 The plan retained one message format and the
-[shared communication principles](../.agents/skills/robot-collaboration/references/communication.md).
+[shared communication principles](../prompts/skills/robot-collaboration/references/communication.md).
 Agents chose plans, anticipation depth, waiting dependencies and check deadlines.
 The harness did not interpret business meaning or produce task schedules.
 Ending a reply did not leave the team. Ordinary waiting did not justify immediate

@@ -1,16 +1,10 @@
 # Tool contract v0.24
 
-In the CLI benchmark, call the bound `robot` tool with `op`, `data`, optional stable `call_id`, and `views` naming RGB images to return. For `observe`, select cameras in `data.cameras` and the images to load in `views`. The host binds your current role; after other local work call `robot` with `op:"inbox"` to check events. The Desktop helper examples below apply to Desktop, not the CLI host.
+In the CLI benchmark, call the bound `robot` tool with `op`, `data`, optional stable `call_id`, and `views` naming RGB images to return. For `observe`, select cameras in `data.cameras` and the images to load in `views`. The host binds your current role; after other local work call `robot` with `op:"inbox"` to check events.
 
 For Codex CLI and Claude MCP, omit the outer `call_id` on a new robot request; the host generates a request ID returned as `call_id`. Explicit IDs remain supported for compatibility. For a physical action, save this ID for status and safe recovery. A `job` query is a new request: put the original action ID in `data.call_id` and omit the outer `call_id`, for example `{"op":"job","data":{"call_id":"ACTION_ID"}}`. The response's outer `call_id` identifies the query; the `execution` record describes the target action (its ID may appear as `action_id` or `call_id`). If a request result is uncertain, inspect `pending` and query the original action; to retry that same request, supply its original outer `call_id` with identical `op` and `data`. Never replay uncertain physical work under a new ID. A conflict rejects the new request; it does not prove what happened to the original.
 
-In Desktop or direct client use, use the repository's Python environment and assigned role connection:
-
-```sh
-"PYTHON" -m robofrontier.pipeline_client --connection "ROLE_CONNECTION" OP --data 'JSON'
-```
-
-Replace PYTHON and ROLE_CONNECTION with the values in the run's role file; quote paths. Run `--help` for syntax. `checkpoint` saves a work note, not a physical-world snapshot. A client chooses an ID before sending and stores the request locally. `--call-id ID` retries that same call; identical IDs with different parameters are rejected. `pending` lists unresolved local requests without submitting a robot action.
+In Desktop the same tool is the `robofrontier_robot` MCP tool; connection files and the Python client are not part of the policy interface. `checkpoint` saves a work note, not a physical-world snapshot. `pending` lists unresolved requests without submitting a robot action.
 
 ## Task tools
 
@@ -28,7 +22,7 @@ Pose interpolation uses the shorter quaternion rotation; a final orientation alo
 
 For move, gripper and stop, a Worker controls its bound robot; Single/Adaptive Controllers and adaptive delegates specify `robot:"A"` from controlled_robots. The hierarchical Controller coordinates Workers and does not control their robots. READY returns actual static `robot_facts.shared_capabilities`, action limits and available cameras; robot_model gives detailed geometry. Per-robot `tcp_command_bounds_world_m` in robot_facts is the authoritative command range in every scene. Select speeds within those limits. Stop and motion admission keep the same ownership in every topology. Continuous arm torque/wrench control, simulator reset and scene mutation are not policy tools. READY robot_facts.control_profile names the supported parameter subset and missing hardware modes; it is not a claim that every real-hardware capability is exposed. Software limits are not the full device envelope. Hand grasp-force selection is separate from arm force control. The simulated Hand uses a declared force/speed drive law within its original effort ceiling; it is not a complete hardware dynamics calibration.
 
-READY's `execution_timing` defines a bounded action budget computed from requested travel/rate plus base time and margin. Accepted execution records include the estimated reference duration and actual timeout. This is a deadline, not a guarantee of reach, grasp or collision clearance. Requests exceeding the maximum budget fail before execution; choose speed or segmentation yourself. At timeout the executor stops advancing the target and brakes, retaining the original call until settled; a settled timeout returns failed. Failure to establish a settled stop returns uncertain and requires engineering review; it does not free the robot for another action or delegate. HTTP/client timeout is separate: query/retry the same ID rather than infer physical cancellation.
+READY's `execution_timing` defines a bounded action budget computed from requested travel/rate plus base time and margin. Accepted execution records include the estimated reference duration and actual timeout. This is a deadline, not a guarantee of reach, grasp or collision clearance. Requests exceeding the maximum budget fail before execution; choose speed or segmentation yourself. At timeout the executor stops advancing the target and brakes, retaining the original call until settled; a settled timeout returns failed. Failure to establish a settled stop returns uncertain and does not free the robot. If the response marks `local_recovery:true`, the original world is still running: inspect `observe` and `job` for the original call, then call `recover_action {"call_id":"ACTION_ID"}`. If it returns `recovered:false`, the stop is not yet confirmed; wait and inspect again. On `recovered:true`, the original action is confirmed stopped and remains failed; choose any new action separately. Never replay the old motion under a new ID. Other uncertainty or loss of the execution owner still requires engineering review. HTTP/client timeout is separate: query/retry the same ID rather than infer physical cancellation.
 
 - `robot_model {}`: compact static robot-model summary, controller/check limits, model_id and result_ref to the full robot-only JSON. `robot_model {"robot":"A"}` returns that robot's detailed transforms, joint ranges, TCP and collision geometry with the same full-model reference. Select details or read referenced fields as needed; the file contains no current object state. No prior robot_model call is required for move or check_motion.
 - `check_motion`: optional read-only comparison of candidate simultaneous moves. When uncertain full-arm overlap would cause waiting or cancellation, [motion screening](motion-check.md) gives the interface and coverage. Choose whether its information is worth the call; it is not a prerequisite for move and needs no preceding robot_model call.
@@ -39,7 +33,7 @@ READY's `execution_timing` defines a bounded action budget computed from request
 - `yield {"state":"waiting","note":"condition and next step","after_s":number}`: saves before you choose to end the native turn; the tool itself does not end it. States: waiting, available, continue. During an active run, waiting/available require your own finite after_s within run limits; there is no default period. Before START or while paused/ended it may be omitted. This is an optional turn boundary, not a phase required after each decision. Adaptive delegates normally finish via return_task; a deliberately saved wait retains their scope. Consider messages returned with yield before ending, and save material changes.
 - `wait_events {"timeout_s":number,"call_ids":["ID"]}`: after START, wait for addressed mail, role system events, a listed own action becoming terminal, pause or run end. Choose a total deadline from 0 to the run's `max_check_interval_s`; default 30. `call_ids` is optional. The client reuses the original request across HTTP slices, without resetting the service deadline or making a new business decision. On `timeout`, choose whether to rewait, work, or save and end. `paused` means stop new work and save; `ended` means the run has closed. Native tool-host yielding still follows Codex's own behavior. Physics and other roles continue. Retry the same ID after uncertain transport; use a new ID for a new completed wait.
 - `job {"call_id":"ID"}`: returns your own action status. accepted/running means not finished; completed/failed is the execution outcome; uncertain means execution cannot safely be inferred after disruption. Never treat a timeout as non-execution.
-- `finish {"note":"reason and public evidence"}`: The role authorized by its topology proposes team closure under the continuation and finish criteria in `public/inputs/policy-rules.md`. Include verified completion evidence, or the decisive irrecoverable blocker and recovery assessment. Rejected while actions run or are uncertain, or adaptive delegations remain active. Sustained holding and release are different outcomes. Acceptance is not a success verdict; private evaluation provides no corrective object coordinates to policy.
+- `finish {"note":"reason and public evidence"}`: The role authorized by its topology proposes team closure under the continuation and finish criteria in `public/inputs/rules.md`. Include verified completion evidence, or the decisive irrecoverable blocker and recovery assessment. Rejected while actions run or are uncertain, or adaptive delegations remain active. Sustained holding and release are different outcomes. Acceptance is not a success verdict; private evaluation provides no corrective object coordinates to policy.
 
 Adaptive mode additionally supports `delegate {"scopes":[{"robots":["A"],"goal":"chosen outcome","done_when":"chosen verification","constraints":"chosen limits"}]}` for Controller and `return_task {"outcome":"completed","result":"evidence and unresolved issues"}` for a delegate. return_task saves the report first and sends Controller a status and result reference. Read [bounded forks](adaptive.md) for platform-specific report access, setup, identity and return semantics. `work` includes outstanding scopes and ownership; `wait_events` receives first-return events without waiting for all delegates. These operations are unavailable in the other experimental modes.
 
@@ -57,48 +51,9 @@ These actions also accept `"cameras":["global","A_front"]` for the completion ob
 
 `run_paused:true` means engineering paused the run. Stop new physical work and save waiting; it is not a grasp failure or permission to recreate the world.
 
-## Desktop: one operation with selected images
+## Selected images
 
-The frozen `public/inputs/role_tools.js` helper can return one chosen operation's JSON and selected actual RGB images in the same outer tool call. No MCP server is required. Replace these path placeholders from the role file:
-
-```javascript
-const quote = s => "'" + s.replaceAll("'", "'\\''") + "'";
-const source = await tools.exec_command({cmd:"cat "+quote("RUN_DIR/public/inputs/role_tools.js"),max_output_tokens:6000});
-if (source.exit_code !== 0) throw new Error("Tool helper unavailable");
-const call = eval(source.output + "\nrobotTool;");
-await call({tools, python:"PYTHON", connection:"ROLE_CONNECTION",
-  op:"observe", data:{cameras:["global"]}, views:["global"], text, image});
-```
-
-For move/gripper, the helper requests the named views as the completion cameras unless data.cameras is explicit. Thus views:["global"] requests and loads global, while views:[] requests robot feedback only. Explicit data.cameras can capture additional cameras without loading them; select views from that list. For observe, data.cameras selects capture and views selects loading. For job, selected images come from the original action's saved observation with its original timestamp. A running job normally has no terminal image. The helper makes no extra observe call and retains the action result if loading fails. It performs no perception, motion selection or session management.
-
-The helper prints compact feedback by default: TCP, gripper width, controller status, maximum absolute joint velocity, timestamps, selected paths and all outcomes/mail remain visible; joint arrays stay in the full returned object. Choose detail:"full" when joint configuration matters, or inspect the returned data in the same invocation without another physical call. The direct Python client also returns full feedback. The helper already prints its result; print additional fields only when useful.
-
-### Desktop: local tools also deliver role events
-
-Robot API responses already include inbox batches. A bare native/local tool does not: while you analyze RGB or inspect a child chat, messages can arrive without a robot call. Use the same frozen helper's roleStep for such permitted non-robot work:
-
-```javascript
-const quote = s => "'" + s.replaceAll("'", "'\\''") + "'";
-const source = await tools.exec_command({cmd:"cat "+quote("RUN_DIR/public/inputs/role_tools.js"),max_output_tokens:6000});
-if (source.exit_code !== 0) throw new Error("Tool helper unavailable");
-const {roleStep} = eval(source.output + "\n({roleStep});");
-await roleStep({tools,python:"PYTHON",connection:"ROLE_CONNECTION",text,image,
-  operation:async()=>{
-    const result=await tools.exec_command({cmd:"YOUR_SELECTED_LOCAL_COMMAND",max_output_tokens:3000});
-    text(result.output);return result;
-  }});
-```
-
-The callback may contain chosen analysis, selected image loading, a process poll or permitted read-only native calls. Print selected output normally. After it returns or throws, roleStep refreshes your own inbox once and emits role_events only for mail, system events, remaining batches, pause/end or an error. It returns the original operation value and preserves its exception. A failed inbox refresh is reported separately and never reruns the selected operation. It does not interpret mail or execute follow-up actions. Already-decided local calls can share one step; choose a new boundary before a decision needing new evidence. For waiting on team progress use wait_events. robotTool/robotSequence already deliver role events and need no extra roleStep wrapper.
-
-This Desktop helper is not a global Codex tool-result hook: bypassing it with bare local/native calls bypasses this delivery boundary. Keep roleStep around subsequent tool/process polls as well. CLI roles use the bound `robot` inbox operation instead. An active model doing no tool calls receives queued events at its next robot boundary, not by running-turn steer.
-
-One model decision may issue an already-decided local sequence of existing calls within one outer invocation, choosing its length and checks. Preserve each action's ID/result; return control for failures, uncertain outcomes, pause/end, system events or an unresolved shared-resource condition. Return to the model if proceeding requires interpreting a new image; loading pixels inside a script does not interpret them. Do not cross a condition that still needs another Agent's decision. This does not create an automatic conditional action queue.
-
-The same frozen source also exports `robotSequence`. Load it with `eval(source.output + "\n({robotTool,robotSequence});")`. Pass the same base arguments plus `steps:[{op:"move",data:{target_m:chosenXYZ,speed_m_s:chosenSpeed},callId:"your-stable-id"}, ...]` and final `views`. Each step must be move/gripper with a distinct explicit callId; Controller includes robot in each data. Intermediate views create a model boundary. The helper stops for the conditions above and returns sequence metadata plus every result; next_step is the number submitted, not permission to continue after an unresolved result. Inspect/resolve the stop before submitting an appropriate remainder under the original IDs. Parallel independent sequences can use Promise.all, including on one Controller connection. No task planner or new physical primitive is hidden in this helper.
-
-The optional messageBoundary is "step" by default: mail stops the chunk after the current action. Choose "sequence" for an already-decided self-contained segment whose commitments remain valid until its end, such as an agreed clearing movement. It retains every message/result and postpones model review until the finite segment ends; it neither filters relevance nor accepts requests for you. Keep a step boundary where new team decisions or revocable shared conditions could change the next action. Pause/end, system events, failure, uncertainty and intermediate images still stop either mode.
+For move/gripper, the named views are requested as the completion cameras unless data.cameras is explicit. Thus views:["global"] requests and loads global, while views:[] requests robot feedback only. Explicit data.cameras can capture additional cameras without loading them; select views from that list. For observe, data.cameras selects capture and views selects loading. For job, selected images come from the original action's saved observation with its original timestamp. A running job normally has no terminal image. No extra observe call is made, and the action result is kept if an image cannot be loaded. An active model doing no tool calls receives queued events at its next robot boundary, not by running-turn steer.
 
 ## Infrastructure boundary
 

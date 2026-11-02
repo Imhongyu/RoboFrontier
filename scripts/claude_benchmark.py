@@ -11,6 +11,7 @@ import shutil
 import subprocess
 from urllib.parse import urlsplit
 
+from robofrontier import run_layout
 from robofrontier.task_families import ROOT, RELEASE, read
 from scripts.benchmark import load_env, select_cases
 from scripts.benchmark_handoff import digest
@@ -105,8 +106,10 @@ def prepare_draft(output, names, families=None, cases=None, level=None, min_arms
         raise ValueError('Missing Panda source assets; restore the published policy asset bundle')
     output = Path(output).absolute()
     output.mkdir(parents=True, exist_ok=False)
+    for folder in run_layout.BATCH_FOLDERS: (output/folder).mkdir()
     batch = {'schema': 'robofrontier.claude-draft.v1', 'status': 'preparing',
-             'created_at': time.time(), 'execution_available': False, 'model_calls': 0, 'jobs': []}
+             'created_at': time.time(), 'execution_available': False, 'model_calls': 0, 'jobs': [],
+             **run_layout.batch_record()}
     write_json(output / 'batch.json', batch)
     puzzles = {}
     for case in selected:
@@ -129,31 +132,15 @@ def prepare_draft(output, names, families=None, cases=None, level=None, min_arms
             prepare(case, run, cfg_path, puzzles.get(case),wall_limit_s=wall_limit_s)
             inputs = run / 'private/inputs'
             launch = inputs / 'claude.json'
+            # Both engines share one context budget, frozen with the run (configs/models.json).
+            context = read(ROOT/'configs/models.json')
             write_json(launch, {'schema': 'robofrontier.claude-launch-draft.v1', 'profile': p,
+                                'context_window': context['context_window'],
+                                'auto_compact_token_limit': context['auto_compact_token_limit'],
                                 'qualified': False, 'execution_available': False})
-            prompt = run / 'public/inputs/claude-controller.md'
-            prompt.write_text((ROOT / 'prompts/claude/controller.md').read_text())
-            role_prompts = []
-            if topology in ('hierarchical', 'peer'):
-                roles = read(run/'public/inputs/roles.json')
-                controller = cfg['coordinator']
-                for actor, info in roles['roles'].items():
-                    if info['kind'] == 'manager': continue
-                    template = 'standing-controller' if info['kind'] == 'coordinator' else 'standing-worker'
-                    text = (ROOT/'prompts/claude'/f'{template}.md').read_text()
-                    values = {'ACTOR': actor, 'TOPOLOGY': topology,
-                        'FINISH_AUTHORITY': controller if topology == 'hierarchical' else 'any peer Worker',
-                        'COMMUNICATION_ROUTE': ('Coordinate joint commitments through '+controller+
-                            '; Worker-to-Worker business messages are unavailable.' if topology == 'hierarchical' else
-                            'Negotiate affected commitments and shared resources directly with relevant peer Workers.')}
-                    for key, value in values.items(): text = text.replace('{{'+key+'}}', value)
-                    role_prompt = run/'public/inputs/claude-roles'/f'{actor}.md'
-                    role_prompt.parent.mkdir(parents=True, exist_ok=True)
-                    role_prompt.write_text(text)
-                    role_prompts.append(role_prompt)
             manifest_path = inputs / 'manifest.json'
             manifest = read(manifest_path)
-            for file in (launch, prompt, *role_prompts):
+            for file in (launch,):
                 manifest['input_sha256'][str(file.relative_to(run))] = digest(file)
             for file in (ROOT / 'scripts/claude_benchmark.py', ROOT / 'configs/claude-models.json'):
                 relative = file.relative_to(ROOT)

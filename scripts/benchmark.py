@@ -62,12 +62,30 @@ def profile(name, config=None):
     return p
 
 
-def launch_config(p, folder):
+POLICY_PROFILE = 'robofrontier'
+
+
+def hidden_skills(home=None, repo=ROOT):
+    """Skill files Codex would list natively that a policy must not get.
+
+    Personal skills (~/.agents/skills) and any developer skills in the repo's
+    .agents/skills stay out of trials; policy Skills reach each run as frozen
+    inputs. Codex's bundled system skills stay. Codex disables skills per file.
+    """
+    home = Path(home) if home else Path.home()
+    return sorted(str(f.resolve()) for root in (home/'.agents/skills', Path(repo)/'.agents/skills')
+                  for f in root.glob('*/SKILL.md'))
+
+
+def launch_config(p, folder, run_dir=None):
     args = []
+    # Account apps and goals are personal Codex features, not task tools, and no
+    # AGENTS.md is injected, as on the Claude route.
     values = {'model':p['model'], 'model_provider':p['provider'],
               'model_reasoning_effort':p['effort'], 'model_context_window':p['context_window'],
               'model_auto_compact_token_limit':p['auto_compact_token_limit'],
-              'web_search':'disabled', 'features.multi_agent':False}
+              'web_search':'disabled', 'features.multi_agent':False,
+              'features.apps':False, 'features.goals':False, 'project_doc_max_bytes':0}
     if p['provider'] == 'openai':
         # Shared subscription homes retain native auth, but their MCP servers
         # are not benchmark tools. Disable known layers without editing them;
@@ -111,7 +129,9 @@ def launch_config(p, folder):
         experimental_supported_tools=[],node_repl_disabled=True,
         default_reasoning_level=p['effort'],supported_reasoning_levels=[{'effort':p['effort'],'description':'Declared benchmark effort'}])
     model['model_messages']=None
-    model['base_instructions']='You are a RoboFrontier policy agent running in Codex. Follow the frozen public task, role, tool protocol and evidence boundaries. Use only your assigned robot tools. Preserve original call IDs across uncertain results.'
+    # The same system prompt as the Claude route, replacing Codex's own instructions.
+    from robofrontier.policy_bootstrap import SYSTEM_PROMPT
+    model['base_instructions']=SYSTEM_PROMPT
     model['availability_nux']=None
     model['service_tiers']=[];model['additional_speed_tiers']=[]
     model['available_access_programs']=None
@@ -120,6 +140,17 @@ def launch_config(p, folder):
     for key,value in values.items():
         # JSON scalar/array strings are also valid TOML values; argv, never shell.
         args.extend(['-c',key+'='+json.dumps(value)])
+    skills=','.join('{path='+json.dumps(f)+',enabled=false}' for f in hidden_skills())
+    args.extend(['-c','skills.config=['+skills+']'])
+    access=Path(run_dir)/'private/inputs/policy-access.json' if run_dir is not None else None
+    if access is not None and access.is_file():
+        # The run's frozen access table as a named permission profile. A thread/start
+        # `sandbox` parameter would replace it, so the host sends none for these runs.
+        frozen=read(access)
+        table=','.join(json.dumps(path)+'='+json.dumps(mode) for path,mode in frozen['filesystem'].items())
+        args.extend(['-c','default_permissions='+json.dumps(POLICY_PROFILE),
+                     '-c','permissions.'+POLICY_PROFILE+'.filesystem={'+table+'}',
+                     '-c','permissions.'+POLICY_PROFILE+'.network.enabled='+json.dumps(bool(frozen['network']))])
     return dict(model=p['model'],provider=p['provider'],effort=p['effort'],args=args,
                 profile=p,context_window=p['context_window'],auto_compact_token_limit=p['auto_compact_token_limit'])
 
@@ -152,10 +183,11 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
     profiles={n:profile(n,config) for n in names}
     selected=[row['case_id'] for row in select_cases(families,cases,level,min_arms)]
     output=Path(output).absolute();output.mkdir(parents=True,exist_ok=False)
+    for name in run_layout.BATCH_FOLDERS:(output/name).mkdir()
     batch=dict(schema='robofrontier.cli-benchmark.v1',status='preparing',created_at=time.time(),
         cwd=str(ROOT),python=sys.executable,context_window=next(iter(profiles.values()))['context_window'],
         auto_compact_token_limit=next(iter(profiles.values()))['auto_compact_token_limit'],
-        task_wall_limit_s=wall_limit_s,model_calls=0,jobs=[])
+        task_wall_limit_s=wall_limit_s,model_calls=0,jobs=[],**run_layout.batch_record())
     write_json(output/'batch.json',batch)
     # Match private Dial instances across model arms of this batch. These are
     # new secrets, never copied from an Oracle or exposed in public inputs.
@@ -183,7 +215,7 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
         for case in selected:
             run=output/name/case
             prepare(case,run,harness_path,puzzles.get(case),wall_limit_s=wall_limit_s)
-            launch=launch_config(p,run/'private/inputs')
+            launch=launch_config(p,run/'private/inputs',run)
             write_json(run/'private/inputs/codex.json',launch)
             # Host config/model catalog belong to immutable prepared inputs too.
             import hashlib

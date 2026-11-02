@@ -30,7 +30,7 @@ class StubModel(http.server.BaseHTTPRequestHandler):
         if names and not has_result:
             if 'Your current runtime role is Delegate_' in text:
                 return {'op':'return_task','data':{'outcome':'completed','result':'synthetic evidence'}}, 'toolu_return'
-            if 'wake_id=' in text or 'experiment has STARTED' in text or not text:
+            if 'wake_id=' in text or 'experiment has STARTED' in text or 'experiment has started' in text or not text:
                 return {'op':'delegate','data':{'scopes':[{'robots':['A'],'goal':'synthetic','done_when':'synthetic'}]}}, 'toolu_delegate'
             return {'op':'ready','data':{}}, 'toolu_ready'
         return None, None
@@ -39,11 +39,21 @@ class StubModel(http.server.BaseHTTPRequestHandler):
         self.request_body=body
         self.requests.append(body)
         names=[x['name'] for x in body.get('tools',[]) if 'robot' in x.get('name','')]
-        messages=body.get('messages',[]); last=messages[-1].get('content',[]) if messages else []
-        if isinstance(last,str): text=last; blocks=[]
-        else:
-            blocks=last if isinstance(last,list) else []
-            text=' '.join(str(x.get('text','')) for x in blocks if isinstance(x,dict))
+        messages=body.get('messages',[])
+        # The CLI adds its own notices (sandbox description, budget, idle reminder) as
+        # text blocks or whole user messages; the script reacts only to host prompts and
+        # tool results, so it reads the latest message that has any.
+        notice=lambda x:isinstance(x,dict) and x.get('type')=='text' and str(x.get('text','')).startswith(
+            ('## Bash command sandbox','USD budget','The user hasn'))
+        text,blocks='',[]
+        for message in reversed(messages):
+            content=message.get('content',[])
+            if isinstance(content,str):
+                if not content.startswith(('USD budget','The user hasn')): text=content; break
+                continue
+            blocks=[x for x in content if not notice(x)]
+            if blocks:
+                text=' '.join(str(x.get('text','')) for x in blocks if isinstance(x,dict)); break
         # Claude may coalesce a prior tool result and a new wake in one user
         # message. Only a final tool-result block means the tool just returned.
         has_result=bool(blocks and isinstance(blocks[-1],dict) and blocks[-1].get('type')=='tool_result')
@@ -81,7 +91,7 @@ class AdaptiveIntegrationTests(unittest.TestCase):
             model=http.server.ThreadingHTTPServer(('127.0.0.1',0),StubModel)
             profile={'model':'claude-opus-5-5','effort':'high','env_key':'FAKE_KEY',
                      'base_url':f'http://127.0.0.1:{model.server_port}'}
-            prompt=run/'public/inputs/claude-controller.md'; prompt.write_text((ROOT/'prompts/claude/controller.md').read_text())
+            prompt=run/'public/inputs/claude-controller.md'; prompt.write_text((ROOT/'prompts/archive/claude/controller.md').read_text())
             launch=run/'private/inputs/claude.json'; launch.write_text(json.dumps({'profile':profile}))
             manifest_path=run/'private/inputs/manifest.json'; manifest=json.loads(manifest_path.read_text())
             for path in (prompt,launch): manifest['input_sha256'][str(path.relative_to(run))]=hashlib.sha256(path.read_bytes()).hexdigest()

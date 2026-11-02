@@ -68,8 +68,15 @@ class FamilyReleaseTests(unittest.TestCase):
                 if 'public_projection' in spec:
                     review = read(ROOT/spec['public_projection']['path'])
                     for key in ('rules', 'target', 'mechanism', 'completion', 'initial_supplies'):
-                        if key in review and not (key == 'completion' or case.startswith('relay-') and key == 'rules'):
-                            self.assertEqual(public[key], review[key])
+                        # Terminal runs correct contradicting Relay and Mosaic rules (task_families.freeze_public).
+                        if key in review and not (key == 'completion' or case.startswith(('relay-', 'mosaic-')) and key == 'rules'):
+                            if key == 'target' and 'reference_image' in review[key]:
+                                # The Mosaic target image is delivered with the family materials.
+                                self.assertEqual(public[key]['reference_image'], 'family/'+review[key]['reference_image'])
+                                self.assertEqual({k: v for k, v in public[key].items() if k != 'reference_image'},
+                                                 {k: v for k, v in review[key].items() if k != 'reference_image'})
+                            else:
+                                self.assertEqual(public[key], review[key])
                     if case.startswith('relay-'):
                         self.assertFalse(public['completion']['required_airborne_handover'])
                         self.assertFalse(any('Airborne transport requires' in r or 'Only the last established' in r for r in public['rules']))
@@ -80,16 +87,18 @@ class FamilyReleaseTests(unittest.TestCase):
                     self.assertFalse(public['completion']['process_violations_clear_required'])
                 if case.startswith('dial-'):
                     self.assertIn('latched', public['completion']['success_semantics'])
-                    self.assertNotIn('clean process', (run/'public/inputs'/public['family_guidance']).read_text())
+                    self.assertNotIn('clean process', (run/'public/inputs'/public['task_skill']).read_text())
                 if 'initial_reference_images' in public:
                     self.assertTrue(all((run/'public/inputs'/name).is_file() for name in public['initial_reference_images']))
-                self.assertTrue((run/'public/inputs'/public['family_guidance']).is_file())
-                rules=(run/'public/inputs/policy-rules.md').read_text()
-                self.assertIn('`ready` tool is optional',rules)
-                self.assertIn('Delegation is optional',rules)
+                # The family Skill replaces released guidance; only Relay keeps its terminal description.
+                self.assertTrue((run/'public/inputs'/public['task_skill']).is_file())
+                self.assertEqual('family_guidance' in public, case.startswith('relay-'))
+                rules=(run/'public/inputs/rules.md').read_text()
+                self.assertIn('`ready` is optional',rules)
+                self.assertIn('delegation is',rules)
                 self.assertFalse(any(p.name in ('private-code.json', 'actions.json', 'process.jsonl')
                                      for p in (run/'public').rglob('*')))
-                material = run/'public/inputs'/public['family_guidance']
+                material = run/'public/inputs'/public['task_skill']
                 material.write_text('changed')
                 self.assertIn('input:'+str(material.relative_to(run)), verify_inputs(run))
                 scene = run/'private/inputs/scene/task.json'

@@ -47,7 +47,7 @@ class LifecycleTests(unittest.TestCase):
             config_path.write_text(json.dumps(cfg))
             run = prepare_run(root / 'run', harness_path=config_path)
             prompt = run / 'public/inputs/claude-controller.md'
-            prompt.write_text((ROOT / 'prompts/claude/controller.md').read_text())
+            prompt.write_text((ROOT / 'prompts/archive/claude/controller.md').read_text())
             manifest_path = run / 'private/inputs/manifest.json'
             manifest = json.loads(manifest_path.read_text())
             manifest['input_sha256']['public/inputs/claude-controller.md'] = hashlib.sha256(prompt.read_bytes()).hexdigest()
@@ -76,7 +76,7 @@ class LifecycleTests(unittest.TestCase):
             try:
                 host.bind_and_bootstrap()
                 self.assertEqual(service.store.get('lifecycle'), 'running')
-                self.assertIn('experiment has STARTED', host.host.prompts[0])
+                self.assertIn('The experiment has started and the task clock is running', host.host.prompts[0])
                 self.assertEqual(len(host.host.prompts), 1)
                 host.host.state = 'idle'
                 self.assertEqual(len(host.cycle()['dispatched']), 0)
