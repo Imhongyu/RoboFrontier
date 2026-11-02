@@ -41,6 +41,35 @@ def recorded_frontier(fixture_name='transport_air_frontier.json'):
 
 
 class TransferCoverageTests(unittest.TestCase):
+    def test_loaded_placement_tries_another_ik_seed_after_near_endpoint_collision(self):
+        from robofrontier.task_config import load_harness
+        fixture=json.loads((ROOT/'tests/fixtures/transport_placement_seed_frontier.json').read_text())
+        import hashlib
+        self.assertEqual(hashlib.sha256((ROOT/fixture['scene']/'scene.xml').read_bytes()).hexdigest(),fixture['source_scene_sha256'])
+        t=recorded_frontier('transport_placement_seed_frontier.json')
+        t.cfg=load_harness(ROOT/'configs/harness-frontier-v2-servo2.json')
+        t.reference_inter_robot_clearance_m=.006
+        robot=fixture['carrier'];goal=next(g for g in t.task['goals'] if g['goal_id']==fixture['goal_id'])
+        # The live planner's first seed follows its current holding posture.
+        t.arms[robot].qref=t.data.qpos[t.arms[robot].qids].copy()
+        before=t.data.qpos.copy();control=t.data.ctrl.copy();margin=t.model.geom_margin.copy()
+        checks=[];original=t.pose_clear
+        def checked(*a,**kw):
+            result=original(*a,**kw);checks.append(result);return result
+        t.pose_clear=checked
+        class ReachedExecution(Exception):pass
+        t.execute=Mock(side_effect=ReachedExecution)
+        with patch.object(mujoco,'mj_step',side_effect=AssertionError('Static planning must not step physics')):
+            with self.assertRaises(ReachedExecution):
+                full.place_flat(t,robot,*full.goal_pose(t,goal),lambda:full.goal_pose(t,goal))
+        self.assertFalse(checks[0]) # The original colliding candidate stays rejected.
+        self.assertTrue(any(checks[1:]))
+        self.assertEqual(t.execute.call_count,1)
+        self.assertTrue(t.execute.call_args.args[0].startswith('transit-direct-'))
+        np.testing.assert_array_equal(t.data.qpos,before)
+        np.testing.assert_array_equal(t.data.ctrl,control)
+        np.testing.assert_array_equal(t.model.geom_margin,margin)
+
     def test_rolling_cylinder_long_route_is_not_left_after_stable_local_work(self):
         from types import SimpleNamespace
         side=np.array([[1.,0,0],[0,0,-1.],[0,1.,0]])

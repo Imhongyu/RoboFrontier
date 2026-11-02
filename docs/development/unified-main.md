@@ -2068,3 +2068,36 @@ The same release supplies a small verified offline task-atlas ZIP: unzip/open
 the page without GitHub's HTML source view, a local server or model access.
 Only allowlisted public atlas files enter that ZIP. Main integration/publication
 must verify these release assets; no existing release attachment is overwritten.
+
+## Published main and fresh full-reference follow-up
+
+Main `d433f91` is published and clean locally/remotely. All five prerelease
+assets match the uploaded hashes; an unauthenticated atlas download also matches
+the pinned ZIP digest. The atlas validation workflow completed successfully at
+that exact main commit: GitHub Actions run `41366582393`, with publishing disabled.
+These receipts cover engineering delivery, not the remaining physical/model gates.
+
+A fresh current-scene Transport L1 full reference at `d433f91` completed 4/12
+goals before reaching retained-load planning handbacks. The 300-second engineering
+cap stopped the owner cleanly: physics_valid, execution_resolved and process_clean
+are true; task_goal_met, task_completed and strategy_completed are false. Its
+world, failed jobs and recordings remain retained and are not resumed or relabeled.
+
+A read-only reproduction at its archived event state 289 isolates one placement
+search defect. All four current-seed IK endpoints collide with another arm, but
+the home-seed branch reaches the same target and passes the unchanged endpoint
+and sampled transit checks. Placement previously stopped considering seeds as
+soon as IK converged, before clearance was checked. Clearance now participates
+in seed selection, so a colliding branch stays rejected while the next declared
+seed is tried. Geometry, 6 mm inter-arm planning reserve, goal tolerance, actuators
+and physics are unchanged. Existing contact diagnostics may include permitted
+finger contacts; the exact rejecting pair here is an inter-arm pair.
+
+The captured FK fixture reproduces the failure before the change in under one
+second. Afterward the real planner reaches its first ordinary actuator command
+without stepping physics or changing live qpos/control/model margins. All 18
+Transport coverage and physical Oracle contact checks pass, including unchanged
+Transport seating and Mosaic contact regressions. This local result does not
+complete the full 12-goal reference; a fresh source-pinned full run is required.
+Evidence is under `runs/engineering/main-integration-oracle-final-20261102`,
+including the original full attempt, static probes and red/focused test logs.

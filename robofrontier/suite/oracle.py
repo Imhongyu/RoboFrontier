@@ -436,18 +436,19 @@ class Trial:
                 if pre is None:rejected('approach_ik')
                 near=None if pre is None else self.screen_ik(robot,hover,rr,seed=pre)
                 if pre is not None and near is None:rejected('near_slot_ik')
+                # IK success alone does not select a usable branch. A loaded
+                # arm's current seed can bend through another arm while the
+                # home seed reaches the same object pose without that contact.
+                # Keep the ordinary collision screen for each candidate.
+                if near is not None and not self.pose_clear(robot,near,clearance_m=.003):
+                    contacts=[];rid=list(self.arms).index(robot)
+                    for contact in self.screen_data.contact:
+                        a,b=map(int,contact.geom)
+                        if contact.dist<.003 and rid in (self.monitor.geom_owner[a],self.monitor.geom_owner[b]):
+                            contacts.append(dict(bodies=[self.model.body(int(self.model.geom_bodyid[g])).name for g in (a,b)],distance_m=float(contact.dist)))
+                    rejected('near_slot_clearance',sorted(contacts,key=lambda c:c['distance_m'])[:4]);near=None
                 if near is not None:break
             if near is None:continue
-            # Free transit is screened below. A dense assembly contact phase
-            # is not required to be contact-free: the actual solver and final
-            # neighbor/goal checks decide whether the attempt is acceptable.
-            if self.task['family']!='mosaic' and not self.pose_clear(robot,near,clearance_m=.003):
-                contacts=[];rid=list(self.arms).index(robot)
-                for contact in self.screen_data.contact:
-                    a,b=map(int,contact.geom)
-                    if contact.dist<.003 and rid in (self.monitor.geom_owner[a],self.monitor.geom_owner[b]):
-                        contacts.append(dict(bodies=[self.model.body(int(self.model.geom_bodyid[g])).name for g in (a,b)],distance_m=float(contact.dist)))
-                rejected('near_slot_clearance',sorted(contacts,key=lambda c:c['distance_m'])[:4]);continue
             try:
                 # A loaded arm near maximum extension may need to retract
                 # before it can rise. The full joint-space screen can find
