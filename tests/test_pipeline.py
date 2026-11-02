@@ -242,7 +242,10 @@ class PipelineTests(unittest.TestCase):
 
     def test_periodic_integrity_check_is_throttled(self):
         from unittest.mock import patch
-        self.start();last=self.service.last_integrity_check
+        self.start()
+        # Subtracting these representable timestamps produces slightly less
+        # than 30 seconds even at the computed deadline.
+        last=self.service.last_integrity_check=1000.1
         interval=self.service.config['integrity_check_interval_s']
         with patch('robofrontier.runtime_service.verify_inputs',return_value=[]) as verify:
             with patch('robofrontier.runtime_service.time.monotonic',return_value=last+interval-1):

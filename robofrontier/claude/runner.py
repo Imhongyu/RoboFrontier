@@ -73,6 +73,8 @@ def build_env(profile, base_env, config_dir):
     key = base_env.get(profile['env_key'])
     if not key:
         raise ValueError('Missing credential variable: ' + profile['env_key'])
+    if profile.get('provider') not in (None, 'anthropic') and not profile.get('base_url'):
+        raise ValueError('Non-Anthropic profiles require an explicit base URL before launch')
     env = {name: base_env[name] for name in ENV_PASSTHROUGH if name in base_env}
     auth_mode=profile.get('auth_mode','api_key')
     if auth_mode == 'oauth_token':

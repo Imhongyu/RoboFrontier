@@ -74,6 +74,26 @@ class ClaudeRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'KIMI_API_KEY'):
             build_env(PROFILE, {'PATH': '/bin'}, '/run/config')
 
+    def test_unconfigured_third_party_endpoint_never_launches_cli(self):
+        from scripts.claude_benchmark import profile
+        with patch.dict('os.environ', {}, clear=True):
+            selected = profile('qwen')
+        self.assertIsNone(selected['base_url'])  # Offline inspection is allowed.
+        for base_url in (None, ''):
+            with self.subTest(base_url=base_url), tempfile.TemporaryDirectory() as tmp:
+                selected['base_url'] = base_url
+                with patch('robofrontier.claude.runner.subprocess.Popen',
+                           side_effect=AssertionError('CLI launched without a provider endpoint')) as launch:
+                    with self.assertRaisesRegex(ValueError, 'explicit base URL'):
+                        run_turn(selected, selected['model'], selected['effort'], 'mcp.json', 'go',
+                                 tmp, {'DASHSCOPE_API_KEY': 'synthetic-unused'}, session_id='s1')
+                    launch.assert_not_called()
+
+    def test_anthropic_profile_can_use_native_default_endpoint(self):
+        selected = {'provider': 'anthropic', 'env_key': 'ANTHROPIC_API_KEY'}
+        env = build_env(selected, {'ANTHROPIC_API_KEY': 'synthetic-unused'}, '/run/config')
+        self.assertNotIn('ANTHROPIC_BASE_URL', env)
+
     def test_summary_never_declares_task_success(self):
         lines = [json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'session_id': 's'}), '{bad json', '']
         summary = summarize(lines)

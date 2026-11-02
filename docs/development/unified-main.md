@@ -2227,3 +2227,29 @@ The HTTPS model is scripted, with zero real-provider calls and no formal model
 score claim. This closes that four-case normal lifecycle scope only: 36-task
 capacity, abnormal Slurm stop and genuine provider/subscription qualification
 remain open. Raw task/session evidence remains private under the engineering root.
+
+## Final closure boundary follow-up
+
+At `799eed8`, Mac complete discovery passes 1,539 checks with 17 conditional
+skips. Linux completes the same 1,539 checks without the native crash, but records
+one failure in the integrity timer boundary assertion. The original child cleanup
+loop also passes another 1,000 repetitions with the complete fixture repair.
+Neither the failed Linux discovery nor preliminary driver errors are counted as
+a passing final-source run.
+
+The timer failure reproduces deterministically in 0.123 seconds with last-check
+time 1000.1 and a 30-second interval. The computed deadline is 1030.1, but subtracting
+timestamps yields 29.999999999999886. Periodic verification now compares the clock
+directly with its absolute deadline; the interval and check frequency are unchanged.
+The existing regression pins that red-capable timestamp and checks both sides of
+the boundary as well as suppression of a duplicate check.
+
+An independent launch-boundary regression also shows that a configured third-party
+profile with an absent/empty endpoint reaches CLI process creation. The process is
+intercepted in both red cases; no real credential is used or request sent. The
+native runner now requires an explicit endpoint for declared non-Anthropic
+providers before CLI launch. Offline catalog inspection remains available without
+an endpoint, and Anthropic may still use its native default endpoint. Configured
+third-party and synthetic loopback profiles retain their existing behavior.
+Seventy-two relevant checks pass, including actual native synthetic integrations.
+Fresh complete discoveries of the combined final source remain required.

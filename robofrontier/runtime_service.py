@@ -591,7 +591,7 @@ class RuntimeService:
         return changed
 
     def periodic(self):
-        if self.store.get('lifecycle') == 'running' and time.monotonic()-self.last_integrity_check >= self.config['integrity_check_interval_s']:
+        if self.store.get('lifecycle') == 'running' and time.monotonic() >= self.last_integrity_check + self.config['integrity_check_interval_s']:
             if self.check_integrity():
                 self.export_records()
 
