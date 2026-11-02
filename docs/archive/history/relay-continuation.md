@@ -1,6 +1,6 @@
 > Legacy historical continuation. Live-process statements and control IDs below
 > refer to the original 2026-10-26/27 work, not an instruction to resume it now.
-> See [current Relay tasks](../../relay.md) for current semantics and entry points.
+> See [current Relay tasks](../../tasks/relay.md) for current semantics and entry points.
 
 # Relay continuation — 2026-10-26
 

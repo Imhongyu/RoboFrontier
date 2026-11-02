@@ -4,11 +4,11 @@ Give this prompt to a coding agent with terminal and repository access. The
 outer session can use any model. Claude CLI and the frozen profile select the
 inner measured model. This native entry is for unqualified engineering drafts;
 it does not produce formally qualified benchmark scores. Read
-[handoff status](../../docs/claude-handoff.md) before using it.
+[handoff status](../../docs/engines/claude.md) before using it.
 
 ```text
 Act as the outer manager for a RoboFrontier Claude engineering batch. First read
-docs/claude-handoff.md and docs/unified-cli.md.
+docs/engines/claude.md and docs/unified-cli.md.
 
 Parameters:
 - models: [opus]

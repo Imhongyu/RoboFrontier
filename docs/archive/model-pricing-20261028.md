@@ -4,7 +4,7 @@ Recorded review date: **2026-10-28**. This English edition preserves the origina
 research figures and source links; it does not reverify current prices, model
 availability or account quotas. The [eight-provider comparison](model-compatibility-20261028.md)
 includes the recorded cache write/storage and RPM/TPM/concurrency details.
-Use the current [handoff guide](../multimodel-handoff.md) and frozen model catalog
+Use the current [handoff guide](../engines/providers.md) and frozen model catalog
 for execution rather than treating a dated table as a compatibility certificate.
 
 The original selection targeted native image understanding, function tools and
@@ -79,5 +79,5 @@ matching preflight; no four-provider end-to-end success was claimed.
 [DeepSeek](https://api-docs.deepseek.com/quick_start/agent_integrations/codex/).
 
 Task selection, minimum-arm cases, concurrency and offline transfer are explained
-in the [handoff guide](../multimodel-handoff.md). This translation changes no model
+in the [handoff guide](../engines/providers.md). This translation changes no model
 profile, key, preflight receipt, task input or running experiment.

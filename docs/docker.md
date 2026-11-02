@@ -135,7 +135,7 @@ Claude runs remain engineering drafts. Select an actual Claude profile in TOML,
 perform its explicitly budgeted preflight, then pass run --engineering.
 All four Claude topologies have native engineering entries, including persistent
 Controller + Worker and Worker-Worker sessions. See the
-[standing-team guide](claude-standing-teams.md). Formal scored qualification
+[standing-team guide](engines/claude.md#standing-teams). Formal scored qualification
 remains closed; local synthetic-provider checks do not qualify a real provider.
 
 Keep batch/output paths relative to runs/. Those paths refer to persistent

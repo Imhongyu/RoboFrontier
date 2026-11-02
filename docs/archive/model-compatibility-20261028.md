@@ -179,6 +179,6 @@ price was low, but comparison still needed misses, output, cache writes and
 actual success. DeepSeek's USD billing remained separate. These are historical
 judgments, not current model recommendations.
 
-See the [handoff guide](../multimodel-handoff.md) for current commands. This edition
+See the [handoff guide](../engines/providers.md) for current commands. This edition
 changes research text only, not profiles, CLI configuration, formal experiments
 or an earlier Harness session's running state.

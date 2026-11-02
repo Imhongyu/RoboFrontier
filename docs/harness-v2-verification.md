@@ -84,7 +84,7 @@ prove better coordination.
   geometry satisfying a goal is not scored as successful task termination.
   Evaluation sampling does not restore physics; policy returns contain no
   private object truth. Terminal completion and process events are separate;
-  see [current scoring/start semantics](direct-start-terminal-scoring.md).
+  see [current scoring/start semantics](protocol.md#direct-controller-startup-and-terminal-scoring-v2).
 - Capture completion images only for explicit camera selections, or return robot
   state alone. Asynchronous queries retain capture time; retrying one ID does
   not execute the action again.

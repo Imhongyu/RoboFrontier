@@ -2,7 +2,7 @@
 
 Use the unified `robofrontier` command for new experiments. Start with the root
 [README](../README.md), [configuration guide](../docs/unified-cli.md), and
-[component map](../docs/claude-codex-parity.md). The unified CLI selects a native
+[component map](../docs/engines/README.md#component-map). The unified CLI selects a native
 Codex or Claude runner; it does not turn one engine into the other.
 
 For a lower-level module, run `.venv/bin/python -m scripts.MODULE` from the
@@ -17,7 +17,7 @@ repository root. Keep existing module names when reproducing historical evidence
 | `robofrontier slurm-submit` | Freeze a submission and optionally queue node-local execution with verified stage-out |
 | `robofrontier factory/oracle` | Replay frozen motion in Factory, or explicitly run privileged reference execution; neither is a policy benchmark launch |
 | `benchmark models/plan/preflight/prepare/run/status/stop` | Native Codex interface retained for compatibility, with model selection, task filters, provider checks, concurrency, and START-based task limits |
-| `claude_benchmark` | Native Claude draft, provider-check, and explicitly unqualified engineering interface; see the [Claude guide](../docs/claude-handoff.md) |
+| `claude_benchmark` | Native Claude draft, provider-check, and explicitly unqualified engineering interface; see the [Claude guide](../docs/engines/claude.md) |
 | `benchmark_handoff doctor/init-env/assets/restore` | Inspect handoff prerequisites, create a private local environment file, and export/restore assets with SHA verification |
 | `check_codex_cli` | Exercise the real Codex CLI's tools, images, and forks against a local Responses stub, without external model calls |
 | `curate_repository` | Plan and verify data cleanup while protecting frozen source recordings |

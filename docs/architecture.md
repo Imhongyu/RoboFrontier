@@ -52,7 +52,7 @@ concurrent delegates in one task. Using no delegates does not change its
 configured topology. All four modes have native Claude engineering entries;
 standing teams bind one persistent native session per initial role. Their local
 CLI/MCP and MuJoCo checks use a synthetic provider, so formal scored execution
-remains closed. See [Claude standing teams](claude-standing-teams.md).
+remains closed. See [Claude standing teams](engines/claude.md#standing-teams).
 
 ## Direct START and clocks
 

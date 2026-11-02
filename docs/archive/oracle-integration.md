@@ -16,8 +16,8 @@ and introduced native CLI hosts. Those later changes do not rewrite this snapsho
 
 ## Structure at the original integration
 
-The daily entries were the [task catalog](../frontier-v2-environments.md),
-[Codex guide](../gpt-policy.md), and [Factory design](../robo-factory.md), backed by
+The daily entries were the [task catalog](../tasks/README.md),
+[Codex guide](../engines/codex.md), and [Factory design](../robo-factory.md), backed by
 `scripts.tasks` and `scripts.factory`. Public family materials moved into
 `configs/task_families/FAMILY/public/` with original hashes preserved.
 `current.json` distinguished policy and recorded-Oracle purposes. Historical
