@@ -23,7 +23,6 @@ __pycache__/
 /.env
 /.env.*
 !/.env.example
-!/.env.claude.example
 
 # Large environment assets and previews are materialized per worktree.
 /configs/environments/**/assets/

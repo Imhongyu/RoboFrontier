@@ -75,7 +75,7 @@ The model catalog is `configs/claude-models.json`. Create the ignored `.env`
 without replacing an existing file, then edit it locally:
 
 ```sh
-.venv/bin/python -c 'import os; from pathlib import Path; fd = os.open(".env", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600); os.write(fd, Path(".env.claude.example").read_bytes()); os.close(fd)'
+.venv/bin/python -c 'import os; from pathlib import Path; fd = os.open(".env", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600); os.write(fd, Path(".env.example").read_bytes()); os.close(fd)'
 ```
 
 `haiku` and `opus` use `ANTHROPIC_API_KEY`. Other profiles use their catalog's
@@ -259,7 +259,7 @@ scored benchmark. `formal_execution_available` remains false.
 The doctor checks locally only. It reports whether credentials are present,
 not whether they work. If a sandbox denies the provider host or writes under
 `runs/`, allow it in your own environment rather than bypassing the sandbox.
-For local credentials copy `.env.claude.example` to
+For local credentials copy `.env.example` to
 `.env` with permissions 600; existing environment variables take priority.
 Do not commit credentials. The Anthropic-compatible Qwen endpoint must match
 your actual account and region.
