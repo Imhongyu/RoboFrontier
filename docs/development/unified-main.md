@@ -2327,3 +2327,45 @@ US$1 budget. Existing provider variables are available in the retained Luna/Clau
 worktrees. No credential values enter tracked code, public receipts or Slurm jobs.
 Budget authorization is not a passing provider receipt; usage and source scope
 must be recorded after actual checks.
+
+## Full-prompt stdin polling follow-up and genuine provider checks
+
+Complete discovery at initial pipe implementation `b179598` does not pass:
+Mac records six failures/two errors, Linux five failures/two errors. A fake
+precheck CLI still assumes positional input; its fixture now supports both native
+text stdin and explicit positional use. The native standing-role failures expose
+a separate production issue. A two-second regression delays stdin consumption
+until after cancellation polling begins. The first communicate call only sends
+part of the prompt; retrying with input=None does not finish writing that input,
+so native sessions can wait forever for EOF. The original failed full discoveries
+and retained per-role native evidence remain available.
+
+The runner now writes the complete UTF-8 prompt into a private unlinked temporary
+file before process creation and supplies its descriptor as stdin. The child
+owns its descriptor after launch. This avoids both argv limits and partial pipe
+write retries, without changing session IDs, tools, budgets or stop semantics.
+Thirty-three related/fake/native checks pass, including delayed input consumption,
+timeout/cancellation, image/session resume, native fork boundaries and both
+standing topologies. Complete discovery and fresh capacity qualification remain
+required. No failed run is resumed or relabeled.
+
+The user-authorized genuine Haiku 5.5 API precheck at `b179598` passes text,
+random-image/tool interpretation, same-session continuation and verified native
+fork history using Claude Code 2.1.312. CLI-reported cost totals US$0.000913.
+This precheck used Python 3.13.5 from the invoking local environment, not the
+locked Python 3.12 suite environment; it starts no physical world. Its native
+CLI/profile/source receipts retain that scope.
+
+The genuine GPT-6 Luna high official-API precheck passes image/function tools,
+manual compaction and forked history with Codex 0.165.0 under locked Python 3.12.
+It does not claim automatic compaction, long-context stress or an independently
+verified backend alias. A failed local observer initialization precedes the
+passing run and makes zero model turns. The corrected observer counts 34,967
+reported tokens conservatively, including inherited fork totals, at US$2/M for
+all token types: US$0.069934 estimated exposure, below its US$0.25 stop threshold.
+With Haiku's reported total this is below the combined US$1 authorization; these
+estimates are not provider invoices. Credentials come from existing local
+provider environment files and are excluded from public/source/Slurm payloads.
+These are provider compatibility checks, not scored robot trials. Receipts live
+under `real-haiku-precheck-v1`, `real-luna-preflight-v2*` and the standard Luna
+model-compatibility directory; no older result is overwritten.

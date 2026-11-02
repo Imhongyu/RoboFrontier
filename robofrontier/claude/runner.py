@@ -9,6 +9,7 @@ import json
 import os
 import signal
 import subprocess
+import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -209,10 +210,14 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
     began = time.monotonic()
     host_event(run_dir, 'cli_turn_started', actor=actor, session_id=session_id or resume,
                events_name=events_name, phase=phase)
-    process = subprocess.Popen(cmd, cwd=run_dir, env=env, text=True, stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE, stdin=subprocess.PIPE, start_new_session=True)
+    # Spool before launch so timeout polling never has to resume a partial pipe
+    # write. The unlinked file is private, and the child inherits its own fd.
+    with tempfile.TemporaryFile() as prompt_input:
+        prompt_input.write(prompt.encode('utf-8'))
+        prompt_input.seek(0)
+        process = subprocess.Popen(cmd, cwd=run_dir, env=env, text=True, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, stdin=prompt_input, start_new_session=True)
     deadline = None if timeout is None else time.monotonic() + timeout
-    pending_input = prompt
     while True:
         remaining = None if deadline is None else deadline - time.monotonic()
         cancelled = cancel_event is not None and cancel_event.is_set()
@@ -229,23 +234,11 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
             wait = remaining
             if cancel_event is not None:
                 wait = 0.25 if remaining is None else min(0.25, remaining)
-            try:
-                stdout, stderr = process.communicate(input=pending_input, timeout=wait)
-            finally:
-                # communicate retains unsent input after TimeoutExpired. A retry
-                # must drain that same communication, never send the prompt again.
-                pending_input = None
+            stdout, stderr = process.communicate(timeout=wait)
             status = 'exited'
             break
         except subprocess.TimeoutExpired:
             continue
-    # A killed process can leave its partially written input pipe open even
-    # after communicate has drained stdout/stderr.
-    if process.stdin is not None:
-        try:
-            process.stdin.close()
-        except BrokenPipeError:
-            pass
     secret = base_env[profile['env_key']]
     stdout = _redact(stdout, secret)
     # Evidence can contain model output and private task observations.

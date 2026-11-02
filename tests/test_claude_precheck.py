@@ -15,7 +15,8 @@ import urllib.request
 argv = sys.argv[1:]
 if "--version" in argv:
     print("fake-claude 0.0"); sys.exit(0)
-prompt = argv[argv.index("--") + 1]
+positional = argv[argv.index("--") + 1:]
+prompt = positional[0] if positional else sys.stdin.read()
 session = argv[argv.index("--resume") + 1] if "--resume" in argv else argv[argv.index("--session-id") + 1]
 print(json.dumps({"type": "system", "subtype": "init", "session_id": session, "model": "claude-haiku-5-5"}))
 answer, tool = "READY", False

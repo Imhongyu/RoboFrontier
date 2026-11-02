@@ -68,6 +68,23 @@ print(json.dumps({'type':'result', 'subtype':'success', 'is_error':False,
                 self.assertEqual(record['process'], 'cancelled' if cancellation else 'timeout')
                 self.assertEqual(record['summary']['turn_status'], 'unknown')
 
+    def test_large_stdin_survives_cancel_poll_before_cli_reads(self):
+        prompt = 'Public task context.\n' * 15000
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = fake_claude(tmp, '''
+import hashlib
+time.sleep(.6)
+prompt = sys.stdin.buffer.read()
+print(json.dumps({'type':'result', 'subtype':'success', 'is_error':False,
+                  'result':hashlib.sha256(prompt).hexdigest()}))
+''')
+            record = run_turn(PROFILE, 'm', 'high', None, prompt, tmp,
+                              {'PATH':'/usr/bin:/bin','KIMI_API_KEY':SECRET},
+                              binary=str(binary), timeout=2, cancel_event=threading.Event(),
+                              enable_robot=False)
+            self.assertEqual(record['process'], 'exited')
+            self.assertEqual(record['summary']['result_text'], hashlib.sha256(prompt.encode()).hexdigest())
+
     def test_command_exposes_only_bound_robot_tool_and_isolates_session(self):
         cmd = build_command('kimi-k3.1-pro', 'high', '/tmp/mcp.json', 'go', session_id='11111111-1111-1111-1111-111111111111')
         self.assertIn('--strict-mcp-config', cmd)
