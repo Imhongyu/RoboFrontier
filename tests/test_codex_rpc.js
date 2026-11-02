@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const {capacityFailure,requireNoMcpServers}=require('../scripts/codex_rpc');
+const {CodexRpc,STARTUP_ACK_MS,capacityFailure,requireNoMcpServers}=require('../scripts/codex_rpc');
 const {PolicyHost,robotTool}=require('../scripts/codex_policy_host');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 test('native subscription tool admission rejects inherited MCP before a model turn',async()=>{
@@ -61,4 +61,9 @@ test('capacity recovery resumes a started task without a READY barrier',async()=
     await PolicyHost.prototype.retryCapacity.call(host);
     assert.equal(prompts.length,1);
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('initialize waits for the startup acknowledgement limit unless told otherwise',async()=>{
+  let waited;const fake={call:async(method,params,timeoutMs)=>{waited=timeoutMs;return {};},write(){}};
+  await CodexRpc.prototype.initialize.call(fake);assert.equal(waited,STARTUP_ACK_MS);assert.equal(STARTUP_ACK_MS,180000);
+  await CodexRpc.prototype.initialize.call(fake,5000);assert.equal(waited,5000);
 });

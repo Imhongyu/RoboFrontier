@@ -4,7 +4,7 @@ const path = require('node:path');
 const {execFile,exec:execShell,spawn} = require('node:child_process');
 const {promisify} = require('node:util');
 const execFileAsync = promisify(execFile), execAsync = promisify(execShell);
-const {CodexRpc,capacityFailure,requireNoMcpServers} = require('./codex_rpc');
+const {CodexRpc,STARTUP_ACK_MS,capacityFailure,requireNoMcpServers} = require('./codex_rpc');
 const {runMetaDispatcher} = require('./meta_dispatcher');
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const read = file=>JSON.parse(fs.readFileSync(file,'utf8'));
@@ -174,10 +174,10 @@ Use your assigned native session and bound robot tools. Read public task evidenc
       const result=await this.rpc.call('thread/start',{model:this.launch.model,modelProvider:this.launch.provider,
         cwd:this.run,approvalPolicy:'never',sandbox:'workspace-write',ephemeral:false,dynamicTools:[robotTool],
         baseInstructions:'You are a RoboFrontier policy agent running in Codex. Follow the frozen public task, current role, tool protocol and evidence boundaries. Use your assigned robot tools. Preserve original call IDs across uncertain results. Do not manage the model host, modify the benchmark, or read private evaluation data.',
-        threadSource:'robofrontier-benchmark',config:{web_search:'disabled','features.multi_agent':false}});
+        threadSource:'robofrontier-benchmark',config:{web_search:'disabled','features.multi_agent':false}},STARTUP_ACK_MS);
       const id=result.thread.id; this.actors.set(id,actor);
       this.event({event:'role_created',actor,thread_id:id,provider:this.launch.provider,model:this.launch.model});
-      await this.rpc.call('thread/name/set',{threadId:id,name:`${this.launch.model} · ${path.basename(this.run)} · ${actor}`});
+      await this.rpc.call('thread/name/set',{threadId:id,name:`${this.launch.model} · ${path.basename(this.run)} · ${actor}`},STARTUP_ACK_MS);
       const resultBind=await this.bindInitialRole(actor,id);
       if (!resultBind.bound) throw new Error('Initial role binding was not confirmed');
       bound.push({actor,id});
@@ -204,6 +204,7 @@ Use your assigned native session and bound robot tools. Read public task evidenc
     const manifest=read(path.join(this.run,'private/inputs/manifest.json'));
     if (manifest.model_requested!==this.launch.model || manifest.effort_requested!==this.launch.effort)
       throw new Error('Frozen model/harness mismatch');
+    let failure;
     try {
       await this.startServer();
       const ownerLog=fs.openSync(path.join(this.run,'private/outputs/owner.log'),'a');
@@ -245,6 +246,9 @@ Use your assigned native session and bound robot tools. Read public task evidenc
         startWhenReady:true,observationSource:'codex.app-server',onEvent:e=>this.event(e),
         createSnapshot:async p=>JSON.parse((await createNativeFork(p,true)).content[0].text),
         stopRequested:()=>this.stopRequested()});
+    } catch(error) {
+      // Kept for the report: a failing seal below would otherwise replace this error.
+      failure=error;this.event({event:'host_error',message:error.message});throw error;
     } finally {
       this.stopped=true;
       // Seal the existing owner; never recreate its physical world.
@@ -257,7 +261,8 @@ Use your assigned native session and bound robot tools. Read public task evidenc
           await this.rpc.call('turn/interrupt',{threadId:id,turnId:s.latestTurn.id});} catch {}
       }
       if (this.rpc) await this.rpc.close();
-      if (sealError) throw new Error('Run seal incomplete; manual review required: '+sealError.message);
+      if (sealError) throw new Error('Run seal incomplete; manual review required: '+sealError.message
+        +(failure?' (after host error: '+failure.message+')':''));
     }
   }
 }

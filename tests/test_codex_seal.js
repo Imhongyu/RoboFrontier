@@ -12,7 +12,8 @@ test('seal failure propagates after cleanup and never reports host success',asyn
       startServer:async()=>{throw new Error('startup failure');},
       admin:async()=>{throw new Error('unresolved physical action');},
       event:e=>events.push(e),rpc:{close:async()=>{closed=true;}}};
-    await assert.rejects(PolicyHost.prototype.runTask.call(host),/seal incomplete/);
-    assert.equal(closed,true);assert.equal(events[0].event,'seal_error');
+    // The error names both the seal failure and the host failure that came before it.
+    await assert.rejects(PolicyHost.prototype.runTask.call(host),/seal incomplete.*after host error: startup failure/);
+    assert.equal(closed,true);assert.deepEqual(events.map(e=>e.event).slice(0,2),['host_error','seal_error']);
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });

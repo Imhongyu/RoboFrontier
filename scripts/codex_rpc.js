@@ -2,6 +2,9 @@
 const {spawn} = require('node:child_process');
 const readline = require('node:readline');
 
+// Startup requests (initialize, session creation and naming) can answer slowly when many
+// runs start at once. They happen before START, so a longer wait uses no task time.
+const STARTUP_ACK_MS = 180000;
 class RpcError extends Error {
   constructor(value) { super(value.message); this.detail = value; }
 }
@@ -48,10 +51,10 @@ class CodexRpc {
       this.pending.set(id,{resolve,reject,timer}); this.write({id,method,params});
     });
   }
-  async initialize() {
+  async initialize(timeoutMs = STARTUP_ACK_MS) {
     const result = await this.call('initialize',{
       clientInfo:{name:'robofrontier_cli',title:'RoboFrontier benchmark',version:'1.0'},
-      capabilities:{experimentalApi:true}});
+      capabilities:{experimentalApi:true}},timeoutMs);
     this.write({method:'initialized'}); return result;
   }
   async close() {
@@ -76,4 +79,4 @@ async function requireNoMcpServers(rpc) {
       Object.values(servers).some(server=>!server || server.enabled!==false))
     throw new Error('Native benchmark requires inherited MCP servers to be disabled');
 }
-module.exports = {CodexRpc,RpcError,capacityFailure,requireNoMcpServers};
+module.exports = {CodexRpc,RpcError,STARTUP_ACK_MS,capacityFailure,requireNoMcpServers};
