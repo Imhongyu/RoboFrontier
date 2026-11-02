@@ -11,7 +11,7 @@ LLM supervisor is optional: preparation, execution, monitoring, stopping and dat
 collection have explicit command-line entries.
 
 **Integration status:** the reviewed engineering integration and unified commands
-are published on `main`. Read the [acceptance ledger](docs/development/unified-main.md)
+are published on `main`. Read the [acceptance ledger](docs/archive/unified-main.md)
 for source-pinned verification, follow-up repairs and open gates. Claude scored
 execution remains closed; all four
 Claude topologies have engineering entries. Full historical checks require legacy
@@ -41,7 +41,7 @@ user's request; the editable English project remains available.
 | Replay motion and render Factory backgrounds | [Factory workflow](docs/factory.md) |
 | Edit the full Factory camera plan and English video titles/subtitles | [Editable video project](docs/factory-editorial.md) |
 | Browse the 36 current tasks and initial scenes | [Download the offline atlas](https://github.com/changxuanfan/RoboFrontier/releases/download/development-fixtures-20261102/robofrontier-task-atlas-20261102.zip) · [Atlas guide](docs/task-atlas.md) |
-| See which integration gates have passed | [Acceptance and source provenance](docs/development/unified-main.md) |
+| See which integration gates have passed | [Acceptance and source provenance](docs/archive/unified-main.md) |
 | Read the policy's role and tool contract | [Robot collaboration skill](prompts/skills/robot-collaboration/SKILL.md) |
 | Read completion and recovery rules | [Shared policy rules](prompts/rules.md) |
 | Run privileged references and interpret recovery checks | [Oracle execution](docs/oracle.md) and [recovery boundaries](docs/oracle-recovery.md) |
@@ -320,7 +320,12 @@ without the repository catalogs/assets, is not a qualified distribution.
 
 Confirmed first author: **Changxuan Fan, Hong Kong University of Science and
 Technology**. The remaining author list/order, copyright holder, publication
-status, DOI and paper URL are not finalized. No final license grant for all
-repository content is asserted here. Preserve upstream asset notices; code,
-original media and third-party resources require their appropriate attribution
-and licensing review before the unified release.
+status, DOI and paper URL are not finalized.
+
+## License
+
+Code is under the [MIT License](LICENSE). Benchmark data and media (task and scene
+data, rendered images, Factory assets and published videos) are under
+[CC BY 4.0](LICENSE-DATA.md). Third-party material keeps its own license: the
+Franka Panda model from MuJoCo Menagerie (Apache 2.0), the Barlow Condensed font
+(OFL 1.1) and a Poly Haven texture (CC0); see [`LICENSE-DATA.md`](LICENSE-DATA.md).
