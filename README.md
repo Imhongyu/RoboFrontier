@@ -10,10 +10,10 @@ Code hosts share task, physics, role, scoring and evidence contracts. A separate
 LLM supervisor is optional: preparation, execution, monitoring, stopping and data
 collection have explicit command-line entries.
 
-**Integration status:** this checkout is the development branch
-`integration/unified-main`. Its unified commands have not yet replaced GitHub's
-`main`. Read the [acceptance ledger](docs/development/unified-main.md) for actual
-verification and open gates. Claude scored execution remains closed; all four
+**Integration status:** the reviewed engineering integration and unified commands
+are published on `main`. Read the [acceptance ledger](docs/development/unified-main.md)
+for source-pinned verification, follow-up repairs and open gates. Claude scored
+execution remains closed; all four
 Claude topologies have engineering entries. Full historical checks require legacy
 assets and closed recordings beyond the policy asset bundle; see the
 [testing guide](docs/development/testing.md). Model profiles are configuration choices, not universal provider

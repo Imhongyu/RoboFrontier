@@ -35,7 +35,8 @@ these fields from Git history or the repository owner.
 - [x] Provide one validated TOML configuration and CLI; resolve defaults once and freeze the effective configuration per run.
 - [x] Launch initial task hosts through one scheduler with a default 0.3-second interval.
 - [x] Isolate task runtime state and verify native initialization against synthetic loopback providers.
-- [ ] Qualify real-provider/subscription authentication and the unified Slurm node-local SQLite/stage-out lifecycle.
+- [ ] Qualify real-provider/subscription authentication and refresh lifecycles.
+- [x] Qualify four native Single cases through real Slurm node-local execution, H800 task observations, normal stage-out and verified restoration using a synthetic HTTPS model.
 - [x] Verify shared START, scoring, safe call-ID and stop semantics across native engines with synthetic endpoints and real physical owners; retain separate formal provider gates.
 - [x] Keep R14 as the Mosaic default and retain existing physical assets while unqualified candidates remain gated.
 - [ ] Qualify physical candidates before publishing changed defaults; no full candidate qualification is inferred from local recovery or a different case.
@@ -44,45 +45,52 @@ these fields from Git history or the repository owner.
 - [x] Integrate repaired Oracle semantics without exposing private solutions to policies; qualify the current Transport L1 full reference separately from other cases.
 - [x] Publish English-only tracked content, offline task atlas, editable full video project, detailed README and documentation; retain the original published full movie as requested.
 - [x] Exercise CPU/native macOS and real Slurm/H800 EGL/minimal-JPEG paths with explicit scope receipts.
-- [ ] Qualify full unified Slurm policy execution/observations/stage-out and 36-task execution capacity.
+- [ ] Qualify 36-task execution capacity and abnormal Slurm stop/stage-out; retain real-provider and formal-scoring gates separately.
 - [x] Run offline suites and clean-checkout checks; record any remaining paid/hardware qualification separately.
 - [x] Review the engineering integration before publishing or merging it into main; retain the separate qualification gates below.
 
 ## Latest scoped acceptance snapshot
 
-As of 2026-11-02, full discovery at `c830202` passes on macOS and Linux:
-1,536 checks each, zero failures/errors and 17 conditional skips. The follow-up
-adds two real-state placement regressions. All 19 Transport coverage/physical
-Oracle checks pass on both platforms. Linux uses a fresh source checkout,
-authenticated closed fixture bytes and the unchanged runtime from the earlier
-`a595709` source image; this does not relabel that image as a new source build.
-JavaScript/dispatcher and portable-link checks pass on both platforms.
+At final code `8bd989a`, complete discovery passes on macOS and Linux: 1,541
+checks each, zero failures/errors and 17 conditional skips. Eight opt-in native
+Claude/real-physics checks also pass on each platform at this source, covering
+images, four overlapping worlds, ordinary actions, native delegation/mailbox
+continuation, early finish and signal sealing. Model endpoints are synthetic.
+The other nine historical conditional assertions retain their separate passing
+`a595709` receipts; no newer-source rerun is claimed for them. The original
+SQLite SIGSEGV and intermediate timer failure remain retained, separately from
+these final passing reports. The original snapshot loop passes 1,000 repetitions
+at the final source. Linux uses a fresh source checkout, all 45,141 authenticated
+historical fixture files and CPU/Mesa rendering.
 
-Two fresh current-scene Transport L1 references, at `9b5511e` and final code
-`c830202`, each complete all 12 goals in one real world. Independent reports
-confirm task completion, valid physics, resolved actions and a clean process,
-with no inter-arm contact, model call or external repair input. The final run
-uses a separately recorded 600-second engineering limit and finishes in 408.258
-seconds. Its public task limits and original scene/goal tolerances are unchanged.
-The earlier `d433f91` 4/12 interruption remains retained as incomplete evidence.
-This qualifies that case/reference, not all Transport geometry or model ability.
+Fresh current-scene Transport L1 and L2 references at `f9d532d` each complete all
+12 goals in one world. All independent v2 verdicts are true, with no inter-arm
+contact, unresolved action, model call or external repair input. Recorded active
+wall times are 382.518 and 501.607 seconds. All suite/controller/scoring/scene
+bytes are unchanged from that witness source to final code `8bd989a`. These
+reports retain their actual source identities and do not qualify other cases or
+new physical parameters. Earlier failed attempts remain stopped and retained.
 
-The earlier `a595709` discovery passed 1,534 checks per platform using its newly
-built source image. All 17 conditional Mac checks were exercised separately at
-that source; eight native Claude/physical-world checks also passed on Linux with
-explicit CPU preparation and launcher settings. These native model endpoints
-are synthetic loopback services. No real-provider or formal scored Claude
-qualification is implied; the precise older-source receipts remain unchanged.
+The earlier placement source `c830202` passed 1,536 checks per platform and two
+full L1 witnesses. Main `29e1211` is published with its rebuilt source image and
+successful atlas validation CI. Seven prerelease fixture/atlas/acceptance assets
+have verified uploaded hashes. Final continuation/closure source integration and
+its delivery image are recorded separately; their publication is not inferred
+from this older main receipt.
 
-Main `d433f91` and the five optional fixture/atlas assets were published and
-independently verified. Its atlas validation CI passed with publishing disabled.
-All 6,570 tracked paths/text files at `c830202` have no Han characters; frozen
-ignored evidence keeps its original bytes/names. Follow-up source integration
-and image/publication receipts are recorded separately below. Real-provider/
-subscription lifecycle, 36-task capacity, full task observations and unified
-Slurm execution/stage-out remain qualification gates. The H800 allocation covers
-only EGL/minimal-scene JPEG generation. Claude formal scored execution remains
-closed. The user's deferred full video rerender stays deferred.
+Actual Slurm job 428877 at `29e1211` completes four Single native Claude/physics
+owners and H800-rendered task observations through production stage/execute/
+collect/ZIP/stage-out. All 1,728 returned files verify through restoration without
+restarting worlds. Peak started tasks is four; peak overlapping motor actions is
+three. It uses a scripted HTTPS model, not a real provider or formal model score.
+The earlier job 428862 remains a separately scoped minimal EGL/JPEG probe.
+
+Real-provider/subscription lifecycle, 36-task execution capacity, abnormal Slurm
+stop and Claude formal scoring remain open. Physical candidates must qualify
+before any default promotion; existing release assets remain unchanged. The
+user's deferred full video rerender and unfinished publication metadata remain
+deferred. All 6,572 tracked paths/text files are subject to the English-only
+release check; frozen ignored evidence retains its authentic bytes and names.
 
 ## Invariants
 
@@ -2253,3 +2261,28 @@ an endpoint, and Anthropic may still use its native default endpoint. Configured
 third-party and synthetic loopback profiles retain their existing behavior.
 Seventy-two relevant checks pass, including actual native synthetic integrations.
 Fresh complete discoveries of the combined final source remain required.
+
+## Final closure acceptance at 8bd989a
+
+Both complete discoveries pass 1,541 checks with zero failures/errors and 17
+conditional skips. The eight opt-in native/physical checks also pass on macOS
+and Linux, without skips, in 99.362 and 97.186 seconds. Linux explicitly supplies
+CPU preparation/OSMesa launcher settings while retaining the real native CLI,
+physical owners and unchanged assertions. The original snapshot regression
+passes 1,000 iterations at this exact source. No real-provider calls occur.
+
+Manual review against delivered main `29e1211` confirms the production delta:
+execute the four screened regrasp approach segments; serialize shared SQLite
+close with ongoing transactions; compare the integrity clock to its deadline;
+and reject a declared third-party native runner without an endpoint before
+process creation. The existing batch preflight endpoint check remains in place;
+the new runner guard also covers direct entry. Controller/physics/goal thresholds,
+unknown-action fencing, budget uncertainty and scene assets are unchanged. There
+is no blocking finding from this scoped source review. The failed native runs,
+incorrect preliminary driver arguments/module names and intermediate timing
+failure remain retained, not included among passing receipts.
+
+The README's old pre-merge banner and Slurm's minimal-probe-only description are
+updated to the actual delivered/scoped state. `final-closure-acceptance-8bd989a.json`
+and full/native reports under the engineering root bind the source and evidence.
+Main publication, image and release-attachment receipts remain separate actions.

@@ -203,9 +203,10 @@ blindly replayed. Requests have idempotent IDs bound to their original content.
 
 An acknowledged request is not proof that a physical recovery succeeded. Read
 the resulting action feedback and independent evaluator, retaining failed
-commands and review history. The original Oracle reference has stricter
-process-violation continuation gates than terminal-outcome policy scoring; do not
-interpret an Oracle stop as the policy scorer automatically ending an agent.
+commands and review history. Legacy frozen Oracle references can have stricter
+process-violation continuation gates than terminal-outcome policy scoring. New
+task-reference reports separate those process events from completion; an Oracle
+stop is not a policy scorer automatically ending an agent.
 
 Create a `STOP` file in that trial's output directory, or send SIGTERM to its
 owner, to request controlled termination. Preserve its report, unresolved action
@@ -234,6 +235,14 @@ from Oracle acceptance. Compression does not authorize stripping events, source
 identity, intervention evidence or unresolved actions.
 
 ## Curated integration scope
+
+Fresh current-scene Transport L1 and L2 references at source `f9d532d` each
+complete 12/12 goals in one world, with all independent v2 verdicts true, valid
+physics and no inter-robot contacts or unresolved actions. No model or external
+repair input is used. Their suite/controller/scoring/scene bytes are unchanged
+in final closure code `8bd989a`, which has complete macOS/Linux and native physics
+regressions. This qualifies those two references, not every Transport case or a
+changed physical release; earlier failed worlds remain stopped and retained.
 
 The first R14 curation takes the reviewed endpoint-worker, checkout-binding and
 input-identity changes through source commit `a49880f`, plus the frozen-executor
