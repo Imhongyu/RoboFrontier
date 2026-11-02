@@ -200,9 +200,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('models')
-    p = sub.add_parser('doctor'); p.add_argument('--models', nargs='+', default=['haiku', 'opus', 'opus_subscription', 'kimi', 'kimi_code', 'qwen', 'glm', 'deepseek'])
+    p = sub.add_parser('doctor'); p.add_argument('--models', nargs='+', default=['haiku_subscription_token', 'haiku', 'opus', 'opus_subscription', 'kimi', 'kimi_code', 'qwen', 'glm', 'deepseek'])
     for command in ('plan', 'prepare-draft'):
-        p = sub.add_parser(command); p.add_argument('--models', nargs='+', required=True)
+        p = sub.add_parser(command); p.add_argument('--models', nargs='+', default=['haiku_subscription_token'])
         p.add_argument('--families', nargs='+'); p.add_argument('--cases', nargs='+')
         p.add_argument('--level', type=int, choices=(1, 2, 3)); p.add_argument('--min-arms', action='store_true')
         if command == 'plan': p.add_argument('--parallel', type=int, default=4)

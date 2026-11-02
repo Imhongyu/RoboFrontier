@@ -1,9 +1,46 @@
 # Native subscription authentication
 
-The API defaults are unchanged. `luna_subscription` selects GPT-6 Luna through
-native Codex ChatGPT authentication. `haiku_subscription` selects Haiku 5.5
-through native Claude Code login. These are separate profiles from their API
-counterparts; their compatibility receipts are not interchangeable.
+An engine-only Claude selection defaults to `haiku_subscription_token`: Haiku
+5.5 authenticated by the official `claude setup-token` flow. Explicit profiles
+remain exact. `luna_subscription` selects GPT-6 Luna through native Codex ChatGPT
+authentication; `haiku_subscription` retains native Claude Code saved login.
+These profiles have separate compatibility receipts.
+
+## Default Claude script authentication
+
+Run the official command locally:
+
+```sh
+claude setup-token
+```
+
+Store the returned value as `CLAUDE_CODE_OAUTH_TOKEN` in the ignored local `.env`,
+then restrict that file to its owner with `chmod 600 .env`. The script loader
+reads literal environment assignments; an already-set process variable takes
+precedence. Keep the value out of shell history, source files and evidence.
+The official command generates a one-year subscription token. Configured local
+MCP servers work with it; Remote Control and claude.ai connectors are unavailable.
+See [Anthropic's token instructions](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token).
+
+```sh
+robofrontier plan --engine claude
+robofrontier prepare --engine claude --render native \
+  --cases transport-a04-d1 --output runs/engineering/haiku-token-example
+```
+
+The engine-only default applies when neither the user TOML nor the explicit
+options select a profile. The legacy Claude planning/preparation script also
+defaults to `haiku_subscription_token` when `--models` is omitted. Explicit
+`haiku`, `haiku_subscription`, `haiku_subscription_directory`, and
+`opus_subscription` selections remain available. Existing frozen runs retain
+their selected profile. The repository's overall Codex default is unchanged.
+
+This token is a distinct authentication mode. It does not depend on the
+saved-login refresh experiment, and its receipt cannot certify that experiment.
+Formal Claude scoring remains closed. Cluster functionality remains available;
+cluster execution and full-video rerender are deferred. See the
+[official documentation findings](development/anthropic-subscription-qualification.md)
+for the documented mechanisms and remaining empirical qualifications.
 
 ## Codex
 

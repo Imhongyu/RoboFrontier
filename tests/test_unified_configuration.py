@@ -9,6 +9,25 @@ from robofrontier.run_setup import verify_inputs
 
 
 class UnifiedConfigurationTests(unittest.TestCase):
+    def test_claude_engine_defaults_to_setup_token_without_replacing_explicit_profiles(self):
+        from scripts.claude_benchmark import profile
+        config = load_configuration(overrides={'policy': {'engine': 'claude'}})
+        self.assertEqual(config['policy']['profile'], 'haiku_subscription_token')
+        self.assertEqual(plan(config)['model'], 'claude-haiku-5-5')
+        selected = profile(config['policy']['profile'])
+        self.assertEqual((selected['auth_mode'], selected['env_key']),
+                         ('oauth_token', 'CLAUDE_CODE_OAUTH_TOKEN'))
+        for name in ('haiku', 'haiku_subscription', 'haiku_subscription_directory'):
+            with self.subTest(profile=name):
+                explicit = load_configuration(overrides={'policy': {'engine': 'claude', 'profile': name}})
+                self.assertEqual(explicit['policy']['profile'], name)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary)/'claude.toml'
+            path.write_text('[policy]\nengine="claude"\n')
+            self.assertEqual(load_configuration(path)['policy']['profile'], 'haiku_subscription_token')
+            path.write_text('[policy]\nengine="claude"\nprofile="haiku"\n')
+            self.assertEqual(load_configuration(path)['policy']['profile'], 'haiku')
+
     def test_default_plan_is_offline_and_selects_all_released_tasks(self):
         result = plan(load_configuration())
         self.assertEqual((result['task_count'], result['parallel']), (36, 36))

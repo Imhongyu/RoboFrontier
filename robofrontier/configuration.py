@@ -83,6 +83,12 @@ def load_configuration(path=None, overrides=None):
     _merge(result, updates)
     if overrides:
         _merge(result, deepcopy(overrides))
+    # Engine-only Claude selections use subscription authentication for scripts.
+    # Explicit API/saved-login profiles and frozen configurations remain exact.
+    if (result['policy']['engine'] == 'claude'
+            and 'profile' not in updates.get('policy', {})
+            and 'profile' not in (overrides or {}).get('policy', {})):
+        result['policy']['profile'] = 'haiku_subscription_token'
     validate_configuration(result)
     return result
 
