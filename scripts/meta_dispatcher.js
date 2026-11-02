@@ -105,10 +105,21 @@ async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAda
       }
       const claimed = (await runtime('delegate-claim',{id:batch.id})).delegation;
       let activated = false;
+      // Every native step of this batch shares the runtime setup deadline. Once it has
+      // passed, or a stop arrives, no new creation is started; a step already sent is
+      // never repeated, because its outcome may be unknown.
+      const deadlineMs = Number(claimed.setup_deadline)*1000;
+      const remainingMs = () => {
+        if (stopRequested()) throw new Error('Stop requested during delegate setup');
+        if (!Number.isFinite(deadlineMs)) return undefined;  // Runs recorded before the deadline existed.
+        const left = deadlineMs-Date.now();
+        if (left <= 0) throw new Error('Delegate setup deadline passed before native creation');
+        return left;
+      };
       try {
         let sourceThreadId = claimed.source_thread_id;
         if ((snapshot.config.engine || 'codex') === 'codex') {
-          const anchor = await (createSnapshot || adapter.fork)({threadId:sourceThreadId});
+          const anchor = await (createSnapshot || adapter.fork)({threadId:sourceThreadId,timeoutMs:remainingMs()});
           if (!anchor.threadId) throw new Error('Native snapshot response incomplete; creation outcome unknown');
           onEvent({event:'snapshot_created',thread_id:anchor.threadId,id:batch.id,verified:false});
           await runtime('delegate-snapshot-bind',{id:batch.id,thread_id:anchor.threadId});
@@ -117,7 +128,7 @@ async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAda
           sourceThreadId=anchor.threadId;
         }
         for (const child of claimed.children) {
-          const fork = await adapter.fork({threadId:sourceThreadId});
+          const fork = await adapter.fork({threadId:sourceThreadId,timeoutMs:remainingMs()});
           if (!fork.threadId)
             throw new Error('Native fork response incomplete; creation outcome unknown');
           child.thread_id = fork.threadId;

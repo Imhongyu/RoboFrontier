@@ -261,8 +261,11 @@ Use your assigned native session and bound robot tools. Read public task evidenc
       const wrap=value=>({content:[{type:'text',text:JSON.stringify(value)}]});
       const createNativeFork=async (p,isSnapshot=false)=>{
         const forkStarted=Date.now();
+        // The dispatcher passes what is left of the shared setup deadline; without it,
+        // the ordinary request limit applies.
+        if (p.timeoutMs!==undefined && !(p.timeoutMs>0)) throw new Error('Delegate setup deadline passed before native fork');
         const result=await this.rpc.call('thread/fork',{threadId:p.threadId,cwd:this.hostPath('policy_cwd'),model:this.launch.model,
-          modelProvider:this.launch.provider,excludeTurns:true,ephemeral:false});
+          modelProvider:this.launch.provider,excludeTurns:true,ephemeral:false},p.timeoutMs);
         this.event({event:isSnapshot?'snapshot_created':'fork_created',thread_id:result.thread.id,parent:p.threadId,duration_s:(Date.now()-forkStarted)/1000});
         if (!isSnapshot) {
           const snapshot=await this.admin('snapshot');
