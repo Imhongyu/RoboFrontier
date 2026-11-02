@@ -13,7 +13,7 @@ Cloning source is not a backup of ignored recordings or credentials.
 | `configs/policy-assets.json` | Pinned policy asset archive, hashes and release identity |
 | `configs/factory-assets.json` | Separate optional Factory recording bundle lock |
 | `configs/models.json`, `configs/claude-models.json` | Engine-specific provider/model profiles |
-| `prompts/`, `.agents/skills/` | Public policy and role/tool instructions |
+| `prompts/` | Public policy and role/tool instructions |
 | `scripts/`, `tests/` | Engineering commands, retained scene/reference builders and regression checks |
 | `web/task-atlas/` | Editable English atlas templates and browser interactions |
 | `docs/task-atlas/` | Tracked, verified public offline atlas with 72 current initial JPEG views |

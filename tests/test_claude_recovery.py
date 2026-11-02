@@ -45,8 +45,12 @@ class CapacityRecoveryTests(unittest.TestCase):
         self.fail_turn()
         self.assertTrue(self.host.recover_capacity(self.store, now=0))
         self.assertEqual(len(self.calls), 1)
-        self.assertTrue(self.host.recover_capacity(self.store, now=9))
-        self.assertTrue(self.host.recover_capacity(self.store, now=10))
+        from robofrontier.claude.recovery import capacity_delay
+        delay = capacity_delay(0, self.host.session_id)
+        self.assertTrue(10 <= delay < 15)
+        self.assertTrue(self.host.recover_capacity(self.store, now=delay-.01))
+        self.assertEqual(len(self.calls), 1)
+        self.assertTrue(self.host.recover_capacity(self.store, now=delay))
         self.assertEqual(self.host.wait(3)['status'], 'idle')
         self.assertEqual(len(self.calls), 2)
         self.assertEqual(self.calls[1]['resume'], self.host.session_id)
@@ -119,3 +123,46 @@ class CapacityRecoveryTests(unittest.TestCase):
 
 
 if __name__ == '__main__': unittest.main()
+
+
+class ModelLossTests(unittest.TestCase):
+    """A CLI that dies mid-turn resumes the same session; the run allows three in total."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.run = make_run(self.tmp.name)
+        (self.run/'private/inputs/bootstrap').mkdir(parents=True, exist_ok=True)
+        (self.run/'private/inputs/bootstrap/model-restart.md').write_text('MODEL RESTART NOTICE')
+        self.calls = []; self.prompts = []; self.lost = 1
+        def runner(*args, **kw):
+            self.calls.append(kw); self.prompts.append(args[4])
+            if len(self.calls) <= self.lost:
+                # Killed from outside: exited without a result event.
+                return {'process': 'exited', 'exit_code': -9, 'summary': {'session_id': None, 'turn_status': 'unknown'}}
+            return {'process': 'exited', 'exit_code': 0, 'summary': {
+                'session_id': kw.get('resume') or kw['session_id'], 'turn_status': 'ended',
+                'result_subtype': 'success', 'malformed_lines': 0, 'total_cost_usd': .01}}
+        self.host = ClaudeSessionHost(self.run, 'Controller', PROFILE, {}, runner=runner)
+        self.store = RuntimeStore(self.run/'private/state/runtime.sqlite')
+        cfg = json.loads((Path(__file__).resolve().parents[1]/'configs/harnesses/policy.json').read_text())
+        cfg.update(engine='claude'); self.store.initialize('run', cfg, ['A'])
+        self.store.update_agent('Controller', ready=True, thread_id=self.host.session_id); self.store.start()
+
+    def tearDown(self):
+        self.host.wait(3); self.store.close(); self.tmp.cleanup()
+
+    def test_lost_cli_resumes_the_same_session_with_the_frozen_notice(self):
+        self.host.send('task'); self.assertEqual(self.host.wait(3)['status'], 'error')
+        self.assertTrue(self.host.cli_lost)
+        self.assertTrue(self.host.recover_capacity(self.store))
+        self.assertEqual(self.host.wait(3)['status'], 'idle')
+        self.assertEqual(self.prompts[1], 'MODEL RESTART NOTICE')
+        self.assertEqual(self.calls[1]['resume'], self.host.session_id)
+        self.assertEqual(self.store.get('model_restarts'), 1)
+
+    def test_the_run_allowance_is_shared_and_never_exceeded(self):
+        from robofrontier.policy_bootstrap import MAX_MODEL_RESTARTS
+        for _ in range(MAX_MODEL_RESTARTS):
+            self.assertIsNotNone(self.store.claim_model_restart('B', 'codex', MAX_MODEL_RESTARTS))
+        self.host.send('task'); self.assertEqual(self.host.wait(3)['status'], 'error')
+        self.assertFalse(self.host.recover_capacity(self.store))
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(self.store.get('model_restarts'), MAX_MODEL_RESTARTS)

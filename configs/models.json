@@ -2,10 +2,24 @@
   "schema_version": 1,
   "checked_on": "2026-10-28",
   "context_window": 272000,
-  "auto_compact_token_limit": 245000,
+  "auto_compact_token_limit": 258400,
   "profiles": {
     "luna_subscription": {
       "model": "gpt-6-luna",
+      "provider": "openai",
+      "effort": "high",
+      "vision": true,
+      "context_capacity": 272000
+    },
+    "sol61_subscription": {
+      "model": "gpt-6.1-sol",
+      "provider": "openai",
+      "effort": "high",
+      "vision": true,
+      "context_capacity": 272000
+    },
+    "terra61_subscription": {
+      "model": "gpt-6.1-terra",
       "provider": "openai",
       "effort": "high",
       "vision": true,

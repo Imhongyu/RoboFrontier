@@ -4,10 +4,11 @@ from collections import Counter
 import json
 from pathlib import Path
 
+from robofrontier import run_layout
 from robofrontier.runtime_store import RuntimeStore
 from robofrontier.run_setup import write_json, verify_inputs
 from robofrontier.action_batch import external_wait
-from robofrontier.run_metrics import export_metrics, native_codex_sessions
+from robofrontier.run_metrics import export_metrics, native_codex_sessions, native_subagent_calls, open_session, run_skills, session_glob
 
 
 def occupancy(intervals, start, end):
@@ -28,7 +29,7 @@ def model_evidence(directory, actor, thread, config, codex_home=None):
         # CLI reports are useful observations but do not establish the effective
         # provider model or rule out remapping and auxiliary requests.
         turns=[]
-        evidence=Path(directory)/'private/evidence'
+        evidence=run_layout.path(directory,'engine_turns','claude')
         for path in evidence.glob('*-summary.json'):
             try:
                 data=json.loads(path.read_text())
@@ -39,18 +40,21 @@ def model_evidence(directory, actor, thread, config, codex_home=None):
                               'status':data.get('status')})
             except (OSError, ValueError, AttributeError, TypeError):
                 continue
+        config_dir=run_layout.path(directory,'engine_config','claude')/'projects'
+        transcripts=[p for p in session_glob(config_dir,thread+'.jsonl') if p.parent.parent==config_dir] if thread else []
         return {'thread_id':thread, 'turns':turns, 'verified':False,
+                'native_subagent_calls':native_subagent_calls(transcripts),
                 'source':'claude_host_reported_model_not_provider_identity'}
     turns=[]
     paths=native_codex_sessions(directory, thread, codex_home)
     for path in paths:
-        with path.open() as stream:
+        with open_session(path) as stream:
             for line in stream:
                 if '"turn_context"' not in line:continue
                 record=json.loads(line)
                 if record.get('type')=='turn_context':
                     value=record['payload'];turns.append({k:value.get(k) for k in ('turn_id','model','effort')})
-    return {'thread_id':thread,'turns':turns,
+    return {'thread_id':thread,'turns':turns,'native_subagent_calls':native_subagent_calls(paths),
             'verified':bool(turns) and all(t['model']==config['model'] and t['effort']==config['effort'] for t in turns)}
 
 
@@ -68,6 +72,13 @@ def export(directory, codex_home=None):
         start_sim_time=store.get('start_sim_time');run_id=store.get('run_id');robot_count=len(store.get('robots',[]))
         messages=[store._message(row) for row in store.db.execute('SELECT * FROM messages ORDER BY seq')]
         async_actions=sum('started_sim_s' in a and not external_wait(store,a) for a in actions.values())
+        # A run continued after an unexpected exit (docs/run-segments.md) counts as one trial.
+        segments={'count':len(store.get('segments') or [{}]),'continued':store.get('segment',0)>0,
+                  'downtime_s':store.get('downtime_s',0.),'segments':store.get('segments') or []}
+        from robofrontier.run_segments import motion_dirs, process_summary
+        segments['process']=process_summary(directory)
+        # Every segment's motion recording, in order; their timelines are continuous.
+        segments['motion']=[str(p.relative_to(directory)) for p in motion_dirs(directory)]
     finally:store.close()
     start=next((e for e in events if e['kind']=='START'),None)
     end=next((e for e in events if e['kind']=='TEAM_FINISH_PROPOSED'),None)
@@ -95,6 +106,14 @@ def export(directory, codex_home=None):
             'action_status':dict(Counter(a['status'] for a in actions.values())),
             'messages':len(messages), 'turns_by_role':{a:len(v['turns']) for a,v in models.items()},
             'all_requested_models_verified':bool(models) and all(v['verified'] for v in models.values()),
+            # Native sub-agents bypass robot delegate; any call needs review.
+            'native_subagent_calls':{a:v['native_subagent_calls'] for a,v in models.items() if v.get('native_subagent_calls')},
+            'native_subagent_review_required':any(v.get('native_subagent_calls') for v in models.values()),
+            # The policy's shared lessons in this run: what it chose to record, entry by entry.
+            'run_skills':run_skills(directory),
+            # Engineering-only injected faults (robofrontier/fault_injection.py); never a scored trial.
+            'fault_injection':json.loads((directory/'private/inputs/manifest.json').read_text()).get('fault_injection'),
+            'segments':segments,
             'changed_inputs':verify_inputs(directory),
             'late_messages':sum(e['kind']=='LATE_MESSAGE_AFTER_FINISH' for e in events),
             'wait_returns':dict(Counter(e['details'].get('result',{}).get('wait_status') for e in events

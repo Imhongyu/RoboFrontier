@@ -208,9 +208,32 @@ async function neutralAdapter() {
   assert.equal(sent[0].threadId,'child-1');assert.equal(sent[0].model,'m');assert(!('hostId' in sent[0]));
   assert(observed.length>0&&observed.every(c=>c.includes('"source":"claude.host"')));
 }
+// A fork step gets only what is left of the shared setup deadline, and none once it passed.
+async function setupDeadline(expired) {
+  const forks=[],uncertain=[];
+  const batch={id:'b',source_thread_id:'parent',status:'creating',claimed_by:null,
+    setup_deadline:Date.now()/1000+(expired?-1:60),
+    children:[{actor:'D1',robots:['A'],goal:'g',done_when:'d'}]};
+  const tools={exec_command:async({cmd})=>{
+    let value={recorded:true};
+    if(cmd.includes(' snapshot '))value={lifecycle:'running',paused:false,config:{poll_interval_s:0,model:'m',effort:'high',engine:'claude'},
+      agents:{Controller:{kind:'controller',thread_id:'parent'}},delegations:batch.status==='creating'?[batch]:[]};
+    else if(cmd.includes(' delegate-claim '))value={delegation:structuredClone(batch)};
+    else if(cmd.includes(' delegate-activate '))batch.status='active';
+    else if(cmd.includes(' delegate-uncertain ')){uncertain.push(cmd);batch.status='needs_review';}
+    else if(cmd.includes(' plan '))value={commands:[]};
+    return {exit_code:0,output:JSON.stringify(value)};
+  }};
+  const adapter={observe:async p=>({thread:{id:p.threadId,status:{type:'idle'}},latestTurn:{id:'t0',status:'completed'}}),
+    fork:async p=>{forks.push(p);return {threadId:'child-1',sourceThreadId:'parent',status:'created'};},
+    send:async p=>({threadId:p.threadId})};
+  await runMetaDispatcher({runDir:'/fake',python:'/fake/python',cwd:'/fake',tools,adapter,maxCycles:1,observationSource:'claude.host'});
+  if (expired) {assert.equal(forks.length,0);}
+  else {assert.equal(forks.length,1);assert(forks[0].timeoutMs>0&&forks[0].timeoutMs<=60000);}
+}
 (async()=>{
  const cases=[
-  neutralAdapter,
+  neutralAdapter,()=>setupDeadline(false),()=>setupDeadline(true),
   ()=>scenario(), ()=>scenario({busy:true}), ()=>scenario({failSend:true}), ()=>scenario({wrongThread:true}),
   interrupted, ()=>startup(false,true), ()=>startup(true,false), ()=>startup(true,true),
   ()=>delegation(), ()=>delegation({count:4}), ()=>delegation({failFork:true}), ()=>delegation({failBind:true}),

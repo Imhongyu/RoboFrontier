@@ -5,7 +5,8 @@ function fixture() {
   const operations=[];
   let threads=0;
   const host={
-    run:'/run',launch:{model:'offline',provider:'offline'},actors:new Map(),
+    run:'/run',layout:{policy_cwd:'.'},launch:{model:'offline',provider:'offline'},actors:new Map(),
+    hostPath:PolicyHost.prototype.hostPath,
     event:e=>operations.push({type:'event',...e}),
     stopRequested:()=>false,
     rpc:{call:async(method,data)=>{

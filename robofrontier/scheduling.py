@@ -12,7 +12,7 @@ class Scheduler:
         # Planning/mail may continue during acknowledged nonblocking execution.
         # A blocking robot action or unknown outcome still needs its existing result.
         from .action_batch import external_wait
-        return any(v['status']=='uncertain' or
+        return any(v['status']=='uncertain' and not v.get('local_recovery') or
                    v['status']=='running' and external_wait(self.store,v)
                    for v in self.store.actions(actor).values())
 

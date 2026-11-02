@@ -33,9 +33,10 @@ function codexAdapter(tools) {
     adapter.title = async params => decode(await tools.mcp__codex_app__set_thread_title(params));
   return adapter;
 }
-async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAdapter(tools), onEvent = () => {}, stopRequested = () => false, maxCycles = Infinity, startWhenReady = false, observationSource = 'codex.wait_threads', createSnapshot}) {
+async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAdapter(tools), onEvent = () => {}, stopRequested = () => false, maxCycles = Infinity, startWhenReady = false, observationSource = 'codex.wait_threads', createSnapshot, owner: givenOwner = null}) {
   const quote = value => "'" + String(value).replaceAll("'", "'\\''") + "'";
-  const owner = 'meta-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  // A host that restarts its model process keeps one owner, so it keeps its scheduler lease.
+  const owner = givenOwner || 'meta-' + Date.now() + '-' + Math.random().toString(16).slice(2);
   const cursors = new Map();
   const failures = new Map();
   let statusPaused = false;
@@ -105,10 +106,21 @@ async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAda
       }
       const claimed = (await runtime('delegate-claim',{id:batch.id})).delegation;
       let activated = false;
+      // Every native step of this batch shares the runtime setup deadline. Once it has
+      // passed, or a stop arrives, no new creation is started; a step already sent is
+      // never repeated, because its outcome may be unknown.
+      const deadlineMs = Number(claimed.setup_deadline)*1000;
+      const remainingMs = () => {
+        if (stopRequested()) throw new Error('Stop requested during delegate setup');
+        if (!Number.isFinite(deadlineMs)) return undefined;  // Runs recorded before the deadline existed.
+        const left = deadlineMs-Date.now();
+        if (left <= 0) throw new Error('Delegate setup deadline passed before native creation');
+        return left;
+      };
       try {
         let sourceThreadId = claimed.source_thread_id;
         if ((snapshot.config.engine || 'codex') === 'codex') {
-          const anchor = await (createSnapshot || adapter.fork)({threadId:sourceThreadId});
+          const anchor = await (createSnapshot || adapter.fork)({threadId:sourceThreadId,timeoutMs:remainingMs()});
           if (!anchor.threadId) throw new Error('Native snapshot response incomplete; creation outcome unknown');
           onEvent({event:'snapshot_created',thread_id:anchor.threadId,id:batch.id,verified:false});
           await runtime('delegate-snapshot-bind',{id:batch.id,thread_id:anchor.threadId});
@@ -117,7 +129,7 @@ async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAda
           sourceThreadId=anchor.threadId;
         }
         for (const child of claimed.children) {
-          const fork = await adapter.fork({threadId:sourceThreadId});
+          const fork = await adapter.fork({threadId:sourceThreadId,timeoutMs:remainingMs()});
           if (!fork.threadId)
             throw new Error('Native fork response incomplete; creation outcome unknown');
           child.thread_id = fork.threadId;
@@ -130,7 +142,13 @@ async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAda
         }
         await runtime('delegate-activate',{id:batch.id}); activated = true;
         for (const child of claimed.children) {
-          const prompt = 'Your current identity is temporary delegate '+child.actor+' for this task. This runtime authority replaces inherited parent-role identity, connection and team-finish permissions; shared task and evidence restrictions remain in force. The parent session\'s unfinished calls and plans are history: do not retry them or execute them for the parent.'+
+          // Runs prepared with policy_bootstrap.py freeze the delegate message; fill every
+          // placeholder, as robofrontier/policy_bootstrap.py delegate_prompt does.
+          // Required here, not at load: Meta may load these definitions where no I/O is allowed.
+          const fs = require('node:fs'), frozenDelegate = require('node:path').join(runDir,'private/inputs/bootstrap/delegate.md');
+          const prompt = fs.existsSync(frozenDelegate) ? fs.readFileSync(frozenDelegate,'utf8').split('{{ACTOR}}').join(child.actor)
+              .split('{{SCOPE}}').join(JSON.stringify({robots:child.robots,goal:child.goal,done_when:child.done_when,constraints:child.constraints||''})) :
+            'Your current identity is temporary delegate '+child.actor+' for this task. This runtime authority replaces inherited parent-role identity, connection and team-finish permissions; shared task and evidence restrictions remain in force. The parent session\'s unfinished calls and plans are history: do not retry them or execute them for the parent.'+
             '\nThe task Controller submitted this scope verbatim: '+JSON.stringify({robots:child.robots,goal:child.goal,done_when:child.done_when,constraints:child.constraints??''})+
             '\nUse only your own connection '+runDir+'/private/state/connections/'+child.actor+'.json; Python '+python+'. Prefix future call IDs with '+child.actor+'; do not reuse parent call IDs.'+
             '\nYou are a temporary delegate, not a permanent per-arm Worker. Follow the frozen Skill\'s references/adaptive.md for lifecycle and handback rules; restore that reference if context is missing. The team has STARTED. Act independently within this scope, process parent messages, and report milestones or blockers when useful. On normal completion, call return_task and end. Follow the reference for waiting, pauses and incomplete handback. Do not create more sessions, use management APIs, modify the harness, read private evaluation or execute team finish.';

@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 import mujoco
 from .run_setup import write_json
+from .scene_task import clone_or_copy
 
 
 def digest(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -34,8 +35,8 @@ def freeze_source(source,destination,cache=None):
             os.replace(temporary,cached)
         elif digest(cached)!=checksum:raise ValueError('Corrupted source cache')
         target=destination/name;target.parent.mkdir(parents=True,exist_ok=True)
-        try:os.link(cached,target)
-        except OSError:shutil.copyfile(cached,target)
+        # A clone, never a hard link: the cache is shared by every run.
+        clone_or_copy(cached,target)
     return manifest
 
 

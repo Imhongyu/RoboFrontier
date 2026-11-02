@@ -24,7 +24,20 @@ class SetupTests(unittest.TestCase):
         finally:store.close()
         self.assertIsNone(json.loads((run/'private/state/connections/A.json').read_text())['url'])
         self.assertTrue((run/'public/inputs/skill/references/tools.md').exists())
-        self.assertEqual((run/'public/inputs/role_tools.js').read_bytes(),(Path(__file__).resolve().parents[1]/'scripts/role_tools.js').read_bytes())
+        # run-v6: one shared lessons file in the only writable folder, frozen first
+        # messages and access table, and Meta's files kept private.
+        self.assertEqual(json.loads((run/'private/inputs/manifest.json').read_text())['layout'],'run-v6')
+        self.assertTrue((run/'workspace/skills.md').read_text().startswith('# Run skills'))
+        self.assertTrue((run/'public/inputs/rules.md').is_file())
+        self.assertFalse((run/'public/inputs/role_tools.js').exists())
+        self.assertFalse((run/'public/inputs/roles/Meta.md').exists())
+        self.assertTrue((run/'private/inputs/meta/Meta.md').is_file())
+        for name in ('system.md','A.md','Controller.md','resume.md','model-restart.md'):
+            self.assertTrue((run/'private/inputs/bootstrap'/name).is_file(),name)
+        access=json.loads((run/'private/inputs/policy-access.json').read_text())
+        self.assertEqual(access['filesystem'][str(run.resolve()/'workspace')],'write')
+        self.assertEqual(access['filesystem'][str(run.resolve()/'private')],'deny')
+        self.assertFalse(access['network']);self.assertFalse(access['web_search'])
         self.assertTrue((run/'private/inputs/frozen-source/robofrontier/scheduling.py').exists())
         self.assertFalse((run/'private/outputs/global-realtime.mp4').exists())
         before=(run/'private/inputs/manifest.json').read_bytes()
@@ -92,7 +105,7 @@ class SetupTests(unittest.TestCase):
         task['goals']={name:[{'slot':'one','position_m':[.57,y,.42],
                              'requires':{'color':'gray'}}] for name,y in task['arms'].items()}
         p=self.root/'six.json';p.write_text(json.dumps(task))
-        skill=(Path(__file__).resolve().parents[1]/'.agents/skills/robot-collaboration/SKILL.md').read_bytes()
+        skill=(Path(__file__).resolve().parents[1]/'prompts/skills/robot-collaboration/SKILL.md').read_bytes()
         for topology in ('hierarchical','peer'):
             cfg=load_harness();cfg['topology']=topology
             c=self.root/(topology+'.json');c.write_text(json.dumps(cfg))

@@ -152,6 +152,18 @@ class ClaudeFoundationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bridge.call({'op': 'public_image', 'data': {'names': ['family/view.png']}})
 
+    def test_every_policy_runtime_op_is_exposed_and_admin_ops_are_not(self):
+        # Codex forwards any op to the runtime; Claude's bridge must allow the same policy set.
+        import re
+        from robofrontier.claude.robot_mcp import POLICY_OPS
+        source = (Path(__file__).parents[1] / 'robofrontier/runtime_service.py').read_text()
+        ops = set(re.findall(r"op == '([a-z_]+)'", source))
+        ops |= {o for group in re.findall(r"op in \(([^)]*)\)", source) for o in re.findall(r"'([a-z_]+)'", group)}
+        admin = {'bind', 'start', 'resume', 'state', 'shutdown'}
+        self.assertIn('recover_action', ops)
+        self.assertEqual(ops - POLICY_OPS, admin)
+        self.assertFalse(admin & POLICY_OPS)
+
     def test_connection_cannot_be_manager(self):
         with tempfile.TemporaryDirectory() as tmp:
             run = Path(tmp) / 'r'; conn = run / 'private/state/connections/Meta.json'; conn.parent.mkdir(parents=True)

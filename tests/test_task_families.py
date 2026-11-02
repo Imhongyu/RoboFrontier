@@ -68,8 +68,15 @@ class FamilyReleaseTests(unittest.TestCase):
                 if 'public_projection' in spec:
                     review = read(ROOT/spec['public_projection']['path'])
                     for key in ('rules', 'target', 'mechanism', 'completion', 'initial_supplies'):
-                        if key in review and not (key == 'completion' or case.startswith('relay-') and key == 'rules'):
-                            self.assertEqual(public[key], review[key])
+                        # Terminal runs correct contradicting Relay and Mosaic rules (task_families.freeze_public).
+                        if key in review and not (key == 'completion' or case.startswith(('relay-', 'mosaic-')) and key == 'rules'):
+                            if key == 'target' and 'reference_image' in review[key]:
+                                # The Mosaic target image is delivered with the family materials.
+                                self.assertEqual(public[key]['reference_image'], 'family/'+review[key]['reference_image'])
+                                self.assertEqual({k: v for k, v in public[key].items() if k != 'reference_image'},
+                                                 {k: v for k, v in review[key].items() if k != 'reference_image'})
+                            else:
+                                self.assertEqual(public[key], review[key])
                     if case.startswith('relay-'):
                         self.assertFalse(public['completion']['required_airborne_handover'])
                         self.assertFalse(any('Airborne transport requires' in r or 'Only the last established' in r for r in public['rules']))
@@ -80,16 +87,21 @@ class FamilyReleaseTests(unittest.TestCase):
                     self.assertFalse(public['completion']['process_violations_clear_required'])
                 if case.startswith('dial-'):
                     self.assertIn('latched', public['completion']['success_semantics'])
-                    self.assertNotIn('clean process', (run/'public/inputs'/public['family_guidance']).read_text())
+                    self.assertNotIn('clean process', (run/'public/inputs'/public['task_skill']).read_text())
                 if 'initial_reference_images' in public:
                     self.assertTrue(all((run/'public/inputs'/name).is_file() for name in public['initial_reference_images']))
-                self.assertTrue((run/'public/inputs'/public['family_guidance']).is_file())
-                rules=(run/'public/inputs/policy-rules.md').read_text()
-                self.assertIn('`ready` tool is optional',rules)
-                self.assertIn('Delegation is optional',rules)
+                # The family Skill replaces released guidance; only Relay keeps its terminal description.
+                self.assertTrue((run/'public/inputs'/public['task_skill']).is_file())
+                self.assertEqual('family_guidance' in public, case.startswith('relay-'))
+                rules=(run/'public/inputs/rules.md').read_text()
+                self.assertIn('`ready` is optional',rules)
+                self.assertIn('delegation is',rules)
+                # The frozen scene is an independent file (a clone where supported), never a
+                # hard link: a write to one run must not reach the source or other runs.
+                self.assertEqual((run/'private/inputs/scene/task.json').stat().st_nlink, 1)
                 self.assertFalse(any(p.name in ('private-code.json', 'actions.json', 'process.jsonl')
                                      for p in (run/'public').rglob('*')))
-                material = run/'public/inputs'/public['family_guidance']
+                material = run/'public/inputs'/public['task_skill']
                 material.write_text('changed')
                 self.assertIn('input:'+str(material.relative_to(run)), verify_inputs(run))
                 scene = run/'private/inputs/scene/task.json'
@@ -109,10 +121,46 @@ class FamilyReleaseTests(unittest.TestCase):
                     try:
                         world.start_trial()
                         self.assertIsNotNone(world.suite_sampler)
-                        self.assertEqual(world.motion_recorder.meta['sample_hz'], 60)
+                        self.assertEqual(world.motion_recorder.meta['sample_hz'], 30)
                         self.assertEqual(world.time, 0.)
                     finally:
                         world.close()
+
+    def test_policy_harness_records_motion_at_its_frozen_rate(self):
+        from robofrontier.pipeline import World
+        from robofrontier.task_config import load_harness
+        self.assertEqual(read(ROOT/'configs/harnesses/policy.json')['motion_hz'], 30)
+        with tempfile.TemporaryDirectory() as tmp, patch('mujoco.mj_step', side_effect=AssertionError('No physics')):
+            run = prepare('mosaic-a04-6x12-d1', Path(tmp)/'run', harness=ROOT/'configs/harnesses/policy.json')
+            self.assertEqual(read(run/'private/inputs/harness.json')['motion_hz'], 30)
+            world = World(run, read(run/'private/inputs/task.json'))
+            try:
+                world.start_trial()
+                self.assertEqual(world.motion_recorder.meta['sample_hz'], 30)
+                self.assertEqual(world.suite_sampler.log_format, 'events-1s')
+                header = json.loads((run/'private/outputs/suite-process.jsonl').read_text().splitlines()[0])
+                self.assertEqual((header['schema'], header['snapshot_interval_s']), ('robofrontier.suite-process.v2', 1.0))
+            finally:
+                world.close()
+            # A harness frozen before motion_hz existed keeps the original 60 Hz.
+            legacy_cfg = {k: v for k, v in read(ROOT/'configs/harnesses/policy.json').items() if k not in ('motion_hz', 'process_log')}
+            legacy_path = Path(tmp)/'legacy.json'; legacy_path.write_text(json.dumps(legacy_cfg))
+            legacy = prepare('mosaic-a04-6x12-d1', Path(tmp)/'legacy', harness=legacy_path)
+            world = World(legacy, read(legacy/'private/inputs/task.json'))
+            try:
+                world.start_trial()
+                self.assertEqual(world.motion_recorder.meta['sample_hz'], 60)
+                self.assertEqual(world.suite_sampler.log_format, 'full')
+            finally:
+                world.close()
+            bad = Path(tmp)/'bad.json'
+            for value in (0, -30, True, float('nan')):
+                bad.write_text(json.dumps({**read(ROOT/'configs/harnesses/policy.json'), 'motion_hz': value}))
+                with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'motion sampling'):
+                    load_harness(bad)
+            bad.write_text(json.dumps({**read(ROOT/'configs/harnesses/policy.json'), 'process_log': 'every-step'}))
+            with self.assertRaisesRegex(ValueError, 'process log format'):
+                load_harness(bad)
 
 
 if __name__ == '__main__':

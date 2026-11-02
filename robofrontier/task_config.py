@@ -170,6 +170,11 @@ def load_harness(path=None):
     if not math.isfinite(setup_timeout) or setup_timeout<=0:
         raise ValueError('Invalid native setup timeout')
     if 'native_setup_timeout_s' in c:c['native_setup_timeout_s']=setup_timeout
+    # Visual-reconstruction sampling only; scoring keeps its own detection rate.
+    if 'motion_hz' in c and (isinstance(c['motion_hz'],bool) or not math.isfinite(float(c['motion_hz'])) or c['motion_hz']<=0):
+        raise ValueError('Invalid motion sampling rate')
+    # Keys of suite.evaluate.PROCESS_LOG_FORMATS (kept literal: no MuJoCo import here).
+    if c.get('process_log','full') not in ('full','events-1s'):raise ValueError('Unknown process log format')
     screening = c['motion_check']
     for key in ('max_horizon_s','default_sample_dt_s','max_sample_dt_s','clearance_m'):
         if not math.isfinite(float(screening[key])) or screening[key]<=0:

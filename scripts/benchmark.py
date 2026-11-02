@@ -6,15 +6,17 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 import time
-import shlex
 import tomllib
+from robofrontier import run_layout
 from robofrontier.launch_schedule import LaunchSchedule
 
 from robofrontier.task_families import ROOT, RELEASE, read, prepare
 from robofrontier.run_setup import write_json, verify_inputs
+from robofrontier.run_segments import try_continue
 
 
 def load_env(path):
@@ -61,17 +63,48 @@ def profile(name, config=None):
     return p
 
 
-def launch_config(p, folder):
+POLICY_PROFILE = 'robofrontier'
+
+
+def hidden_skills(home=None, repo=ROOT):
+    """Skill files Codex would list natively that a policy must not get.
+
+    Personal skills (~/.agents/skills) and any developer skills in the repo's
+    .agents/skills stay out of trials; policy Skills reach each run as frozen
+    inputs. Codex's bundled system skills stay. Codex disables skills per file.
+    """
+    home = Path(home) if home else Path.home()
+    return sorted(str(f.resolve()) for root in (home/'.agents/skills', Path(repo)/'.agents/skills')
+                  for f in root.glob('*/SKILL.md'))
+
+
+BENCHMARK_CODEX_HOME = Path.home()/'.robofrontier/codex-home'
+
+
+def codex_home(env=None):
+    """CODEX_HOME if set, else the shared benchmark home; never the user's ~/.codex.
+
+    Keeps personal configuration, MCP servers, apps and sessions out of trials. Log
+    in once with `CODEX_HOME=~/.robofrontier/codex-home codex login`.
+    """
+    environment = os.environ if env is None else env
+    return Path(environment.get('CODEX_HOME') or BENCHMARK_CODEX_HOME).expanduser().resolve()
+
+
+def launch_config(p, folder, run_dir=None):
     args = []
+    # Account apps and goals are personal Codex features, not task tools, and no
+    # AGENTS.md is injected, as on the Claude route.
     values = {'model':p['model'], 'model_provider':p['provider'],
               'model_reasoning_effort':p['effort'], 'model_context_window':p['context_window'],
               'model_auto_compact_token_limit':p['auto_compact_token_limit'],
-              'web_search':'disabled', 'features.multi_agent':False}
+              'web_search':'disabled', 'features.multi_agent':False,
+              'features.apps':False, 'features.goals':False, 'project_doc_max_bytes':0}
     if p['provider'] == 'openai':
         # Shared subscription homes retain native auth, but their MCP servers
         # are not benchmark tools. Disable known layers without editing them;
         # the host checks the effective configuration again before inference.
-        home = Path(os.environ.get('CODEX_HOME', Path.home()/'.codex'))
+        home = codex_home()
         directory = Path(folder).resolve()
         configs = {home/'config.toml', *(parent/'.codex/config.toml'
                     for parent in (directory, *directory.parents))}
@@ -97,7 +130,7 @@ def launch_config(p, folder):
             prefix+'request_max_retries':3, prefix+'stream_max_retries':3})
     # Local Codex model catalog teaches the CLI that this exact model accepts
     # images. No global provider/auth/default settings are modified.
-    cache_path=Path(os.environ.get('CODEX_HOME',Path.home()/'.codex'))/'models_cache.json'
+    cache_path=codex_home()/'models_cache.json'
     cached = read(cache_path).get('models', []) if p.get('use_cached_model_metadata',True) and cache_path.is_file() else []
     # Preserve exact OpenAI model metadata if available; the checked-in generic
     # template also permits an empty CODEX_HOME on a new server.
@@ -110,7 +143,9 @@ def launch_config(p, folder):
         experimental_supported_tools=[],node_repl_disabled=True,
         default_reasoning_level=p['effort'],supported_reasoning_levels=[{'effort':p['effort'],'description':'Declared benchmark effort'}])
     model['model_messages']=None
-    model['base_instructions']='You are a RoboFrontier policy agent running in Codex. Follow the frozen public task, role, tool protocol and evidence boundaries. Use only your assigned robot tools. Preserve original call IDs across uncertain results.'
+    # The same system prompt as the Claude route, replacing Codex's own instructions.
+    from robofrontier.policy_bootstrap import SYSTEM_PROMPT
+    model['base_instructions']=SYSTEM_PROMPT
     model['availability_nux']=None
     model['service_tiers']=[];model['additional_speed_tiers']=[]
     model['available_access_programs']=None
@@ -119,6 +154,17 @@ def launch_config(p, folder):
     for key,value in values.items():
         # JSON scalar/array strings are also valid TOML values; argv, never shell.
         args.extend(['-c',key+'='+json.dumps(value)])
+    skills=','.join('{path='+json.dumps(f)+',enabled=false}' for f in hidden_skills())
+    args.extend(['-c','skills.config=['+skills+']'])
+    access=Path(run_dir)/'private/inputs/policy-access.json' if run_dir is not None else None
+    if access is not None and access.is_file():
+        # The run's frozen access table as a named permission profile. A thread/start
+        # `sandbox` parameter would replace it, so the host sends none for these runs.
+        frozen=read(access)
+        table=','.join(json.dumps(path)+'='+json.dumps(mode) for path,mode in frozen['filesystem'].items())
+        args.extend(['-c','default_permissions='+json.dumps(POLICY_PROFILE),
+                     '-c','permissions.'+POLICY_PROFILE+'.filesystem={'+table+'}',
+                     '-c','permissions.'+POLICY_PROFILE+'.network.enabled='+json.dumps(bool(frozen['network']))])
     return dict(model=p['model'],provider=p['provider'],effort=p['effort'],args=args,
                 profile=p,context_window=p['context_window'],auto_compact_token_limit=p['auto_compact_token_limit'])
 
@@ -151,10 +197,11 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
     profiles={n:profile(n,config) for n in names}
     selected=[row['case_id'] for row in select_cases(families,cases,level,min_arms)]
     output=Path(output).absolute();output.mkdir(parents=True,exist_ok=False)
+    for name in run_layout.BATCH_FOLDERS:(output/name).mkdir()
     batch=dict(schema='robofrontier.cli-benchmark.v1',status='preparing',created_at=time.time(),
         cwd=str(ROOT),python=sys.executable,context_window=next(iter(profiles.values()))['context_window'],
         auto_compact_token_limit=next(iter(profiles.values()))['auto_compact_token_limit'],
-        task_wall_limit_s=wall_limit_s,model_calls=0,jobs=[])
+        task_wall_limit_s=wall_limit_s,model_calls=0,jobs=[],**run_layout.batch_record())
     write_json(output/'batch.json',batch)
     # Match private Dial instances across model arms of this batch. These are
     # new secrets, never copied from an Oracle or exposed in public inputs.
@@ -182,7 +229,7 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
         for case in selected:
             run=output/name/case
             prepare(case,run,harness_path,puzzles.get(case),wall_limit_s=wall_limit_s)
-            launch=launch_config(p,run/'private/inputs')
+            launch=launch_config(p,run/'private/inputs',run)
             write_json(run/'private/inputs/codex.json',launch)
             # Host config/model catalog belong to immutable prepared inputs too.
             import hashlib
@@ -196,10 +243,16 @@ def prepare_batch(output, names, families=None, cases=None, config=None, level=N
     return output/'batch.json'
 
 
+def read_lifecycle(run):
+    from robofrontier.runtime_store import RuntimeStore
+    store=RuntimeStore(Path(run)/'private/state/runtime.sqlite')
+    try:return store.get('lifecycle')
+    finally:store.close()
+
+
 def initialize_codex_home(launch, folder, timeout_s=90, *, env=None):
     """Serialize the real app-server handshake for processes sharing CODEX_HOME."""
-    environment=os.environ if env is None else env
-    home=Path(environment.get('CODEX_HOME', Path.home()/'.codex')).expanduser().resolve()
+    home=codex_home(env)
     home.mkdir(parents=True, exist_ok=True)
     deadline=time.monotonic()+timeout_s
     with (home/'robofrontier-init.lock').open('a+') as lock:
@@ -240,25 +293,35 @@ def memory_snapshot():
     return info
 
 
-def run_batch(folder, parallel):
+def run_batch(folder, parallel, continuing=False):
+    """Run a prepared batch; with `continuing`, pick up a batch whose supervisor died.
+
+    Continuing never restarts a world: a run that had started continues in its next
+    segment, at most once (docs/run-segments.md); runs that never started start now.
+    """
     folder=Path(folder).resolve();batch=read(folder/'batch.json')
-    if batch['status']!='prepared_not_started':raise ValueError('Never automatically restart a batch/world')
+    expected='running' if continuing else 'prepared_not_started'
+    if batch['status']!=expected:raise ValueError('Never automatically restart a batch/world' if not continuing
+                                                  else 'Only a batch whose supervisor stopped while running can continue')
     if not 1<=parallel<=36:raise ValueError('Parallel tasks must be 1..36')
-    with (folder/'supervisor.lock').open('a+') as lock:
+    lock_path=run_layout.batch_path(folder,'supervisor_lock');lock_path.parent.mkdir(parents=True,exist_ok=True)
+    with lock_path.open('a+') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         # Another supervisor may have changed the batch before the lock.
         batch=read(folder/'batch.json')
-        if batch['status']!='prepared_not_started':raise ValueError('Never automatically restart a batch/world')
-        return _run_batch_locked(folder, parallel, batch)
+        if batch['status']!=expected:raise ValueError('Batch status changed before the lock')
+        return _run_batch_locked(folder, parallel, batch, continuing)
 
 
-def _run_batch_locked(folder, parallel, batch):
+def _run_batch_locked(folder, parallel, batch, continuing=False):
+    # Continuing picks up the jobs that never reached a final status.
+    jobs=[j for j in batch['jobs'] if j['status']=='prepared'] if continuing else batch['jobs']
     execution=batch.get('execution',{})
     schedule=LaunchSchedule(execution.get('startup_interval_s',.3))
     scope=execution.get('codex_home_scope','shared')
     if scope not in ('task','shared'):raise ValueError('Unknown Codex home scope')
     environments={}
-    for job in batch['jobs']:
+    for job in jobs:
         run=Path(job['run_directory']);launch=read(run/'private/inputs/codex.json')
         if verify_inputs(run):raise ValueError('Prepared code/inputs changed; prepare a new batch')
         key=launch['profile'].get('env_key')
@@ -269,6 +332,9 @@ def _run_batch_locked(folder, parallel, batch):
         expected=__import__('hashlib').sha256(json.dumps(launch['profile'],sort_keys=True).encode()).hexdigest()
         if not checked.get('passed') or checked.get('profile_sha256')!=expected:
             raise ValueError('Model compatibility preflight missing/failed or provider configuration changed')
+        from robofrontier.preflight_probe import VERSION as PROBE_VERSION
+        if checked.get('probe_version')!=PROBE_VERSION:
+            raise ValueError('Model preflight predates the current image check; rerun preflight')
         catalog_sha=__import__('hashlib').sha256((run/'private/inputs/models.json').read_bytes()).hexdigest()
         version=subprocess.check_output(['codex','--version'],text=True).strip()
         if checked.get('catalog_sha256')!=catalog_sha or checked.get('codex_version')!=version:
@@ -282,42 +348,65 @@ def _run_batch_locked(folder, parallel, batch):
             key=hashlib.sha256(str(run).encode()).hexdigest()[:20]
             base=Path(execution.get('codex_home') or ROOT/'.robofrontier/codex')
             env['CODEX_HOME']=str((base/key).resolve())
-        home=Path(env.get('CODEX_HOME',Path.home()/'.codex')).expanduser().resolve()
+        home=codex_home(env)
         if home.is_relative_to(folder):
             raise ValueError('Keep credential/configuration directories outside collected batch evidence')
         home.mkdir(parents=True,exist_ok=True,mode=0o700)
+        if launch['profile'].get('provider')=='openai' and not (home/'auth.json').is_file() and not env.get('OPENAI_API_KEY'):
+            raise ValueError('No Codex login in '+str(home)+'; run once: CODEX_HOME='+shlex.quote(str(home))+' codex login')
         env['CODEX_HOME']=str(home)
         environments[str(run)]=env
-        write_json(run/'codex-home.json',{'schema':'robofrontier.codex-home.v1','codex_home':str(home),'scope':scope})
+        write_json(run_layout.path(run,'codex_home_marker','codex'),{'schema':'robofrontier.codex-home.v1','codex_home':str(home),'scope':scope})
         # Validate configuration without inference before starting any task.
         subprocess.run(['codex','app-server',*launch['args'],'--print-startup-config'],
                        check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,env=env)
     # Handshake is local and occurs before any task process or model turn.
     initialized=set()
-    for job in batch['jobs']:
+    for job in jobs:
         run=Path(job['run_directory']);env=environments[str(run)]
         if env['CODEX_HOME'] not in initialized:
-            initialize_codex_home(read(run/'private/inputs/codex.json'),run/'private/outputs',env=env)
+            initialize_codex_home(read(run/'private/inputs/codex.json'),run_layout.path(run,'owner_log','codex').parent,env=env)
             initialized.add(env['CODEX_HOME'])
     resources=memory_snapshot()
     batch['resource_snapshot']=resources
     print('Resource snapshot (not a concurrency guarantee): '+json.dumps(resources),file=sys.stderr)
-    batch.update(status='running',parallel=parallel,started_at=time.time(),model_calls=None,
-                 model_calls_note='Per-task native usage events are recorded; aggregate API request count is not measured')
+    if continuing:batch.setdefault('continued_at',[]).append(time.time())
+    else:batch.update(status='running',parallel=parallel,started_at=time.time(),model_calls=None,
+                      model_calls_note='Per-task native usage events are recorded; aggregate API request count is not measured')
     write_json(folder/'batch.json',batch)
     def task(job):
+        # An unexpected exit continues the same run once (docs/run-segments.md).
         run=Path(job['run_directory'])
-        if (run/'STOP').exists():return None
-        with (run/'private/outputs/supervisor.log').open('a') as log:
+        # A segment prepared just before the supervisor died starts as it is.
+        if continuing and read_lifecycle(run) not in ('prepared','resuming'):
+            continued,why=try_continue(run,'batch supervisor exited')
+            job.setdefault('segments',[]).append({'host_exit_code':None,'continued':continued,'reason':why})
+            write_json(folder/'batch.json',batch)
+            if not continued:raise ValueError('Run cannot continue: '+why)
+        while True:
+            result=launch(job)
+            if result is None:return result
+            # Even a clean host exit can follow a world that died; the eligibility
+            # check tells normal ends (finish, stop, wall limit, live seal) apart.
+            continued,why=try_continue(run,'host exit code '+str(result))
+            job.setdefault('segments',[]).append({'host_exit_code':result,'continued':continued,'reason':why})
+            write_json(folder/'batch.json',batch)
+            if not continued:return result
+    def launch(job):
+        run=Path(job['run_directory'])
+        stop,batch_stop=run_layout.path(run,'stop','codex'),run_layout.batch_path(folder,'stop')
+        if stop.exists():return None
+        log_path=run_layout.path(run,'supervisor_log','codex');log_path.parent.mkdir(parents=True,exist_ok=True)
+        with log_path.open('a') as log:
             proc=schedule.launch(lambda:subprocess.Popen(
                 ['node',str(ROOT/'scripts/codex_policy_host.js'),str(run),str(ROOT),sys.executable],
                 cwd=ROOT,stdout=log,stderr=log,env=environments[str(run)]),
-                stopped=lambda:(run/'STOP').exists() or (folder/'STOP').exists())
+                stopped=lambda:stop.exists() or batch_stop.exists())
             if proc is None:return None
-            write_json(run/'private/state/host-process.json',dict(pid=proc.pid,started_at=time.time()))
+            write_json(run_layout.path(run,'host_process','codex'),dict(pid=proc.pid,started_at=time.time()))
             return proc.wait()
     with ThreadPoolExecutor(max_workers=parallel) as pool:
-        futures={pool.submit(task,job):job for job in batch['jobs']}
+        futures={pool.submit(task,job):job for job in jobs}
         for future in as_completed(futures):
             job=futures[future]
             try:
@@ -332,6 +421,8 @@ def _run_batch_locked(folder, parallel, batch):
 
 def main():
     load_env(ROOT/'.env')
+    # Every child (app-server, policy host, runtime_cli) inherits this home.
+    os.environ['CODEX_HOME']=str(codex_home())
     p=argparse.ArgumentParser(description=__doc__);sub=p.add_subparsers(dest='command',required=True)
     sub.add_parser('models')
     a=sub.add_parser('preflight');a.add_argument('--models',nargs='+',default=['astra']);a.add_argument('--model-config',type=Path)
@@ -346,6 +437,8 @@ def main():
         a.add_argument('--cases',nargs='+');a.add_argument('--model-config',type=Path)
         a.add_argument('--level',type=int,choices=(1,2,3))
         a.add_argument('--min-arms',action='store_true',help='Smallest released arm count within each selected family')
+    a=sub.add_parser('continue',help='Continue a batch whose supervisor died (docs/run-segments.md)')
+    a.add_argument('batch',type=Path);a.add_argument('--parallel',type=int,default=9)
     a=sub.add_parser('run');a.add_argument('batch',type=Path);a.add_argument('--parallel',type=int,default=9)
     a=sub.add_parser('status');a.add_argument('batch',type=Path)
     a=sub.add_parser('stop');a.add_argument('batch',type=Path)
@@ -360,8 +453,8 @@ def main():
         print(json.dumps(dict(model_calls=0,simulator_started=False,parallel=args.parallel,
                               task_count=len(jobs),jobs=jobs),ensure_ascii=False,indent=2))
     elif args.command=='preflight':
-        from PIL import Image, ImageDraw
         import hashlib
+        from robofrontier import preflight_probe
         for name in args.models:
             selected=profile(name,args.model_config)
             key=selected.get('env_key')
@@ -372,11 +465,12 @@ def main():
             # A failed/interrupted new check must not leave an older pass usable
             # under the new provider/model fingerprint.
             write_json(target/'report.json',{'passed':False,'error':'Preflight did not complete'})
-            image=Image.new('RGB',(512,512),'red');ImageDraw.Draw(image).rectangle((256,0,511,511),fill='blue');image.save(target/'colors.png')
+            write_json(target/'probe.json',preflight_probe.write(target/'colors.png',*preflight_probe.choose()))
             command=['node',str(ROOT/'scripts/codex_preflight.js'),str(target)]
             if args.smoke_only:command.append('--smoke-only')
             result=subprocess.run(command)
             receipt=read(target/'report.json');receipt['profile_sha256']=hashlib.sha256(json.dumps(selected,sort_keys=True).encode()).hexdigest()
+            receipt['probe_version']=preflight_probe.VERSION
             if result.returncode:receipt['passed']=False
             if receipt.get('passed'):
                 receipt['catalog_sha256']=hashlib.sha256((target/'models.json').read_bytes()).hexdigest()
@@ -385,6 +479,7 @@ def main():
             if result.returncode:raise SystemExit(result.returncode)
     elif args.command=='prepare':print(prepare_batch(args.output,args.models,args.families,args.cases,args.model_config,args.level,args.min_arms,args.wall_limit_s))
     elif args.command=='run':run_batch(args.batch,args.parallel)
+    elif args.command=='continue':run_batch(args.batch,args.parallel,continuing=True)
     elif args.command=='status':
         batch=read(args.batch/'batch.json')
         for j in batch['jobs']:
@@ -394,7 +489,9 @@ def main():
                      for a,v in s.agents().items()});s.close()
         print(json.dumps(batch,ensure_ascii=False,indent=2))
     else:
-        for job in read(args.batch/'batch.json')['jobs']:Path(job['run_directory'],'STOP').touch()
+        for stop in [run_layout.batch_path(args.batch,'stop'),
+                     *(run_layout.path(job['run_directory'],'stop','codex') for job in read(args.batch/'batch.json')['jobs'])]:
+            stop.parent.mkdir(parents=True,exist_ok=True);stop.touch()
 
 
 if __name__=='__main__':main()

@@ -69,6 +69,20 @@ class TerminalServoTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'already has an execution'):
             self.world.validate_action('A','gripper',{'state':'open'},self.cfg)
 
+    def test_local_recovery_waits_for_proven_stop_and_keeps_original_failed(self):
+        a=self.arm;command=self.world.validate_action('A','move',{'joint_rad':a.qref.tolist()},self.cfg)
+        a.start('original',command,0);a.request_stop(.1,'Action timeout; stopped at current reference')
+        a.velocity[:]=.1
+        self.assertEqual(a.poll(3.2,15)['status'],'uncertain')
+        self.assertIsNone(a.recover_stopped('original'))
+        with self.assertRaises(ValueError):a.recover_stopped('different')
+        a.velocity[:]=0;self.world.data.qvel[a.dofs]=0
+        for _ in range(5):self.assertIsNone(a.poll(3.2,15))
+        self.assertIsNone(a.recover_stopped('original'))
+        for tick in (3.22,3.24,3.26):self.assertIsNone(a.poll(tick,15))
+        result=a.recover_stopped('original')
+        self.assertEqual(result['status'],'failed');self.assertEqual(result['call_id'],'original');self.assertIsNone(a.job)
+
     def test_direct_abort_freezes_jaw_reference(self):
         a=self.arm;a.start('jaw',self.world.validate_action('A','gripper',{'state':'close'},self.cfg),0)
         a.control(.02);reference=a.observe()['gripper_width_m']*255/.08;a.end('failed','engineering stop')

@@ -36,6 +36,25 @@ class PipelineTests(unittest.TestCase):
         self.assertIn('error',self.call('Controller','gripper',{'state':'close'})['result'])
         self.assertEqual(self.service.world.executed,[])
 
+    def test_robot_requests_after_the_run_ended_fail_at_once_and_never_block_the_seal(self):
+        from robofrontier.run_seal import _unsettled
+        self.start()
+        # Queued while running, reached only after the run ended (the cutoff race).
+        queued=self.service.accept('A','move',{'delta_m':[0,0,.01]},'queued-move')
+        self.service.store.put('lifecycle','ended')
+        self.service.pump()
+        self.assertIn('has ended',queued['result']['error'])
+        # Arriving after the end: refused without ever being queued.
+        for op,data in (('move',{'delta_m':[0,0,.01]}),('gripper',{'state':'close'}),
+                        ('action_batch',{'actions':[{'robot':'A','op':'move','parameters':{'delta_m':[0,0,.01]}}]})):
+            job=self.service.accept('A',op,data,'late-'+op)
+            self.assertTrue(job['done'].is_set()); self.assertIn('has ended',job['result']['error'])
+            self.assertEqual(self.service.store.call('late-'+op)['status'],'failed')
+        self.assertEqual(self.service.world.executed,[])
+        self.assertEqual(_unsettled(self.service.store),[])
+        # Reading the world still works after the end.
+        self.assertNotIn('error',self.call('A','observe',{'cameras':['global']})['result'])
+
     def test_worker_cannot_select_another_robot_and_admin_pause_releases_wait(self):
         self.start()
         result=self.call('A','gripper',{'robot':'B','state':'close'})['result']
@@ -304,6 +323,35 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(self.service.store.actions()['unknown']['status'],'uncertain')
         self.assertEqual(self.service.store.get('lifecycle'),'recovery_required')
         self.assertIn('error',self.call('A','gripper',{'state':'open'})['result'])
+    def test_local_unsettled_arm_does_not_end_world_and_agent_can_reconcile(self):
+        from types import SimpleNamespace
+        self.start()
+        self.call('A','gripper',{'state':'close','wait':False},'unsettled-A')
+        self.call('B','gripper',{'state':'close','wait':False},'running-B')
+        self.service.world.arms={'A':SimpleNamespace(job='unsettled-A',stopping=True,uncertainty_reported=True)}
+        self.service.world.finished.append({'call_id':'unsettled-A','status':'uncertain',
+            'reason':'Stop did not settle; engineering review required',
+            'stop_reason':'Action timeout; stopped at current reference'})
+        self.service.pump()
+        self.assertEqual(self.service.store.get('lifecycle'),'running')
+        self.assertFalse(self.service.ended)
+        self.assertEqual(self.service.store.actions()['unsettled-A']['status'],'uncertain')
+        self.assertIn('B',self.service.world.running)
+        self.assertIn('error',self.call('A','gripper',{'state':'open'})['result'])
+        self.assertIn('error',self.call('B','recover_action',{'call_id':'unsettled-A'})['result'])
+        self.service.world.complete('B');self.service.pump()
+        self.assertEqual(self.service.store.actions()['running-B']['status'],'completed')
+        self.service.world.recover_action=lambda robot,ident: None
+        pending=self.call('A','recover_action',{'call_id':'unsettled-A'})['result']
+        self.assertFalse(pending['recovered'])
+        self.assertEqual(self.service.store.actions()['unsettled-A']['status'],'uncertain')
+        self.service.world.recover_action=lambda robot,ident: {'call_id':ident,'status':'failed','reason':'Action timed out; stopped and reconciled'}
+        done=self.call('A','recover_action',{'call_id':'unsettled-A'})['result']
+        self.assertTrue(done['recovered'])
+        self.assertEqual(self.service.store.actions()['unsettled-A']['status'],'failed')
+        self.service.world.running.pop('A')
+        self.assertEqual(self.call('A','gripper',{'state':'open','wait':False},'new-action')['result']['execution_status'],'running')
+
     def test_finish_closes_team_but_not_a_success_claim(self):
         self.start()
         self.assertTrue(self.call('Controller','finish',{'note':'test only'})['result']['ended'])

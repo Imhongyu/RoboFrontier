@@ -1,16 +1,107 @@
 """Derived host metrics with explicit missing values; never evaluator feedback."""
+from collections import Counter
 import json
+import lzma
 import math
 import os
 from pathlib import Path
+import re
 import time
+
+from . import run_layout
+
+# Native sub-agent tools: Codex's collaboration namespace and Claude's Agent/Task.
+# They bypass robot delegate (no runtime record, likely uncollected usage).
+NATIVE_SUBAGENT_TOOLS = frozenset({'spawn_agent', 'followup_task', 'send_message', 'interrupt_agent',
+                                   'wait_agent', 'list_agents', 'Agent', 'Task'})
+# A run-skills heading: "## [type] conclusion — role — tags: a, b"; each later revision
+# of that entry is appended under "### rev N — role — what changed".
+ENTRY = re.compile(r'^## \[([^\]]+)\]\s*(.*?)\s+—\s+(.+?)\s+—\s+tags:\s*(.*?)\s*$')
+REVISION = re.compile(r'^### rev\s+(\d+)\s+—\s+(.+?)\s+—\s+(.*?)\s*$')
+
+
+def open_session(path):
+    """Open a native session transcript, plain or archived (`.jsonl.xz`), as text."""
+    return lzma.open(path, 'rt') if str(path).endswith('.xz') else Path(path).open()
+
+
+def session_stem(path):
+    """A transcript's path without `.jsonl` or `.jsonl.xz`: its session-linked folder."""
+    path = Path(path)
+    for suffix in ('.jsonl.xz', '.jsonl'):
+        if path.name.endswith(suffix): return path.with_name(path.name[:-len(suffix)])
+    raise ValueError('Not a session transcript: '+str(path))
+
+
+def session_glob(folder, pattern):
+    """Transcripts under `folder` matching `pattern` (a `*.jsonl` glob), plain or archived.
+
+    A transcript present in both forms counts once, as its plain file."""
+    found = {}
+    for path in Path(folder).rglob(pattern+'.xz'): found[session_stem(path)] = path
+    for path in Path(folder).rglob(pattern): found[session_stem(path)] = path
+    return sorted(found.values())
+
+
+def codex_run_transcripts(run, thread):
+    """The run's own copies of a Codex thread (run-v6 private/engine/transcripts/)."""
+    try: folder = run_layout.path(run, 'engine_transcripts')
+    except KeyError: return []
+    return session_glob(folder, '*'+thread+'*.jsonl') if thread and folder.is_dir() else []
+
+
+def run_skills(run_dir):
+    """The run's shared lessons file: one item per entry heading, with its revisions."""
+    run_dir = Path(run_dir)
+    try:
+        lessons = run_layout.path(run_dir, 'skills_file')
+    except KeyError:
+        return []
+    if not lessons.is_file():
+        return []
+    entries = []
+    for line in lessons.read_text(errors='replace').splitlines():
+        if line.startswith('### ') and entries:
+            match = REVISION.match(line)
+            entries[-1]['revisions'].append({'rev': int(match.group(1)), 'role': match.group(2), 'change': match.group(3)}
+                                            if match else {'rev': None, 'role': None, 'change': line[4:].strip()})
+            continue
+        if not line.startswith('## '):
+            continue
+        match = ENTRY.match(line)
+        entries.append({'type': match.group(1), 'title': match.group(2), 'role': match.group(3),
+                        'tags': [t.strip() for t in match.group(4).split(',') if t.strip()], 'revisions': []}
+                       if match else {'type': None, 'title': line[3:].strip(), 'role': None, 'tags': [], 'revisions': []})
+    return [{'path': str(lessons.relative_to(run_dir)), 'bytes': lessons.stat().st_size, 'entries': entries}]
+
+
+def native_subagent_calls(paths):
+    """Count native sub-agent tool calls in Codex rollouts or Claude transcripts."""
+    counts = Counter()
+    for path in paths:
+        with open_session(path) as stream:
+            for line in stream:
+                # A cheap prefilter keeps image payloads and ordinary turns undecoded.
+                if not any(name in line for name in NATIVE_SUBAGENT_TOOLS): continue
+                try: record = json.loads(line)
+                except ValueError: continue
+                payload, names = record.get('payload') or {}, []
+                if record.get('type') == 'response_item' and payload.get('type') in ('function_call', 'custom_tool_call'):
+                    names.append(payload.get('name') or '')
+                message = record.get('message') or {}
+                if record.get('type') == 'assistant' and isinstance(message, dict) and isinstance(message.get('content'), list):
+                    names += [b.get('name') or '' for b in message['content'] if isinstance(b, dict) and b.get('type') == 'tool_use']
+                for name in names:
+                    short = re.split(r'[./]|__', name)[-1]
+                    if short in NATIVE_SUBAGENT_TOOLS: counts[short] += 1
+    return dict(counts)
 
 
 def host_event(run, event, **fields):
     # Telemetry is derived evidence. Its failure must not hide a robot result
     # or turn a settled action into an apparently unsubmitted request.
     try:
-        path = Path(run)/'private/outputs/claude-host.jsonl'
+        path = run_layout.path(run, 'host_log', 'claude')
         path.parent.mkdir(parents=True, exist_ok=True)
         raw = (json.dumps({'schema': 'robofrontier.host-event.v1', 'at': time.time(),
                            'event': event, **fields}, ensure_ascii=False, allow_nan=False)+'\n').encode()
@@ -46,7 +137,10 @@ def usage(engine, raw, model_usage=None):
         cached = number(raw.get('cached_input_tokens', raw.get('cachedInputTokens')))
         uncached = total-cached if total is not None and cached is not None and total >= cached else None
         written = None  # Codex does not separately report cache writes here.
-    return {'input_tokens': total, 'uncached_input_tokens': uncached,
+    # Same definition for both engines: every input token not read from cache.
+    # Claude's uncached_input_tokens excludes cache writes, so it is not comparable.
+    miss = total-cached if total is not None and cached is not None and total >= cached else None
+    return {'input_tokens': total, 'uncached_input_tokens': uncached, 'cache_miss_input_tokens': miss,
             'cached_input_tokens': cached, 'cache_write_input_tokens': written,
             'output_tokens': number(raw.get('output_tokens', raw.get('outputTokens')))}
 
@@ -73,8 +167,7 @@ def _union(intervals):
 
 def export_metrics(run, engine):
     """Count actual host events, including setup; deduplicate terminal event identities."""
-    root = Path(run)/'private/outputs'
-    events = _records(root/('claude-host.jsonl' if engine == 'claude' else 'codex-host.jsonl'))
+    events = _records(run_layout.path(run, 'host_log', engine))
     rows, seen = [], set()
     legacy = False
     if engine == 'claude':
@@ -93,7 +186,7 @@ def export_metrics(run, engine):
             legacy = True
             # Older runs remain readable. Setup usage may be absent, so this
             # fallback is explicitly partial rather than a full-run total.
-            for p in sorted((Path(run)/'private/evidence').glob('*-summary.json')):
+            for p in sorted(run_layout.path(run, 'engine_turns', engine).glob('*-summary.json')):
                 data = json.loads(p.read_text()); record = data.get('record') or {}
                 summary = record.get('summary') or {}
                 rows.append({'actor': data.get('actor'), 'session_id': data.get('session_id'),
@@ -117,7 +210,7 @@ def export_metrics(run, engine):
             previous[tid] = normalized
             rows.append({'actor': e.get('actor'), 'session_id': tid, 'phase': 'policy',
                          'usage': delta, 'reported_cost_usd': None, 'duration_s': None, 'ended_at': None})
-    fields = ('input_tokens', 'uncached_input_tokens', 'cached_input_tokens', 'cache_write_input_tokens', 'output_tokens')
+    fields = ('input_tokens', 'uncached_input_tokens', 'cache_miss_input_tokens', 'cached_input_tokens', 'cache_write_input_tokens', 'output_tokens')
     totals = {k: sum(r['usage'][k] for r in rows) if rows and all(r['usage'][k] is not None for r in rows) else None for k in fields}
     known_usage = {k: sum(r['usage'][k] for r in rows if r['usage'][k] is not None)
                    if any(r['usage'][k] is not None for r in rows) else None for k in fields}
@@ -174,6 +267,8 @@ def native_codex_sessions(run, thread, codex_home=None):
     """
     if not thread: return []
     run = Path(run).resolve()
+    own = codex_run_transcripts(run, thread)
+    if own and codex_home is None: return own
     if codex_home is not None:
         home = Path(codex_home).expanduser().resolve()
     else:
@@ -191,8 +286,10 @@ def native_codex_sessions(run, thread, codex_home=None):
                             path = (parent/role['session']).resolve()
                             if path.is_relative_to(parent) and path.is_file(): matches.append(path)
                 return sorted(set(matches))
-            marker = parent/'codex-home.json'
+            if parent == run: marker = run_layout.path(run, 'codex_home_marker')
+            elif (parent/'batch.json').is_file(): marker = run_layout.batch_path(parent, 'codex_home_marker')
+            else: marker = parent/'codex-home.json'
             if home is None and marker.is_file():
                 home = Path(json.loads(marker.read_text())['codex_home']).expanduser().resolve()
         if home is None: home = Path(os.environ.get('CODEX_HOME', Path.home()/'.codex')).expanduser().resolve()
-    return sorted((home/'sessions').rglob('*'+thread+'*.jsonl'))
+    return session_glob(home/'sessions', '*'+thread+'*.jsonl')

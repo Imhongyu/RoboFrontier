@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import time
 from .runtime_store import RuntimeStore
+from . import run_layout
 from .scheduling import Scheduler
 from .delegation import Delegations
 
@@ -149,9 +150,20 @@ def execute(store, op, data, owner, now):
         call_id='start-'+__import__('hashlib').sha256(store.get('run_id').encode()).hexdigest()[:24]
         # Multiple benchmark runs share this Python process. Redirecting global
         # sys.stderr here would cross-wire logs and restore closed streams.
-        with (store.path.parent/'admin-client.log').open('a') as log:
+        log_path=run_layout.for_store(store.path,'admin_log');log_path.parent.mkdir(parents=True,exist_ok=True)
+        with log_path.open('a') as log:
             print('call_id='+call_id,file=log,flush=True)
         return client_call(connection,'start',{},call_id,log_call_id=False)
+    if op=='request-resume':
+        # A continued run (docs/run-segments.md): the owner resumes the prepared segment
+        # and returns each working role's frozen resume message.
+        from .pipeline_client import client_call
+        connection=store.path.parent/'connections'/f"{cfg['manager']}.json"
+        call_id='resume-'+str(store.get('segment',0))+'-'+__import__('hashlib').sha256(store.get('run_id').encode()).hexdigest()[:24]
+        log_path=run_layout.for_store(store.path,'admin_log');log_path.parent.mkdir(parents=True,exist_ok=True)
+        with log_path.open('a') as log:
+            print('call_id='+call_id,file=log,flush=True)
+        return client_call(connection,'resume',{},call_id,log_call_id=False)
     if op=='plan':return {'commands':Scheduler(store).plan(owner,now)}
     if op=='claim':return {'command':Scheduler(store).claim(data['wake_id'],owner,now)}
     if op=='dispatch-result':
@@ -159,6 +171,10 @@ def execute(store, op, data, owner, now):
         if data['outcome']=='sent':
             health=store.get('dispatcher_health',{});health['last_delivery_at']=now;store.put('dispatcher_health',health)
         return {'recorded':True}
+    if op=='model-restart':
+        from .policy_bootstrap import MAX_MODEL_RESTARTS
+        count=store.claim_model_restart(data.get('actor',cfg['manager']),data.get('engine','codex'),MAX_MODEL_RESTARTS)
+        return {'allowed':count is not None,'restart':count}
     if op=='pause':
         store.put('dispatch_paused',True);store.event('DISPATCH_PAUSED',cfg['manager'],data)
         return {'paused':True}
@@ -176,7 +192,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run-dir',type=Path,required=True)
     p.add_argument('--owner',default='Meta')
-    p.add_argument('op',choices=['snapshot','observe-sessions','request-start','plan','claim','dispatch-result','pause','resume-dispatch','export',
+    p.add_argument('op',choices=['snapshot','observe-sessions','request-start','request-resume','plan','claim','dispatch-result','pause','resume-dispatch','export','model-restart',
                                'delegate-claim','delegate-snapshot-bind','delegate-bind','delegate-activate','delegate-started','delegate-uncertain','session-unavailable','seal'])
     p.add_argument('--data',default='{}')
     args=p.parse_args()

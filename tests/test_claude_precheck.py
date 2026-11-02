@@ -37,7 +37,7 @@ print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "se
 '''
 
 
-def fake_claude(directory, tool_answer='green', recall_answer='green'):
+def fake_claude(directory, tool_answer='green red', recall_answer='green red'):
     path = Path(directory) / 'claude'
     path.write_text('#!' + sys.executable + '\nimport json, sys\n' + FAKE_BODY % (tool_answer, recall_answer))
     path.chmod(path.stat().st_mode | stat.S_IEXEC)
@@ -46,18 +46,18 @@ def fake_claude(directory, tool_answer='green', recall_answer='green'):
 
 class PrecheckTests(unittest.TestCase):
     def setUp(self):
-        self.color_patch=patch.object(pc.secrets,'choice',return_value='green')
+        self.color_patch=patch.object(pc.preflight_probe,'choose',return_value=('green','red'))
         self.color_patch.start()
         self.addCleanup(self.color_patch.stop)
 
     def test_random_challenge_rejects_a_fixed_green_guess(self):
-        with tempfile.TemporaryDirectory() as tmp, patch.object(pc.secrets,'choice',return_value='red'):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(pc.preflight_probe,'choose',return_value=('red','blue')):
             binary=fake_claude(tmp)
             base={'PATH':'/usr/bin:/bin','ANTHROPIC_API_KEY':'fake-key-not-real'}
             receipt=pc.run_precheck('haiku',Path(tmp)/'out',.5,base,binary=str(binary))
-            self.assertEqual(receipt['challenge_color'],'red')
+            self.assertEqual(receipt['challenge'],'red blue')
             self.assertFalse(receipt['passed'])
-            self.assertFalse(receipt['checks'][1]['checks']['image_color_named'])
+            self.assertFalse(receipt['checks'][1]['checks']['image_colors_named'])
 
     def test_concurrent_precheck_servers_keep_images_and_counts_separate(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -87,20 +87,20 @@ class PrecheckTests(unittest.TestCase):
                 for server in (server1,server2): server.shutdown(); server.server_close()
 
     def test_non_observe_request_does_not_satisfy_visual_check(self):
-        record={'process':'exited','exit_code':0,'summary':{'result_text':'green',
+        record={'process':'exited','exit_code':0,'summary':{'result_text':'green red',
             'turn_status':'ended','session_id':'session','malformed_lines':0,'tool_calls':1,
             'reported_model':'fake','observe_top_calls':1}}
         result=pc.judge('tool_image',record,0,1,expected_session='session',
-                        expected_color='green',observes_before=0,observes_after=0)
+                        expected_answer='green red',observes_before=0,observes_after=0)
         self.assertFalse(result['checks']['robot_request_made'])
         self.assertFalse(result['passed'])
 
     def test_observe_without_selected_view_does_not_satisfy_visual_check(self):
-        record={'process':'exited','exit_code':0,'summary':{'result_text':'green',
+        record={'process':'exited','exit_code':0,'summary':{'result_text':'green red',
             'turn_status':'ended','session_id':'session','malformed_lines':0,'tool_calls':1,
             'reported_model':'fake','observe_top_calls':0}}
         result=pc.judge('tool_image',record,0,1,expected_session='session',
-                        expected_color='green',observes_before=0,observes_after=1)
+                        expected_answer='green red',observes_before=0,observes_after=1)
         self.assertFalse(result['checks']['image_view_requested'])
         self.assertFalse(result['passed'])
     def test_without_confirm_spend_nothing_runs(self):
@@ -122,7 +122,7 @@ class PrecheckTests(unittest.TestCase):
 
     def test_wrong_colour_stops_before_resume(self):
         with tempfile.TemporaryDirectory() as tmp:
-            binary = fake_claude(tmp, tool_answer='red')
+            binary = fake_claude(tmp, tool_answer='red blue')
             base = {'PATH': '/usr/bin:/bin', 'ANTHROPIC_API_KEY': 'fake-key-not-real'}
             receipt = pc.run_precheck('haiku', Path(tmp) / 'out', 0.5, base, binary=str(binary))
             self.assertFalse(receipt['passed'])
@@ -135,7 +135,7 @@ class PrecheckTests(unittest.TestCase):
             base={'PATH':'/usr/bin:/bin','ANTHROPIC_API_KEY':'fake-key-not-real'}
             receipt=pc.run_precheck('haiku',Path(tmp)/'out',.5,base,binary=str(binary))
             self.assertFalse(receipt['passed'])
-            self.assertFalse(receipt['checks'][1]['checks']['image_color_named'])
+            self.assertFalse(receipt['checks'][1]['checks']['image_colors_named'])
 
     def test_budget_is_split_and_exhaustion_stops(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -164,7 +164,7 @@ class PrecheckTests(unittest.TestCase):
                 if not kwargs.get('fork_from'): return original(*args,**kwargs)
                 forks.append(kwargs)
                 return {'process':'exited','exit_code':0,'summary':{'session_id':kwargs['session_id'],
-                        'turn_status':'ended','tool_calls':0,'result_text':'green','malformed_lines':0,
+                        'turn_status':'ended','tool_calls':0,'result_text':'green red','malformed_lines':0,
                         'total_cost_usd':.01,'reported_model':'fake','usage':{}}}
             def proof(parent,child,config): return {'source_thread_id':parent}
             with patch.object(pc,'run_turn',runner), patch.object(pc,'fork_provenance',proof):

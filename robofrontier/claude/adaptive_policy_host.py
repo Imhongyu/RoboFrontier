@@ -20,7 +20,7 @@ from robofrontier.runtime_store import RuntimeStore
 class AdaptivePolicyHost:
     def __init__(self, run_dir, profile, base_env, ledger, *, turn_budget_usd, setup_budget_usd,
                  host_factory=ClaudeSessionHost, setup_factory=AdaptiveForkSetup,
-                 client=client_call, verifier=verify_inputs):
+                 client=client_call, verifier=verify_inputs, resume=False):
         self.run=Path(run_dir).resolve()
         if not Path(ledger.path).resolve().is_relative_to(self.run/'private'):
             raise ValueError('A run-local shared budget ledger is required')
@@ -32,13 +32,19 @@ class AdaptivePolicyHost:
             launch=json.loads((self.run/'private/inputs/claude.json').read_text())
             if cfg.get('model')!=profile.get('model') or cfg.get('effort')!=profile.get('effort') or launch.get('profile')!=profile:
                 raise ValueError('Profile differs from frozen run')
-            if self.store.get('lifecycle')!='prepared' or self.store.agent('Controller')['thread_id']:
+            # A run continued after an unexpected exit (docs/run-segments.md) keeps its sessions.
+            self.resuming=resume; self.profile=profile; self.base_env=base_env; self.host_factory=host_factory
+            if resume:
+                if self.store.get('lifecycle')!='resuming' or not self.store.agent('Controller')['thread_id']:
+                    raise ValueError('No prepared segment to resume')
+            elif self.store.get('lifecycle')!='prepared' or self.store.agent('Controller')['thread_id']:
                 raise ValueError('A previously bound or started world cannot be restarted')
             changed=verifier(self.run)
             if changed: raise ValueError('Frozen inputs changed: '+', '.join(changed))
             self.prompt=bootstrap_prompt(self.run,topology='adaptive',startup_protocol=cfg.get('startup_protocol','ready_barrier_v1'))
             self.host=host_factory(self.run,'Controller',profile,base_env,
                                    max_budget_usd=turn_budget_usd,budget_ledger=ledger)
+            if resume: self.host.adopt(self.store.agent('Controller')['thread_id'])
             self.ledger=ledger; self.setup_factory=setup_factory; self.client=client
             self.setup_budget_usd=setup_budget_usd; self.turn_budget_usd=turn_budget_usd
             self.bound=False; self.bind_attempted=False; self.setup=None; self.dispatcher=None
@@ -63,6 +69,26 @@ class AdaptivePolicyHost:
             if not reply.get('started'): raise ValueError('Direct START was not confirmed')
         return self.host.send(self.prompt)
 
+    def resume_segment(self):
+        """Reopen the Controller and every active delegate, resume the world, and send each
+        its frozen resume message. Delegates keep their own sessions; none is forked again."""
+        if not self.resuming or self.dispatcher: raise ValueError('Not a prepared segment')
+        self.bound=True
+        self.setup=self.setup_factory(self.store,self.host,self.ledger,'claude-meta-'+uuid.uuid4().hex,
+                                      setup_budget_usd=self.setup_budget_usd,child_budget_usd=self.turn_budget_usd)
+        for actor,agent in self.store.agents().items():
+            if agent['kind']=='delegate' and agent.get('delegation_state')=='active' and agent['thread_id']:
+                self.setup.hosts[actor]=self.host_factory(self.run,actor,self.profile,self.base_env,
+                                                          max_budget_usd=self.turn_budget_usd,budget_ledger=self.ledger,
+                                                          _validated_delegate=True).adopt(agent['thread_id'])
+        self.dispatcher=AdaptiveDispatcher(self.store,self.setup)
+        reply=self.dispatcher.admin('request-resume')
+        if not reply.get('resumed'): raise ValueError('World did not confirm the resumed segment')
+        for actor,text in reply['messages'].items():
+            host=self.dispatcher.host(actor)
+            if host is not None: host.send(text)
+        return reply
+
     def start_when_ready(self):
         if not self.bound or not self.dispatcher: raise ValueError('Controller has not been bound')
         if not self.dispatcher.observe('Controller') or self.host.observe()['status']!='idle' or not self.store.agent('Controller')['ready']:
@@ -85,7 +111,10 @@ class AdaptivePolicyHost:
         for host in hosts:
             try: host.stop()
             except Exception as error: errors.append(type(error).__name__)
-        deadline=time.monotonic()+5
+        # One absolute deadline for every role: an interrupted persistent turn has
+        # INTERRUPT_GRACE_S to end, then its process closes (runner.STOP_WAIT_S).
+        from robofrontier.claude.runner import STOP_WAIT_S
+        deadline=time.monotonic()+STOP_WAIT_S
         if self.dispatcher and not self.dispatcher.wait_setup(timeout=max(0,deadline-time.monotonic())):
             errors.append('ForkSetupStillActive')
         for host in hosts:
@@ -102,4 +131,6 @@ class AdaptivePolicyHost:
         hosts=[self.host]+list(self.setup.hosts.values() if self.setup else [])
         if any(host.observe()['status']=='active' for host in hosts):
             raise ValueError('Stop and wait for every role before closing')
+        for host in hosts:
+            if hasattr(host,'close_process'): host.close_process()
         self.store.close()

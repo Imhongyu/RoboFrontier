@@ -4,10 +4,19 @@ import json
 import time
 
 from robofrontier.claude.provenance import history, transcript_rows
+from robofrontier import run_layout
 
 MAX_CAPACITY_RETRIES = 3
 BASE_DELAY_SECONDS = 10
 MAX_DELAY_SECONDS = 60
+# The same policy as the Codex host (scripts/codex_policy_host.js): 10/20/40 s plus a
+# 0-5 s jitter fixed by the session ID, so many runs do not retry together.
+JITTER_SECONDS = 5
+
+
+def capacity_delay(attempt, session_id):
+    jitter = sum(map(ord, str(session_id))) % (JITTER_SECONDS*1000) / 1000
+    return min(MAX_DELAY_SECONDS, BASE_DELAY_SECONDS * 2**attempt) + jitter
 CAPACITY_CODES = frozenset(('rate_limit', 'rate_limit_error', 'overloaded_error', 'server_overloaded'))
 CONTINUE_PROMPT = ('The previous model turn ended with a confirmed capacity or rate-limit error. '
                    'Continue the same running task and saved work. Inspect pending and original job IDs '
@@ -41,7 +50,7 @@ def recover(host, store, now=None):
     with host.lock:
         if (host.state != 'error' or not host.retryable_capacity
                 or host.capacity_retry_count >= host.max_capacity_retries
-                or host.cancel_event.is_set() or (host.run/'STOP').exists()
+                or host.cancel_event.is_set() or run_layout.path(host.run, 'stop', 'claude').exists()
                 or store.get('lifecycle') != 'running' or store.get('dispatch_paused', False)):
             return False
         try:
@@ -56,7 +65,7 @@ def recover(host, store, now=None):
         # A tool-free creation turn must not be retried through this mechanism.
         if any(b['status'] == 'creating' for b in store.get('delegations', {}).values()): return False
         if host.capacity_retry_due is None:
-            host.capacity_retry_due = now + min(MAX_DELAY_SECONDS, BASE_DELAY_SECONDS * 2**host.capacity_retry_count)
+            host.capacity_retry_due = now + capacity_delay(host.capacity_retry_count, host.session_id)
             host.event('capacity_wait', retry_number=host.capacity_retry_count+1,
                        error_code=(host.last_result or {}).get('summary', {}).get('capacity_error_code'),
                        max_retries=host.max_capacity_retries,
@@ -69,6 +78,39 @@ def recover(host, store, now=None):
         host.event('capacity_retry', retry_number=host.capacity_retry_count)
         try:
             host.send(CONTINUE_PROMPT)
+        except Exception:
+            host.state = 'unknown'
+            raise
+        return True
+
+
+def recover_model_loss(host, store):
+    """Resume a session whose CLI died mid-turn while the world kept running.
+
+    The robot calls that turn started keep running in the world, so the same session
+    resumes once this role has no action in flight, with the frozen restart notice the
+    Codex route also sends. The run allows MAX_MODEL_RESTARTS in total.
+    """
+    from robofrontier.policy_bootstrap import MAX_MODEL_RESTARTS
+    notice = host.run/'private/inputs/bootstrap/model-restart.md'
+    with host.lock:
+        if (host.state != 'error' or not getattr(host, 'cli_lost', False) or not notice.is_file()
+                or host.cancel_event.is_set() or run_layout.path(host.run, 'stop', 'claude').exists()
+                or store.get('lifecycle') != 'running' or store.get('dispatch_paused', False)):
+            return False
+        if host.budget_status not in ('tracking', 'not_set'): return False
+        busy = any(a['status'] in ('pending', 'running', 'uncertain') for a in store.actions(host.actor).values())
+        busy = busy or bool(store.db.execute("SELECT 1 FROM calls WHERE actor=? AND status='accepted' LIMIT 1",
+                                            (host.actor,)).fetchone())
+        if busy: return True
+        restart = store.claim_model_restart(host.actor, 'claude', MAX_MODEL_RESTARTS)
+        if restart is None:
+            return False
+        host.cli_lost = False
+        host.state = 'idle'  # The same session resumes; it is never recreated.
+        host.event('model_host_restart', attempt=restart)
+        try:
+            host.send(notice.read_text())
         except Exception:
             host.state = 'unknown'
             raise

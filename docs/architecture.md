@@ -10,7 +10,7 @@ runs' plans and experience are not automatically loaded into a new experiment.
 | --- | --- |
 | `robofrontier.toml` | Operator settings, validated and frozen at preparation |
 | `prompts/` | Shared rules and manager, Controller and Worker templates |
-| `.agents/skills/robot-collaboration/` | Agent instructions and authoritative tool/communication references |
+| `prompts/skills/robot-collaboration/` | Agent instructions and authoritative tool/communication references |
 | `configs/` | Versioned catalogs, asset locks and engineering settings |
 | `robofrontier/` | State, scheduling, native engine hosts, tools, MuJoCo and IK |
 | `scripts/` | Native entries, preparation, diagnostics, collection and rendering |
@@ -98,6 +98,8 @@ private/state/runtime.sqlite  Authoritative run-local execution database
 private/state/connections/    Role authentication and service addresses
 private/state/client-state/   Submitted requests, results and delivery receipts
 private/outputs/              Motion, events, exports, evaluation and sealing evidence
+private/inputs/segments/<k>/  Restore pose of segment k after an unexpected exit (docs/run-segments.md)
+private/outputs/segments/<k>/ Segment k's own motion, video and post-mortem evaluation
 ```
 
 `public` and `private` define the evidence contract, not operating-system

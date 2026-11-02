@@ -29,7 +29,7 @@ fork creation still have their own bounds. Host creation time is not a second
 120 seconds; the unified TOML startup default is 600 seconds. Record the entry
 and its frozen settings rather than treating these as one parameter.
 
-The shared [policy rules](../prompts/policy-rules.md) require continued work and
+The shared [policy rules](../prompts/rules.md) require continued work and
 recovery while unfinished. Use `finish` after public evidence supports completion,
 or explain publicly supported unrecoverability. The runtime independently checks
 actions and delegation closure, and the private scorer evaluates the terminal

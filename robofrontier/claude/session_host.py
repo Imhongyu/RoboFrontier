@@ -15,9 +15,10 @@ import sys
 import threading
 import uuid
 
-from robofrontier.claude.runner import PreLaunchCancelled, run_turn
+from robofrontier.claude.runner import PersistentSession, PreLaunchCancelled, policy_settings, run_turn
 from robofrontier.run_setup import verify_inputs, write_json
-from robofrontier.claude.recovery import MAX_CAPACITY_RETRIES, recover
+from robofrontier.claude.recovery import MAX_CAPACITY_RETRIES, recover, recover_model_loss
+from robofrontier import run_layout
 
 ACTOR_NAME = re.compile(r'[A-Za-z][A-Za-z0-9_-]{0,63}')
 
@@ -46,7 +47,7 @@ def role_mcp_config(run_dir, actor, python=sys.executable, *, _validated_delegat
     info = json.loads(connection.read_text())
     if info.get('actor') != actor or info.get('run_id') != run.name or info.get('schema_version') != 3:
         raise ValueError('Role connection does not match this run')
-    target = run / 'private/claude-mcp' / (actor + '.json')
+    target = run_layout.path(run, 'engine_mcp', 'claude') / (actor + '.json')
     # A model never chooses the actor or a connection path. The server binds it.
     project = Path(__file__).resolve().parents[2]
     write_json(target, {'mcpServers': {'robot': {
@@ -61,7 +62,7 @@ class ClaudeSessionHost:
     """Own one policy role's CLI turns; lifecycle events are never task results."""
     def __init__(self, run_dir, actor, profile, base_env, *, python=sys.executable,
                  binary='claude', turn_timeout=None, max_budget_usd=None, total_budget_usd=None,
-                 budget_ledger=None, runner=run_turn, _validated_delegate=False,
+                 budget_ledger=None, runner=None, _validated_delegate=False,
                  max_capacity_retries=MAX_CAPACITY_RETRIES):
         self.run = Path(run_dir).resolve()
         self.actor = actor
@@ -84,6 +85,10 @@ class ClaudeSessionHost:
         self.reported_spend = Decimal('0')
         self.unreported_cost_count = 0
         self.budget_status = 'tracking' if total_budget is not None or budget_ledger is not None else 'not_set'
+        # Runs with the frozen policy contract keep one CLI process per session, as the
+        # Codex app-server does; earlier runs start one process per turn.
+        if runner is None:
+            runner = PersistentSession() if policy_settings(self.run) is not None else run_turn
         self.runner = runner
         self.mcp = role_mcp_config(self.run, actor, python, _validated_delegate=_validated_delegate)
         self.session_id = str(uuid.uuid4())
@@ -97,6 +102,7 @@ class ClaudeSessionHost:
             raise ValueError('Capacity retries must be 0..10')
         self.max_capacity_retries = max_capacity_retries
         self.capacity_retry_count = 0
+        self.cli_lost = False
         self.capacity_retry_due = None
         self.retryable_capacity = False
 
@@ -105,7 +111,8 @@ class ClaudeSessionHost:
         host_event(self.run, event, actor=self.actor, session_id=self.session_id, turn_id=self.turn_id, **fields)
 
     def recover_capacity(self, store, now=None):
-        return recover(self, store, now)
+        """Resume after a capacity failure or a lost CLI; False leaves ordinary handling."""
+        return recover(self, store, now) or recover_model_loss(self, store)
 
     @classmethod
     def adopt_verified_fork(cls, run_dir, actor, profile, base_env, *, budget_ledger, max_budget_usd,
@@ -241,6 +248,14 @@ class ClaudeSessionHost:
             if self.cancel_event.is_set():
                 state = 'unknown'
             summary = record.get('summary') or {}
+            # The CLI died mid-turn (not a stop or deadline): it exited without a result. In
+            # a run prepared with a restart notice that is a failed turn the session may resume.
+            self.cli_lost = (not self.cancel_event.is_set()
+                             and (record.get('process') == 'process_exited'
+                                  or record.get('process') == 'exited' and record.get('exit_code') not in (0, None))
+                             and summary.get('turn_status') not in ('ended', 'failed')
+                             and (self.run/'private/inputs/bootstrap/model-restart.md').is_file())
+            if self.cli_lost: state = 'error'
             retryable = (state == 'error' and record.get('process') == 'exited'
                          and summary.get('session_id') == self.session_id
                          and summary.get('turn_status') == 'failed'
@@ -248,7 +263,8 @@ class ClaudeSessionHost:
                          and not summary.get('malformed_lines') and bool(summary.get('capacity_error_code')))
             if self.budget_ledger is not None:
                 summary = record.get('summary') or {}
-                known = (not self.cancel_event.is_set() and record.get('process') == 'exited'
+                # A lost CLI's turn has ended; only its cost is unknown (counted as unreported).
+                known = self.cli_lost or (not self.cancel_event.is_set() and record.get('process') == 'exited'
                          and (record.get('exit_code') == 0 or retryable)
                          and summary.get('session_id') == self.session_id
                          and summary.get('turn_status') in ('ended', 'failed')
@@ -290,7 +306,7 @@ class ClaudeSessionHost:
                           'source': 'cli_reported_estimate_not_provider_bill'}
             self.last_result = record
             try:
-                write_json(self.run / 'private/evidence' / f'{self.actor}-{turn_id}-summary.json',
+                write_json(run_layout.path(self.run, 'engine_turns', 'claude') / f'{self.actor}-{turn_id}-summary.json',
                            {'actor': self.actor, 'session_id': self.session_id, 'turn_id': turn_id,
                             'status': state, 'record': record, 'cost_accounting': accounting})
             except Exception:
@@ -301,6 +317,14 @@ class ClaudeSessionHost:
             if state == 'idle':
                 self.capacity_retry_count = 0
                 self.capacity_retry_due = None
+
+    def adopt(self, session_id):
+        """Continue an existing session of this role (a run continued after an unexpected
+        exit, docs/run-segments.md): the next turn resumes it instead of creating one."""
+        with self.lock:
+            if self.state != 'new': raise ValueError('Only a new host can adopt a session')
+            self.session_id = str(session_id); self.state = 'idle'
+        return self
 
     def observe(self):
         """Return bounded process evidence, not an assertion of physical success."""
@@ -327,6 +351,10 @@ class ClaudeSessionHost:
         if worker:
             worker.join(timeout)
         return self.observe()
+
+    def close_process(self):
+        """Close a persistent CLI process, if any; its transcript stays resumable."""
+        if hasattr(self.runner, 'close'): self.runner.close()
 
     def stop(self):
         """Request termination of an active turn; physical state still needs sealing."""

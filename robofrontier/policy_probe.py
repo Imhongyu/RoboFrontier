@@ -42,7 +42,8 @@ class BudgetGuard:
         mono_now=time.monotonic() if mono_now is None else mono_now
         if service.store.get('lifecycle')!='running' or self.completed:return
         if self.deadline is None:
-            left=service.store.get('start_at')+self.protocol['wall_limit_s']-wall_now
+            # Downtime between segments of a continued run does not count (run_segments.deadline).
+            left=service.store.get('start_at')+self.protocol['wall_limit_s']+service.store.get('downtime_s',0.)-wall_now
             self.deadline=mono_now+max(0.,left)
         if self.cutoff is None and mono_now>=self.deadline:
             self.cutoff=mono_now;self.cutoff_evaluation=service.world.evaluate()

@@ -72,6 +72,17 @@ class SchedulingTests(unittest.TestCase):
         self.s.uncertain_action('move-A','injected executor uncertainty')
         self.assertEqual(self.commands(),[])
         self.assertTrue(self.planner.execution_blocks_wake('A'))
+    def test_local_uncertainty_wakes_owner_without_replaying_action(self):
+        self.start_motion(wait=True)
+        self.s.isolate_stopping_action('move-A','Synthetic controlled stop')
+        self.assertEqual(self.s.get('lifecycle'),'running')
+        self.assertFalse(self.planner.execution_blocks_wake('A'))
+        wake=self.commands()[0]
+        self.assertEqual(wake['actor'],'A')
+        self.assertIsNotNone(self.planner.claim(wake['wake_id'],'owner',100))
+        self.assertEqual(len(self.s.actions()),1)
+        self.assertEqual(self.s.actions()['move-A']['status'],'uncertain')
+
     def test_claim_rechecks_motion_state_after_wake_was_planned(self):
         self.s.send('Controller',['A'],'update','1')
         wake=self.commands()[0]

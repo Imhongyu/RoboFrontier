@@ -1,13 +1,25 @@
 // One independent CLI host per task. Reuses the existing deterministic Meta.
 const fs = require('node:fs');
 const path = require('node:path');
-const {execFile,exec:execShell,spawn} = require('node:child_process');
+const {execFile,execFileSync,exec:execShell,spawn} = require('node:child_process');
 const {promisify} = require('node:util');
 const execFileAsync = promisify(execFile), execAsync = promisify(execShell);
-const {CodexRpc,capacityFailure,requireNoMcpServers} = require('./codex_rpc');
+const {CodexRpc,STARTUP_ACK_MS,capacityFailure,requireNoMcpServers} = require('./codex_rpc');
 const {runMetaDispatcher} = require('./meta_dispatcher');
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const read = file=>JSON.parse(fs.readFileSync(file,'utf8'));
+// Frozen at preparation by robofrontier/policy_bootstrap.py; absent from runs prepared earlier.
+const frozenText=(run,name)=>{const file=path.join(run,'private/inputs/bootstrap',name);
+  return fs.existsSync(file)?fs.readFileSync(file,'utf8'):null;};
+// Capacity recovery, the same policy as robofrontier/claude/recovery.py: at most 3
+// consecutive resumes of a session, 10/20/40 s apart plus a 0-5 s jitter fixed by the
+// session ID (so many runs do not retry together); a completed turn resets the count.
+const MAX_CAPACITY_RETRIES=3;
+// As in robofrontier/claude/supervisor.py (finish_turn_grace_s): after a normal finish the
+// world is already frozen, so existing turns may write their final reply before closing.
+const FINISH_TURN_GRACE_MS=30000;
+const capacityDelayMs=(attempt,id)=>10000*2**attempt+[...String(id)].reduce((n,c)=>n+c.charCodeAt(0),0)%5000;
+const LEGACY_SYSTEM_PROMPT='You are a RoboFrontier policy agent running in Codex. Follow the frozen public task, current role, tool protocol and evidence boundaries. Use your assigned robot tools. Preserve original call IDs across uncertain results. Do not manage the model host, modify the benchmark, or read private evaluation data.';
 function toolFailure(callId, stdout) {
   let detail;
   try { if (typeof stdout==='string' && stdout.length<=16384) detail=JSON.parse(stdout); } catch {}
@@ -44,8 +56,16 @@ class PolicyHost {
     this.stopped=false;
     this.turnStarted=new Map();
   }
+  // Host file locations come from robofrontier/run_layout.py, the one source for both engines.
+  hostPath(key) {
+    if (!this.layout) this.layout=JSON.parse(execFileSync(this.python,['-m','robofrontier.run_layout',this.run,'--engine','codex'],
+      {cwd:this.cwd??path.resolve(__dirname,'..'),encoding:'utf8'})).paths;
+    if (!(key in this.layout)) throw new Error('Unknown run layout key: '+key);
+    return path.join(this.run,this.layout[key]);
+  }
   event(value) {
-    fs.appendFileSync(path.join(this.run,'private/outputs/codex-host.jsonl'),JSON.stringify({at:Date.now()/1000,...value})+'\n');
+    const file=this.hostPath('host_log');fs.mkdirSync(path.dirname(file),{recursive:true});
+    fs.appendFileSync(file,JSON.stringify({at:Date.now()/1000,...value})+'\n');
   }
   async admin(op,data={}) {
     const {stdout}=await execFileAsync(this.python,['-m','robofrontier.runtime_cli',
@@ -93,14 +113,17 @@ class PolicyHost {
     }
   }
   async startServer() {
-    const log=fs.openSync(path.join(this.run,'private/outputs/codex-server.log'),'a');
-    this.rpc=new CodexRpc(this.launch.args,{stderr:log,onRequest:(m,p)=>this.toolRequest(m,p),onEvent:m=>{
+    const log=fs.openSync(this.hostPath('server_log'),'a');
+    this.rpcLost=false;
+    this.rpc=new CodexRpc(this.launch.args,{stderr:log,onRequest:(m,p)=>this.toolRequest(m,p),
+      onExit:(code,signal)=>{this.rpcLost=true;this.event({event:'model_host_exited',exit_code:code,signal});},onEvent:m=>{
       const p=m.params||{};
       const turnId=p.turnId || p.turn?.id, turnKey=p.threadId+':'+turnId;
       if (m.method==='turn/started') this.turnStarted.set(turnKey,Date.now());
       const began=this.turnStarted.get(turnKey);
       if (m.method==='turn/completed') {
         this.turns.set(p.threadId,p.turn);
+        if (p.turn.status==='completed') this.capacityAttempts?.delete(p.threadId);
         if (p.turn.status==='failed' && capacityFailure(p.turn.error)) {
           const key=p.threadId+':'+p.turn.id;
           if (!this.failures.has(key)) this.failures.set(key,Date.now());
@@ -131,7 +154,15 @@ class PolicyHost {
       input:[{type:'text',text:prompt}],turnTrigger:'robofrontier'});
     this.turns.set(threadId,result.turn); return {threadId};
   }
-  stopRequested() { return this.stopped || fs.existsSync(path.join(this.run,'STOP')); }
+  stopRequested() { return this.stopped || fs.existsSync(this.hostPath('stop')); }
+  // The world process is gone: stop dispatching so the run is sealed and can continue
+  // in its next segment (docs/run-segments.md) instead of failing every robot call.
+  ownerExited() {
+    const gone=Boolean(this.owner && (this.owner.exitCode!==null || this.owner.signalCode!==null));
+    if (gone && !this.ownerExitLogged) {this.ownerExitLogged=true;
+      this.event({event:'owner_exited',exit_code:this.owner.exitCode,signal:this.owner.signalCode});}
+    return gone;
+  }
   async retryCapacity() {
     if (this.stopped) return;
     const snapshot=await this.admin('snapshot');
@@ -140,19 +171,34 @@ class PolicyHost {
       const state=await this.observe(id),t=state.latestTurn;
       if (state.thread.status.type!=='systemError' || t?.status!=='failed' || !capacityFailure(t.error)) continue;
       const key=id+':'+t.id;
-      if (!this.failures.has(key)) this.failures.set(key,Date.now());
-      if (this.retries.has(key) || Date.now()-this.failures.get(key)<10000) continue;
+      if (this.retries.has(key)) continue;
+      this.capacityAttempts??=new Map();
+      const attempt=this.capacityAttempts.get(id)||0;
+      if (attempt>=MAX_CAPACITY_RETRIES) {
+        // Exhausted: pause the run for review rather than keep resuming.
+        await this.admin('pause',{reason:'Model capacity recovery attempts exhausted',actor,thread_id:id});
+        this.event({event:'capacity_recovery_exhausted',actor,thread_id:id,failed_turn_id:t.id});
+        return;
+      }
+      if (!this.failures.has(key)) {
+        this.failures.set(key,Date.now());
+        this.event({event:'capacity_wait',actor,thread_id:id,failed_turn_id:t.id,attempt:attempt+1,delay_s:capacityDelayMs(attempt,id)/1000});
+      }
+      if (Date.now()-this.failures.get(key)<capacityDelayMs(attempt,id)) continue;
       // Physical uncertainty blocks retries; retrying a model never replays its tools.
       const code="from robofrontier.runtime_store import RuntimeStore;import sys,json;s=RuntimeStore(sys.argv[1]);a=sys.argv[2];print(json.dumps(any(v['status'] in ('pending','running','uncertain') for v in s.actions(a).values()) or any(True for r in s.db.execute(\"SELECT 1 FROM calls WHERE actor=? AND status='accepted' AND op IN ('move','gripper','action_batch','delegate')\",(a,)))));s.close()";
       const {stdout}=await execFileAsync(this.python,['-c',code,path.join(this.run,'private/state/runtime.sqlite'),actor],{cwd:this.cwd});
       if (JSON.parse(stdout)) continue;
       this.retries.add(key); // An unknown turn/start acknowledgement is never repeated.
+      this.capacityAttempts.set(id,attempt+1);
       const phase=snapshot.lifecycle==='running' ? 'The experiment has started: obtain any needed capability information and continue without waiting for another START.' : 'The legacy startup barrier has not opened; continue the existing startup instructions.';
       await this.send(id,'The previous model turn failed because of a capacity or rate limit. Continue this task and its saved work. First inspect pending/job using original action IDs and read your inbox. Preserve submitted actions, the current world and the original deadline. '+phase);
-      this.event({event:'capacity_retry',thread_id:id,failed_turn_id:t.id});
+      this.event({event:'capacity_retry',thread_id:id,failed_turn_id:t.id,attempt:attempt+1});
     }
   }
   bootstrap(actor, startupProtocol='direct_controller_v2') {
+    const frozen=frozenText(this.run,actor+'.md');
+    if (frozen!==null) return frozen;
     return `Run a fresh, independent RoboFrontier experiment. Run directory: ${this.run}. Current role: ${actor}.
 Read this run's public/inputs/common.md, policy-rules.md, task.json, roles/${actor}.md, skill/SKILL.md, skill/references/tools.md and skill/references/communication.md; read skill/references/adaptive.md only in adaptive mode. Use this task's public inputs, your own work notes and authorized images.
 CLI transport: use the bound robot tool. Its op/data match the frozen Skill's role API. Omit outer call_id for a new request; the response returns its ID. To query an existing action, issue a new job request with the original action ID in data.call_id. For an uncertain result, retry only the same outer ID with identical op/data. Select returned cameras with views. The tool binds your own connection and returns complete JSON and actual RGB image content; a path alone is not an observation. After permitted local image analysis or other non-robot work, refresh your inbox with robot inbox.
@@ -161,6 +207,23 @@ Scoring version terminal_outcome_v2: completion follows the task's published con
 Follow policy-rules.md: continue observing, acting and recovering while unfinished. The host enforces the time limit. On pause, stop, run_ended or budget exhaustion, stop new work immediately. Propose finish when the task is complete or permitted evidence establishes that recovery is no longer possible.
 Use your assigned native session and bound robot tools. Read public task evidence within your role; your connection is for authentication only. Keep experience local to this run. Oracle solutions, other trials, private scene/XML, private evaluation and engineering source are outside policy evidence. Preserve the benchmark, physics and harness.
 `;
+  }
+  // After a normal finish, wait up to the grace for replies already in progress. No
+  // dispatch or physics happens here. Returns whether every turn settled.
+  async drainFinishedTurns(graceMs=FINISH_TURN_GRACE_MS,pollMs=500) {
+    try {
+      if ((await this.admin('snapshot')).lifecycle!=='ended') return null;
+      const deadline=Date.now()+graceMs;let drained=false;
+      for (;;) {
+        const states=await Promise.all([...this.actors.keys()].map(id=>
+          this.observe(id).then(s=>s.thread.status.type,()=>'unknown')));
+        if (!states.includes('active')) {drained=true;break;}
+        if (Date.now()>=deadline) break;
+        await sleep(pollMs);
+      }
+      this.event({event:'finish_turns_drained',drained});
+      return drained;
+    } catch(error) {this.event({event:'finish_drain_error',message:error.message});return false;}
   }
   async startInitialRoles(roles, startupProtocol) {
     const direct=['direct_controller_v2','direct_team_v3'].includes(startupProtocol);
@@ -171,13 +234,16 @@ Use your assigned native session and bound robot tools. Read public task evidenc
     const bound=[];
     for (const [actor] of policy) {
       if (this.stopRequested()) throw new Error('Stop requested during initial session setup');
+      // A run with a frozen access table runs under its permission profile from launch;
+      // a thread `sandbox` would replace that profile, so only earlier runs send one.
+      const system=frozenText(this.run,'system.md');
       const result=await this.rpc.call('thread/start',{model:this.launch.model,modelProvider:this.launch.provider,
-        cwd:this.run,approvalPolicy:'never',sandbox:'workspace-write',ephemeral:false,dynamicTools:[robotTool],
-        baseInstructions:'You are a RoboFrontier policy agent running in Codex. Follow the frozen public task, current role, tool protocol and evidence boundaries. Use your assigned robot tools. Preserve original call IDs across uncertain results. Do not manage the model host, modify the benchmark, or read private evaluation data.',
-        threadSource:'robofrontier-benchmark',config:{web_search:'disabled','features.multi_agent':false}});
+        cwd:this.hostPath('policy_cwd'),approvalPolicy:'never',ephemeral:false,dynamicTools:[robotTool],
+        ...(system===null?{sandbox:'workspace-write'}:{}),baseInstructions:system??LEGACY_SYSTEM_PROMPT,
+        threadSource:'robofrontier-benchmark',config:{web_search:'disabled','features.multi_agent':false}},STARTUP_ACK_MS);
       const id=result.thread.id; this.actors.set(id,actor);
       this.event({event:'role_created',actor,thread_id:id,provider:this.launch.provider,model:this.launch.model});
-      await this.rpc.call('thread/name/set',{threadId:id,name:`${this.launch.model} · ${path.basename(this.run)} · ${actor}`});
+      await this.rpc.call('thread/name/set',{threadId:id,name:`${this.launch.model} · ${path.basename(this.run)} · ${actor}`},STARTUP_ACK_MS);
       const resultBind=await this.bindInitialRole(actor,id);
       if (!resultBind.bound) throw new Error('Initial role binding was not confirmed');
       bound.push({actor,id});
@@ -194,19 +260,53 @@ Use your assigned native session and bound robot tools. Read public task evidenc
       }
     }
   }
+  // Only the app-server stopped; the world never did. Start a new one, reopen every
+  // role's own thread and send each working role the frozen restart notice.
+  async restartModelHost() {
+    await this.startServer();
+    const notice=fs.readFileSync(path.join(this.run,'private/inputs/bootstrap/model-restart.md'),'utf8');
+    const snapshot=await this.admin('snapshot');
+    for (const [actor,agent] of Object.entries(snapshot.agents)) {
+      if (agent.kind==='manager' || !agent.thread_id) continue;
+      await this.rpc.call('thread/resume',{threadId:agent.thread_id,cwd:this.hostPath('policy_cwd'),model:this.launch.model,
+        modelProvider:this.launch.provider,approvalPolicy:'never',baseInstructions:frozenText(this.run,'system.md')??undefined,
+        config:{web_search:'disabled','features.multi_agent':false}},STARTUP_ACK_MS);
+      this.actors.set(agent.thread_id,actor);
+      this.event({event:'role_resumed',actor,thread_id:agent.thread_id});
+      if (agent.kind!=='delegate' || agent.delegation_state==='active') await this.send(agent.thread_id,notice);
+    }
+  }
   async bindInitialRole(actor, id) {
     const connection=path.join(this.run,'private/state/connections/Meta.json');
     const {stdout}=await execFileAsync(this.python,['-m','robofrontier.pipeline_client','--quiet',
       '--connection',connection,'--call-id','bind-'+actor,'bind','--data',JSON.stringify({actor,thread_id:id})],{cwd:this.cwd});
     return JSON.parse(stdout);
   }
+  // A run continued after an unexpected exit (docs/run-segments.md): reopen every role's
+  // own thread, let the world resume, then send each working role its frozen resume message.
+  async resumeSessions() {
+    const snapshot=await this.admin('snapshot');
+    for (const [actor,agent] of Object.entries(snapshot.agents)) {
+      if (agent.kind==='manager' || !agent.thread_id) continue;
+      await this.rpc.call('thread/resume',{threadId:agent.thread_id,cwd:this.hostPath('policy_cwd'),model:this.launch.model,
+        modelProvider:this.launch.provider,approvalPolicy:'never',baseInstructions:frozenText(this.run,'system.md')??undefined,
+        config:{web_search:'disabled','features.multi_agent':false}},STARTUP_ACK_MS);
+      this.actors.set(agent.thread_id,actor);
+      this.event({event:'role_resumed',actor,thread_id:agent.thread_id});
+    }
+    const resumed=await this.admin('request-resume');
+    if (!resumed.resumed) throw new Error('World did not confirm the resumed segment');
+    this.event({event:'segment_resumed',segment:resumed.segment});
+    for (const [id,actor] of this.actors) if (resumed.messages[actor]) await this.send(id,resumed.messages[actor]);
+  }
   async runTask() {
     const manifest=read(path.join(this.run,'private/inputs/manifest.json'));
     if (manifest.model_requested!==this.launch.model || manifest.effort_requested!==this.launch.effort)
       throw new Error('Frozen model/harness mismatch');
+    let failure;
     try {
       await this.startServer();
-      const ownerLog=fs.openSync(path.join(this.run,'private/outputs/owner.log'),'a');
+      const ownerLog=fs.openSync(this.hostPath('owner_log'),'a');
       this.owner=spawn(this.python,['-m','robofrontier.pipeline','--run-dir',this.run,'--hidden'],
         {cwd:this.cwd,stdio:['ignore',ownerLog,ownerLog]}); fs.closeSync(ownerLog);
       this.owner.on('error',error=>{this.ownerError=error;});
@@ -220,12 +320,17 @@ Use your assigned native session and bound robot tools. Read public task evidenc
       }
       const roles=read(path.join(this.run,'public/inputs/roles.json')).roles;
       const startupProtocol=read(path.join(this.run,'private/inputs/harness.json')).startup_protocol || 'ready_barrier_v1';
-      await this.startInitialRoles(roles,startupProtocol);
+      // A run continued after an unexpected exit reopens its roles' own threads instead.
+      if ((await this.admin('snapshot')).lifecycle==='resuming') await this.resumeSessions();
+      else await this.startInitialRoles(roles,startupProtocol);
       const wrap=value=>({content:[{type:'text',text:JSON.stringify(value)}]});
       const createNativeFork=async (p,isSnapshot=false)=>{
         const forkStarted=Date.now();
-        const result=await this.rpc.call('thread/fork',{threadId:p.threadId,cwd:this.run,model:this.launch.model,
-          modelProvider:this.launch.provider,excludeTurns:true,ephemeral:false});
+        // The dispatcher passes what is left of the shared setup deadline; without it,
+        // the ordinary request limit applies.
+        if (p.timeoutMs!==undefined && !(p.timeoutMs>0)) throw new Error('Delegate setup deadline passed before native fork');
+        const result=await this.rpc.call('thread/fork',{threadId:p.threadId,cwd:this.hostPath('policy_cwd'),model:this.launch.model,
+          modelProvider:this.launch.provider,excludeTurns:true,ephemeral:false},p.timeoutMs);
         this.event({event:isSnapshot?'snapshot_created':'fork_created',thread_id:result.thread.id,parent:p.threadId,duration_s:(Date.now()-forkStarted)/1000});
         if (!isSnapshot) {
           const snapshot=await this.admin('snapshot');
@@ -241,12 +346,32 @@ Use your assigned native session and bound robot tools. Read public task evidenc
         mcp__codex_app__send_message_to_thread:async p=>wrap(await this.send(p.threadId,p.prompt)),
         mcp__codex_app__set_thread_title:async p=>{await this.rpc.call('thread/name/set',{threadId:p.threadId,name:p.title});return wrap({threadId:p.threadId});},
         mcp__codex_app__fork_thread:async p=>createNativeFork(p)};
-      return await runMetaDispatcher({runDir:this.run,python:this.python,cwd:this.cwd,tools,
-        startWhenReady:true,observationSource:'codex.app-server',onEvent:e=>this.event(e),
-        createSnapshot:async p=>JSON.parse((await createNativeFork(p,true)).content[0].text),
-        stopRequested:()=>this.stopRequested()});
+      // A run prepared with a restart notice survives its app-server stopping, up to the
+      // run's allowance (runtime model-restart, shared with the Claude route); the world
+      // keeps running throughout and the dispatcher keeps one owner.
+      const restartable=frozenText(this.run,'model-restart.md')!==null;
+      const owner='meta-'+Date.now()+'-'+Math.random().toString(16).slice(2);
+      for (;;) {
+        let outcome;
+        try {
+          outcome=await runMetaDispatcher({runDir:this.run,python:this.python,cwd:this.cwd,tools,owner,
+            startWhenReady:true,observationSource:'codex.app-server',onEvent:e=>this.event(e),
+            createSnapshot:async p=>JSON.parse((await createNativeFork(p,true)).content[0].text),
+            stopRequested:()=>this.stopRequested()||this.rpcLost||this.ownerExited()});
+        } catch (error) { if (!this.rpcLost) throw error; }
+        if (!this.rpcLost || this.stopRequested()) return outcome;
+        const claim=restartable?await this.admin('model-restart',{actor:'Meta',engine:'codex'}):{allowed:false};
+        if (!claim.allowed) throw new Error('Codex app-server stopped; model restarts unavailable or exhausted');
+        this.event({event:'model_host_restart',attempt:claim.restart});
+        await this.restartModelHost();
+      }
+    } catch(error) {
+      // Kept for the report: a failing seal below would otherwise replace this error.
+      failure=error;this.event({event:'host_error',message:error.message});throw error;
     } finally {
+      const stopRequested=this.stopped||fs.existsSync(this.hostPath('stop'));
       this.stopped=true;
+      if (!failure && !stopRequested && this.rpc) await this.drainFinishedTurns();
       // Seal the existing owner; never recreate its physical world.
       let sealError;
       try {const result=await this.admin('seal',{timeout_s:30});
@@ -257,7 +382,18 @@ Use your assigned native session and bound robot tools. Read public task evidenc
           await this.rpc.call('turn/interrupt',{threadId:id,turnId:s.latestTurn.id});} catch {}
       }
       if (this.rpc) await this.rpc.close();
-      if (sealError) throw new Error('Run seal incomplete; manual review required: '+sealError.message);
+      // Codex has stopped writing: copy this run's threads into the run, verified. The home
+      // keeps the originals so a continued segment can resume them (robofrontier.session_archive).
+      try {
+        // Runs prepared before run-v6 have no engine_transcripts and keep theirs in the home.
+        if ('engine_transcripts' in this.layout) {
+          const kept=JSON.parse(execFileSync(this.python,['-m','robofrontier.session_archive','keep',this.run],
+            {cwd:this.cwd??path.resolve(__dirname,'..'),encoding:'utf8',env:process.env}));
+          this.event({event:'transcripts_kept',threads:kept.threads,complete:kept.complete});
+        }
+      } catch(error) {this.event({event:'transcripts_error',message:error.message});}
+      if (sealError) throw new Error('Run seal incomplete; manual review required: '+sealError.message
+        +(failure?' (after host error: '+failure.message+')':''));
     }
   }
 }

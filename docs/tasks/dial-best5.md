@@ -14,7 +14,7 @@ reference executions.
 | --- | --- |
 | Nine-case model catalog | `configs/suites/dial-best5-r11.json` |
 | Specification, defaults, frozen evidence registry | `configs/task_families/dial/best5-r11.json` |
-| Policy-specific guidance | `prompts/tasks/dial-best5.md` |
+| Policy-specific guidance | `prompts/archive/tasks/dial-best5.md` |
 | Original shared integration requests | `configs/task_families/dial/integration-requests.json` |
 | Historical review package and progress-aware edits | `outputs/engineering/dial-family-current/` |
 | Delivered nine simple-background videos | `outputs/oracle/dial-nine-videos-20261027/` |

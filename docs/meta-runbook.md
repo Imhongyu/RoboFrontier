@@ -3,7 +3,7 @@
 The manager performs engineering setup, fixed platform scheduling, observation
 and evidence collection. It does not decide task strategy, select robot scopes,
 choose grasps or provide recovery trajectories. The measured team follows its
-frozen role files and [collaboration Skill](../.agents/skills/robot-collaboration/SKILL.md).
+frozen role files and [collaboration Skill](../prompts/skills/robot-collaboration/SKILL.md).
 See [architecture](architecture.md) for state and evidence boundaries.
 
 Initial policy roles start in clean independent sessions. Do not fork an

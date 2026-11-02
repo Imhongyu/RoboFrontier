@@ -110,8 +110,8 @@ cells in the diagrams are the target reference. The R13 review package is
 `outputs/policy-packages/mosaic-r13-20261027`.
 
 Public policy material contains the corresponding task, target image, task
-prompt, and Mosaic skill. R14 uses `prompts/tasks/mosaic-r14.md`; the shared
-`.agents/skills/mosaic-r13/SKILL.md` keeps its historical filename and describes
+prompt, and Mosaic skill. R14 uses `prompts/archive/tasks/mosaic-r14.md`; the shared
+`prompts/archive/skills/mosaic-r13/SKILL.md` keeps its historical filename and describes
 the common geometry. Its name does not select R13 for a new run. Old prompts
 and builders remain provenance for their review packages. Private pairings,
 joint witnesses, Oracle truth/actions/recovery experience, and engineering

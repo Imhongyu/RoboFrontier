@@ -11,9 +11,9 @@
         "dial"
       ],
       "historical_sha256": "dfa71f38759d5b7232e725a04f729d31d3d999d5876791a8a2db670906103bdd",
-      "integrated_sha256": "bc8aea2600fad18439fa2e4883f35ec3235f8710a29fdc52d8789390417411d7",
+      "integrated_sha256": "ad97428ab09a5b7645b981324748f5a6691156812b6f77c83e8093e320109a2d",
       "unaffected_ast_sha256": "9a255b00474e794646ac7eccea64a26a1b697fa9db7ff45cbaa293850b54689b",
-      "review": "Reviewed service-only changes and exact observation-profile initialization/camera-size reporting transformations. The remaining AST matches the original unchanged digest, including World stepping, controls, task sampling and motion recording. This is historical physical-source compatibility, not policy/image/scoring equivalence or new physics qualification."
+      "review": "Reviewed service-only changes and exact observation-profile initialization/camera-size reporting transformations. The remaining AST matches the original unchanged digest, including World stepping, controls, task sampling and motion recording. This is historical physical-source compatibility, not policy/image/scoring equivalence or new physics qualification. Re-reviewed for the single-arm recovery entry World.recover_action, which only reads and ends an action whose timed-out stop is already uncertain; it is admitted by exact AST match and the remaining AST still matches the original digest. Re-reviewed for run storage and segments: the portable saved scene, the motion rate and process-log format read from the frozen harness, segment folders, the segment restore and held-grasp snapshot, and the engineering fault entry are exact reviewed statements that act only for new runs that freeze those settings or continue in a new segment (source_compatibility.WORLD_RUN_STORAGE); with them reverted the AST equals the original unaffected digest."
     },
     {
       "path": "robofrontier/suite/evaluate_v2.py",
@@ -34,9 +34,9 @@
         "mosaic"
       ],
       "historical_sha256": "88d0cd4d24cc298015c0f119b5d565b70451394cd73654b02e9bafd32d8380af",
-      "integrated_sha256": "3865f83a82a1ffa39af14ed2dc929de64d6e75248516dc7a2c82b0c7522c9c98",
+      "integrated_sha256": "d1373e01e57ea91c771aedb01cd13134f2be7227b94aa4c499016e44a648127b",
       "unaffected_ast_sha256": "dd926c6b8cb16c3dfe4cee59495907fea98e55c4585c5e6983a5181b7f35c9fa",
-      "review": "Only the exact reviewed Controller/Coordinator label acceptance and engine/direct-START selection checks in load_harness are normalized. All remaining AST nodes match the pinned baseline, including action limits, controller settings and execution timing. This is historical control-source compatibility, not equal physics, policy observations or current-task qualification."
+      "review": "Only the exact reviewed Controller/Coordinator label acceptance and engine/direct-START selection checks in load_harness are normalized. All remaining AST nodes match the pinned baseline, including action limits, controller settings and execution timing. This is historical control-source compatibility, not equal physics, policy observations or current-task qualification. Re-reviewed for the two new frozen harness checks in load_harness (motion_hz, process_log), which only validate new settings (source_compatibility.HARNESS_RUN_STORAGE); with them removed the AST equals the original unaffected digest."
     },
     {
       "path": "scripts/preview_mosaic_local_colors.py",
@@ -49,6 +49,18 @@
       ],
       "scope": "Reviewed English captions only; draw geometry, inputs and runtime behavior unchanged",
       "source_commit": "c4b49d0811e1e29df806292e698347f9046d987e"
+    },
+    {
+      "path": "robofrontier/robot_control.py",
+      "rule": "exclude_local_recovery_and_engineering_fault",
+      "families": [
+        "mosaic",
+        "dial"
+      ],
+      "historical_sha256": "46a02d147383673cf36a17865ad601c034dea6ff7f9c3a72561c28b64fc899b2",
+      "integrated_sha256": "57f5d92e52d5ab44d81e6d5281df3c193fc2590183836737f5f61b09bb06694f",
+      "unaffected_ast_sha256": "0a44db54291887a829f4ab3118c73ae0ae14992efec4b12a45bf1e9d03854026",
+      "review": "Only the exact reviewed PandaArm statements for local recovery of an uncertain stop (recover_stopped and its stability sampling after uncertainty) and the engineering fault hold are normalized (source_compatibility.ARM_RECOVERY). They act only after a stop was already reported uncertain or when a fault is frozen in private/inputs; with them reverted the AST equals the historical source, including motion, gripper, grasp and stop control. This is historical control-source compatibility, not new physics qualification."
     }
   ]
 }

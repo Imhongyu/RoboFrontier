@@ -1,0 +1,46 @@
+name: Harness
+
+# Offline harness checks: the protocol contract without physics plus every Node host
+# test (check_harness), and both engines' frozen inputs and access rules, run layout,
+# segments and evidence storage. No model is called; installed-CLI tests skip when a
+# CLI is absent.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked Python dependencies
+        run: |
+          python -m pip install uv==0.9.28
+          uv sync --locked
+      - name: Restore pinned policy assets
+        run: .venv/bin/python -m robofrontier.cli bootstrap
+      - name: Protocol contract (physics blocked)
+        run: .venv/bin/python -m scripts.check_harness --protocol-only --report harness-protocol.json
+      - name: Engine parity, run layout, segments and evidence storage
+        run: |
+          PYTHONPATH=tests:scripts .venv/bin/python -m unittest \
+            test_engine_parity test_run_layout test_run_segments test_session_archive test_process_log \
+            test_portable_scene test_durable test_claude_engineering_batch test_claude_standing_team
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harness-protocol
+          path: harness-protocol.json
+          if-no-files-found: ignore

@@ -8,6 +8,7 @@ import time
 import uuid
 
 from .pipeline_client import client_call
+from . import run_layout
 from .recording import probe_video
 from .run_setup import write_json
 from .scene_task import camera_names
@@ -29,7 +30,7 @@ def seal_run(store, timeout_s=30):
     with store.transaction():
         if not store.get('dispatch_paused',False):
             store.put('dispatch_paused',True);store.event('DISPATCH_PAUSED','Meta',{'reason':'Engineering seal requested'})
-    lock=(run/'private/state/world.lock').open('a+')
+    lock=run_layout.path(run,'world_lock').open('a+')
     observation=None;capture_error=None;shutdown_error=None;live=False
     try:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -68,7 +69,10 @@ def seal_run(store, timeout_s=30):
                         raise ValueError('Execution owner did not exit; run remains paused. '+(shutdown_error or ''))
                     time.sleep(.02)
         # The exclusive OS lock proves there is no physical owner to replay.
-        report_path=output/'seal.json'
+        # Each segment of a continued run (docs/run-segments.md) is sealed on its own.
+        from .run_segments import output_dir
+        segment_output=output_dir(run,store.get('segment',0));segment_output.mkdir(parents=True,exist_ok=True)
+        report_path=segment_output/'seal.json'
         if store.get('lifecycle') in ('ended','interrupted') and report_path.exists():
             saved=json.loads(report_path.read_text())
             return {k:saved[k] for k in ('sealed','lifecycle','fresh_observation','report_ref','unresolved_action_ids','video')}
@@ -78,14 +82,15 @@ def seal_run(store, timeout_s=30):
                 store.put('lifecycle','interrupted');store.put('physics_state','stopped')
                 if previous!='interrupted':
                     store.event('RUN_INTERRUPTED','Meta',{'reason':'Execution owner absent at engineering seal; no world reconstruction or physical replay'})
-        video_path=output/(task.get('recording_camera','global')+'-realtime.mp4')
+        video_path=segment_output/(task.get('recording_camera','global')+'-realtime.mp4')
         video={'path':str(video_path),**probe_video(video_path)}
         result={'sealed':True,'lifecycle':store.get('lifecycle'),'fresh_observation':observation is not None,
             'report_ref':str(report_path),'unresolved_action_ids':_unsettled(store),'video':video,
             'final_observation':observation,'capture_error':capture_error,'shutdown_error':shutdown_error,
             'owner_was_live':live,'scope':'Engineering closure only; not a successful task or fresh offline evaluation.'}
         write_json(report_path,result)
-        store.event('RUN_SEALED','Meta',{k:result[k] for k in ('report_ref','fresh_observation','unresolved_action_ids','video')})
+        # owner_was_live tells a normal end from a seal after the world had already died.
+        store.event('RUN_SEALED','Meta',{k:result[k] for k in ('report_ref','fresh_observation','unresolved_action_ids','video','owner_was_live')})
         store.export_events(output/'events.jsonl')
         return {k:result[k] for k in ('sealed','lifecycle','fresh_observation','report_ref','unresolved_action_ids','video')}
     except Exception as error:

@@ -41,6 +41,10 @@ class RoleHost:
     def recover_capacity(self, store):
         return self.recovering
 
+    def adopt(self, session_id):
+        self.session_id = session_id; self.state = 'idle'
+        return self
+
     def stop(self):
         self.state = 'idle'
 
@@ -88,6 +92,34 @@ def standing_fixture(topology, *, factory=RoleHost, endpoint=None, env=None):
 
 
 class StandingTeamTests(unittest.TestCase):
+    def test_a_continued_segment_resumes_every_role_in_its_own_session(self):
+        for topology in ('hierarchical', 'peer'):
+            with self.subTest(topology=topology), standing_fixture(topology) as (policy, service, call):
+                policy.bind_and_bootstrap()
+                sessions = {a: h.session_id for a, h in policy.hosts.items()}
+                store = service.store
+                # What run_segments.prepare_retry leaves for the next segment.
+                store.put('segment', 1); store.put('lifecycle', 'resuming')
+                store.put('pending_segment', {'segment': 1, 'previous_ended_at': 0., 'restored_sim_s': 4.0,
+                                              'interrupted': {'A': ['A-call_1']}})
+                profile = json.loads((policy.run/'private/inputs/claude.json').read_text())['profile']
+                with self.assertRaisesRegex(ValueError, 'cannot be restarted'):
+                    StandingTeamPolicyHost(policy.run, profile, {}, policy.hosts['A'].ledger, host_factory=RoleHost, client=call)
+                resumed = StandingTeamPolicyHost(policy.run, profile, {}, policy.hosts['A'].ledger,
+                                                 host_factory=RoleHost, client=call, resume=True)
+                try:
+                    reply = resumed.resume_segment()
+                    self.assertEqual((reply['segment'], store.get('lifecycle')), (1, 'running'))
+                    for actor, host in resumed.hosts.items():
+                        self.assertEqual(host.session_id, sessions[actor])
+                        self.assertEqual(len(host.prompts), 1)
+                        self.assertIn('restarted this trial', host.prompts[0])
+                    self.assertIn('A-call_1', resumed.hosts['A'].prompts[0])
+                    self.assertIn('Yours: none.', resumed.hosts['B'].prompts[0])
+                    with self.assertRaisesRegex(ValueError, 'Not a prepared segment'): resumed.resume_segment()
+                finally:
+                    resumed.stop(); resumed.close()
+
     def test_all_roles_bind_before_start_and_first_prompt_without_ready(self):
         for topology in ('hierarchical', 'peer'):
             with self.subTest(topology=topology), standing_fixture(topology) as (policy, service, _):
@@ -107,9 +139,10 @@ class StandingTeamTests(unittest.TestCase):
                 self.assertEqual(len({h.session_id for h in policy.hosts.values()}), len(expected))
                 for actor, host in policy.hosts.items():
                     self.assertEqual(len(host.prompts), 1)
-                    self.assertIn('Your current runtime role is '+actor, host.prompts[0])
-                    self.assertIn('experiment has STARTED', host.prompts[0])
-                    self.assertIn('no filesystem tools', host.prompts[0])
+                    # The frozen first message, the same one the Codex route sends.
+                    self.assertIn('Your role is '+actor+'.', host.prompts[0])
+                    self.assertIn('experiment has started for the whole team', host.prompts[0])
+                    self.assertIn('with your file tools', host.prompts[0])
                     self.assertNotIn('Await the host START', host.prompts[0])
                     self.assertNotIn('{{', host.prompts[0])
                 with self.assertRaisesRegex(ValueError, 'Never repeat'):

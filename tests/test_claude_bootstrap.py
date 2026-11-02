@@ -56,8 +56,8 @@ class BootstrapTests(unittest.TestCase):
             for name in ('SKILL.md','references/tools.md','references/communication.md',
                          'references/motion-check.md','references/adaptive.md'):
                 target=public/'skill'/name; target.parent.mkdir(parents=True,exist_ok=True)
-                target.write_text((root/'.agents/skills/robot-collaboration'/name).read_text())
-            (public/'policy-rules.md').write_text((root/'prompts/policy-rules.md').read_text())
+                target.write_text((root/'prompts/skills/robot-collaboration'/name).read_text())
+            (public/'policy-rules.md').write_text((root/'prompts/archive/policy-rules.md').read_text())
             prompt=bootstrap_prompt(run,topology='adaptive',startup_protocol='direct_controller_v2')
             self.assertIn('`ready` tool is optional',prompt)
             self.assertIn('Delegation is optional',prompt)

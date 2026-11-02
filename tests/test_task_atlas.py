@@ -38,8 +38,11 @@ class TaskAtlasTests(unittest.TestCase):
             self.assertEqual(result['images'],72)
             for name,checksum in original.items():
                 self.assertEqual(atlas.digest(source/name),checksum)
-                if name.startswith(('images/','tasks/')) or name=='tasks.json':
+                # Captured images never change; public contract text follows current inputs.
+                if name.startswith('images/'):
                     self.assertEqual(atlas.digest(output/name),checksum)
+            refreshed=json.loads((output/'tasks.json').read_text())
+            self.assertEqual([c['id'] for c in refreshed['cases']],[c['id'] for c in json.loads((source/'tasks.json').read_text())['cases']])
             manifest=json.loads((output/'atlas-manifest.json').read_text())
             self.assertEqual(manifest['capture']['source_commit'],self.capture_revision)
             self.assertEqual(manifest['capture']['manifest_sha256'],original['atlas-manifest.json'])

@@ -11,6 +11,7 @@ import sys
 import tempfile
 
 from .configuration import ROOT, TOPOLOGIES, load_configuration, rendering_environment
+from . import run_layout
 
 
 def _print(value):
@@ -141,7 +142,8 @@ def preflight(config, *, confirm_spend=False, smoke_only=False, max_budget_usd=N
             fingerprint = hashlib.sha256(json.dumps(selected, sort_keys=True).encode()).hexdigest()[:20]
             home = ROOT/'.robofrontier/preflight'/fingerprint
         else:
-            home = Path(config['runtime']['codex_home'] or env.get('CODEX_HOME', Path.home()/'.codex')).expanduser().resolve()
+            from scripts.benchmark import codex_home
+            home = Path(config['runtime']['codex_home']).expanduser().resolve() if config['runtime']['codex_home'] else codex_home(env)
         home.mkdir(parents=True, exist_ok=True, mode=0o700)
         env['CODEX_HOME'] = str(home)
         folder = ROOT/'runs/engineering'/('model-smoke' if smoke_only else 'model-compatibility')/policy['profile']
@@ -171,7 +173,9 @@ def _frozen_configuration(batch):
     return config
 
 
-def run(batch, *, engineering=False):
+def run(batch, *, engineering=False, continuing=False):
+    """Run a prepared batch. `continuing` picks up a batch whose supervisor died: a run that
+    had started continues once in its next segment and unstarted runs start (docs/run-segments.md)."""
     config = _frozen_configuration(batch)
     if config['policy']['engine'] == 'claude' and not engineering:
         raise ValueError('Claude runs remain unqualified; explicitly select run --engineering')
@@ -185,10 +189,10 @@ def run(batch, *, engineering=False):
         state = run_batch(batch, dict(os.environ), parallel=config['batch']['parallel'],
                           startup_interval_s=config['batch']['startup_interval_s'],
                           startup_timeout_s=config['batch']['startup_timeout_s'],
-                          wall_limit_s=config['batch']['task_wall_limit_s'])
+                          wall_limit_s=config['batch']['task_wall_limit_s'], continuing=continuing)
     else:
         from scripts.benchmark import run_batch
-        run_batch(batch, config['batch']['parallel'])
+        run_batch(batch, config['batch']['parallel'], continuing=continuing)
         state = json.loads((Path(batch)/'batch.json').read_text())
     result = {'batch': str(Path(batch).resolve()), 'status': state['status']}
     if config['evidence']['auto_collect']:
@@ -254,6 +258,10 @@ def argument_parser(*, prog=None):
         p.add_argument('batch', type=Path)
         if name == 'run':
             p.add_argument('--engineering', action='store_true', help='Explicitly run an unqualified Claude engineering draft')
+            p.add_argument('--durable', action='store_true',
+                           help='Run under the macOS user launchd service, so it outlives this terminal')
+            p.add_argument('--continue', dest='continuing', action='store_true',
+                           help='Continue a batch whose supervisor died; started runs continue once (docs/run-segments.md)')
     p = sub.add_parser('collect', help='Collect stopped native sessions, motion and evidence')
     p.add_argument('batch', type=Path)
     p.add_argument('--output', type=Path, required=True)
@@ -346,23 +354,30 @@ def main(argv=None):
                 emit(submit(config, args.output, queue=args.queue, engineering=args.engineering))
             else:
                 emit({'batch': str(prepare(args.output, config)), 'model_calls': 0})
+        elif args.command == 'run' and args.durable:
+            if args.continuing: raise ValueError('Continue a batch in the foreground; --durable starts only fresh batches')
+            from .durable import submit as submit_durable
+            emit(submit_durable(args.batch, engineering=args.engineering))
         elif args.command == 'run':
             from scripts.benchmark import load_env
             load_env(ROOT/'.env')
-            emit(run(args.batch, engineering=args.engineering))
+            emit(run(args.batch, engineering=args.engineering, continuing=args.continuing))
         elif args.command == 'status':
             # Read the supervisor's atomic snapshot, never open a writer's SQLite.
-            snapshot = args.batch/'engineering-status.json'
-            emit(json.loads((snapshot if snapshot.is_file() else args.batch/'batch.json').read_text()))
+            snapshot = run_layout.batch_path(args.batch, 'engineering_status')
+            state = json.loads((snapshot if snapshot.is_file() else args.batch/'batch.json').read_text())
+            from .durable import service_state
+            durable = service_state(args.batch)
+            emit({**state, 'durable': durable} if durable else state)
         elif args.command == 'stop':
             batch = json.loads((args.batch/'batch.json').read_text())
             folder = args.batch.resolve()
             paths = [Path(job['run_directory']).resolve() for job in batch['jobs']]
             if any(not path.is_relative_to(folder) or path == folder for path in paths):
                 raise ValueError('Invalid run directory in batch')
-            (folder/'STOP').touch()
-            for path in paths:
-                (path/'STOP').touch()
+            for stop in [run_layout.batch_path(folder, 'stop'), *(run_layout.path(path, 'stop') for path in paths)]:
+                stop.parent.mkdir(parents=True, exist_ok=True)
+                stop.touch()
             emit({'stop_requested': True, 'note': 'Inspect status and final sealing outcome'})
         elif args.command == 'collect':
             emit({'collection': str(collect(args.batch, args.output))})

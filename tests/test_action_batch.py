@@ -106,6 +106,23 @@ class BatchTests(unittest.TestCase):
         self.s.store.uncertain_action(ident,'lost acknowledgement')
         self.assertTrue(Scheduler(self.s.store).execution_blocks_wake('Controller'))
 
+    def test_local_recovery_does_not_block_same_controller_other_robot_or_wake(self):
+        from types import SimpleNamespace
+        self.call('Controller','move',{'robot':'A','delta_m':[0,0,.01],'wait':False},'arm-A')
+        self.call('Controller','move',{'robot':'B','delta_m':[0,0,.01],'wait':False},'arm-B')
+        self.s.world.arms={'A':SimpleNamespace(job='arm-A',stopping=True,uncertainty_reported=True)}
+        self.s.world.finished.append({'call_id':'arm-A','status':'uncertain',
+            'reason':'Stop did not settle; engineering review required',
+            'stop_reason':'Action timeout; stopped at current reference'})
+        self.s.pump()
+        self.assertEqual(self.s.store.get('lifecycle'),'running')
+        self.assertFalse(Scheduler(self.s.store).execution_blocks_wake('Controller'))
+        self.assertTrue(any(x['event']=='arm_recovery_required' for x in self.s.store.delivery('Controller')['system_events']))
+        self.s.world.complete('B');self.s.pump()
+        self.assertEqual(self.s.store.actions()['arm-B']['status'],'completed')
+        self.assertEqual(self.s.store.actions()['arm-A']['status'],'uncertain')
+        self.assertEqual(self.call('Controller','move',{'robot':'C','delta_m':[0,0,.01],'wait':False})['result']['execution_status'],'running')
+
     def test_terminal_failed_query_uses_physical_outcome_not_rpc_status(self):
         self.call('Controller','action_batch',self.data,'failed-group')
         self.s.world.complete('A','failed');self.s.pump();self.s.pump()

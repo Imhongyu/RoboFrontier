@@ -55,8 +55,9 @@ class ObservationImageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             run=prepare('dial-best5-n04-d1',Path(tmp)/'dial')
             public=json.loads((run/'public/inputs/task.json').read_text())
-            original=json.loads((run/'public/inputs/family/camera-calibration.json').read_text())
-            derived=json.loads((run/public['camera_calibration']).read_text())
+            # The policy sees one calibration sized for this run; the signed original is private.
+            original=json.loads((run/'private/inputs/release-family/camera-calibration.json').read_text())
+            derived=json.loads((run/'public/inputs'/public['camera_calibration']).read_text())
             self.assertEqual(original['image_size_pixel'],[1280,800])
             self.assertEqual(derived['image_size_pixel'],[896,560])
             self.assertEqual(derived['cameras'],original['cameras'])

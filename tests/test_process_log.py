@@ -1,0 +1,59 @@
+import io
+import json
+import unittest
+
+from robofrontier.suite.evaluate import CONTINUOUS_FIELDS, PROCESS_LOG_FORMATS, Monitor, event_fields
+
+
+class FakeData:
+    time = 0.
+
+
+def monitor(log_format, results):
+    """A Monitor reduced to its process-log state; results are served in order."""
+    m = object.__new__(Monitor)
+    m.log = io.StringIO(); m.log_format = log_format; m.snapshot_interval = PROCESS_LOG_FORMATS[log_format]
+    m.last_event = None; m.final_logged = False; m.next_log = -1; m.names = (); m.d = FakeData()
+    feed = iter(results); m.result = lambda: next(feed)
+    return m
+
+
+def records(m):
+    return [json.loads(line) for line in m.log.getvalue().splitlines()]
+
+
+class ProcessLogTests(unittest.TestCase):
+    def test_event_fields_drop_only_clocks_seconds_and_continuous_measurements(self):
+        result = {'sim_time_s': 1.0, 'samples': 5, 'robot_motion_s': 2.0, 'matched_goals': 3,
+                  'violations': [{'kind': 'drop', 'sim_time_s': 0.4}],
+                  'payloads': {'p1': {'timber_inside_fraction': 0.71, 'terminal_goal_met': True, 'drops': 1}},
+                  'dials': [{'index': 0, 'held_s': 0.3, 'private_clearance_m': 0.01, 'ready': True}],
+                  'private_angles_deg': [1, 2], 'display': 4}
+        # Records inside lists lose the same continuous fields as records inside dicts.
+        self.assertEqual(event_fields(result), {'matched_goals': 3, 'violations': [{'kind': 'drop'}],
+                                                'payloads': {'p1': {'terminal_goal_met': True, 'drops': 1}},
+                                                'dials': [{'index': 0, 'ready': True}], 'display': 4})
+        self.assertIn('timber_inside_fraction', CONTINUOUS_FIELDS)
+
+    def test_events_on_change_snapshots_each_second_and_a_final_snapshot(self):
+        base = lambda t, goals, moving: {'sim_time_s': t, 'samples': int(t / .02), 'robot_motion_s': moving, 'matched_goals': goals}
+        times = [0, .02, .04, .06, .5, 1.0, 1.02, 1.04]
+        results = [base(0, 0, 0), base(.02, 0, .01), base(.04, 1, .02), base(.06, 1, .03), base(.5, 1, .2),
+                   base(1.0, 1, .3), base(1.02, 2, .31), base(1.04, 2, .32), base(1.04, 2, .32)]
+        m = monitor('events-1s', results)
+        for t in times: m.log_sample(t)
+        m.d.time = 1.04; m.finish()
+        kinds = [(r['type'], r['sim_time_s']) for r in records(m)]
+        self.assertEqual(kinds, [('snapshot', 0), ('event', .04), ('snapshot', 1.0), ('event', 1.02), ('snapshot', 1.04)])
+        self.assertIn('objects', records(m)[0]); self.assertNotIn('objects', records(m)[1])
+        m.close()  # the final snapshot is not written twice
+
+    def test_full_format_keeps_original_line_per_snapshot_records(self):
+        results = [{'sim_time_s': t, 'matched_goals': 0} for t in (0, .05, .1, .15, .2)]
+        m = monitor('full', results)
+        for t in (0, .05, .1, .15, .2): m.log_sample(t)
+        self.assertEqual([r['sim_time_s'] for r in records(m)], [0, .1, .2])
+        self.assertTrue(all('type' not in r and 'objects' in r for r in records(m)))
+
+
+if __name__ == '__main__': unittest.main()

@@ -27,7 +27,7 @@ class PrecheckModel(StubModel):
     def reply_text(self, body, text, blocks):
         return 'READY' if not any('Without calling' in str(m.get('content','')) or
                                   'Call the robot tool once' in str(m.get('content',''))
-                                  for m in body.get('messages',[])) else 'green'
+                                  for m in body.get('messages',[])) else 'green red'
     def choose_tool(self, names, text, blocks, has_result):
         if names and not has_result and 'Call the robot tool once' in text:
             return {'op':'observe','data':{},'views':['top']}, 'toolu_precheck_image'
@@ -63,7 +63,7 @@ class PrecheckIntegrationTests(unittest.TestCase):
             server.shutdown();server.server_close()
 
     def setUp(self):
-        color=patch.object(claude_precheck.secrets,'choice',return_value='green')
+        color=patch.object(claude_precheck.preflight_probe,'choose',return_value=('green','red'))
         color.start(); self.addCleanup(color.stop)
     def test_precheck_with_native_idle_fork_and_local_fake_provider(self):
         server=http.server.ThreadingHTTPServer(('127.0.0.1',0),PrecheckModel)

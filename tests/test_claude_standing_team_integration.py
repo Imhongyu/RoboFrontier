@@ -10,6 +10,7 @@ import unittest
 
 from test_claude_adaptive_integration import StubModel
 from test_claude_standing_team import standing_fixture
+from robofrontier import run_layout
 from robofrontier.claude.session_host import ClaudeSessionHost
 
 POST_IDLE_PROMPT = 'RF_NATIVE_POST_IDLE_MAIL'
@@ -27,11 +28,13 @@ class StandingModel(StubModel):
         if not names:
             return None, None
         messages = json.dumps(self.request_body.get('messages', []))
-        matches = re.findall(r'Your current runtime role is ([A-Za-z][A-Za-z0-9_-]*)', messages)
+        matches = re.findall(r'(?:Your current runtime role is|Your role is) ([A-Za-z][A-Za-z0-9_-]*)', messages)
         if not matches:
             return None, None
         actor = matches[0]
-        hierarchical = 'Controller + Worker mode' in messages or 'Team topology: hierarchical' in messages
+        # Frozen first messages list role files instead of quoting them; the test sets the topology.
+        hierarchical = (getattr(type(self), 'topology', None) == 'hierarchical'
+                        or 'Controller + Worker mode' in messages or 'Team topology: hierarchical' in messages)
         # This is a scripted endpoint, not a model comprehension test. Claude can
         # coalesce wake text and prior tool results in one user message. Advance
         # a bounded per-role script instead of treating the last block as an RPC
@@ -72,6 +75,7 @@ class StandingNativeIntegrationTests(unittest.TestCase):
         env['FAKE_KEY'] = 'synthetic'
         try:
             for topology in ('hierarchical', 'peer'):
+                StandingModel.topology = topology
                 with self.subTest(topology=topology), standing_fixture(
                         topology, factory=ClaudeSessionHost, endpoint=f'http://127.0.0.1:{model.server_port}',
                         env=env) as (policy, service, _):
@@ -166,7 +170,7 @@ class StandingNativeIntegrationTests(unittest.TestCase):
                         self.assertTrue(service.world.executed)
                         self.assertEqual(service.world.executed[0][0], 'A')
                         for actor, host in policy.hosts.items():
-                            files = list((policy.run/'private/claude-config/projects').glob('*/'+host.session_id+'.jsonl'))
+                            files = list((run_layout.path(policy.run, 'engine_config', 'claude')/'projects').glob('*/'+host.session_id+'.jsonl'))
                             self.assertEqual(len(files), 1, actor)
                             self.assertEqual(agents[actor]['thread_id'], host.session_id)
                         messages = [json.loads(row['recipients']) for row in service.store.db.execute('SELECT recipients FROM messages')]

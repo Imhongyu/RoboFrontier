@@ -16,9 +16,14 @@ from robofrontier.claude.provenance import fork_provenance
 from robofrontier.claude.session_host import ClaudeSessionHost
 from robofrontier.delegation import Delegations
 from robofrontier.runtime_cli import execute
+from robofrontier.policy_bootstrap import delegate_prompt
 
 
-def child_prompt(actor, child):
+def child_prompt(actor, child, run=None):
+    # Runs prepared with robofrontier/policy_bootstrap.py send the frozen delegate message.
+    frozen = delegate_prompt(run, actor, child) if run is not None else None
+    if frozen is not None:
+        return frozen
     scope = {key: child[key] for key in ('robots', 'goal', 'done_when', 'constraints') if key in child}
     return ('Your current runtime role is ' + actor + '. This assignment replaces the inherited parent role, '
             'connection and finish authority. The parent task evidence restrictions remain in force. '
@@ -119,7 +124,7 @@ class AdaptiveForkSetup:
                     host=self.child_factory(self.parent.run,actor,self.parent.profile,self.parent.base_env,
                                             budget_ledger=self.ledger,max_budget_usd=self.child_budget_usd)
                     self.hosts[actor]=host
-                    ack=host.send(child_prompt(actor,child))
+                    ack=host.send(child_prompt(actor,child,host.run))
                 if ack.get('threadId') != child['thread_id']:
                     raise ValueError('Child start acknowledgement has wrong session')
                 self.admin('delegate-started', {'id':batch_id,'actor':actor,'outcome':'sent'})

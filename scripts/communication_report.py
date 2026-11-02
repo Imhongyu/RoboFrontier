@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sqlite3
 import statistics
+from robofrontier import run_layout
 
 
 def report_run(run):
@@ -31,7 +32,7 @@ def report_run(run):
         elif kind == 'ACTION_FINISHED':
             if isinstance(value.get('started_at'), (int, float)) and isinstance(value.get('finished_at'), (int, float)):
                 actions.append((value['started_at'], value['finished_at'], value.get('arm')))
-    host = run / 'private/outputs/codex-host.jsonl'
+    host = run_layout.path(run, 'host_log', 'codex')
     latest_usage, updates = {}, defaultdict(list)
     ids = {value.get('thread_id'): name for name, value in agents.items() if value.get('thread_id')}
     if host.exists():

@@ -17,7 +17,7 @@ from robofrontier.runtime_store import RuntimeStore
 
 class CentralizedPolicyHost:
     def __init__(self, run_dir, profile, base_env, *, host_factory=ClaudeSessionHost,
-                 client=client_call, verifier=verify_inputs):
+                 client=client_call, verifier=verify_inputs, resume=False):
         self.run = Path(run_dir).resolve()
         self.store = RuntimeStore(self.run / 'private/state/runtime.sqlite')
         try:
@@ -26,13 +26,19 @@ class CentralizedPolicyHost:
                 raise ValueError('Only centralized Claude engineering runs are supported')
             if config.get('model') != profile.get('model') or config.get('effort') != profile.get('effort'):
                 raise ValueError('Profile differs from frozen runtime configuration')
-            if self.store.get('lifecycle') != 'prepared' or self.store.agent('Controller')['thread_id']:
+            # A run continued after an unexpected exit (docs/run-segments.md) keeps its session.
+            self.resuming = resume
+            if resume:
+                if self.store.get('lifecycle') != 'resuming' or not self.store.agent('Controller')['thread_id']:
+                    raise ValueError('No prepared segment to resume')
+            elif self.store.get('lifecycle') != 'prepared' or self.store.agent('Controller')['thread_id']:
                 raise ValueError('A previously bound or started world cannot be restarted')
             changed = verifier(self.run)
             if changed:
                 raise ValueError('Frozen inputs changed: ' + ', '.join(changed))
             self.prompt = bootstrap_prompt(self.run, startup_protocol=config.get('startup_protocol', 'ready_barrier_v1'))
             self.host = host_factory(self.run, 'Controller', profile, base_env)
+            if resume: self.host.adopt(self.store.agent('Controller')['thread_id'])
             self.client = client
             self.bound = False
             self.bind_attempted = False
@@ -58,6 +64,15 @@ class CentralizedPolicyHost:
             if not reply.get('started'): raise ValueError('Direct START was not confirmed')
         return self.host.send(self.prompt)
 
+    def resume_segment(self):
+        """Resume the prepared segment and send the Controller its frozen resume message."""
+        if not self.resuming or self.dispatcher: raise ValueError('Not a prepared segment')
+        self.bound = True
+        self.dispatcher = ClaudeDispatcher(self.store, self.host)
+        reply = self.dispatcher.admin('request-resume')
+        if not reply.get('resumed'): raise ValueError('World did not confirm the resumed segment')
+        return self.host.send(reply['messages']['Controller'])
+
     def start_when_ready(self):
         """Explicitly start after a completed bootstrap and fresh READY evidence."""
         if not self.bound or not self.dispatcher:
@@ -81,4 +96,5 @@ class CentralizedPolicyHost:
     def close(self):
         if self.host.observe()['status'] == 'active':
             raise ValueError('Stop and wait for the active policy turn before closing')
+        if hasattr(self.host, 'close_process'): self.host.close_process()
         self.store.close()

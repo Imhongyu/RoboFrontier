@@ -14,6 +14,7 @@ import threading
 import time
 import uuid
 
+from robofrontier import preflight_probe
 from robofrontier.claude.provenance import fork_provenance, history, transcript_rows
 from robofrontier.claude.profile_identity import fingerprint
 from robofrontier.claude.runner import run_turn
@@ -117,7 +118,7 @@ def run_blocked_precheck(name, output, budget, base_env, *, binary='claude', wai
         receipt['checks']['parent_used_tool']=parent['summary'].get('tool_calls',0)>=1
         receipt['checks']['parent_requested_view']=parent['summary'].get('observe_top_calls',0)>=1
         receipt['checks']['parent_image_result_recorded']=parent['summary'].get('observe_top_image_results',0)>=1
-        receipt['checks']['parent_identified_image']=(parent['summary'].get('result_text') or '').strip().lower()==server.challenge_color
+        receipt['checks']['parent_identified_image']=preflight_probe.normalize(parent['summary'].get('result_text'))==server.challenge
         receipt['passed']=all(receipt['checks'].values()) and started<=budget
     except Exception as error:
         receipt['error_type']=type(error).__name__
@@ -127,7 +128,8 @@ def run_blocked_precheck(name, output, budget, base_env, *, binary='claude', wai
             cancel.set();worker.join(10)
             if worker.is_alive(): receipt['error_type']='ParentStillActive';receipt['passed']=False
         server.shutdown();server.server_close()
-    receipt.update(reported_cost_usd=round(started,6),finished_at=time.time(),challenge_color=server.challenge_color)
+    receipt.update(reported_cost_usd=round(started,6),finished_at=time.time(),challenge=server.challenge,
+                   probe_version=server.probe['version'])
     (output/'receipt.json').write_text(json.dumps(receipt,indent=2,ensure_ascii=False))
     return receipt
 

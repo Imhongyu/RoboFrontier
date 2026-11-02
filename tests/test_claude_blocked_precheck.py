@@ -16,7 +16,7 @@ from test_claude_precheck_integration import PrecheckModel
 @unittest.skipUnless(shutil.which('claude'),'Claude CLI is not installed')
 class BlockedPrecheckTests(unittest.TestCase):
     def setUp(self):
-        color=patch.object(claude_precheck.secrets,'choice',return_value='green')
+        color=patch.object(claude_precheck.preflight_probe,'choose',return_value=('green','red'))
         color.start(); self.addCleanup(color.stop)
     def test_real_cli_against_loopback_model_preserves_blocked_fork(self):
         server=http.server.ThreadingHTTPServer(('127.0.0.1',0),PrecheckModel)

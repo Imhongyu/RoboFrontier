@@ -8,8 +8,156 @@ import ast
 import hashlib
 import json
 from pathlib import Path
+import textwrap
 
 RECEIPT = 'configs/task_families/source-compatibility.json'
+
+
+def _revert(tree, current, original, what, count=1):
+    """Put back the original statements where the reviewed `current` sequence is.
+
+    The sequence may sit in any statement list of `tree` and must occur exactly
+    `count` times. Bytes written before the reviewed change do not contain it, which
+    is allowed; any other variant fails the digest comparison."""
+    expected = [ast.dump(node) for node in ast.parse(textwrap.dedent(current)).body]
+    found = []
+    for node in ast.walk(tree):
+        for field in ('body', 'orelse'):
+            body = getattr(node, field, None)
+            if not isinstance(body, list): continue
+            for i in range(len(body)-len(expected)+1):
+                if [ast.dump(n) for n in body[i:i+len(expected)]] == expected: found.append((body, i))
+    if found and len(found) != count: raise ValueError(what+' differs from reviewed source')
+    for body, i in reversed(found):
+        body[i:i+len(expected)] = ast.parse(textwrap.dedent(original)).body if original else []
+
+
+# Reviewed run-storage and segment changes to World (docs/run-segments.md,
+# docs/evidence-storage.md). Each acts only for a new run that freezes the setting
+# or continues in a new segment; a historical run reaches the original statements.
+WORLD_RUN_STORAGE = (
+    ('portable scene copy', """
+def portable_xml(xml,folder):
+    '''The loaded model's XML with absolute asset paths made relative to `folder`, so a
+    saved copy still loads after the run moves to another machine or directory.'''
+    root=ET.fromstring(xml)
+    compiler=root.find('compiler')
+    for element,key in [(compiler,'meshdir'),(compiler,'texturedir')]+[(t,'file') for t in root.iter('texture')]+[(m,'file') for m in root.iter('mesh')]:
+        value=element.get(key) if element is not None else None
+        if value and os.path.isabs(value):element.set(key,os.path.relpath(value,folder))
+    return ET.tostring(root,encoding='unicode')
+""", None),
+    ('segment default', "segment=0", None),
+    ('segment restore default', "segment_restore=None", None),
+    ('segment restore', """
+from .run_segments import restore_world
+segment_restore=restore_world(self.directory,self.task,self.model,self.data)
+if segment_restore:self.segment=segment_restore['segment'];mujoco.mj_forward(self.model,self.data)
+self.arms={a:Arm(self.model,self.data,a,initialized=True) for a in self.task['arms']}
+if segment_restore:
+    for arm in self.arms.values():
+        arm.qref=self.data.qpos[arm.qids].copy();self.data.ctrl[arm.act]=arm.qref
+        control=arm.width_to_grip(arm.observe()['gripper_width_m'])
+        arm.gripper=control;arm.grip_goal=control;self.data.ctrl[arm.grip]=control
+""", "self.arms={a:Arm(self.model,self.data,a,initialized=True) for a in self.task['arms']}"),
+    ('restored grasp holds', """
+if self.task.get('scene_asset') and segment_restore:
+    holds=segment_restore.get('held_grasps',{})
+    self.restored_holds=[]
+    for name,evidence in holds.items():
+        if name not in self.arms:raise ValueError('Recorded grasp names an absent arm')
+        arm=self.arms[name];width=arm.observe()['gripper_width_m']
+        if abs(width-evidence['observed_width_m'])>.005:continue
+        self.restored_holds.append(name)
+        force=float(evidence['force_n']);arm.grasp_force=force
+        arm.grasp_width=float(evidence['target_width_m'])
+        arm.grasp_epsilon=(float(evidence['epsilon_inner_m']),float(evidence['epsilon_outer_m']))
+        arm.grasp_phase='hold';arm.grasp_confirmed=True;arm.gripper_command_mode='grasp'
+        arm.grasp_force_started=-.4;arm.grasp_drive_force=force
+        self.model.actuator_gainprm[arm.grip,:]=0;self.model.actuator_gainprm[arm.grip,0]=1
+        self.model.actuator_biasprm[arm.grip,:]=0
+        ceiling=min(70.,-arm.grip_position_parameters[3][0],arm.grip_position_parameters[3][1])
+        self.model.actuator_forcerange[arm.grip]=[-ceiling,ceiling]
+        self.model.actuator_ctrlrange[arm.grip]=[-ceiling,ceiling]
+        self.data.ctrl[arm.grip]=-min(force,ceiling-1e-6)
+""", None),
+    ('saved scene', "(output/'scene.xml').write_text(portable_xml(self.xml,output))", "(output/'scene.xml').write_text(self.xml)"),
+    ('held grasp snapshot', """
+def held_grasps(self):
+    '''Arms holding a confirmed grasp, as a continued segment would restore them.'''
+    holds={}
+    for name,arm in self.arms.items():
+        if arm.job is None and arm.gripper_command_mode=='grasp' and arm.grasp_phase=='hold' and arm.grasp_confirmed:
+            holds[name]=dict(sim_s=self.time,observed_width_m=arm.observe()['gripper_width_m'],force_n=arm.grasp_force,
+                             target_width_m=arm.grasp_width,epsilon_inner_m=arm.grasp_epsilon[0],epsilon_outer_m=arm.grasp_epsilon[1])
+    return holds
+""", None),
+    ('engineering fault entry', """
+def inject_fault(self,actor,call_id,op):
+    '''Apply this run's engineering fault, if any, to an independent action just started.'''
+    if not hasattr(self,'fault'):
+        from .fault_injection import load
+        self.fault=load(self.directory);self.fault_moves={}
+    spec=self.fault
+    if not spec or spec.get('applied') or op!=spec['op'] or spec['robot'] not in ('*',actor):return None
+    counter='*' if spec['robot']=='*' else actor
+    self.fault_moves[counter]=self.fault_moves.get(counter,0)+1
+    if self.fault_moves[counter]!=spec['action_index']:return None
+    arm=self.arms[actor];arm.execution_timeout_s=spec['timeout_sim_s'];arm.fault_hold_s=spec['hold_unsettled_sim_s']
+    spec['applied']=True
+    return {'call_id':call_id,'arm':actor,**{k:spec[k] for k in ('kind','robot','op','action_index','timeout_sim_s','hold_unsettled_sim_s')}}
+""", None),
+    ('process log format', """
+harness=self.directory/'private/inputs/harness.json'
+frozen=json.loads(harness.read_text()) if harness.exists() else {}
+self.suite_sampler=Monitor(self,secret=secret,log_path=self.directory/'private/outputs/suite-process.jsonl',
+                           log_format=frozen.get('process_log','full'),append=self.segment>0)
+""", "self.suite_sampler=Monitor(self,secret=secret,log_path=self.directory/'private/outputs/suite-process.jsonl')"),
+    ('motion rate and segment folder', """
+hz=frozen.get('motion_hz',60)
+from .run_segments import output_dir
+folder=output_dir(self.directory,self.segment);folder.mkdir(parents=True,exist_ok=True)
+self.motion_recorder=MotionWriter(folder/'motion',source,self.model,self.data,hz=hz,
+                                  cache=ROOT/'runs/state-assets')
+""", "self.motion_recorder=MotionWriter(self.directory/'private/outputs/motion',source,self.model,self.data,cache=ROOT/'runs/state-assets')"),
+)
+# Reviewed additions to PandaArm: local recovery of an uncertain stop (recover_action)
+# and the engineering fault hold. Both act only after a stop was reported uncertain or
+# when a fault is frozen; a qualified historical trial reaches the original statements.
+ARM_RECOVERY = (
+    ('uncertain-stop sampling', """
+if self.uncertainty_reported:
+    if self.stopping:
+        if self.recovery_last_sample is not None and now<=self.recovery_last_sample+1e-9:return None
+        self.recovery_last_sample=now
+        fingers_settled=self.finger_stationary(now) if self.job_op=='gripper' else False
+        reached=(np.max(np.abs(self.velocity))<1e-5 and
+                 (fingers_settled if self.job_op=='gripper' else np.max(np.abs(self.data.qvel[self.dofs]))<.03))
+        if self.fault_hold_until is not None and now<self.fault_hold_until:reached=False
+        self.stable=self.stable+1 if reached else 0
+    return None
+""", "if self.uncertainty_reported:return None", 1),
+    ('fault hold check', "if self.fault_hold_until is not None and now<self.fault_hold_until:reached=False", None, 1),
+    ('fault hold start', "if self.fault_hold_s is not None:self.fault_hold_until=now+3.+self.fault_hold_s", None, 1),
+    ('fault hold reset', "self.fault_hold_s=None;self.fault_hold_until=None", None, 2),
+    ('recovery sample default', "self.recovery_last_sample=None", None, 1),
+    ('recovery sample start', "self.stable=0;self.recovery_last_sample=now", None, 1),
+    ('local recovery entry', """
+def recover_stopped(self,call_id):
+    if self.job!=call_id or not self.stopping or not self.uncertainty_reported:
+        raise ValueError('Original locally uncertain stopping action is not active')
+    if self.stable<3:return None
+    result=self.end('failed','Action timed out or was stopped; stop later confirmed during local recovery')
+    self.uncertainty_reported=False
+    return result
+""", None, 1),
+)
+# Reviewed checks of two new frozen harness settings in load_harness.
+HARNESS_RUN_STORAGE = """
+if 'motion_hz' in c and (isinstance(c['motion_hz'],bool) or not math.isfinite(float(c['motion_hz'])) or c['motion_hz']<=0):
+    raise ValueError('Invalid motion sampling rate')
+if c.get('process_log','full') not in ('full','events-1s'):raise ValueError('Unknown process log format')
+"""
 
 
 def normalized_digest(source, rule):
@@ -21,6 +169,8 @@ def normalized_digest(source, rule):
         tree.body.remove(found[0])
     elif rule in ('exclude_prepared_policy_guard', 'exclude_policy_service', 'exclude_policy_service_and_observation_metadata'):
         world = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'World')
+        if rule == 'exclude_policy_service_and_observation_metadata':
+            for what, current, original in WORLD_RUN_STORAGE: _revert(tree, current, original, what)
         method = next(n for n in world.body if isinstance(n, ast.FunctionDef) and n.name == 'start_trial')
         expected = ast.parse("if self.task.get('execution_readiness')=='prepared_policy_trial':\n from .task_families import validate_frozen_policy\n validate_frozen_policy(self.task,self.directory)").body[0]
         method.body = [n for n in method.body if ast.dump(n) != ast.dump(expected)]
@@ -51,6 +201,15 @@ def normalized_digest(source, rule):
                 raise ValueError('Observation initialization differs from reviewed source')
             original = ast.parse("profile=json.loads(hand_cfg.read_text()).get('gripper_position_servo','legacy') if hand_cfg.exists() else 'legacy'").body
             init.body[indices[0]:indices[0]+3] = original
+            # Reviewed addition: the owner's entry for single-arm recovery. It only reads
+            # and ends an action whose timed-out stop is already uncertain; stepping,
+            # control and every other World method are unchanged.
+            recovery = ast.parse("def recover_action(self,actor,call_id):\n return self.arms[actor].recover_stopped(call_id)").body[0]
+            found = [node for node in world.body if isinstance(node, ast.FunctionDef) and node.name == 'recover_action']
+            if found:
+                if len(found) != 1 or ast.dump(found[0]) != ast.dump(recovery):
+                    raise ValueError('Single-arm recovery entry differs from reviewed source')
+                world.body.remove(found[0])
             facts = next(node for node in world.body if isinstance(node, ast.FunctionDef) and node.name == 'robot_facts')
             expected_size = ast.parse("[self.observation_image['width'],self.observation_image['height']]", mode='eval').body
             sizes = [node for node in ast.walk(facts) if isinstance(node, ast.List) and ast.dump(node) == ast.dump(expected_size)]
@@ -59,6 +218,7 @@ def normalized_digest(source, rule):
             sizes[0].elts = [ast.Constant(1280), ast.Constant(800)]
     elif rule == 'exclude_policy_harness_selection':
         method=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='load_harness')
+        _revert(method, HARNESS_RUN_STORAGE, None, 'Run storage harness checks')
         reviewed=ast.parse("if c['manager'] != 'Meta' or c['coordinator'] not in ('Controller', 'Coordinator'):\n"
                            " raise ValueError('Use Meta and Controller; legacy Coordinator is accepted for frozen runs')\n"
                            "if c.get('engine','codex') not in ('codex','claude'):\n"
@@ -77,6 +237,8 @@ def normalized_digest(source, rule):
                 raise ValueError('Harness selection differs from reviewed configuration checks')
             if index==0:method.body[matches[0]]=original
             else:method.body.pop(matches[0])
+    elif rule == 'exclude_local_recovery_and_engineering_fault':
+        for what, current, original, count in ARM_RECOVERY: _revert(tree, current, original, what, count)
     elif rule == 'mosaic_public_projection':
         # This authenticates only the old review artifact's public projection.
         # Validator improvements and current scoring are explicitly not equated.

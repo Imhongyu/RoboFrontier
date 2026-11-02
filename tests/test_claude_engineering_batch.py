@@ -49,6 +49,23 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(state['status'], 'closed')
         self.assertEqual(set(seen), {'case0','case1','case2','case3'})
 
+    def test_only_a_world_that_died_is_offered_a_continuation(self):
+        # A host stop at its own wall limit or on STOP is final, even when its seal is missing.
+        from unittest.mock import patch
+        from robofrontier.claude import engineering_batch
+        asked = []
+        def fake_continue(run, reason):
+            asked.append(reason); return False, 'not eligible in this test'
+        with patch.object(engineering_batch, 'try_continue', fake_continue):
+            for reason in ('wall_limit', 'stop_requested', 'world_ended', 'dispatch_paused', 'session_error'):
+                result = engineering_batch._run_once_continued(lambda *a, **k: {'reason': reason}, 'run', {})
+                self.assertEqual(result['segments'], [])
+            self.assertEqual(asked, [])
+            for reason in engineering_batch.WORLD_DIED:
+                result = engineering_batch._run_once_continued(lambda *a, **k: {'reason': reason}, 'run', {})
+                self.assertFalse(result['segments'][0]['continued'])
+            self.assertEqual(len(asked), len(engineering_batch.WORLD_DIED))
+
     def test_parallel_limit_all_jobs_and_single_use(self):
         guard = threading.Lock(); counts = {'active':0, 'maximum':0, 'total':0}
         def runner(*args, **kwargs):

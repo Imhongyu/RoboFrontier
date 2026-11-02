@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from robofrontier.run_metrics import export_metrics, native_codex_sessions, usage
+from robofrontier.run_metrics import export_metrics, native_codex_sessions, native_subagent_calls, run_skills, usage
 
 
 class RunMetricTests(unittest.TestCase):
@@ -88,6 +88,54 @@ class RunMetricTests(unittest.TestCase):
             with patch.dict('os.environ', {'CODEX_HOME':str(home)}):
                 self.assertEqual(native_codex_sessions(run,'native'),[])
                 self.assertEqual(native_codex_sessions(run,'native',home),[(home/'sessions/native.jsonl').resolve()])
+
+
+class RunEvidenceTests(unittest.TestCase):
+    def test_run_skills_lists_each_heading_of_the_shared_lessons_file(self):
+        from robofrontier.policy_bootstrap import SKILLS_HEADER
+        from robofrontier.run_layout import manifest_record
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp); (run/'private/inputs').mkdir(parents=True)
+            self.assertEqual(run_skills(run), [])  # A legacy run has no lessons file.
+            (run/'private/inputs/manifest.json').write_text(json.dumps(manifest_record('codex')))
+            self.assertEqual(run_skills(run), [])
+            lessons = run/'workspace/skills.md'; lessons.parent.mkdir()
+            lessons.write_text(SKILLS_HEADER)
+            self.assertEqual(run_skills(run)[0]['entries'], [])
+            lessons.write_text(SKILLS_HEADER + '\n## [fix] Reopen before regrasp — Controller — tags: grasp, recovery\n'
+                               'Content: x\n### rev 2 — Delegate_ab — open to 4 cm; faster\nContent: y\n'
+                               '## loose heading\n### a loose revision\n')
+            [record] = run_skills(run)
+            self.assertEqual(record['path'], 'workspace/skills.md')
+            self.assertEqual(record['entries'], [
+                {'type': 'fix', 'title': 'Reopen before regrasp', 'role': 'Controller', 'tags': ['grasp', 'recovery'],
+                 'revisions': [{'rev': 2, 'role': 'Delegate_ab', 'change': 'open to 4 cm; faster'}]},
+                {'type': None, 'title': 'loose heading', 'role': None, 'tags': [],
+                 'revisions': [{'rev': None, 'role': None, 'change': 'a loose revision'}]}])
+
+    def test_native_subagent_calls_are_counted_but_robot_and_text_are_not(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            codex, claude = Path(tmp)/'rollout.jsonl', Path(tmp)/'session.jsonl'
+            codex.write_text('\n'.join(json.dumps(r) for r in [
+                {'type':'response_item','payload':{'type':'function_call','name':'spawn_agent','namespace':'collaboration'}},
+                {'type':'response_item','payload':{'type':'function_call','name':'collaboration.wait_agent'}},
+                {'type':'response_item','payload':{'type':'function_call','name':'robot','arguments':'{"op":"return_task"}'}},
+                {'type':'response_item','payload':{'type':'message','content':[{'text':'I will not spawn_agent'}]}}])+'\n')
+            claude.write_text('\n'.join(json.dumps(r) for r in [
+                {'type':'assistant','message':{'content':[{'type':'tool_use','name':'Agent','input':{}}]}},
+                {'type':'assistant','message':{'content':[{'type':'tool_use','name':'mcp__robot__robot','input':{'op':'send_message'}}]}},
+                {'type':'user','message':{'content':'Task: place the blocks'}}])+'\n')
+            self.assertEqual(native_subagent_calls([codex]), {'spawn_agent': 1, 'wait_agent': 1})
+            self.assertEqual(native_subagent_calls([claude]), {'Agent': 1})
+            self.assertEqual(native_subagent_calls([]), {})
+
+    def test_cache_miss_has_one_definition_for_both_engines(self):
+        # The same request: 100 input tokens, 90 read from cache, 9 of the rest written to cache.
+        claude = usage('claude', {'input_tokens':1,'cache_read_input_tokens':90,'cache_creation_input_tokens':9,'output_tokens':4})
+        codex = usage('codex', {'inputTokens':100,'cachedInputTokens':90,'outputTokens':4})
+        self.assertEqual((claude['input_tokens'], claude['cache_miss_input_tokens'], claude['uncached_input_tokens']), (100, 10, 1))
+        self.assertEqual((codex['input_tokens'], codex['cache_miss_input_tokens'], codex['uncached_input_tokens']), (100, 10, 10))
+        self.assertIsNone(usage('codex', {'inputTokens':100})['cache_miss_input_tokens'])
 
 
 if __name__ == '__main__': unittest.main()

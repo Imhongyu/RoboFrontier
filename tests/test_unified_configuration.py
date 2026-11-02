@@ -146,7 +146,8 @@ class UnifiedConfigurationTests(unittest.TestCase):
                     ({'Controller'} if topology == 'controller-worker' else set()))
                 for actor, value in roles.items():
                     if value['kind'] == 'manager': continue
-                    self.assertTrue((run/'public/inputs/claude-roles'/f'{actor}.md').is_file())
+                    # Each role's frozen first message, shared with the Codex route.
+                    self.assertTrue((run/'private/inputs/bootstrap'/f'{actor}.md').is_file())
                 self.assertEqual(verify_inputs(run), [])
                 self.assertEqual(_frozen_configuration(batch), config)
 

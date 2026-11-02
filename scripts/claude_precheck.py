@@ -12,7 +12,6 @@ import http.server
 import json
 import math
 import os
-import secrets
 import subprocess
 import sys
 import threading
@@ -20,8 +19,8 @@ import time
 import uuid
 from pathlib import Path
 
-from PIL import Image
 
+from robofrontier import preflight_probe
 from robofrontier.claude.profile_identity import fingerprint
 from robofrontier.claude.runner import run_turn
 from robofrontier.claude.provenance import fork_provenance
@@ -29,16 +28,13 @@ from robofrontier.task_families import ROOT
 from scripts.benchmark import load_env
 from scripts.claude_benchmark import profile
 
-COLORS = {'red': (220, 35, 35), 'green': (37, 201, 113), 'blue': (35, 60, 220),
-          'yellow': (230, 210, 30), 'black': (10, 10, 10), 'white': (245, 245, 245)}
 MIN_TURN_BUDGET = 0.02
 
 PROMPTS = [
     ('text', 'Reply with exactly the word READY and nothing else.'),
-    ('tool_image', 'Call the robot tool once with op "observe", data {} and views ["top"]. '
-                   'Then reply with only the dominant color name of the returned image, chosen from: '
-                   'red, green, blue, yellow, black, white.'),
-    ('resume', 'Without calling any tool again, repeat the color name you identified, in one word.'),
+    ('tool_image', 'Call the robot tool once with op "observe", data {} and views ["top"]. '+preflight_probe.PROMPT+
+                   ' Reply with only those two lowercase color words, left first, separated by one space.'),
+    ('resume', 'Without calling any tool again, repeat the two color words you identified, left first.'),
 ]
 
 
@@ -87,14 +83,14 @@ def setup_run(output, base_env):
     conn.parent.mkdir(parents=True)
     image = run / 'public/observations/top.png'
     image.parent.mkdir(parents=True)
-    color_name = secrets.choice(tuple(COLORS))
-    Image.new('RGB', (64, 64), COLORS[color_name]).save(image)
+    probe = preflight_probe.write(image, *preflight_probe.choose())
     server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), World)
     server.image = image
     server.request_count = 0
     server.observe_count = 0
     server.request_lock = threading.Lock()
-    server.challenge_color = color_name
+    server.probe = probe
+    server.challenge = preflight_probe.answer(probe)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     conn.write_text(json.dumps({'run_id': run.name, 'actor': 'Controller', 'schema_version': 3,
                                 'url': f'http://127.0.0.1:{server.server_port}', 'token': 'precheck-local'}))
@@ -111,10 +107,10 @@ def request_count(server, *, observe_only=False):
         return server.observe_count if observe_only else server.request_count
 
 
-def judge(name, record, requests_before, requests_after, expected_session=None, expected_color='green',
+def judge(name, record, requests_before, requests_after, expected_session=None, expected_answer='green red',
           observes_before=0, observes_after=0):
     summary = record['summary']
-    text = (summary.get('result_text') or '').strip().lower()
+    text = preflight_probe.normalize(summary.get('result_text'))
     checks = {'process_exited': record['process'] == 'exited' and record['exit_code'] == 0,
               'turn_ended': summary['turn_status'] == 'ended',
               'same_session': summary['session_id'] == expected_session,
@@ -127,9 +123,9 @@ def judge(name, record, requests_before, requests_after, expected_session=None, 
         checks['robot_request_made'] = observes_after > observes_before
         checks['image_view_requested'] = summary.get('observe_top_calls', 0) >= 1
         checks['image_result_recorded'] = summary.get('observe_top_image_results', 0) >= 1
-        checks['image_color_named'] = text == expected_color
+        checks['image_colors_named'] = text == expected_answer
     elif name == 'resume':
-        checks['color_recalled'] = text == expected_color
+        checks['colors_recalled'] = text == expected_answer
         checks['no_new_robot_call'] = requests_after == requests_before
     return {'name': name, 'passed': all(checks.values()), 'checks': checks,
             'turn_status': summary['turn_status'], 'reported_model': summary['reported_model'],
@@ -163,7 +159,7 @@ def run_precheck(name, output, budget, base_env, binary='claude', check_fork=Fal
                               max_budget_usd=remaining, binary=binary,
                               resume=None if first else session, events_name=f'{check}.jsonl')
             result = judge(check, record, before, request_count(server), expected_session=session,
-                           expected_color=server.challenge_color, observes_before=observes_before,
+                           expected_answer=server.challenge, observes_before=observes_before,
                            observes_after=request_count(server, observe_only=True))
             receipt['checks'].append(result)
             cost = result['cost_usd']
@@ -187,7 +183,7 @@ def run_precheck(name, output, budget, base_env, binary='claude', check_fork=Fal
                 child = str(uuid.uuid4())
                 before = request_count(server)
                 record = run_turn(prof, prof['model'], prof['effort'], None,
-                                  'This is a tool-free fork. Recall the color you identified and reply with only the color name.',
+                                  'This is a tool-free fork. Recall the two colors you identified and reply with only those two words, left first.',
                                   run, base_env, session_id=child, fork_from=session, enable_robot=False,
                                   timeout=180, max_budget_usd=remaining, binary=binary, events_name='fork.jsonl')
                 summary = record.get('summary') or {}
@@ -195,7 +191,7 @@ def run_precheck(name, output, budget, base_env, binary='claude', check_fork=Fal
                           'turn_ended':summary.get('turn_status')=='ended',
                           'distinct_expected_session':summary.get('session_id')==child and child!=session,
                           'no_tool_calls':summary.get('tool_calls')==0 and request_count(server)==before,
-                          'color_recalled':(summary.get('result_text') or '').strip().lower()==server.challenge_color,
+                          'colors_recalled':preflight_probe.normalize(summary.get('result_text'))==server.challenge,
                           'valid_events':summary.get('malformed_lines')==0}
                 try:
                     proof=fork_provenance(session,child,history_directory(run, prof))
@@ -221,7 +217,8 @@ def run_precheck(name, output, budget, base_env, binary='claude', check_fork=Fal
         server.server_close()
     receipt.update(total_cost_usd=round(spent, 6), passed=bool(receipt['checks']) and all(c['passed'] for c in receipt['checks'])
                    and len(receipt['checks']) == len(PROMPTS)+(1 if check_fork else 0), finished_at=time.time(),
-                   fork_checked=check_fork, challenge_color=server.challenge_color)
+                   fork_checked=check_fork, challenge=server.challenge,
+                   probe_version=server.probe['version'])
     (output / 'receipt.json').write_text(json.dumps(receipt, indent=2, ensure_ascii=False))
     return receipt
 

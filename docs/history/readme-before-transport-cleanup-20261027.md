@@ -44,7 +44,7 @@ then-current 36 environments:
 - [Architecture and context](../architecture.md).
 - [Meta setup and management](../meta-runbook.md).
 - [Harness acceptance scope](../harness-v2-verification.md).
-- [Controller/Worker skill](../../.agents/skills/robot-collaboration/SKILL.md).
+- [Controller/Worker skill](../../prompts/skills/robot-collaboration/SKILL.md).
 - [Four-arm 10x10 Mosaic](../../configs/environments/mosaic/four-arm-10x10/README.md).
 - [Eight-arm opposing-pair beam environment](../../configs/environments/beam_handoff/facing-08/README.md).
 - [Command semantics and grasp-force audit](../robot-command-reality-audit-20261022.md):

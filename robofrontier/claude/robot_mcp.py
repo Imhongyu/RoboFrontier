@@ -26,9 +26,7 @@ TOOL = {
         'required': ['op', 'data'], 'additionalProperties': False},
 }
 # Administrative methods are never made available through the policy connection.
-POLICY_OPS = frozenset(('public_image', 'ready', 'robot_model', 'check_motion', 'send', 'inbox', 'wait_events',
-                        'history', 'work', 'delegate', 'return_task', 'team', 'checkpoint', 'yield',
-                        'observe', 'stop', 'move', 'gripper', 'action_batch', 'job', 'finish', 'pending'))
+from robofrontier.robot_ops import POLICY_OPS
 
 
 class RobotBridge:
