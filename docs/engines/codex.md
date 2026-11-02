@@ -8,6 +8,13 @@ the [engine overview](README.md) for what Codex shares with Claude and for
 [shared setup](README.md#shared-setup), and [providers](providers.md) for
 catalogs, credentials and third-party endpoints.
 
+The engine lives in `robofrontier/codex/`: `launch.py` builds the app-server
+configuration and native home, `batch.py` prepares and supervises batches (and
+backs `python -m scripts.benchmark`), and the Node `codex_policy_host.js`,
+`codex_rpc.js`, `codex_preflight.js` and `codex_initialize.js` drive app-server.
+Selection and `.env` loading shared with Claude are in
+`robofrontier/benchmark_common.py`.
+
 Each model/case has an independent run, MuJoCo world, SQLite state, authenticated
 connections, policy history, and work notes. Adaptive is the default: only its
 Controller decides when and how to delegate within the task. The host does not

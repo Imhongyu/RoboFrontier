@@ -160,7 +160,7 @@ class EngineRenderingTests(unittest.TestCase):
             self.assertEqual(fork[fork.index('--tools')+1], '')
 
     def test_codex_runs_under_the_frozen_permission_profile_without_web_search(self):
-        from scripts.benchmark import launch_config, profile
+        from robofrontier.codex.launch import launch_config, profile
         with tempfile.TemporaryDirectory() as tmp, patch('mujoco.mj_step', side_effect=AssertionError('No physics')):
             run = self.prepared(tmp, 'codex')
             launch = launch_config(profile('luna'), run/'private/inputs', run)

@@ -74,19 +74,20 @@ class EngineTests(unittest.TestCase):
     def test_frozen_sources_and_manifest_follow_the_engine(self):
         codex = prepare_run(self.root / 'codex-run', harness_path=harness_file(self.root, None))
         claude = prepare_run(self.root / 'claude-run', harness_path=harness_file(self.root, 'claude'))
-        frozen = lambda run: {p.name for p in (run / 'private/inputs/frozen-source/scripts').glob('*')}
-        self.assertIn('codex_policy_host.js', frozen(codex))
-        self.assertNotIn('claude_benchmark.py', frozen(codex))
-        self.assertIn('claude_benchmark.py', frozen(claude))
-        self.assertFalse({'codex_policy_host.js', 'codex_rpc.js'} & frozen(claude))
-        self.assertTrue({'benchmark.py','benchmark_handoff.py','tasks.py'} <= frozen(claude))
-        self.assertIn('meta_dispatcher.js', frozen(claude))
+        frozen = lambda run: {p.relative_to(run / 'private/inputs/frozen-source').as_posix()
+                              for p in (run / 'private/inputs/frozen-source').rglob('*') if p.suffix in ('.py', '.js')}
+        self.assertIn('robofrontier/codex/codex_policy_host.js', frozen(codex))
+        self.assertNotIn('scripts/claude_benchmark.py', frozen(codex))
+        self.assertIn('scripts/claude_benchmark.py', frozen(claude))
+        self.assertFalse({'robofrontier/codex/codex_policy_host.js', 'robofrontier/codex/codex_rpc.js'} & frozen(claude))
+        self.assertTrue({'robofrontier/benchmark_common.py', 'scripts/benchmark_handoff.py', 'scripts/tasks.py'} <= frozen(claude))
+        self.assertIn('scripts/meta_dispatcher.js', frozen(claude))
         self.assertTrue((claude / 'private/inputs/frozen-source/robofrontier/claude/provenance.py').is_file())
         self.assertEqual(json.loads((codex / 'private/inputs/manifest.json').read_text())['engine'], 'codex')
         self.assertEqual(json.loads((claude / 'private/inputs/manifest.json').read_text())['engine'], 'claude')
         self.assertEqual(verify_inputs(claude), [])
-        (claude/'private/inputs/frozen-source/scripts/benchmark.py').write_text('# changed shared helper')
-        self.assertIn('frozen:scripts/benchmark.py',verify_inputs(claude))
+        (claude/'private/inputs/frozen-source/robofrontier/benchmark_common.py').write_text('# changed shared helper')
+        self.assertIn('frozen:robofrontier/benchmark_common.py',verify_inputs(claude))
 
     def test_claude_report_never_uses_matching_codex_session_as_model_proof(self):
         home=self.root/'home'; sessions=home/'.codex/sessions'; sessions.mkdir(parents=True)

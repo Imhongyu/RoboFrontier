@@ -5,7 +5,7 @@ const {execFile,execFileSync,exec:execShell,spawn} = require('node:child_process
 const {promisify} = require('node:util');
 const execFileAsync = promisify(execFile), execAsync = promisify(execShell);
 const {CodexRpc,STARTUP_ACK_MS,capacityFailure,requireNoMcpServers} = require('./codex_rpc');
-const {runMetaDispatcher} = require('./meta_dispatcher');
+const {runMetaDispatcher} = require('../../scripts/meta_dispatcher');
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const read = file=>JSON.parse(fs.readFileSync(file,'utf8'));
 // Frozen at preparation by robofrontier/policy_bootstrap.py; absent from runs prepared earlier.
@@ -59,7 +59,7 @@ class PolicyHost {
   // Host file locations come from robofrontier/run_layout.py, the one source for both engines.
   hostPath(key) {
     if (!this.layout) this.layout=JSON.parse(execFileSync(this.python,['-m','robofrontier.run_layout',this.run,'--engine','codex'],
-      {cwd:this.cwd??path.resolve(__dirname,'..'),encoding:'utf8'})).paths;
+      {cwd:this.cwd??path.resolve(__dirname,'../..'),encoding:'utf8'})).paths;
     if (!(key in this.layout)) throw new Error('Unknown run layout key: '+key);
     return path.join(this.run,this.layout[key]);
   }
@@ -388,7 +388,7 @@ Use your assigned native session and bound robot tools. Read public task evidenc
         // Runs prepared before run-v6 have no engine_transcripts and keep theirs in the home.
         if ('engine_transcripts' in this.layout) {
           const kept=JSON.parse(execFileSync(this.python,['-m','robofrontier.session_archive','keep',this.run],
-            {cwd:this.cwd??path.resolve(__dirname,'..'),encoding:'utf8',env:process.env}));
+            {cwd:this.cwd??path.resolve(__dirname,'../..'),encoding:'utf8',env:process.env}));
           this.event({event:'transcripts_kept',threads:kept.threads,complete:kept.complete});
         }
       } catch(error) {this.event({event:'transcripts_error',message:error.message});}

@@ -8,7 +8,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from scripts import benchmark
+from robofrontier.codex import batch as benchmark
+from robofrontier.codex import launch
 from robofrontier.run_setup import write_json
 
 
@@ -63,10 +64,10 @@ class CodexTaskHomesTests(unittest.TestCase):
 
 class SharedCodexHomeTests(unittest.TestCase):
     def test_batches_never_default_to_the_personal_codex_home(self):
-        self.assertEqual(benchmark.codex_home({}), benchmark.BENCHMARK_CODEX_HOME.resolve())
-        self.assertNotEqual(benchmark.codex_home({}), (Path.home()/'.codex').resolve())
+        self.assertEqual(launch.codex_home({}), launch.BENCHMARK_CODEX_HOME.resolve())
+        self.assertNotEqual(launch.codex_home({}), (Path.home()/'.codex').resolve())
         with tempfile.TemporaryDirectory() as tmp:
-            self.assertEqual(benchmark.codex_home({'CODEX_HOME': tmp}), Path(tmp).resolve())
+            self.assertEqual(launch.codex_home({'CODEX_HOME': tmp}), Path(tmp).resolve())
 
 
 if __name__ == '__main__':

@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 
-from scripts.benchmark import load_env
+from robofrontier.benchmark_common import load_env
 from robofrontier import run_layout
 from robofrontier.task_families import ROOT
 
@@ -223,7 +223,7 @@ def main():
     args = parser.parse_args()
     load_env(ROOT/'.env')
     if args.command == 'l3-max-test':
-        from scripts.benchmark import select_cases
+        from robofrontier.benchmark_common import select_cases
         rows = select_cases(level=3)
         cases = []
         for family in ('transport', 'mosaic', 'relay', 'dial'):
@@ -294,7 +294,7 @@ def main():
         sandbox_probe(env)
     if args.command in ('run', 'submit'):
         print('CPU renderer: ' + json.dumps(render_probe(env)), flush=True)
-    cmd = [sys.executable, '-m', 'scripts.benchmark', 'prepare' if args.command == 'submit' else args.command]
+    cmd = [sys.executable, '-m', 'robofrontier.codex.batch', 'prepare' if args.command == 'submit' else args.command]
     if args.command == 'preflight': cmd += ['--models', selected_profile]
     elif args.command in ('prepare', 'submit'):
         if not math.isfinite(args.wall_limit_s) or args.wall_limit_s <= 0: raise SystemExit('Wall limit must be positive and finite.')
@@ -311,7 +311,7 @@ def main():
         marker = run_layout.batch_path(args.output, 'codex_home_marker'); marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text(json.dumps({'codex_home': str(home)}, indent=2)+'\n')
     if result == 0 and args.command == 'submit':
-        result = subprocess.call([sys.executable, '-m', 'scripts.benchmark', 'run', str(args.output),
+        result = subprocess.call([sys.executable, '-m', 'robofrontier.codex.batch', 'run', str(args.output),
                                   '--parallel', str(args.parallel)], cwd=ROOT, env=env)
     return result
 

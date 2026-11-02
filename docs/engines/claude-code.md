@@ -603,8 +603,9 @@ audit reports declare `benchmark_qualified: false`; Markdown also labels the
 unqualified state. Task success and permission to claim a scored benchmark are
 different facts.
 
-New drafts freeze their actual shared imports `benchmark.py`,
-`benchmark_handoff.py` and `tasks.py`, alongside native engine code and inputs.
+New drafts freeze their actual shared imports `robofrontier/benchmark_common.py`
+(with the rest of `robofrontier/`), `benchmark_handoff.py` and `tasks.py`,
+alongside native engine code and inputs.
 Reprepare after source changes. Older drafts do not gain that check retroactively.
 At historical Claude commit `85f9b91`, a merge preview against main `c8b4137` had
 no text conflicts; this was not a completed merge or behavioral proof. That

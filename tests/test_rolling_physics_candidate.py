@@ -2,7 +2,7 @@
 import unittest
 import xml.etree.ElementTree as ET
 
-from scripts.benchmark import select_cases
+from robofrontier.benchmark_common import select_cases
 from robofrontier.task_families import ROOT
 
 

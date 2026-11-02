@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 from robofrontier import run_layout
 from robofrontier.task_families import ROOT, RELEASE, read
-from scripts.benchmark import load_env, select_cases
+from robofrontier.benchmark_common import load_env, select_cases
 from scripts.benchmark_handoff import digest
 from robofrontier.run_setup import write_json
 from robofrontier.claude.runner import _oauth_endpoint_allowed

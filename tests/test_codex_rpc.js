@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const {CodexRpc,STARTUP_ACK_MS,capacityFailure,requireNoMcpServers}=require('../scripts/codex_rpc');
-const {PolicyHost,robotTool}=require('../scripts/codex_policy_host');
+const {CodexRpc,STARTUP_ACK_MS,capacityFailure,requireNoMcpServers}=require('../robofrontier/codex/codex_rpc');
+const {PolicyHost,robotTool}=require('../robofrontier/codex/codex_policy_host');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 test('native subscription tool admission rejects inherited MCP before a model turn',async()=>{
   for(const config of [{mcp_servers:{personal:{command:'unused'}}},

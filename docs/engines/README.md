@@ -129,10 +129,10 @@ not downloaded by ordinary policy bootstrap.
 | Component | Native Codex | Native Claude Code | Qualification boundary |
 | --- | --- | --- | --- |
 | Provider/model catalog | `configs/models.json`; launch configuration writes `codex.json` | `configs/claude-models.json`; `scripts/claude_benchmark.py` | Profiles alone do not establish provider compatibility. |
-| Task selection/freeze | `benchmark.select_cases`, shared preparation | Same selection/preparation; `engine: claude` in new harness/manifest | Shared tasks, separate engine qualification. |
+| Task selection/freeze | `benchmark_common.select_cases`, shared preparation | Same selection/preparation; `engine: claude` in new harness/manifest | Shared tasks, separate engine qualification. |
 | One policy turn | app-server `turn/start` | `claude -p`, `robofrontier/claude/runner.py` | Native turn lifecycle is not task success. |
 | Robot tools | app-server dynamic `robot` tool | Role-bound MCP in `robot_mcp.py` | Actual provider image handling requires its own evidence. |
-| Per-task host | `scripts/codex_policy_host.js` | `policy_host.py`, `adaptive_policy_host.py`, `standing_team.py` | All four Claude topologies remain engineering only. |
+| Per-task host | `robofrontier/codex/codex_policy_host.js` | `policy_host.py`, `adaptive_policy_host.py`, `standing_team.py` | All four Claude topologies remain engineering only. |
 | Scheduling | `scripts/meta_dispatcher.js` | `dispatch.py`, `adaptive_dispatch.py`, `standing_team.py` | Both use shared deterministic runtime rules; Claude engineering does not run through a fabricated Codex tool object. |
 | Session observation source | `codex.wait_threads`, `codex.app-server` | `claude.host` | `SESSION_SOURCES` is restricted by selected engine. |
 | Fork history | Native ordinal/prefix hashes in the task's Codex home | Native transcript UUID sequence/content in `provenance.py` | Prefix equality alone does not establish trusted creation or role authority. |
@@ -151,7 +151,7 @@ not downloaded by ordinary policy bootstrap.
 | Claude provider errors | `recovery.py`, `runner.py`, `session_host.py` | Recognize structured capacity failures and retain original-session recovery, backoff and retry evidence |
 | Claude scheduling | `supervisor.py`, `dispatch.py`, `adaptive_dispatch.py`, `standing_team.py` | Recover within the existing deadline; a recovering role does not claim ordinary wakes while other runnable roles continue |
 | Shared reporting | `robofrontier/run_metrics.py`, `scripts/export_run_report.py` | Emit common `host_metrics`; resolve isolated Codex homes and collected session maps |
-| Host timing | `scripts/codex_policy_host.js`, Claude `runner.py` and `robot_mcp.py` | Record turn/tool/fork setup intervals without adding another image Base64 log |
+| Host timing | `robofrontier/codex/codex_policy_host.js`, Claude `runner.py` and `robot_mcp.py` | Record turn/tool/fork setup intervals without adding another image Base64 log |
 
 The engine-specific modules remain native implementations. Common statistics,
 public protocol and scoring do not make Codex app-server forks identical to

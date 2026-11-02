@@ -261,7 +261,7 @@ def execute(arguments, config, *, root=ROOT):
     A disconnected/live container is retained for review; it is never blindly
     restarted. Only stopped ZIP evidence is exported to the host.
     """
-    from scripts.benchmark import load_env
+    from robofrontier.benchmark_common import load_env
     arguments = validate_arguments(arguments)
     if shutil.which('docker') is None:
         raise ValueError('Docker CLI is not installed')

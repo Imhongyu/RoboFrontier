@@ -6,7 +6,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from scripts.benchmark import profile, launch_config, select_cases
+from robofrontier.benchmark_common import select_cases
+from robofrontier.codex.launch import profile, launch_config
 from scripts.luna_cpu import cpu_environment, interval_union, usage_report, collect_batch, main
 
 

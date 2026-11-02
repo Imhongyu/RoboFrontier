@@ -13,7 +13,7 @@ import threading
 import time
 
 from PIL import Image
-from scripts.benchmark import launch_config
+from robofrontier.codex.launch import launch_config
 from robofrontier.run_setup import write_json
 from robofrontier.runtime_cli import fork_provenance
 
@@ -49,7 +49,7 @@ def check(output):
     pixels=io.BytesIO();Image.new('RGB',(32,32),'red').save(pixels,format='PNG')
     write_json(output/'image.json',{'url':'data:image/png;base64,'+base64.b64encode(pixels.getvalue()).decode()})
     script=r'''
-const fs=require('fs'),{CodexRpc}=require(process.argv[1]+'/scripts/codex_rpc');
+const fs=require('fs'),{CodexRpc}=require(process.argv[1]+'/robofrontier/codex/codex_rpc');
 const out=process.argv[2],launch=JSON.parse(fs.readFileSync(out+'/launch.json'));
 process.env.ROBOFRONTIER_OFFLINE_STUB_TOKEN='local-stub-no-credential';
 (async()=>{let done,completed=new Promise(r=>done=r),calls=0;

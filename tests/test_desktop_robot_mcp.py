@@ -80,7 +80,7 @@ class FakeService(BaseHTTPRequestHandler):
 
 
 DRIVER = r'''
-const fs=require('fs'),{execFileSync}=require('child_process'),{CodexRpc}=require(process.argv[1]+'/scripts/codex_rpc');
+const fs=require('fs'),{execFileSync}=require('child_process'),{CodexRpc}=require(process.argv[1]+'/robofrontier/codex/codex_rpc');
 const out=process.argv[2],launch=JSON.parse(fs.readFileSync(out+'/launch.json')),run=fs.readFileSync(out+'/run.txt','utf8');
 process.env.ROBOFRONTIER_OFFLINE_STUB_TOKEN='local-stub-no-credential';
 (async()=>{let done;
@@ -103,7 +103,7 @@ await rpc.close();})().catch(e=>{console.error(e.stack);process.exit(1);});'''
 class AppServerDesktopToolTests(unittest.TestCase):
     def test_bound_thread_operates_its_role_and_unbound_thread_is_refused(self):
         from test_codex_policy_permissions import STUB, OUTPUT_TYPES, responses_stub
-        from scripts.benchmark import launch_config
+        from robofrontier.codex.launch import launch_config
         from PIL import Image
         with tempfile.TemporaryDirectory() as tmp:
             t = Path(tmp).resolve(); runs = t / 'runs'

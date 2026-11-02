@@ -16,7 +16,8 @@ import tempfile
 import urllib.request
 
 from robofrontier.task_families import ROOT, RELEASE, read
-from scripts.benchmark import load_env, profile
+from robofrontier.benchmark_common import load_env
+from robofrontier.codex.launch import profile
 from scripts.tasks import check_case_assets
 
 
