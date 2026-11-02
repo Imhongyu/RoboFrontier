@@ -9,10 +9,29 @@ import time
 from robofrontier.claude.engineering_run import _positive, run_engineering
 from robofrontier.claude.runner import build_env
 from robofrontier.claude.native_home import config_directory
+from robofrontier import run_layout
 from robofrontier.run_setup import verify_inputs, write_json
 from robofrontier.launch_schedule import LaunchSchedule
 
 ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z')
+
+
+def _b(folder, key):
+    return run_layout.batch_path(folder, key)
+
+
+def _r(run, key):
+    return run_layout.path(run, key, 'claude')
+
+
+def _touch(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+
+
+def _stop_all(folder, jobs):
+    _touch(_b(folder, 'stop'))
+    for job in jobs: _touch(_r(job['run_directory'], 'stop'))
 
 
 def _jobs(folder):
@@ -38,7 +57,7 @@ def _jobs(folder):
 def _preflight(jobs, env, verifier):
     for job in jobs:
         run = Path(job['run_directory'])
-        if (run / 'STOP').exists() or (run / 'private/state/claude-engineering-claim.json').exists():
+        if _r(run, 'stop').exists() or _r(run, 'engineering_claim').exists():
             raise ValueError('A run is stopped or already claimed')
         changed = verifier(run)
         if changed: raise ValueError('Frozen inputs changed: ' + ', '.join(changed))
@@ -65,9 +84,9 @@ def _preflight(jobs, env, verifier):
 def status_batch(folder):
     folder = Path(folder).resolve()
     jobs = _jobs(folder)
-    state_file = folder / 'engineering-status.json'
+    state_file = _b(folder, 'engineering_status')
     state = json.loads(state_file.read_text()) if state_file.exists() else {'status': 'not_started'}
-    lock_path = folder / 'engineering-supervisor.lock'
+    lock_path = _b(folder, 'engineering_lock')
     live = False
     if lock_path.exists():
         with lock_path.open('r') as lock:
@@ -78,29 +97,28 @@ def status_batch(folder):
             else:
                 fcntl.flock(lock, fcntl.LOCK_UN)
     state['supervisor_live'] = live
-    state['stop_requested'] = (folder / 'STOP').exists()
-    if not state_file.exists() and (folder / 'engineering-claim.json').exists():
+    state['stop_requested'] = _b(folder, 'stop').exists()
+    if not state_file.exists() and _b(folder, 'engineering_claim').exists():
         state['status'] = 'starting' if live else 'claim_without_status_needs_review'
-    elif not state_file.exists() and (folder / 'STOP').exists():
+    elif not state_file.exists() and _b(folder, 'stop').exists():
         state['status'] = 'stopped_before_start'
     if state.get('status') == 'running' and not live:
         state['status'] = 'supervisor_lost_needs_review'
     state['runs'] = []
     for job in jobs:
         run = Path(job['run_directory'])
-        path = run / 'private/outputs/claude-engineering-status.json'
+        path = _r(run, 'engineering_status')
         state['runs'].append({'profile': job['profile'], 'case_id': job['case_id'],
                               'detail': json.loads(path.read_text()) if path.exists() else None,
-                              'claim_record_present': (run / 'private/state/claude-engineering-claim.json').exists(),
-                              'stop_requested': (run / 'STOP').exists()})
+                              'claim_record_present': _r(run, 'engineering_claim').exists(),
+                              'stop_requested': _r(run, 'stop').exists()})
     return state
 
 
 def stop_batch(folder):
     folder = Path(folder).resolve()
     jobs = _jobs(folder)  # Validate every path before changing any stop marker.
-    (folder / 'STOP').touch()
-    for job in jobs: (Path(job['run_directory']) / 'STOP').touch()
+    _stop_all(folder, jobs)
     return {'stop_requested': True, 'jobs': len(jobs), 'note': 'Request only; inspect status and sealing outcome.'}
 
 
@@ -116,13 +134,15 @@ def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_
     _positive(startup_timeout_s, 'startup timeout', 86400)
     jobs = _jobs(folder)
     schedule = LaunchSchedule(startup_interval_s)
-    with (folder / 'engineering-supervisor.lock').open('a+') as lock:
+    lock_path = _b(folder, 'engineering_lock')
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open('a+') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        claim = folder / 'engineering-claim.json'
+        claim = _b(folder, 'engineering_claim')
         if claim.exists(): raise ValueError('Batch already claimed; never restart')
-        if (folder / 'STOP').exists() or stop_requested(): raise ValueError('Batch was stopped before launch')
+        if _b(folder, 'stop').exists() or stop_requested(): raise ValueError('Batch was stopped before launch')
         _preflight(jobs, base_env, verifier)
-        if (folder / 'STOP').exists() or stop_requested(): raise ValueError('Batch was stopped before launch')
+        if _b(folder, 'stop').exists() or stop_requested(): raise ValueError('Batch was stopped before launch')
         with claim.open('x') as out:
             import os
             os.fchmod(out.fileno(), 0o600)
@@ -133,33 +153,30 @@ def run_batch(folder, base_env, *, parallel, turn_budget_usd=None, total_budget_
                  'turn_budget_usd': turn_budget_usd, 'task_budget_usd': total_budget_usd, 'wall_limit_s': wall_limit_s,
                  'startup_timeout_s': startup_timeout_s,
                  'jobs': [{'profile': j['profile'], 'case_id': j['case_id'], 'status': 'queued'} for j in jobs]}
-        state_path = folder / 'engineering-status.json'
+        state_path = _b(folder, 'engineering_status')
         write_json(state_path, state)
         next_job = 0
         pending = {}
         with ThreadPoolExecutor(max_workers=parallel) as pool:
             while next_job < len(jobs) or pending:
-                stopping = (folder / 'STOP').exists() or stop_requested()
+                stopping = _b(folder, 'stop').exists() or stop_requested()
                 if stopping:
-                    (folder / 'STOP').touch()
-                    for job in jobs: (Path(job['run_directory']) / 'STOP').touch()
+                    _stop_all(folder, jobs)
                 while not stopping and next_job < len(jobs) and len(pending) < parallel:
                     # A stop request can arrive while other jobs are being submitted.
-                    if (folder / 'STOP').exists() or stop_requested():
+                    if _b(folder, 'stop').exists() or stop_requested():
                         stopping = True
-                        (folder / 'STOP').touch()
-                        for job in jobs: (Path(job['run_directory']) / 'STOP').touch()
+                        _stop_all(folder, jobs)
                         break
                     index = next_job
                     future = schedule.launch(lambda: pool.submit(
                         runner, jobs[index]['run_directory'], base_env,
                         turn_budget_usd=turn_budget_usd, total_budget_usd=total_budget_usd,
                         wall_limit_s=wall_limit_s, startup_timeout_s=startup_timeout_s),
-                        stopped=lambda:(folder/'STOP').exists() or stop_requested())
+                        stopped=lambda:_b(folder, 'stop').exists() or stop_requested())
                     if future is None:
                         stopping = True
-                        (folder / 'STOP').touch()
-                        for job in jobs: (Path(job['run_directory']) / 'STOP').touch()
+                        _stop_all(folder, jobs)
                         break
                     next_job += 1
                     state['jobs'][index]['status'] = 'starting'

@@ -4,6 +4,7 @@ import json
 import time
 
 from robofrontier.claude.provenance import history, transcript_rows
+from robofrontier import run_layout
 
 MAX_CAPACITY_RETRIES = 3
 BASE_DELAY_SECONDS = 10
@@ -41,7 +42,7 @@ def recover(host, store, now=None):
     with host.lock:
         if (host.state != 'error' or not host.retryable_capacity
                 or host.capacity_retry_count >= host.max_capacity_retries
-                or host.cancel_event.is_set() or (host.run/'STOP').exists()
+                or host.cancel_event.is_set() or run_layout.path(host.run, 'stop', 'claude').exists()
                 or store.get('lifecycle') != 'running' or store.get('dispatch_paused', False)):
             return False
         try:

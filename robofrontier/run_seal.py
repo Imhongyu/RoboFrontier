@@ -8,6 +8,7 @@ import time
 import uuid
 
 from .pipeline_client import client_call
+from . import run_layout
 from .recording import probe_video
 from .run_setup import write_json
 from .scene_task import camera_names
@@ -29,7 +30,7 @@ def seal_run(store, timeout_s=30):
     with store.transaction():
         if not store.get('dispatch_paused',False):
             store.put('dispatch_paused',True);store.event('DISPATCH_PAUSED','Meta',{'reason':'Engineering seal requested'})
-    lock=(run/'private/state/world.lock').open('a+')
+    lock=run_layout.path(run,'world_lock').open('a+')
     observation=None;capture_error=None;shutdown_error=None;live=False
     try:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)

@@ -5,7 +5,7 @@ const {PolicyHost}=require('../scripts/codex_policy_host');
 test('host lifetime never consumes task time, while explicit STOP still works',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rf-clock-'));
   try {
-    const host={run:dir,stopped:false,began:0};
+    const host={run:dir,stopped:false,began:0,layout:{stop:'STOP'},hostPath:PolicyHost.prototype.hostPath};
     assert.equal(PolicyHost.prototype.stopRequested.call(host),false);
     fs.writeFileSync(path.join(dir,'STOP'),'');
     assert.equal(PolicyHost.prototype.stopRequested.call(host),true);

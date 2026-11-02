@@ -1,7 +1,7 @@
 // One independent CLI host per task. Reuses the existing deterministic Meta.
 const fs = require('node:fs');
 const path = require('node:path');
-const {execFile,exec:execShell,spawn} = require('node:child_process');
+const {execFile,execFileSync,exec:execShell,spawn} = require('node:child_process');
 const {promisify} = require('node:util');
 const execFileAsync = promisify(execFile), execAsync = promisify(execShell);
 const {CodexRpc,STARTUP_ACK_MS,capacityFailure,requireNoMcpServers} = require('./codex_rpc');
@@ -44,8 +44,16 @@ class PolicyHost {
     this.stopped=false;
     this.turnStarted=new Map();
   }
+  // Host file locations come from robofrontier/run_layout.py, the one source for both engines.
+  hostPath(key) {
+    if (!this.layout) this.layout=JSON.parse(execFileSync(this.python,['-m','robofrontier.run_layout',this.run,'--engine','codex'],
+      {cwd:this.cwd??path.resolve(__dirname,'..'),encoding:'utf8'})).paths;
+    if (!(key in this.layout)) throw new Error('Unknown run layout key: '+key);
+    return path.join(this.run,this.layout[key]);
+  }
   event(value) {
-    fs.appendFileSync(path.join(this.run,'private/outputs/codex-host.jsonl'),JSON.stringify({at:Date.now()/1000,...value})+'\n');
+    const file=this.hostPath('host_log');fs.mkdirSync(path.dirname(file),{recursive:true});
+    fs.appendFileSync(file,JSON.stringify({at:Date.now()/1000,...value})+'\n');
   }
   async admin(op,data={}) {
     const {stdout}=await execFileAsync(this.python,['-m','robofrontier.runtime_cli',
@@ -93,7 +101,7 @@ class PolicyHost {
     }
   }
   async startServer() {
-    const log=fs.openSync(path.join(this.run,'private/outputs/codex-server.log'),'a');
+    const log=fs.openSync(this.hostPath('server_log'),'a');
     this.rpc=new CodexRpc(this.launch.args,{stderr:log,onRequest:(m,p)=>this.toolRequest(m,p),onEvent:m=>{
       const p=m.params||{};
       const turnId=p.turnId || p.turn?.id, turnKey=p.threadId+':'+turnId;
@@ -131,7 +139,7 @@ class PolicyHost {
       input:[{type:'text',text:prompt}],turnTrigger:'robofrontier'});
     this.turns.set(threadId,result.turn); return {threadId};
   }
-  stopRequested() { return this.stopped || fs.existsSync(path.join(this.run,'STOP')); }
+  stopRequested() { return this.stopped || fs.existsSync(this.hostPath('stop')); }
   async retryCapacity() {
     if (this.stopped) return;
     const snapshot=await this.admin('snapshot');
@@ -172,7 +180,7 @@ Use your assigned native session and bound robot tools. Read public task evidenc
     for (const [actor] of policy) {
       if (this.stopRequested()) throw new Error('Stop requested during initial session setup');
       const result=await this.rpc.call('thread/start',{model:this.launch.model,modelProvider:this.launch.provider,
-        cwd:this.run,approvalPolicy:'never',sandbox:'workspace-write',ephemeral:false,dynamicTools:[robotTool],
+        cwd:this.hostPath('policy_cwd'),approvalPolicy:'never',sandbox:'workspace-write',ephemeral:false,dynamicTools:[robotTool],
         baseInstructions:'You are a RoboFrontier policy agent running in Codex. Follow the frozen public task, current role, tool protocol and evidence boundaries. Use your assigned robot tools. Preserve original call IDs across uncertain results. Do not manage the model host, modify the benchmark, or read private evaluation data.',
         threadSource:'robofrontier-benchmark',config:{web_search:'disabled','features.multi_agent':false}},STARTUP_ACK_MS);
       const id=result.thread.id; this.actors.set(id,actor);
@@ -207,7 +215,7 @@ Use your assigned native session and bound robot tools. Read public task evidenc
     let failure;
     try {
       await this.startServer();
-      const ownerLog=fs.openSync(path.join(this.run,'private/outputs/owner.log'),'a');
+      const ownerLog=fs.openSync(this.hostPath('owner_log'),'a');
       this.owner=spawn(this.python,['-m','robofrontier.pipeline','--run-dir',this.run,'--hidden'],
         {cwd:this.cwd,stdio:['ignore',ownerLog,ownerLog]}); fs.closeSync(ownerLog);
       this.owner.on('error',error=>{this.ownerError=error;});
@@ -225,7 +233,7 @@ Use your assigned native session and bound robot tools. Read public task evidenc
       const wrap=value=>({content:[{type:'text',text:JSON.stringify(value)}]});
       const createNativeFork=async (p,isSnapshot=false)=>{
         const forkStarted=Date.now();
-        const result=await this.rpc.call('thread/fork',{threadId:p.threadId,cwd:this.run,model:this.launch.model,
+        const result=await this.rpc.call('thread/fork',{threadId:p.threadId,cwd:this.hostPath('policy_cwd'),model:this.launch.model,
           modelProvider:this.launch.provider,excludeTurns:true,ephemeral:false});
         this.event({event:isSnapshot?'snapshot_created':'fork_created',thread_id:result.thread.id,parent:p.threadId,duration_s:(Date.now()-forkStarted)/1000});
         if (!isSnapshot) {

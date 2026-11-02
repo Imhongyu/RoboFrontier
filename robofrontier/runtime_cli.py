@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import time
 from .runtime_store import RuntimeStore
+from . import run_layout
 from .scheduling import Scheduler
 from .delegation import Delegations
 
@@ -149,7 +150,8 @@ def execute(store, op, data, owner, now):
         call_id='start-'+__import__('hashlib').sha256(store.get('run_id').encode()).hexdigest()[:24]
         # Multiple benchmark runs share this Python process. Redirecting global
         # sys.stderr here would cross-wire logs and restore closed streams.
-        with (store.path.parent/'admin-client.log').open('a') as log:
+        log_path=run_layout.for_store(store.path,'admin_log');log_path.parent.mkdir(parents=True,exist_ok=True)
+        with log_path.open('a') as log:
             print('call_id='+call_id,file=log,flush=True)
         return client_call(connection,'start',{},call_id,log_call_id=False)
     if op=='plan':return {'commands':Scheduler(store).plan(owner,now)}

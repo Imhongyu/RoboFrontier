@@ -18,6 +18,7 @@ from robofrontier.claude.recovery import capacity_code
 from robofrontier.claude.native_home import config_directory
 from robofrontier.claude.cost_state import amount, baseline, invocation_cost
 from robofrontier.run_metrics import host_event
+from robofrontier import run_layout
 
 ENV_PASSTHROUGH = ('PATH', 'LANG', 'LC_ALL', 'TMPDIR')
 ROBOT_TOOL = 'mcp__robot__robot'
@@ -220,7 +221,7 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
     outcomes through the runtime before treating a task as finished.
     """
     run_dir = Path(run_dir).resolve()
-    evidence = run_dir / 'private/evidence'
+    evidence = run_layout.path(run_dir, 'engine_turns', 'claude')
     evidence.mkdir(parents=True, exist_ok=True)
     config_dir = config_directory(run_dir, profile)
     if profile.get('auth_mode') != 'native_login':

@@ -3,6 +3,7 @@
 Run in the same filesystem/container environment as the runner. This is an
 evidence collector, not a score validator or an authentication backup.
 """
+from robofrontier import run_layout
 from robofrontier.claude.native_home import history_directory
 from robofrontier.run_setup import write_json
 import argparse
@@ -105,7 +106,8 @@ def _files(root):
         for name in dirs + files:
             if (parent/name).is_symlink():
                 raise ValueError('Symlink inside evidence; resolve explicitly before collecting: ' + str(parent/name))
-        dirs[:] = sorted(d for d in dirs if d != 'claude-config')
+        # run-v3 keeps the native configuration in private/claude-config, run-v6 in private/engine/config.
+        dirs[:] = sorted(d for d in dirs if d != 'claude-config' and not (d == 'config' and parent.name == 'engine'))
         for name in sorted(files):
             path = parent/name
             if not path.is_file():
@@ -163,14 +165,14 @@ def collect_batch(batch_path, output, *, codex_home=None):
     engine = 'claude' if batch.get('schema') == 'robofrontier.claude-draft.v1' else 'codex'
     if batch.get('schema') not in (None, 'robofrontier.cli-benchmark.v1', 'robofrontier.claude-draft.v1'):
         raise ValueError('Unsupported batch schema')
-    state_path = batch_path/('engineering-status.json' if engine == 'claude' else 'batch.json')
+    state_path = run_layout.batch_path(batch_path, 'engineering_status') if engine == 'claude' else batch_path/'batch.json'
     state = load(state_path)
     if state.get('status') not in TERMINAL:
         raise ValueError('Collect only a stopped batch; inspect runner status first')
     jobs = batch.get('jobs')
     if not isinstance(jobs, list) or not jobs:
         raise ValueError('Batch has no jobs')
-    marker = batch_path/'codex-home.json'
+    marker = run_layout.batch_path(batch_path, 'codex_home_marker')
     batch_home = Path(codex_home).resolve() if codex_home else Path(load(marker)['codex_home']).resolve() if marker.exists() else Path(os.environ.get('CODEX_HOME', Path.home()/'.codex')).resolve()
     state_jobs = {(j.get('profile'), j.get('case_id')): j for j in state.get('jobs', [])}
     seen = set()
@@ -198,12 +200,12 @@ def collect_batch(batch_path, output, *, codex_home=None):
     temporary = Path(tempfile.mkdtemp(prefix='.rf-collection-', dir=output.parent))
     try:
         with ExitStack() as stack:
-            for name in ('supervisor.lock', 'engineering-supervisor.lock'):
-                lock_if_present(stack, batch_path/name)
+            for key in ('supervisor_lock', 'engineering_lock'):
+                lock_if_present(stack, run_layout.batch_path(batch_path, key))
             for job, run, status in runs:
-                for name in ('world.lock', 'claude-engineering.lock'):
-                    lock_if_present(stack, run/'private/state'/name)
-                host = run/'private/state/host-process.json'
+                for key in ('world_lock', 'engineering_lock'):
+                    lock_if_present(stack, run_layout.path(run, key, engine))
+                host = run_layout.path(run, 'host_process', engine)
                 if host.is_file() and host_is_live(load(host).get('pid'), run):
                     raise ValueError('Recorded host PID is still live; collect in the runner environment: ' + str(host))
             initial_files = list(_files(batch_path))
@@ -213,7 +215,8 @@ def collect_batch(batch_path, output, *, codex_home=None):
                 hashes[rel.as_posix()] = copy_stable(path, temporary/rel)
             rows = []
             for job, run, status in runs:
-                run_marker=run/'codex-home.json'
+                run_marker=run_layout.path(run,'codex_home_marker',engine)
+                native_config=run_layout.path(run,'engine_config',engine).relative_to(run)
                 home=Path(load(run_marker)['codex_home']).resolve() if not codex_home and run_marker.is_file() else batch_home
                 issues, roles, snapshot_sessions = [], [], []
                 db = temporary/'batch'/run.relative_to(batch_path)/'private/state/runtime.sqlite'
@@ -273,7 +276,7 @@ def collect_batch(batch_path, output, *, codex_home=None):
                                   'parent': meta.get('delegations',{}).get(agent.get('delegation_id'),{}).get('parent',agent.get('parent')),
                                   'session': rel.as_posix(), 'sha256': checksum})
                     if engine == 'claude':
-                        original_rel = Path('batch')/run.relative_to(batch_path)/'private/claude-config'/matches[0].relative_to(config)
+                        original_rel = Path('batch')/run.relative_to(batch_path)/native_config/matches[0].relative_to(config)
                         hashes[original_rel.as_posix()] = copy_stable(matches[0], temporary/original_rel)
                         roles[-1]['native_session'] = original_rel.as_posix()
                     # Native Claude may keep session-linked auxiliary transcripts.
@@ -285,7 +288,7 @@ def collect_batch(batch_path, output, *, codex_home=None):
                             extra_rel = rel.with_suffix('')/extra.relative_to(sidecars)
                             hashes[extra_rel.as_posix()] = copy_stable(extra, temporary/extra_rel)
                             native_sources[extra] = hashes[extra_rel.as_posix()]
-                            original_rel = Path('batch')/run.relative_to(batch_path)/'private/claude-config'/extra.relative_to(config)
+                            original_rel = Path('batch')/run.relative_to(batch_path)/native_config/extra.relative_to(config)
                             hashes[original_rel.as_posix()] = copy_stable(extra, temporary/original_rel)
                 if not roles:
                     issues.append('no recorded policy role sessions')
@@ -314,7 +317,7 @@ def collect_batch(batch_path, output, *, codex_home=None):
                         snapshot_sessions.append({'delegation_id':delegation_id,'thread_id':tid,
                                                   'session':rel.as_posix(),'sha256':checksum})
                         if engine == 'claude':
-                            native_rel = Path('batch')/run.relative_to(batch_path)/'private/claude-config'/matches[0].relative_to(native_root)
+                            native_rel = Path('batch')/run.relative_to(batch_path)/native_config/matches[0].relative_to(native_root)
                             hashes[native_rel.as_posix()] = copy_stable(matches[0], temporary/native_rel)
                             snapshot_sessions[-1]['native_session'] = native_rel.as_posix()
                             sidecars = matches[0].with_suffix('')
@@ -323,13 +326,13 @@ def collect_batch(batch_path, output, *, codex_home=None):
                                 extra_rel = rel.with_suffix('')/extra.relative_to(sidecars)
                                 hashes[extra_rel.as_posix()] = copy_stable(extra, temporary/extra_rel)
                                 native_sources[extra] = hashes[extra_rel.as_posix()]
-                                original_rel = Path('batch')/run.relative_to(batch_path)/'private/claude-config'/extra.relative_to(native_root)
+                                original_rel = Path('batch')/run.relative_to(batch_path)/native_config/extra.relative_to(native_root)
                                 hashes[original_rel.as_posix()] = copy_stable(extra, temporary/original_rel)
                 if engine == 'claude':
                     launch_file = run/'private/inputs/claude.json'
                     launch = load(launch_file) if launch_file.is_file() else {}
                     if launch.get('profile', {}).get('auth_mode') == 'native_login':
-                        relative = Path('batch')/run.relative_to(batch_path)/'private/state/claude-collected-sessions.json'
+                        relative = Path('batch')/run.relative_to(batch_path)/run_layout.path(run, 'collected_sessions', engine).relative_to(run)
                         marker = temporary/relative
                         if not marker.exists():
                             write_json(marker, {'schema':'robofrontier.claude-collected-sessions.v1',

@@ -11,6 +11,7 @@ import sys
 import tempfile
 
 from .configuration import ROOT, TOPOLOGIES, load_configuration, rendering_environment
+from . import run_layout
 
 
 def _print(value):
@@ -352,7 +353,7 @@ def main(argv=None):
             emit(run(args.batch, engineering=args.engineering))
         elif args.command == 'status':
             # Read the supervisor's atomic snapshot, never open a writer's SQLite.
-            snapshot = args.batch/'engineering-status.json'
+            snapshot = run_layout.batch_path(args.batch, 'engineering_status')
             emit(json.loads((snapshot if snapshot.is_file() else args.batch/'batch.json').read_text()))
         elif args.command == 'stop':
             batch = json.loads((args.batch/'batch.json').read_text())
@@ -360,9 +361,9 @@ def main(argv=None):
             paths = [Path(job['run_directory']).resolve() for job in batch['jobs']]
             if any(not path.is_relative_to(folder) or path == folder for path in paths):
                 raise ValueError('Invalid run directory in batch')
-            (folder/'STOP').touch()
-            for path in paths:
-                (path/'STOP').touch()
+            for stop in [run_layout.batch_path(folder, 'stop'), *(run_layout.path(path, 'stop') for path in paths)]:
+                stop.parent.mkdir(parents=True, exist_ok=True)
+                stop.touch()
             emit({'stop_requested': True, 'note': 'Inspect status and final sealing outcome'})
         elif args.command == 'collect':
             emit({'collection': str(collect(args.batch, args.output))})

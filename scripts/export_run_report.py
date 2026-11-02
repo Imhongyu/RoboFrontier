@@ -4,6 +4,7 @@ from collections import Counter
 import json
 from pathlib import Path
 
+from robofrontier import run_layout
 from robofrontier.runtime_store import RuntimeStore
 from robofrontier.run_setup import write_json, verify_inputs
 from robofrontier.action_batch import external_wait
@@ -28,7 +29,7 @@ def model_evidence(directory, actor, thread, config, codex_home=None):
         # CLI reports are useful observations but do not establish the effective
         # provider model or rule out remapping and auxiliary requests.
         turns=[]
-        evidence=Path(directory)/'private/evidence'
+        evidence=run_layout.path(directory,'engine_turns','claude')
         for path in evidence.glob('*-summary.json'):
             try:
                 data=json.loads(path.read_text())

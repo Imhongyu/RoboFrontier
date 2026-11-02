@@ -13,6 +13,7 @@ import threading
 import time
 
 from .runtime_store import RuntimeStore
+from . import run_layout
 from .run_setup import verify_inputs, write_json
 from .delegation import Delegations
 from .scene_task import camera_names
@@ -38,7 +39,9 @@ class RuntimeService:
         manifest = json.loads((self.directory/'private/inputs/manifest.json').read_text())
         if manifest.get('schema_version') != 3:
             raise ValueError('Historical run: use its frozen tools; no automatic migration')
-        self.world_lock = (self.directory/'private/state/world.lock').open('a+')
+        lock = run_layout.path(self.directory, 'world_lock')
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        self.world_lock = lock.open('a+')
         try:
             fcntl.flock(self.world_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:

@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 from robofrontier.claude.policy_host import CentralizedPolicyHost
 from robofrontier.claude.adaptive_policy_host import AdaptivePolicyHost
 from robofrontier.claude.budget import BudgetLedger
+from robofrontier import run_layout
 from robofrontier.claude.session_host import ClaudeSessionHost
 from robofrontier.claude.runner import build_env
 from robofrontier.claude.native_home import config_directory
@@ -74,7 +75,7 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
         raise ValueError('Missing credential variable: ' + profile['env_key'])
     if profile.get('auth_mode') == 'native_login':
         build_env(profile, base_env, config_directory(run, profile))
-    if (run / 'STOP').exists(): raise ValueError('Run was stopped before launch')
+    if run_layout.path(run, 'stop', 'claude').exists(): raise ValueError('Run was stopped before launch')
     host_factory = partial(ClaudeSessionHost, max_budget_usd=turn_budget_usd, total_budget_usd=total_budget_usd)
     policy = None
     ledger = None
@@ -82,14 +83,16 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
     owner = None
     result = None
     claimed = False
-    claim = run / 'private/state/claude-engineering-claim.json'
-    status = run / 'private/outputs/claude-engineering-status.json'
-    lock = (run / 'private/state/claude-engineering.lock').open('a+')
+    claim = run_layout.path(run, 'engineering_claim', 'claude')
+    status = run_layout.path(run, 'engineering_status', 'claude')
+    lock_path = run_layout.path(run, 'engineering_lock', 'claude')
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock = lock_path.open('a+')
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         # Recheck under the lock; a claim survives crashes and bars all retries.
         if claim.exists(): raise ValueError('Run already claimed; never restart the world')
-        if (run / 'STOP').exists(): raise ValueError('Run was stopped before launch')
+        if run_layout.path(run, 'stop', 'claude').exists(): raise ValueError('Run was stopped before launch')
         if verify_inputs(run): raise ValueError('Frozen inputs changed before launch')
         if topology == 'centralized':
             policy = policy_factory(run, profile, base_env, host_factory=host_factory)
@@ -99,12 +102,12 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
             out.flush(); os.fsync(out.fileno())
         claimed = True
         if topology == 'adaptive':
-            ledger = BudgetLedger.create(run / 'private/state/claude-budget.sqlite', total_budget_usd)
+            ledger = BudgetLedger.create(run_layout.path(run, 'budget_ledger', 'claude'), total_budget_usd)
             policy = adaptive_policy_factory(run, profile, base_env, ledger,
                                              turn_budget_usd=turn_budget_usd,
                                              setup_budget_usd=turn_budget_usd)
         elif topology in ('hierarchical', 'peer'):
-            ledger = BudgetLedger.create(run / 'private/state/claude-budget.sqlite', total_budget_usd)
+            ledger = BudgetLedger.create(run_layout.path(run, 'budget_ledger', 'claude'), total_budget_usd)
             policy = standing_policy_factory(run, profile, base_env, ledger,
                                               turn_budget_usd=turn_budget_usd)
         write_json(status, {'status': 'starting', 'claimed_at': time.time(), 'scored': False,
@@ -116,7 +119,9 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
             'PYOPENGL_PLATFORM', 'LIBGL_ALWAYS_SOFTWARE', 'GALLIUM_DRIVER',
             'CUDA_VISIBLE_DEVICES', 'MUJOCO_EGL_DEVICE_ID',
             'PYTHONPATH', 'DYLD_LIBRARY_PATH', 'LD_LIBRARY_PATH')}
-        with (run / 'private/outputs/owner.log').open('a') as log:
+        owner_log = run_layout.path(run, 'owner_log', 'claude')
+        owner_log.parent.mkdir(parents=True, exist_ok=True)
+        with owner_log.open('a') as log:
             owner = owner_factory([sys.executable, '-m', 'robofrontier.pipeline', '--run-dir', str(run), '--hidden'],
                                   cwd=ROOT, env=owner_env, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
                                   start_new_session=True)
@@ -125,7 +130,7 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
         connection = run / 'private/state/connections/Meta.json'
         while True:
             if owner.poll() is not None: raise RuntimeError('Physical owner exited before publishing its connection')
-            if (run / 'STOP').exists(): raise RuntimeError('Stop requested during owner startup')
+            if run_layout.path(run, 'stop', 'claude').exists(): raise RuntimeError('Stop requested during owner startup')
             if clock() >= deadline: raise TimeoutError('Physical owner startup timed out')
             info = json.loads(connection.read_text())
             if info.get('url') and policy.store.get('execution_owner_attached'):
@@ -136,7 +141,7 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
             sleep(poll_s)
         write_json(status, {'status': 'running', 'owner_pid': owner.pid, 'scored': False})
         supervisor = CentralizedSupervisor(policy, lambda: owner.poll() is None,
-                                            stop_requested=lambda: (run / 'STOP').exists(),
+                                            stop_requested=lambda: run_layout.path(run, 'stop', 'claude').exists(),
                                             startup_timeout_s=startup_timeout_s, wall_limit_s=wall_limit_s,
                                             poll_s=poll_s, clock=clock, sleep=sleep)
         result = supervisor.run()

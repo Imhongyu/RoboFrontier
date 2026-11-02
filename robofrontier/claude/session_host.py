@@ -18,6 +18,7 @@ import uuid
 from robofrontier.claude.runner import PreLaunchCancelled, run_turn
 from robofrontier.run_setup import verify_inputs, write_json
 from robofrontier.claude.recovery import MAX_CAPACITY_RETRIES, recover
+from robofrontier import run_layout
 
 ACTOR_NAME = re.compile(r'[A-Za-z][A-Za-z0-9_-]{0,63}')
 
@@ -46,7 +47,7 @@ def role_mcp_config(run_dir, actor, python=sys.executable, *, _validated_delegat
     info = json.loads(connection.read_text())
     if info.get('actor') != actor or info.get('run_id') != run.name or info.get('schema_version') != 3:
         raise ValueError('Role connection does not match this run')
-    target = run / 'private/claude-mcp' / (actor + '.json')
+    target = run_layout.path(run, 'engine_mcp', 'claude') / (actor + '.json')
     # A model never chooses the actor or a connection path. The server binds it.
     project = Path(__file__).resolve().parents[2]
     write_json(target, {'mcpServers': {'robot': {
@@ -290,7 +291,7 @@ class ClaudeSessionHost:
                           'source': 'cli_reported_estimate_not_provider_bill'}
             self.last_result = record
             try:
-                write_json(self.run / 'private/evidence' / f'{self.actor}-{turn_id}-summary.json',
+                write_json(run_layout.path(self.run, 'engine_turns', 'claude') / f'{self.actor}-{turn_id}-summary.json',
                            {'actor': self.actor, 'session_id': self.session_id, 'turn_id': turn_id,
                             'status': state, 'record': record, 'cost_accounting': accounting})
             except Exception:

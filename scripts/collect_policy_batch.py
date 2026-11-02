@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import time
 
+from robofrontier import run_layout
 from robofrontier.motion_recording import MotionReader
 from robofrontier.run_setup import write_json
 from robofrontier.runtime_store import RuntimeStore
@@ -40,7 +41,7 @@ def collect(base,output):
                 fresh_or_correct_parent=parent==(row['thread_id'] if a['kind']=='delegate' else None),verified=verified)
         if verification:write_json(run/'private/state/model-verification.json',verification)
         item={k:row[k] for k in ('case_id','family','level','arms','thread_id')};item.update(lifecycle=life,actions=len(actions),delegates=sum(x['kind']=='delegate' for x in agents.values()),model_verification=verification)
-        lock=(run/'private/state/world.lock').open('a+');closed=False
+        lock=run_layout.path(run,'world_lock').open('a+');closed=False
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);closed=True
         except BlockingIOError:pass
         finally:lock.close()

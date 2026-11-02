@@ -10,6 +10,7 @@ import shutil
 import stat
 import tempfile
 import zlib
+from robofrontier import run_layout
 
 IMAGE = re.compile(rb'(data:image/[^;,\s"\\]+;base64,)([A-Za-z0-9+/=]+)')
 REF = re.compile(rb'(data:image/[^;,\s"\\]+;base64,)@RF_IMAGE_([a-f0-9]{64})@')
@@ -143,7 +144,7 @@ def verify_collection(source, allow_incomplete=False):
         raise ValueError('A complete collection is required; stopped generic evidence can use --allow-incomplete')
     batch = json.loads((source/'batch'/'batch.json').read_text())
     if generic:
-        state = json.loads((source/'batch'/'engineering-status.json').read_text()) if report.get('engine') == 'claude' else batch
+        state = json.loads(run_layout.batch_path(source/'batch', 'engineering_status').read_text()) if report.get('engine') == 'claude' else batch
         terminal = ('closed', 'needs_review', 'stopped', 'stopped_before_start')
         if report.get('writers_stopped') is not True or state.get('status') not in terminal or any(j.get('status') not in terminal for j in state.get('jobs', [])):
             raise ValueError('Evidence writers must be stopped before archival')

@@ -8,6 +8,7 @@ import subprocess
 import sys
 from datetime import datetime
 
+from robofrontier import run_layout
 from robofrontier.task_families import ROOT
 from scripts.benchmark import load_env, prepare_batch, run_batch
 from scripts.luna_cpu import batch_codex_home, render_probe, sandbox_probe
@@ -67,7 +68,8 @@ def main():
     if platform.system()=='Darwin':print(native_render_probe(os.environ),flush=True)
     else:print('CPU renderer: '+json.dumps(render_probe(os.environ)),flush=True)
     prepare_batch(output,[args.profile],cases=args.cases,wall_limit_s=args.wall_limit_s)
-    (output/'codex-home.json').write_text(json.dumps({'codex_home':str(home)},indent=2)+'\n')
+    marker=run_layout.batch_path(output,'codex_home_marker');marker.parent.mkdir(parents=True,exist_ok=True)
+    marker.write_text(json.dumps({'codex_home':str(home)},indent=2)+'\n')
     print('Prepared batch: '+str(output),flush=True)
     run_batch(output,args.parallel)
     batch=json.loads((output/'batch.json').read_text())

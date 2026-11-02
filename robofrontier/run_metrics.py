@@ -5,12 +5,14 @@ import os
 from pathlib import Path
 import time
 
+from . import run_layout
+
 
 def host_event(run, event, **fields):
     # Telemetry is derived evidence. Its failure must not hide a robot result
     # or turn a settled action into an apparently unsubmitted request.
     try:
-        path = Path(run)/'private/outputs/claude-host.jsonl'
+        path = run_layout.path(run, 'host_log', 'claude')
         path.parent.mkdir(parents=True, exist_ok=True)
         raw = (json.dumps({'schema': 'robofrontier.host-event.v1', 'at': time.time(),
                            'event': event, **fields}, ensure_ascii=False, allow_nan=False)+'\n').encode()
@@ -73,8 +75,7 @@ def _union(intervals):
 
 def export_metrics(run, engine):
     """Count actual host events, including setup; deduplicate terminal event identities."""
-    root = Path(run)/'private/outputs'
-    events = _records(root/('claude-host.jsonl' if engine == 'claude' else 'codex-host.jsonl'))
+    events = _records(run_layout.path(run, 'host_log', engine))
     rows, seen = [], set()
     legacy = False
     if engine == 'claude':
@@ -93,7 +94,7 @@ def export_metrics(run, engine):
             legacy = True
             # Older runs remain readable. Setup usage may be absent, so this
             # fallback is explicitly partial rather than a full-run total.
-            for p in sorted((Path(run)/'private/evidence').glob('*-summary.json')):
+            for p in sorted(run_layout.path(run, 'engine_turns', engine).glob('*-summary.json')):
                 data = json.loads(p.read_text()); record = data.get('record') or {}
                 summary = record.get('summary') or {}
                 rows.append({'actor': data.get('actor'), 'session_id': data.get('session_id'),
@@ -191,7 +192,9 @@ def native_codex_sessions(run, thread, codex_home=None):
                             path = (parent/role['session']).resolve()
                             if path.is_relative_to(parent) and path.is_file(): matches.append(path)
                 return sorted(set(matches))
-            marker = parent/'codex-home.json'
+            if parent == run: marker = run_layout.path(run, 'codex_home_marker')
+            elif (parent/'batch.json').is_file(): marker = run_layout.batch_path(parent, 'codex_home_marker')
+            else: marker = parent/'codex-home.json'
             if home is None and marker.is_file():
                 home = Path(json.loads(marker.read_text())['codex_home']).expanduser().resolve()
         if home is None: home = Path(os.environ.get('CODEX_HOME', Path.home()/'.codex')).expanduser().resolve()

@@ -11,6 +11,7 @@ import sys
 import time
 import shlex
 import tomllib
+from robofrontier import run_layout
 from robofrontier.launch_schedule import LaunchSchedule
 
 from robofrontier.task_families import ROOT, RELEASE, read, prepare
@@ -244,7 +245,8 @@ def run_batch(folder, parallel):
     folder=Path(folder).resolve();batch=read(folder/'batch.json')
     if batch['status']!='prepared_not_started':raise ValueError('Never automatically restart a batch/world')
     if not 1<=parallel<=36:raise ValueError('Parallel tasks must be 1..36')
-    with (folder/'supervisor.lock').open('a+') as lock:
+    lock_path=run_layout.batch_path(folder,'supervisor_lock');lock_path.parent.mkdir(parents=True,exist_ok=True)
+    with lock_path.open('a+') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         # Another supervisor may have changed the batch before the lock.
         batch=read(folder/'batch.json')
@@ -291,7 +293,7 @@ def _run_batch_locked(folder, parallel, batch):
         home.mkdir(parents=True,exist_ok=True,mode=0o700)
         env['CODEX_HOME']=str(home)
         environments[str(run)]=env
-        write_json(run/'codex-home.json',{'schema':'robofrontier.codex-home.v1','codex_home':str(home),'scope':scope})
+        write_json(run_layout.path(run,'codex_home_marker','codex'),{'schema':'robofrontier.codex-home.v1','codex_home':str(home),'scope':scope})
         # Validate configuration without inference before starting any task.
         subprocess.run(['codex','app-server',*launch['args'],'--print-startup-config'],
                        check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,env=env)
@@ -300,7 +302,7 @@ def _run_batch_locked(folder, parallel, batch):
     for job in batch['jobs']:
         run=Path(job['run_directory']);env=environments[str(run)]
         if env['CODEX_HOME'] not in initialized:
-            initialize_codex_home(read(run/'private/inputs/codex.json'),run/'private/outputs',env=env)
+            initialize_codex_home(read(run/'private/inputs/codex.json'),run_layout.path(run,'owner_log','codex').parent,env=env)
             initialized.add(env['CODEX_HOME'])
     resources=memory_snapshot()
     batch['resource_snapshot']=resources
@@ -310,14 +312,16 @@ def _run_batch_locked(folder, parallel, batch):
     write_json(folder/'batch.json',batch)
     def task(job):
         run=Path(job['run_directory'])
-        if (run/'STOP').exists():return None
-        with (run/'private/outputs/supervisor.log').open('a') as log:
+        stop,batch_stop=run_layout.path(run,'stop','codex'),run_layout.batch_path(folder,'stop')
+        if stop.exists():return None
+        log_path=run_layout.path(run,'supervisor_log','codex');log_path.parent.mkdir(parents=True,exist_ok=True)
+        with log_path.open('a') as log:
             proc=schedule.launch(lambda:subprocess.Popen(
                 ['node',str(ROOT/'scripts/codex_policy_host.js'),str(run),str(ROOT),sys.executable],
                 cwd=ROOT,stdout=log,stderr=log,env=environments[str(run)]),
-                stopped=lambda:(run/'STOP').exists() or (folder/'STOP').exists())
+                stopped=lambda:stop.exists() or batch_stop.exists())
             if proc is None:return None
-            write_json(run/'private/state/host-process.json',dict(pid=proc.pid,started_at=time.time()))
+            write_json(run_layout.path(run,'host_process','codex'),dict(pid=proc.pid,started_at=time.time()))
             return proc.wait()
     with ThreadPoolExecutor(max_workers=parallel) as pool:
         futures={pool.submit(task,job):job for job in batch['jobs']}
@@ -398,7 +402,9 @@ def main():
                      for a,v in s.agents().items()});s.close()
         print(json.dumps(batch,ensure_ascii=False,indent=2))
     else:
-        for job in read(args.batch/'batch.json')['jobs']:Path(job['run_directory'],'STOP').touch()
+        for stop in [run_layout.batch_path(args.batch,'stop'),
+                     *(run_layout.path(job['run_directory'],'stop','codex') for job in read(args.batch/'batch.json')['jobs'])]:
+            stop.parent.mkdir(parents=True,exist_ok=True);stop.touch()
 
 
 if __name__=='__main__':main()

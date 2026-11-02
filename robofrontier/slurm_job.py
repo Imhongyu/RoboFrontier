@@ -16,6 +16,8 @@ import shlex
 import shutil
 import subprocess
 import sys
+
+from . import run_layout
 import tarfile
 import tempfile
 import time
@@ -249,13 +251,15 @@ def request_stop(local):
     (local/'STOP').touch()
     batch = local/'source/runs/policy/batch'
     if batch.is_dir():
-        (batch/'STOP').touch()
+        stops = [run_layout.batch_path(batch, 'stop')]
         if (batch/'batch.json').exists():
             runs = [Path(job['run_directory']).resolve() for job in json.loads((batch/'batch.json').read_text())['jobs']]
             if any(not run.is_relative_to(batch) or run == batch for run in runs):
                 raise ValueError('Invalid local run directory')
-            for run in runs:
-                (run/'STOP').touch()
+            stops += [run_layout.path(run, 'stop') for run in runs]
+        for stop in stops:
+            stop.parent.mkdir(parents=True, exist_ok=True)
+            stop.touch()
     return {'stop_requested': True}
 
 
@@ -263,9 +267,10 @@ def snapshot(local, submission):
     """Publish atomic JSON only, without opening any active database."""
     state = {'updated_at': time.time(), 'job_id': os.environ.get('SLURM_JOB_ID'), 'status': 'starting'}
     batch = Path(local)/'source/runs/policy/batch'
-    for name in ('batch.json', 'engineering-status.json'):
-        if (batch/name).is_file():
-            state[name] = json.loads((batch/name).read_text())
+    for name, path in (('batch.json', batch/'batch.json'),
+                       ('engineering-status.json', run_layout.batch_path(batch, 'engineering_status') if batch.is_dir() else None)):
+        if path is not None and path.is_file():
+            state[name] = json.loads(path.read_text())
             state['status'] = state[name]['status']
     write_json(Path(submission)/'status.json', state)
     return state
@@ -277,7 +282,8 @@ def _assert_no_writers(local):
     with contextlib.ExitStack() as stack:
         for pattern in ('source/runs/policy/**/world.lock', 'source/runs/policy/**/supervisor.lock',
                         'source/runs/policy/**/engineering-supervisor.lock',
-                        'source/runs/policy/**/claude-engineering.lock'):
+                        'source/runs/policy/**/claude-engineering.lock',
+                        'source/runs/policy/**/engineering.lock'):
             for path in Path(local).glob(pattern):
                 lock = stack.enter_context(path.open('r'))
                 try:
@@ -330,8 +336,9 @@ def _stage_out_stopped(local, submission, step_exit_code):
                         copy(file, file.relative_to(source).as_posix())
             # A Claude home can contain credentials beside its projects. Only
             # native JSONL transcripts enter this stopped-evidence fallback.
-            for file in (source/'runs/policy').glob('**/private/claude-config/projects/**/*.jsonl'):
-                copy(file, file.relative_to(source).as_posix())
+            for pattern in ('**/private/claude-config/projects/**/*.jsonl', '**/private/engine/config/projects/**/*.jsonl'):
+                for file in (source/'runs/policy').glob(pattern):
+                    copy(file, file.relative_to(source).as_posix())
             for home in (source/'.robofrontier/codex').glob('*'):
                 if (home/'sessions').exists():
                     for file in sorted((home/'sessions').rglob('*')):

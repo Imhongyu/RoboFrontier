@@ -16,6 +16,7 @@ import sys
 import time
 
 from scripts.benchmark import load_env
+from robofrontier import run_layout
 from robofrontier.task_families import ROOT
 
 CPU_PROFILES = ('luna', 'openlux-terra', 'openlux-luna')
@@ -162,7 +163,7 @@ def performance_report(batch_path):
         start = starts[0]; end = ends[0] if ends else time.time(); elapsed = max(0., end-start)
         actions = [(max(start, v['started_at']), min(end, v.get('finished_at') or end)) for v in values if v.get('started_at')]
         spans = {}; finished = []
-        path = run/'private/outputs/codex-host.jsonl'
+        path = run_layout.path(run, 'host_log', 'codex')
         if path.exists():
             for line in path.open():
                 try: event = json.loads(line)
@@ -248,7 +249,7 @@ def main():
         return 0 if report['complete'] else 1
     batch = args.output if args.command in ('prepare', 'submit', 'preflight') else getattr(args, 'batch', None)
     # Legacy batches have no marker and retain the caller's existing CODEX_HOME.
-    marker = Path(batch)/'codex-home.json' if batch else None
+    marker = run_layout.batch_path(batch, 'codex_home_marker') if batch else None
     if batch and args.command in ('prepare', 'submit', 'preflight'):
         home = batch_codex_home(batch)
     elif marker and marker.is_file():
@@ -307,7 +308,8 @@ def main():
         if args.command == 'run': cmd += ['--parallel', str(args.parallel)]
     result = subprocess.call(cmd, cwd=ROOT, env=env)
     if result == 0 and args.command in ('prepare', 'submit'):
-        (Path(args.output)/'codex-home.json').write_text(json.dumps({'codex_home': str(home)}, indent=2)+'\n')
+        marker = run_layout.batch_path(args.output, 'codex_home_marker'); marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(json.dumps({'codex_home': str(home)}, indent=2)+'\n')
     if result == 0 and args.command == 'submit':
         result = subprocess.call([sys.executable, '-m', 'scripts.benchmark', 'run', str(args.output),
                                   '--parallel', str(args.parallel)], cwd=ROOT, env=env)
