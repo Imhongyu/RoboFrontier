@@ -74,10 +74,12 @@ def main():
     print(sequence.stdout,end='');print(sequence.stderr,end='',file=sys.stderr)
     local_step=subprocess.run(['node',str(ROOT/'tests/test_role_step.cjs')],capture_output=True,text=True,cwd=ROOT)
     print(local_step.stdout,end='');print(local_step.stderr,end='',file=sys.stderr)
-    cli_rpc=subprocess.run(['node','--test',str(ROOT/'tests/test_codex_rpc.js')],capture_output=True,text=True,cwd=ROOT)
-    print(cli_rpc.stdout,end='');print(cli_rpc.stderr,end='',file=sys.stderr)
-    cli_preflight=subprocess.run(['node','--test',str(ROOT/'tests/test_codex_preflight.js')],capture_output=True,text=True,cwd=ROOT)
-    print(cli_preflight.stdout,end='');print(cli_preflight.stderr,end='',file=sys.stderr)
+    # Every Node host test (Codex RPC, preflight, restart, seal, wall limit, tool errors...).
+    node_tests={}
+    for source in sorted((ROOT/'tests').glob('test_*.js')):
+        ran=subprocess.run(['node','--test',str(source)],capture_output=True,text=True,cwd=ROOT)
+        print(ran.stdout,end='');print(ran.stderr,end='',file=sys.stderr)
+        node_tests[str(source.relative_to(ROOT))]=ran.returncode==0
     js_syntax=[]
     for source in sorted(p for folder in ('scripts','tests') for p in (ROOT/folder).iterdir() if p.suffix in ('.js','.cjs')):
         parsed=subprocess.run(['node','--check',str(source)],capture_output=True,text=True,cwd=ROOT)
@@ -100,7 +102,7 @@ def main():
         print(validator.stdout,end='');print(validator.stderr,end='',file=sys.stderr)
     dispatcher_count=re.search(r'^PASS: (\d+) dispatcher scenarios:',node.stdout,re.MULTILINE)
     dispatcher_passed=node.returncode==0 and dispatcher_count is not None
-    passed=result.wasSuccessful() and dispatcher_passed and bridge.returncode==0 and sequence.returncode==0 and local_step.returncode==0 and cli_rpc.returncode==0 and cli_preflight.returncode==0 and all(s['passed'] for s in js_syntax) and ui.returncode==0 and runbook.returncode==0 and tool_docs.returncode==0 and not broken_links and (validator is None or validator.returncode==0)
+    passed=result.wasSuccessful() and dispatcher_passed and bridge.returncode==0 and sequence.returncode==0 and local_step.returncode==0 and all(node_tests.values()) and all(s['passed'] for s in js_syntax) and ui.returncode==0 and runbook.returncode==0 and tool_docs.returncode==0 and not broken_links and (validator is None or validator.returncode==0)
     report={'checked_at':datetime.now(ZoneInfo('Asia/Hong_Kong')).isoformat(),'passed':passed,
             'scope':('Protocol-only engineering: FakeWorld/HTTP, private scoring on synthetic records, frozen inputs and encoder recovery. Physics creation/stepping prohibited; no native sessions, model inference or GUI.' if args.protocol_only else 'Offline engineering; FakeWorld/HTTP, robot kinematics/contacts, source/evidence verification and FFmpeg regressions. Installed native CLIs may run against synthetic loopback model endpoints in isolated test sessions. No real provider inference, GUI or model task-solving qualification.'),
             'physics_entrypoints_blocked':args.protocol_only,
@@ -109,8 +111,7 @@ def main():
             'role_tool_bridge_js':{'passed':bridge.returncode==0,'summary':bridge.stdout.strip(),'error':bridge.stderr or None},
             'finite_sequence_js':{'passed':sequence.returncode==0,'error':sequence.stderr or None},
             'local_role_step_js':{'passed':local_step.returncode==0,'error':local_step.stderr or None},
-            'codex_cli_rpc_js':{'passed':cli_rpc.returncode==0,'error':cli_rpc.stderr or None},
-            'codex_preflight_js':{'passed':cli_preflight.returncode==0,'error':cli_preflight.stderr or None},
+            'node_host_tests':node_tests,
             'javascript_syntax':{'passed':all(s['passed'] for s in js_syntax),'files':js_syntax},
             'ui_script_syntax':{'passed':ui.returncode==0,'error':ui.stderr or None},
             'runbook_script_syntax':{'passed':runbook.returncode==0,'error':runbook.stderr or None},
