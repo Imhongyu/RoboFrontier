@@ -9045,7 +9045,9 @@
   },
   "completion": {
     "stable_duration_sim_s": 1.0,
-    "scope": "Mechanism-specific commissioning required; no inherited v1 evaluator assumed"
+    "scope": "Mechanism-specific commissioning required; no inherited v1 evaluator assumed",
+    "xy_center_tolerance_m_inclusive": 0.006,
+    "position_rule_revision": "mosaic-center-6mm-v1"
   },
   "execution_readiness": "environment_preview_only",
   "oracle_verified": false,

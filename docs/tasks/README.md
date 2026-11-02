@@ -7,7 +7,7 @@ Four families each have three scales and three levels, giving 36 cases.
 | --- | --- | --- | --- | --- |
 | Transport | R14 physical half-holes | Original R13 frozen recordings; half-hole presentation | 20x | [Transport](transport.md) |
 | Mosaic | R14 nearby mixed colors | Original R13 color recordings | 30x | [Mosaic](mosaic.md) |
-| Relay | Final 50 mm GOAL, low release, stacking allowed | Each recording's own frozen source | 20x | [Relay](relay.md) |
+| Relay | Each timber 70% over GOAL and released, stacking allowed | Each recording's own frozen source | 20x | [Relay](relay.md) |
 | Dial | R11 BEST5 | Original R11 recordings | 10x | [BEST5 Dial](dial-best5.md) |
 
 Transport/Mosaic R14 are new inputs; R13 full Oracle results do not qualify R14

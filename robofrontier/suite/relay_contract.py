@@ -10,7 +10,8 @@ import json
 import os
 import hashlib
 
-RULE_REVISION = 'relay-final-goal-50mm-v1'
+LEGACY_RULE_REVISION = 'relay-final-goal-50mm-v1'
+RULE_REVISION = 'relay-timber-goal-70pct-v1'
 BOUNDARY_TOLERANCE_M = .050
 LOW_RELEASE_GAP_M = .030
 CATALOG_RELATIVE = 'configs/suites/frontier-relay.json'
@@ -18,7 +19,7 @@ HARNESS_RELATIVE = 'configs/harness-frontier-v2-servo2.json'
 
 
 def is_current(task):
-    return task.get('completion', {}).get('rule_revision') == RULE_REVISION
+    return task.get('completion', {}).get('rule_revision') in (RULE_REVISION, LEGACY_RULE_REVISION)
 
 
 def final_task(task):
@@ -34,8 +35,8 @@ def final_task(task):
         'Airborne transport requires at least two actual beam grasps. Establish receiving support before releasing a sender. Every assembly must undergo a real qualified airborne handover; the receiving team may retain an existing holder.',
         'Grasp the red timber, not a pendant, ring or shaft. Keep the whole assembly clear of table and floor during airborne transport, except for the allowed final GOAL landing.',
         'Any final placement in GOAL is allowed, including cargo contact and stacking. Oracle packing centers and contact-free separation are not task requirements.',
-        'The complete assembly must be within the GOAL outline with at most 50mm outward geometric tolerance on each boundary. Final completion requires actual release from every robot and actual table support, directly or through other accepted cargo. There is no additional velocity threshold or stationary-duration requirement.',
-        'Inside GOAL, original qualified holders may lower different parts onto the table separately. They may open before contact when the lowest assembly part is at most 30mm above the table. Opening alone is not completion: verify actual final landing, release and containment.',
+        'Each timber must have at least 70 percent of its centreline length in the vertical space above the GOAL outline. Final completion requires release from every robot; direct or indirect table support is not required.',
+        'Inside GOAL, original qualified holders may lower different parts onto the table separately. Process events and the separate terminal completion check are recorded independently.',
         'Drops and violations remain recorded. Only the last established sending team may recover a dropped assembly; a receiver cannot pick it up to bypass an airborne handover. No reset, respawn or history erasure.',
         'Only ordinary robot actuators and real contacts may change the live task. No hand welds, object-state writes, hidden-state tools, runtime physics changes or stabilizing attachments.',
     ]
@@ -47,14 +48,14 @@ def final_task(task):
         rules.append('The manufactured elbow has 31.5 degrees deflection (148.5 degrees interior angle). All hinges are passive out-of-plane angular springs with ±25 degree limits, moving with the timber. With the root horizontal, the top-view centerline opening is fixed while projected lengths change.')
     result['rules'] = rules
     result['completion'] = dict(
-        rule_revision=RULE_REVISION, boundary_tolerance_m=BOUNDARY_TOLERANCE_M,
+        rule_revision=RULE_REVISION, boundary_tolerance_m=BOUNDARY_TOLERANCE_M, timber_inside_fraction_min=.7, timber_goal_tolerance_m=0.,
         stable_duration_sim_s=0., require_stationary=False,
         allow_goal_payload_contact=True, arbitrary_goal_placement=True,
         required_airborne_handover=True, support_via_goal_payload=True,
         allow_goal_partial_support=True, allow_near_goal_release=True,
         max_release_gap_m=LOW_RELEASE_GAP_M,
         release_height_reference='lowest_assembly_part',
-        scope='All assemblies released, actually grounded and inside Goal tolerance; qualified airborne handover and process history retained')
+        scope='Each timber centreline at least 70% above the painted Goal, released; process history retained separately')
     return result
 
 

@@ -30,12 +30,19 @@ initial position toward the common GOAL; returning it to START is unnecessary.
 Controllers choose teams, grasp points, handover locations and schedules.
 Independent operations may overlap within role ownership and collision limits.
 
-Final placement may include cargo contact and stacking. The complete assembly
-must fit inside GOAL with at most 50 mm outward geometric tolerance on each
-boundary, be released by all robots and actually supported by the table or
-accepted cargo. There is no extra speed threshold or stationary-duration test.
-A low release may begin when the lowest assembly part is at most 30 mm above
-the table; opening the gripper alone does not establish landing or completion.
+Final placement may include cargo contact and stacking. Under the current
+`relay-timber-goal-70pct-v1` rule, each timber must have at least 70 percent of
+its centreline length in the vertical space above the painted GOAL outline, and
+every robot must have released it. Table support, direct or through other
+cargo, is not required, and there is no speed threshold or stationary-duration
+test. Only physical timber segments count, never a pendant, ring or shaft; the
+measured fraction is reported per payload as `timber_inside_fraction`.
+
+Tasks prepared before this rule keep the earlier `relay-final-goal-50mm-v1`
+rule: the complete assembly within GOAL with at most 50 mm outward tolerance on
+each boundary, released and actually supported. A low release may begin when
+the lowest assembly part is at most 30 mm above the table; opening the gripper
+alone does not establish landing or completion.
 
 Collisions, drops, unsupported transfers and recovery violations remain process
 records. They are not an automatic veto on an otherwise valid terminal outcome.
@@ -46,8 +53,10 @@ terminal success. Models may recover through ordinary robot actions. Reset,
 respawn, direct object-state writes, welds and history erasure are unavailable.
 See [shared START and scoring semantics](../protocol.md#direct-controller-startup-and-terminal-scoring-v2).
 
-`robofrontier/suite/relay_contract.py` defines the base
-`relay-final-goal-50mm-v1` contract. `robofrontier/task_families.py` applies the
+`robofrontier/suite/relay_contract.py` defines the current
+`relay-timber-goal-70pct-v1` contract (and recognizes the earlier
+`relay-final-goal-50mm-v1`); `robofrontier/suite/relay_goal_fraction.py` measures
+the centreline fraction. `robofrontier/task_families.py` applies the
 new-run terminal overlay and freezes the corresponding public guidance. Do not
 publish the older base handover/process vetoes as the current policy completion
 rule. Old recordings retain their original contract and native verdict.

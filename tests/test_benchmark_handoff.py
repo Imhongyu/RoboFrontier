@@ -10,77 +10,57 @@ from scripts.benchmark_handoff import export_assets,restore_assets,setup_assets,
 
 
 class HandoffAssetsTests(unittest.TestCase):
-    def compatible_fixture(self, root):
+    def revision_fixture(self, root, change):
+        """A task-only revision of the release an archive was built for."""
         source, target = root/'source', root/'target'
-        for folder in (source, target):
-            self.fixture(folder)
-            path = folder/'configs/task_families/current.json'
-            release = json.loads(path.read_text())
-            release['families']['mosaic'] = {'gpt': [], 'oracle': [
-                dict(id=f'mosaic-case-{i}', historical_edit=f'old-edit-{i}.json',
-                     historical_edit_sha256='unchanged') for i in range(9)]}
-            path.write_text(json.dumps(release))
+        self.fixture(source); self.fixture(target)
         archive = root/'assets.tar.gz'
         export_assets(source, archive, source)
         path = target/'configs/task_families/current.json'
-        release = json.loads(path.read_text())
-        reference = dict(kind='mosaic_video_index', path='original-index.json', sha256='pinned-index')
-        for row in release['families']['mosaic']['oracle']:
-            row['historical_edit'] = reference.copy()
-        path.write_text(json.dumps(release))
-        for row in release['families']['mosaic']['oracle']:
-            row.pop('historical_edit')
-        projection = hashlib.sha256(json.dumps(release, sort_keys=True,
-            separators=(',', ':'), ensure_ascii=True).encode()).hexdigest()
-        config = dict(release_sha256=digest(source/'configs/task_families/current.json'),
+        release = json.loads(path.read_text()); change(release); path.write_text(json.dumps(release))
+        config = dict(release_sha256=digest(path), archive_release_sha256=digest(source/'configs/task_families/current.json'),
             archive_sha256=digest(archive), panda_source_sha256=digest(target/'vendor/panda/SOURCE.json'),
-            url='https://example.invalid/assets', historical_edit_index_release=dict(
-                sha256=digest(path), unchanged_fields_sha256=projection, index_reference=reference))
+            url='https://example.invalid/assets')
         (target/'configs/policy-assets.json').write_text(json.dumps(config))
         (target/'configs/environments/test/assets/table.obj').unlink()
         return source, target, archive, config
 
-    def test_reviewed_index_metadata_can_reuse_the_exact_original_asset_archive(self):
+    @staticmethod
+    def new_rule(release):
+        release['families']['test']['gpt'][0]['task_sha256'] = 'scoring revision'
+
+    def test_a_reviewed_task_only_revision_reuses_the_pinned_archive(self):
         with tempfile.TemporaryDirectory() as tmp:
-            source, target, archive, config = self.compatible_fixture(Path(tmp))
+            _, target, archive, config = self.revision_fixture(Path(tmp), self.new_rule)
             report = setup_assets(target, archive)
-            self.assertEqual(report['status'], 'restored')
-            self.assertEqual(report['restored'], 1)
-            self.assertEqual(report['release_sha256'], digest(target/'configs/task_families/current.json'))
-            self.assertNotEqual(report['release_sha256'], config['release_sha256'])
+            self.assertEqual((report['status'], report['restored']), ('restored', 1))
+            self.assertEqual(report['release_sha256'], config['release_sha256'])
             self.assertEqual(setup_assets(target)['status'], 'already_complete')
 
-    def test_missing_metadata_receipt_still_rejects_changed_release(self):
+    def test_an_unreviewed_release_or_archive_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
-            _, target, archive, config = self.compatible_fixture(Path(tmp))
-            config.pop('historical_edit_index_release')
-            (target/'configs/policy-assets.json').write_text(json.dumps(config))
+            _, target, archive, config = self.revision_fixture(Path(tmp), self.new_rule)
+            # The release changed again after review.
+            path = target/'configs/task_families/current.json'
+            release = json.loads(path.read_text()); release['families']['test']['gpt'][0]['note'] = 'unreviewed'
+            path.write_text(json.dumps(release))
             with self.assertRaisesRegex(ValueError, 'Task release does not match'):
                 setup_assets(target, archive)
-
-    def test_updating_raw_hash_does_not_approve_other_release_changes(self):
         with tempfile.TemporaryDirectory() as tmp:
-            _, target, archive, config = self.compatible_fixture(Path(tmp))
-            path = target/'configs/task_families/current.json'
-            release = json.loads(path.read_text())
-            release['families']['test']['gpt'][0]['scene_revision'] = 'unreviewed'
-            path.write_text(json.dumps(release))
-            config['historical_edit_index_release']['sha256'] = digest(path)
-            (target/'configs/policy-assets.json').write_text(json.dumps(config))
-            with self.assertRaisesRegex(ValueError, 'Unreviewed asset release fields'):
+            # Without the archive's own release, a different release cannot claim it.
+            _, target, archive, config = self.revision_fixture(Path(tmp), self.new_rule)
+            config.pop('archive_release_sha256'); (target/'configs/policy-assets.json').write_text(json.dumps(config))
+            with self.assertRaisesRegex(ValueError, 'different task release'):
                 setup_assets(target, archive)
             self.assertFalse((target/'configs/environments/test/assets/table.obj').exists())
 
-    def test_index_receipt_cannot_substitute_a_different_reference(self):
+    def test_a_changed_scene_asset_is_never_restored_from_the_pinned_archive(self):
         with tempfile.TemporaryDirectory() as tmp:
-            _, target, archive, config = self.compatible_fixture(Path(tmp))
-            path = target/'configs/task_families/current.json'
-            release = json.loads(path.read_text())
-            release['families']['mosaic']['oracle'][0]['historical_edit']['path'] = 'different-index.json'
-            path.write_text(json.dumps(release))
-            config['historical_edit_index_release']['sha256'] = digest(path)
-            (target/'configs/policy-assets.json').write_text(json.dumps(config))
-            with self.assertRaisesRegex(ValueError, 'Unreviewed historical edit reference'):
+            _, target, archive, config = self.revision_fixture(Path(tmp), self.new_rule)
+            workstation = target/'configs/environments/test/workstation.json'
+            data = json.loads(workstation.read_text()); data['assets'][0]['sha256'] = '0'*64
+            workstation.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, 'Scene asset manifest mismatch'):
                 setup_assets(target, archive)
 
     def test_pinned_offline_setup_rejects_wrong_hash_and_restores(self):

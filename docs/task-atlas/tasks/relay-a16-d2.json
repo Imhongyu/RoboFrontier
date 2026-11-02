@@ -139,15 +139,17 @@
     "Route regions and arrows indicate progress. Grasp points, handover locations, robot teams, allocation and execution order are planner choices. Independent work may run concurrently.",
     "Grasp the red timber, not a pendant, ring or shaft. Keep the whole assembly clear of table and floor during airborne transport, except for the allowed final GOAL landing.",
     "Any final placement in GOAL is allowed, including cargo contact and stacking. Oracle packing centers and contact-free separation are not task requirements.",
-    "The complete assembly must be within the GOAL outline with at most 50mm outward geometric tolerance on each boundary. Final completion requires actual release from every robot and actual table support, directly or through other accepted cargo. There is no additional velocity threshold or stationary-duration requirement.",
+    "Each timber must have at least 70 percent of its centreline length in the vertical space above the GOAL outline. Final completion requires release from every robot; direct or indirect table support is not required.",
     "Only ordinary robot actuators and real contacts may change the live task. No hand welds, object-state writes, hidden-state tools, runtime physics changes or stabilizing attachments.",
     "The initial endpoint chord is 1.20m. The underside fixed eye is 100mm along the timber from its end and directly interlinks with a free eye; the wooden pendant shaft is 170mm long and carries a 600g weight. There is no mounting stem, cable or tray.",
     "The rigid circular-arc timber subtends 63 degrees.",
     "Collisions, drops and other process events are recorded separately. Recover using ordinary robot actions; do not reset, respawn or erase history."
   ],
   "completion": {
-    "rule_revision": "relay-final-goal-50mm-v1",
+    "rule_revision": "relay-timber-goal-70pct-v1",
     "boundary_tolerance_m": 0.05,
+    "timber_inside_fraction_min": 0.7,
+    "timber_goal_tolerance_m": 0.0,
     "stable_duration_sim_s": 0.0,
     "require_stationary": false,
     "allow_goal_payload_contact": true,
@@ -158,7 +160,7 @@
     "allow_near_goal_release": true,
     "max_release_gap_m": 0.03,
     "release_height_reference": "lowest_assembly_part",
-    "scope": "All assemblies released, actually supported and inside GOAL tolerance; process events are reported separately."
+    "scope": "Every timber at least 70% above painted GOAL and released; process events are reported separately."
   },
   "mechanism": {
     "chord_m": 1.2,
@@ -220,7 +222,7 @@
     "outer_robot_radius_m": 2.43,
     "curve_radius_m": 1.73,
     "table_end_extension_m": 0.38,
-    "finish": "Tabletop destination region; no cradle; beam and suspended assembly must land stably",
+    "finish": "Tabletop destination region; no cradle",
     "payload_count": 4,
     "payload_assemblies": [
       {
@@ -589,10 +591,10 @@
   },
   "gripper_profile": "standard-panda",
   "arm_count": 16,
-  "family_guidance": "# Air Relay — terminal outcome v2\n\nRead the assigned task and move every assembly from its initial position to\nGOAL. START marks the route origin; returning to START is not required. Choose\nrobot teams, route and any handovers based on available observations.\n\nCompletion requires every assembly to be released by all robots, actually\nsupported, and inside the GOAL boundary tolerance of 50 mm. Cargo contact and\nstacking are allowed. Check the final physical state; opening alone does not\nestablish completion.\n\nCollisions, drops and other process events are recorded separately from final\ncompletion. You may observe and recover using ordinary robot actions. No reset,\nrespawn, state writing or history erasure is permitted.\n",
+  "family_guidance": "---\nname: relay\ndescription: Carry long assemblies with several arms in relay, plan supported handovers and verify release at the goal.\n---\n\n# Relay\n\n## Shared payloads\n\nPlan the relative motion of all supporting tools as well as their individual\npaths. A same-cycle start does not guarantee matched arrival or prevent internal\nloads. Choose support contacts and bearing direction for load moments, not jaw\naperture alone; if a lift changes the payload pose unexpectedly, reassess that\ngeometry before repeating the motion. Treat support and manipulation as coupled\nwork: control coupled robots directly together, or give them to one bounded\ndelegate, rather than splitting coupled support across independent scopes.\n\n## Handovers\n\nChoose teams, the route and handover points from reach, observations and the\ncost of each regrasp. Preserve receiver access and sender withdrawal when choosing\na grasp. Before releasing an existing hold, establish the receiver's support from\nallowed RGB and robot evidence; width-based grasp feedback alone is insufficient.\nUpdate the shared reference after slip or reorientation.\n\n## At the goal\n\nCheck each assembly separately against the completion rule from permitted views,\nand confirm that every robot has released it and the jaws have cleared it before\nproposing completion. After a drop or collision, reason from the actual scene and\nrecover with ordinary actions.\n",
   "source": {
     "scene_sha256": "7ded10c6627dd13632332223dff2ec0c5e800d730a36dbdb0f2d3e0971ff3f13",
-    "task_sha256": "76ec950d7284196e4dc42e2671946284e1ac485aa69c9e9f2daff3ba98e0a419",
+    "task_sha256": "ca19ff38b7dbfd56c829c6295caca36a0230cb58aded65aef09881c9c06ea9e2",
     "qualification": "final_goal_contract_with_historical_user_goal_evidence"
   },
   "views": {

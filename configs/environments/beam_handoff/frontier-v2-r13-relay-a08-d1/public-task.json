@@ -76,8 +76,8 @@
     "Airborne transport requires at least two actual beam grasps. Establish receiving support before releasing a sender. Every assembly must undergo a real qualified airborne handover; the receiving team may retain an existing holder.",
     "Grasp the red timber, not a pendant, ring or shaft. Keep the whole assembly clear of table and floor during airborne transport, except for the allowed final GOAL landing.",
     "Any final placement in GOAL is allowed, including cargo contact and stacking. Oracle packing centers and contact-free separation are not task requirements.",
-    "The complete assembly must be within the GOAL outline with at most 50mm outward geometric tolerance on each boundary. Final completion requires actual release from every robot and actual table support, directly or through other accepted cargo. There is no additional velocity threshold or stationary-duration requirement.",
-    "Inside GOAL, original qualified holders may lower different parts onto the table separately. They may open before contact when the lowest assembly part is at most 30mm above the table. Opening alone is not completion: verify actual final landing, release and containment.",
+    "Each timber must have at least 70 percent of its centreline length in the vertical space above the GOAL outline. Final completion requires release from every robot; direct or indirect table support is not required.",
+    "Inside GOAL, original qualified holders may lower different parts onto the table separately. Process events and the separate terminal completion check are recorded independently.",
     "Drops and violations remain recorded. Only the last established sending team may recover a dropped assembly; a receiver cannot pick it up to bypass an airborne handover. No reset, respawn or history erasure.",
     "Only ordinary robot actuators and real contacts may change the live task. No hand welds, object-state writes, hidden-state tools, runtime physics changes or stabilizing attachments."
   ],
@@ -329,8 +329,10 @@
     }
   ],
   "completion": {
-    "rule_revision": "relay-final-goal-50mm-v1",
+    "rule_revision": "relay-timber-goal-70pct-v1",
     "boundary_tolerance_m": 0.05,
+    "timber_inside_fraction_min": 0.7,
+    "timber_goal_tolerance_m": 0.0,
     "stable_duration_sim_s": 0.0,
     "require_stationary": false,
     "allow_goal_payload_contact": true,
@@ -341,6 +343,6 @@
     "allow_near_goal_release": true,
     "max_release_gap_m": 0.03,
     "release_height_reference": "lowest_assembly_part",
-    "scope": "All assemblies released, actually grounded and inside Goal tolerance; qualified airborne handover and process history retained"
+    "scope": "Each timber centreline at least 70% above the painted Goal, released; process history retained separately"
   }
 }
