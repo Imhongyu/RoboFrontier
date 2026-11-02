@@ -255,6 +255,8 @@ def argument_parser(*, prog=None):
         p.add_argument('batch', type=Path)
         if name == 'run':
             p.add_argument('--engineering', action='store_true', help='Explicitly run an unqualified Claude engineering draft')
+            p.add_argument('--durable', action='store_true',
+                           help='Run under the macOS user launchd service, so it outlives this terminal')
     p = sub.add_parser('collect', help='Collect stopped native sessions, motion and evidence')
     p.add_argument('batch', type=Path)
     p.add_argument('--output', type=Path, required=True)
@@ -347,6 +349,9 @@ def main(argv=None):
                 emit(submit(config, args.output, queue=args.queue, engineering=args.engineering))
             else:
                 emit({'batch': str(prepare(args.output, config)), 'model_calls': 0})
+        elif args.command == 'run' and args.durable:
+            from .durable import submit as submit_durable
+            emit(submit_durable(args.batch, engineering=args.engineering))
         elif args.command == 'run':
             from scripts.benchmark import load_env
             load_env(ROOT/'.env')
@@ -354,7 +359,10 @@ def main(argv=None):
         elif args.command == 'status':
             # Read the supervisor's atomic snapshot, never open a writer's SQLite.
             snapshot = run_layout.batch_path(args.batch, 'engineering_status')
-            emit(json.loads((snapshot if snapshot.is_file() else args.batch/'batch.json').read_text()))
+            state = json.loads((snapshot if snapshot.is_file() else args.batch/'batch.json').read_text())
+            from .durable import service_state
+            durable = service_state(args.batch)
+            emit({**state, 'durable': durable} if durable else state)
         elif args.command == 'stop':
             batch = json.loads((args.batch/'batch.json').read_text())
             folder = args.batch.resolve()
