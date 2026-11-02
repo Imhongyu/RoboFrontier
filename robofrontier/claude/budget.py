@@ -90,7 +90,8 @@ class BudgetLedger:
         they stay uncertain and keep blocking."""
         with self.transaction():
             if self._snapshot()['limit_usd'] is None:
-                self.db.execute("UPDATE reservations SET status='settled', cost=NULL, updated=? "
+                # A cut-off turn whose CLI still reported a cost keeps it; only an absent cost stays absent.
+                self.db.execute("UPDATE reservations SET status='settled', updated=? "
                                 "WHERE status IN ('reserved','uncertain')", (time.time(),))
             return self._snapshot()
 
