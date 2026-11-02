@@ -152,6 +152,14 @@ def recover_stopped(self,call_id):
     return result
 """, None, 1),
 )
+# Reviewed Mosaic Level 2/3 centre tolerance: read from the task with the original
+# 5 mm default, so a task that does not declare mosaic-center-6mm-v1 is unchanged.
+MOSAIC_CENTER_TOLERANCE = ("""
+tolerance=task.get('completion',{}).get('xy_center_tolerance_m_inclusive',.005)
+if isinstance(tolerance,bool) or not isinstance(tolerance,(int,float)) or not math.isfinite(tolerance) or not 0 < tolerance <= .05:
+    raise ValueError('Invalid Mosaic center tolerance')
+out&=~(np.linalg.norm(delta[:,:,:2],axis=2)>tolerance)
+""", "out&=~(np.linalg.norm(delta[:,:,:2],axis=2)>.005)")
 # Reviewed checks of two new frozen harness settings in load_harness.
 HARNESS_RUN_STORAGE = """
 if 'motion_hz' in c and (isinstance(c['motion_hz'],bool) or not math.isfinite(float(c['motion_hz'])) or c['motion_hz']<=0):
@@ -167,6 +175,7 @@ def normalized_digest(source, rule):
         if len(found) != 1:
             raise ValueError('Expected one Relay class')
         tree.body.remove(found[0])
+        _revert(tree, *MOSAIC_CENTER_TOLERANCE, 'Mosaic centre tolerance')
     elif rule in ('exclude_prepared_policy_guard', 'exclude_policy_service', 'exclude_policy_service_and_observation_metadata'):
         world = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'World')
         if rule == 'exclude_policy_service_and_observation_metadata':

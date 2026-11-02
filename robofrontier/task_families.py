@@ -118,16 +118,26 @@ def freeze_public(task, directory, public, root=ROOT):
     if terminal and family_name == 'dial':
         public['completion']['success_semantics'] = 'Unlock once with a simultaneous valid correct input; success remains latched after later dial changes.'
     if terminal_relay:
+        from .suite.relay_contract import RULE_REVISION
+        timber_fraction_rule = task.get('completion', {}).get('rule_revision') == RULE_REVISION
+        if timber_fraction_rule:
+            # A reviewed legacy projection must not overwrite the versioned
+            # task's changed completion semantics or policy-facing rules.
+            public['completion'] = deepcopy(task['completion'])
+            public['rules'] = deepcopy(task['rules'])
         rules = public.get('rules', [])
         public['rules'] = [rule for rule in rules if not rule.startswith((
             'Airborne transport requires', 'Inside GOAL, original qualified holders',
             'Drops and violations remain recorded.'))]
         public['rules'].append('Collisions, drops and other process events are recorded separately. Recover using ordinary robot actions; do not reset, respawn or erase history.')
         public['completion']['required_airborne_handover'] = False
-        public['completion']['scope'] = 'All assemblies released, actually supported and inside GOAL tolerance; process events are reported separately.'
+        public['completion']['scope'] = ('Every timber at least 70% above painted GOAL and released; process events are reported separately.'
+                                         if timber_fraction_rule else 'All assemblies released, actually supported and inside GOAL tolerance; process events are reported separately.')
     if terminal:
-        # Released public projections carry statements that contradict the current task
-        # or address engineers; the private evaluator task is unchanged.
+        # Released public projections carry three statements that contradict the
+        # current task or address engineers; the private evaluator task is unchanged.
+        if terminal_relay and timber_fraction_rule and 'finish' in public.get('mechanism', {}):
+            public['mechanism']['finish'] = 'Tabletop destination region; no cradle'
         if family_name == 'mosaic':
             public['rules'] = [rule.split('. ')[0]+'.' if rule.startswith('Build the supplied') else rule
                                for rule in public.get('rules', [])]
@@ -136,14 +146,15 @@ def freeze_public(task, directory, public, root=ROOT):
     family_dir = directory/'public/inputs/family'
     family_dir.mkdir()
     hashes = {}
-    # task.json is the only statement of what a terminal run requires; the family Skill
-    # (how to do it well) comes from prompts/skills in place of released guidance,
-    # which mostly repeated task.json. Relay keeps its terminal description.
+    # task.json is the only statement of what a terminal run requires; the family
+    # Skill (how to do it well) comes from prompts/skills in place of released
+    # guidance, which mostly repeated task.json. A relay case without the 70% timber
+    # rule keeps its own terminal description.
     current, dropped = {}, set()
     if terminal and family_name in ('relay', 'transport', 'dial', 'mosaic'):
         current = {'skill.md': root/'prompts/skills'/family_name/'SKILL.md'}
         dropped = {'family-guidance.md', 'task-guide.md'}
-        if terminal_relay:
+        if terminal_relay and not timber_fraction_rule:
             current['family-guidance.md'] = root/'prompts/archive/tasks/relay-terminal-v2.md'
     for name, source in case['public_files'].items():
         if Path(name).name != name or sha(root/source['path']) != source['sha256']:

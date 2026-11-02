@@ -90,9 +90,14 @@ class FamilyReleaseTests(unittest.TestCase):
                     self.assertNotIn('clean process', (run/'public/inputs'/public['task_skill']).read_text())
                 if 'initial_reference_images' in public:
                     self.assertTrue(all((run/'public/inputs'/name).is_file() for name in public['initial_reference_images']))
-                # The family Skill replaces released guidance; only Relay keeps its terminal description.
+                # The family Skill replaces released guidance. A Relay case under the 70% timber rule
+                # states its whole requirement in task.json and gets no older terminal description.
                 self.assertTrue((run/'public/inputs'/public['task_skill']).is_file())
-                self.assertEqual('family_guidance' in public, case.startswith('relay-'))
+                self.assertNotIn('family_guidance', public)
+                if case.startswith('relay-'):
+                    self.assertEqual(public['completion']['rule_revision'], 'relay-timber-goal-70pct-v1')
+                    self.assertTrue(any('70 percent' in rule for rule in public['rules']))
+                    self.assertFalse(any('50mm' in rule for rule in public['rules']))
                 rules=(run/'public/inputs/rules.md').read_text()
                 self.assertIn('`ready` is optional',rules)
                 self.assertIn('delegation is',rules)

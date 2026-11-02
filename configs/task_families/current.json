@@ -393,7 +393,7 @@
           "directory": "configs/environments/mosaic/frontier-v2-r14-mosaic-a04-6x12-d2",
           "source_files": {
             "scene.xml": "605e6119b3a7f5b4e2cb5f148d74292ec79974e384740a5efaa6f261e46af4df",
-            "task.json": "b8c268fe004fac3b9c91e6a1d409ca91b9a82b60246bd1049b7fa4dcddbec2be",
+            "task.json": "9cbb4d94ec08370e193ed978e96ebd2dd1ae7270c07e758cdd8e2802fa2364a3",
             "environment.json": "b03083ec382e2ee773b5f312e04b0b631ad001398b000bfa8795fb08da26732f",
             "workstation.json": "bd5a9b27900e9179f24c3eb9b08d645a49bd58e0943c10641a81bb575805651d"
           },
@@ -410,7 +410,7 @@
           "qualification": "r14_colour_variant_with_r13_reference_and_design_evidence",
           "public_projection": {
             "path": "configs/task_families/mosaic/public/mosaic-a04-6x12-d2/public-task.json",
-            "sha256": "d03d316ae340ad547aab62e8b822500d661d1db69217ad0df44d3feeeb5031f5"
+            "sha256": "d850b6c886dd033028f7195ce503e7b452f917694663caffe912bde2e76d2f89"
           }
         },
         {
@@ -418,7 +418,7 @@
           "directory": "configs/environments/mosaic/frontier-v2-r14-mosaic-a04-6x12-d3",
           "source_files": {
             "scene.xml": "c1ad7eeaa2e576a296f402db0235818c5e4cc0980561b692a1f04d9470dc9c95",
-            "task.json": "f635e9239c0c12281b11047bc5699891e160f6e3dd91e630ee1c69ef0ced1d52",
+            "task.json": "6b8ef777bb04b8b201fe319441bcf34c9433cce6392f34a9a981249a433b7a57",
             "environment.json": "c3eb88163baf12734d8da392bd1b61a711089bf758d77d5172bd0ec1c723d2b7",
             "workstation.json": "7494dd74295704daa01b744f0b41f24731fa239edfbea2fec5e990292ee6f41e"
           },
@@ -435,7 +435,7 @@
           "qualification": "r14_colour_variant_with_r13_reference_and_design_evidence",
           "public_projection": {
             "path": "configs/task_families/mosaic/public/mosaic-a04-6x12-d3/public-task.json",
-            "sha256": "5b0deb6f5d2d4dcfc3cd142b8beddb483e27496b8023a18ec639f3cbb32bea1b"
+            "sha256": "455bc497bbc077f6c5b5f7bc7135e0e056469e90b5b4bfa8c4a97f878ad79fe9"
           }
         },
         {
@@ -468,7 +468,7 @@
           "directory": "configs/environments/mosaic/frontier-v2-r14-mosaic-a06-9x18-d2",
           "source_files": {
             "scene.xml": "13d23b31df7c961208b09b31b02562b9aa39b31e51b002161c0dbe1dea597d95",
-            "task.json": "4811bd44712227c6b4e9bbde4314cea06fc1a8a34d0a10c2fb45e6ff1b12919b",
+            "task.json": "70e2cd50465fe54d7301dcb864556467870b3df78430a16a4aef26474820e96f",
             "environment.json": "56c0de48776e49aac0b3d2007bb91b690996bc1f4d68107bae903fdb54ea2060",
             "workstation.json": "468db925e8aed51facb028c10f0fd62ae245b4a86e7ae40f661883b525ea897e"
           },
@@ -485,7 +485,7 @@
           "qualification": "r14_colour_variant_with_r13_reference_and_design_evidence",
           "public_projection": {
             "path": "configs/task_families/mosaic/public/mosaic-a06-9x18-d2/public-task.json",
-            "sha256": "e7a2f4149613803bd7a5590c4dfdcf52726aa7f5b7182863a41c7682fedde0bf"
+            "sha256": "d323ccf1ebda6e24654bd65abfc5e05b802669aa8ce81e423693be8d3bf151bd"
           }
         },
         {
@@ -493,7 +493,7 @@
           "directory": "configs/environments/mosaic/frontier-v2-r14-mosaic-a06-9x18-d3",
           "source_files": {
             "scene.xml": "9a21a32dd14477a449f9a1a0f93bf4bfd6d8fcd304ca380538c8141d54cdf0f0",
-            "task.json": "0ce2d95330442801077653a8900bade8e7ad3369c2ea8f7b105485fd22d1a040",
+            "task.json": "c0812fc1013b5d760a78bbaa17222aa25aef69346015931b145082030835202d",
             "environment.json": "d358a75b2d0eb2921d36c34ed35f56ada641e7c0c348d77460fe5e5259e54270",
             "workstation.json": "50f08ff006c52055b6408480d7d92d13ba930e4df85b73ed3e0783a626e2b5af"
           },
@@ -510,7 +510,7 @@
           "qualification": "r14_colour_variant_with_r13_reference_and_design_evidence",
           "public_projection": {
             "path": "configs/task_families/mosaic/public/mosaic-a06-9x18-d3/public-task.json",
-            "sha256": "240cbaaf17c471a7ccdefeca11d44d71df8604305cdb1cdef4134c196097734a"
+            "sha256": "9e1e536620db3a3896d1b1c6a4c4a6542d6f6039c89df35622a4e28394c4b9af"
           }
         },
         {
@@ -543,7 +543,7 @@
           "directory": "configs/environments/mosaic/frontier-v2-r14-mosaic-a08-12x24-d2",
           "source_files": {
             "scene.xml": "e83d7bb17ee2a0849f00bb2c4c17ea817bffd908a76c33cb9e8e993a89284bd8",
-            "task.json": "077bee04bc0f509528952afbd4b2308cc858596b33d78d7fbd1d8ca807234da7",
+            "task.json": "e5ae8eca395d5ce226f3030b6b70eedf23f26b307ca1666ef4c3b84eae9b3477",
             "environment.json": "66669c712e07c55e8e116581ad419343ec7b23e43ba6255552cb5715f8bc8d2a",
             "workstation.json": "c51ac9f775c4bb557020ca2b7e3aa5492ddbf950f60c3f821fe599f1c30520ac"
           },
@@ -560,7 +560,7 @@
           "qualification": "r14_colour_variant_with_r13_reference_and_design_evidence",
           "public_projection": {
             "path": "configs/task_families/mosaic/public/mosaic-a08-12x24-d2/public-task.json",
-            "sha256": "d042fe957434ceac325b69614ea354cbb0c41a7554bc5bfb72eeaa1d7d3d194d"
+            "sha256": "203890f88d629ee8633b3f6a65b6204bbee24f52b4a677ba221229b9f8bed484"
           }
         },
         {
@@ -568,7 +568,7 @@
           "directory": "configs/environments/mosaic/frontier-v2-r14-mosaic-a08-12x24-d3",
           "source_files": {
             "scene.xml": "3ef29947b51fe420b3e1bc516a8e3b512cc2e0f3568b3ec1f21c8169ed5c9547",
-            "task.json": "54973da9aafbfca8db6a8c97d087d010d642521d9f69f5c316a78205f1108215",
+            "task.json": "2db5f1a323e9f3bc607e103c818838f995d4481e5d2fc2e3f82cb4fcd33021b2",
             "environment.json": "57c7af4166b776843fd78381c906080235685ac3f8a6334e9633fd709dbb6794",
             "workstation.json": "58cf9bbdb960754e0433f88a7998f950534cb808b16edd429634d2a9c13ea8ee"
           },
@@ -585,7 +585,7 @@
           "qualification": "r14_colour_variant_with_r13_reference_and_design_evidence",
           "public_projection": {
             "path": "configs/task_families/mosaic/public/mosaic-a08-12x24-d3/public-task.json",
-            "sha256": "f334f62d5db5ccd6c352f3dab47ca04d5eb8a5bc24822c10edf4a813dfacb86b"
+            "sha256": "420532adc61ecbf00d685485120abb09a68030b159b3bcd2ac55e18a24133c92"
           }
         }
       ],
@@ -785,7 +785,7 @@
           "directory": "configs/environments/beam_handoff/frontier-v2-r13-relay-a08-d1",
           "source_files": {
             "scene.xml": "ce01162529bcaaedda48bd2f5ced66fdfa42df7ca044ecd25372a0c610da6cef",
-            "task.json": "f05cbd9e5ff6e4053eb62a1835502a0c73ff2fe877b39577da7c64cff148c999",
+            "task.json": "70d6164ffcd90b245b2c8143de2d983762641851990f3fd42eda5ef76100c65b",
             "environment.json": "7ba5693a35000ca9bbe766267ab2d30a188f00819ab0825c3559c4b411dc4c6e",
             "workstation.json": "b783aab2b8febc1b78ad0b263f546e3a2ac40ae620e7ffe11f5e46d38a2e4387"
           },
@@ -802,7 +802,7 @@
           "directory": "configs/environments/beam_handoff/frontier-v2-r17-relay-a08-d2",
           "source_files": {
             "scene.xml": "7412a55da139aa0c57278f1f1d6b68d0a9594ce407ad4c0b624aa0a9b766fdfa",
-            "task.json": "6f9ee581010cb6c42f5c4af650abf657c77705d62e4de2b9761de2cc8d4481d5",
+            "task.json": "1ea3e5cdfd51007e64cccf8f3d0cd55d3232972c074798c95d33ea3f3bd36212",
             "environment.json": "bfddc99fdc85f999b494c8668f37c5f80e1756bb9996f18528a80ed3f729a1ba",
             "workstation.json": "b308ac0ad991b26b0d753a5c8763fb3a6d6003854d06b4a70c5caf4c5b797501"
           },
@@ -819,7 +819,7 @@
           "directory": "configs/environments/beam_handoff/frontier-v2-r17-relay-a08-d3",
           "source_files": {
             "scene.xml": "0bf3386449482496d13ea597262c470fa5cbb5748840ecda7fb039bbef860a0e",
-            "task.json": "e60603bd86842ff8e79c5996cf32363d2cd12dd92ceeb51f2305ba6a522d2537",
+            "task.json": "59c5dd6db54245e47d5e6305352fa76b4213bf652c71f68f2b1994b5c4352108",
             "environment.json": "dbc6f1d598aa3ff93713ecbeab6241ba1acbf74e2ea388e7070758fa8d24f42f",
             "workstation.json": "e631185b361eb0d1285f115a8dac0adfe3eadcca8dbc326a31a453f52e96e0bc"
           },
@@ -836,7 +836,7 @@
           "directory": "configs/environments/beam_handoff/frontier-v2-r15-relay-a12-d1",
           "source_files": {
             "scene.xml": "09bec4bc56fae92f0e636965f88b4408c67c017f5fb95fd4df5a0182bba7f775",
-            "task.json": "6064888ed0a9f900a7a286a752715ec41cb658665f8eb79c4cf7715ebb7e6812",
+            "task.json": "50672204cca0f369dd6d67ae44afecb293552cfb6698c60a1282895ad8cbc275",
             "environment.json": "d6efbe487ba3683ced8e92a6eb6354c88d7277d95bccdabd1fc79c1f86cd78db",
             "workstation.json": "b60ba27866c50d63fcc059e73ede6d6106d7fcfaf1e1231b5d7ad3472ba049c7"
           },
@@ -853,7 +853,7 @@
           "directory": "configs/environments/beam_handoff/frontier-v2-r17-relay-a12-d2",
           "source_files": {
             "scene.xml": "22a8116ca86b205a2fb2d9e12e96d32764d96db0e3894d792497c00bdfce013f",
-            "task.json": "c736310d183c20e679c63ddab58a1b36b5bb6fefd7a614998dbf73c9edc31e17",
+            "task.json": "788fef18a3eeb92b51d86d3b33532f4e621aee9f5e9bd25c4df44d6f9f642a45",
             "environment.json": "d724dec8fbfc5d06b876a894316b9b1834ac6e4dc15b9e0d9ac737580c914e20",
             "workstation.json": "d86dbd5a4aac466b6495833686010340bfd06b1e2643fc0ee0f296c9138215e8"
           },
@@ -870,7 +870,7 @@
           "directory": "configs/environments/beam_handoff/frontier-v2-r17-relay-a12-d3",
           "source_files": {
             "scene.xml": "30122d18736ad61e97c61a9cbea359b873e6a226aa0aacba7c60338d912153ae",
-            "task.json": "4f3ba825535c1cb7947543f7aa48c96e0b80634bfd6b5e7e55c1e3fddd9b6c5f",
+            "task.json": "5c8d3d7a5444e76cb7f045e4154a426061b71c04bace2de5e160d85ef8f34314",
             "environment.json": "ed519768c3731a8f6f13c781e8b0fbb6cb66bd52a8f4b349af87140eae210025",
             "workstation.json": "bc1c6780fa728954e5c9e9a5f2ab3af6e740b40bf1e5656f69b3a52b05aa215e"
           },
@@ -887,7 +887,7 @@
           "directory": "configs/environments/beam_handoff/frontier-v2-r13-relay-a16-d1",
           "source_files": {
             "scene.xml": "8ac11391873bc813df94eb6a3718ed04c1701f6de15224fb68a45226fd158b61",
-            "task.json": "c0335e3308f83ccdaa72428c695273fb641425f36255317a4856c991e1024882",
+            "task.json": "c599c520610933ccfca751b25f6a83ba9d7fcf9877d3a4acf2eb5657f1331ca3",
             "environment.json": "5156af016c74ec56fd3ffab4068021c3214de9f11331c5519ad677263e8aa308",
             "workstation.json": "bbcf6c82f964d0e2f98dc29f11e64387066d413affa65800df1037b34d4c9203"
           },
@@ -904,7 +904,7 @@
           "directory": "configs/environments/beam_handoff/frontier-v2-r17-relay-a16-d2",
           "source_files": {
             "scene.xml": "7ded10c6627dd13632332223dff2ec0c5e800d730a36dbdb0f2d3e0971ff3f13",
-            "task.json": "76ec950d7284196e4dc42e2671946284e1ac485aa69c9e9f2daff3ba98e0a419",
+            "task.json": "ca19ff38b7dbfd56c829c6295caca36a0230cb58aded65aef09881c9c06ea9e2",
             "environment.json": "a95101d6038589fdf3a33a4efeae1f1875018c364067a77c0bed2730d35e1df6",
             "workstation.json": "0b61e68d613aeaf17757f9deb5c81bfd4921d5618071463b12e337215edf57c6"
           },
@@ -921,7 +921,7 @@
           "directory": "configs/environments/beam_handoff/frontier-v2-r17-relay-a16-d3",
           "source_files": {
             "scene.xml": "54466c5c021d9def271ac4a78e82a30ff3084921118028db6da6d297ad8c10b2",
-            "task.json": "ea5b78eb19407aeb90060489273876938b0de9b494eecc20bf2b8f0c1134a96e",
+            "task.json": "d9c420323eb0bea573397c125bee8df2fd65964729d31b71cf09a29e4d0b1951",
             "environment.json": "72a5ae5a4c213432d6cf05f78360ec96a92152e9eba2fce3bba6579a45fb9253",
             "workstation.json": "5d5d39fe339abf8643699dc02ab6ed71a00e54477ff9adf961a1ccbeddd5486b"
           },

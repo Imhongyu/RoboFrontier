@@ -69,7 +69,7 @@ identify inventory origin without exclusive arm ownership.
 | Release | No cube/robot contact at distance <= 0.2 mm |
 | Stability | Linear speed < 0.01 m/s and angular speed < 0.1 rad/s for one continuous simulation second |
 | Orientation | Cube-axis alignment error <= 8 degrees, including its 90-degree symmetry equivalents |
-| Level 2/3 position | xy center error <= 5 mm; z center error <= 3 mm |
+| Level 2/3 position | xy center error <= 6 mm (`mosaic-center-6mm-v1`; tasks prepared earlier keep 5 mm); z center error <= 3 mm |
 | Level 1 position | Full rotated footprint inside the pocket with 0.3 mm margin; bottom-height error <= 0.8 mm; seating contact <= 0.2 mm |
 | Process | Report collisions, drops, recovery, and strict compliance independently from current policy completion |
 

@@ -27,7 +27,10 @@ def mosaic_candidates(mon,positions,stable):
     out&=(np.asarray(stable,dtype=bool)&~(aligned<math.cos(math.radians(8))))[None,:]
     targets=np.asarray([g['position_m'] for g in goals]);delta=np.asarray(positions)[None,:,:]-targets[:,None,:]
     if task['level']!=1:
-        out&=~(np.linalg.norm(delta[:,:,:2],axis=2)>.005)
+        tolerance=task.get('completion',{}).get('xy_center_tolerance_m_inclusive',.005)
+        if isinstance(tolerance,bool) or not isinstance(tolerance,(int,float)) or not math.isfinite(tolerance) or not 0 < tolerance <= .05:
+            raise ValueError('Invalid Mosaic center tolerance')
+        out&=~(np.linalg.norm(delta[:,:,:2],axis=2)>tolerance)
         out&=~(abs(delta[:,:,2])>.003)
         return out
     half=task['cube_size_m']/2*np.sum(abs(rotations),axis=2)
@@ -136,8 +139,9 @@ class Relay:
         inside_flags={name:self.inside(state) for name,state in self.states.items()}
         stacking=bool(mon.task['completion'].get('support_via_goal_payload'))
         global_ground=self.supported_payloads(False,False) if stacking else set()
-        from .relay_contract import is_current
+        from .relay_contract import is_current, RULE_REVISION
         current_contract=is_current(mon.task)
+        fraction_contract=mon.task.get('completion', {}).get('rule_revision') == RULE_REVISION
         goal_ground=self.supported_payloads(True,not current_contract,{name for name,inside in inside_flags.items() if inside}) if stacking else set()
         for ident,state in self.states.items():
             a=state['assembly'];support=mon.bilateral(state['rod_geoms'],positive_force=True);all_g=state['all_geoms'];external=self.environment_contact(all_g) or ident in global_ground;on_table=ident in goal_ground if stacking else external;inside=inside_flags[ident]
@@ -203,9 +207,24 @@ class Relay:
             done=state['landed'] and inside and on_table and mon.released(all_g) and stable and not state['dropped'] and not state['spill'] and handover_ok
             state['goal_since']=(t if state['goal_since'] is None else state['goal_since']) if done else None
             qualified=state['goal_since'] is not None and t-state['goal_since']>=mon.task['completion']['stable_duration_sim_s']
-            terminal=inside and on_table and mon.released(all_g)
+            if fraction_contract:
+                from .relay_goal_fraction import timber_fraction
+                # Visual mesh duplicates collision segments for curved timbers.
+                # Only physical timber geoms contribute, never the pendant.
+                segments=[g for g in state['rod_geoms']
+                          if (mon.m.geom(g).name or '').endswith('_beam')
+                          or '_beam_part' in (mon.m.geom(g).name or '')
+                          or '_beam_segment' in (mon.m.geom(g).name or '')]
+                fraction=float(timber_fraction(mon.m,mon.d,segments,self.route[-1],
+                                               mon.task['completion']['timber_goal_tolerance_m']))
+                terminal=bool(fraction >= mon.task['completion']['timber_inside_fraction_min'] and mon.released(all_g))
+            else:
+                terminal=inside and on_table and mon.released(all_g)
             terminal_completed+=int(terminal)
             completed+=int(qualified);reports[ident]=dict(completed=qualified,terminal_goal_met=terminal,airborne=state['airborne'],drops=state['drops'],custody=sorted(state['custody']),support=sorted(support),goal_table_support=on_table,handovers=state['transitions'],spill=state['spill'])
+            if fraction_contract:
+                reports[ident].update(timber_inside_fraction=fraction,
+                    timber_inside_fraction_min=mon.task['completion']['timber_inside_fraction_min'])
         complete=completed==len(self.states)
         mon.result_cache=dict(all_goals_met=complete,task_success=complete and not mon.violations,completed_payloads=completed,total_payloads=len(self.states),payloads=reports,drops=sum(s['drops'] for s in self.states.values()))
         if mon.task.get('run_protocol', {}).get('evaluation_semantics') == 'terminal_outcome_v2':

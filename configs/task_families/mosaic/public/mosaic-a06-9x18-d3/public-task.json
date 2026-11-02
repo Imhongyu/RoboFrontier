@@ -761,13 +761,14 @@
     "axis_alignment_tolerance_deg_inclusive": 8.0,
     "robot_contact_release_distance_m_inclusive": 0.0002,
     "placement": {
-      "xy_center_tolerance_m_inclusive": 0.005,
+      "xy_center_tolerance_m_inclusive": 0.006,
       "z_center_tolerance_m_inclusive": 0.003,
       "mode": "center_position"
     },
     "distinct_cube_per_cell": true,
     "process_violations_clear_required": true,
-    "orientation": "Cube axes aligned to workstation axes, including cube symmetries"
+    "orientation": "Cube axes aligned to workstation axes, including cube symmetries",
+    "position_rule_revision": "mosaic-center-6mm-v1"
   },
   "execution_readiness": "environment_preview_only",
   "package_status": "colour_design_review_only_no_r14_oracle_qualification",
