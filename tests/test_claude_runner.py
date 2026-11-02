@@ -1,3 +1,4 @@
+import hashlib
 import json
 import stat
 import sys
@@ -33,6 +34,40 @@ print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "se
 
 
 class ClaudeRunnerTests(unittest.TestCase):
+    def test_large_prompt_reaches_cli_as_complete_stdin(self):
+        prompt = '--model is public task text\n' + 'Public geometry and task context.\n' * 10000
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = fake_claude(tmp, '''
+import hashlib
+prompt = sys.stdin.buffer.read()
+print(json.dumps({'type':'result', 'subtype':'success', 'is_error':False,
+                  'result':hashlib.sha256(prompt).hexdigest()}))
+''')
+            record = run_turn(PROFILE, 'm', 'high', None, prompt, tmp,
+                              {'PATH':'/usr/bin:/bin','KIMI_API_KEY':SECRET},
+                              binary=str(binary), timeout=5, enable_robot=False)
+            self.assertEqual(record['process'], 'exited')
+            self.assertEqual(record['summary']['result_text'], hashlib.sha256(prompt.encode()).hexdigest())
+
+    def test_large_unread_stdin_still_allows_timeout_and_cancellation(self):
+        for cancellation in (False, True):
+            with self.subTest(cancellation=cancellation), tempfile.TemporaryDirectory() as tmp:
+                binary = fake_claude(tmp, 'time.sleep(30)\n')
+                cancel = threading.Event()
+                timer = threading.Timer(.3, cancel.set) if cancellation else None
+                if timer:
+                    timer.start()
+                try:
+                    record = run_turn(PROFILE, 'm', 'high', None, 'public context\n' * 25000,
+                                      tmp, {'PATH':'/usr/bin:/bin','KIMI_API_KEY':SECRET},
+                                      binary=str(binary), timeout=5 if cancellation else .1,
+                                      cancel_event=cancel if cancellation else None, enable_robot=False)
+                finally:
+                    if timer:
+                        timer.cancel()
+                self.assertEqual(record['process'], 'cancelled' if cancellation else 'timeout')
+                self.assertEqual(record['summary']['turn_status'], 'unknown')
+
     def test_command_exposes_only_bound_robot_tool_and_isolates_session(self):
         cmd = build_command('kimi-k3.1-pro', 'high', '/tmp/mcp.json', 'go', session_id='11111111-1111-1111-1111-111111111111')
         self.assertIn('--strict-mcp-config', cmd)

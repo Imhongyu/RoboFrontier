@@ -32,7 +32,7 @@ def _oauth_endpoint_allowed(base):
 
 
 def build_command(model, effort, mcp_config, prompt, session_id=None, max_budget_usd=None, binary='claude', resume=None,
-                  fork_from=None, enable_robot=True, auth_mode='api_key'):
+                  fork_from=None, enable_robot=True, auth_mode='api_key', prompt_via_stdin=False):
     """Return argv for one headless turn with only the bound robot MCP tool exposed.
 
     `resume` continues an existing session by its explicit ID; it never picks the most recent one.
@@ -62,9 +62,12 @@ def build_command(model, effort, mcp_config, prompt, session_id=None, max_budget
         if not isinstance(max_budget_usd, (int, float)) or max_budget_usd <= 0:
             raise ValueError('max_budget_usd must be a positive number')
         cmd += ['--max-budget-usd', str(max_budget_usd)]
-    # Claude -p is a boolean flag. A prompt beginning with '-' must follow the
-    # options terminator rather than being parsed as a CLI option.
-    cmd += ['--', prompt]
+    # Native runners stream the complete prompt to avoid per-argument OS limits.
+    # Keep positional construction for existing direct build_command callers.
+    if prompt_via_stdin:
+        cmd += ['--input-format', 'text', '--']
+    else:
+        cmd += ['--', prompt]
     return cmd
 
 
@@ -194,7 +197,8 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
     config_dir = run_dir / 'private/claude-config'
     config_dir.mkdir(parents=True, exist_ok=True)
     cmd = build_command(model, effort, mcp_config, prompt, session_id, max_budget_usd, binary, resume,
-                        fork_from=fork_from, enable_robot=enable_robot, auth_mode=profile.get('auth_mode','api_key'))
+                        fork_from=fork_from, enable_robot=enable_robot, auth_mode=profile.get('auth_mode','api_key'),
+                        prompt_via_stdin=True)
     env = build_env(profile, base_env, config_dir)
     raw = evidence / events_name
     # A queued worker may reach this point after its supervisor has stopped it.
@@ -206,8 +210,9 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
     host_event(run_dir, 'cli_turn_started', actor=actor, session_id=session_id or resume,
                events_name=events_name, phase=phase)
     process = subprocess.Popen(cmd, cwd=run_dir, env=env, text=True, stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, start_new_session=True)
+                               stderr=subprocess.PIPE, stdin=subprocess.PIPE, start_new_session=True)
     deadline = None if timeout is None else time.monotonic() + timeout
+    pending_input = prompt
     while True:
         remaining = None if deadline is None else deadline - time.monotonic()
         cancelled = cancel_event is not None and cancel_event.is_set()
@@ -224,11 +229,23 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
             wait = remaining
             if cancel_event is not None:
                 wait = 0.25 if remaining is None else min(0.25, remaining)
-            stdout, stderr = process.communicate(timeout=wait)
+            try:
+                stdout, stderr = process.communicate(input=pending_input, timeout=wait)
+            finally:
+                # communicate retains unsent input after TimeoutExpired. A retry
+                # must drain that same communication, never send the prompt again.
+                pending_input = None
             status = 'exited'
             break
         except subprocess.TimeoutExpired:
             continue
+    # A killed process can leave its partially written input pipe open even
+    # after communicate has drained stdout/stderr.
+    if process.stdin is not None:
+        try:
+            process.stdin.close()
+        except BrokenPipeError:
+            pass
     secret = base_env[profile['env_key']]
     stdout = _redact(stdout, secret)
     # Evidence can contain model output and private task observations.

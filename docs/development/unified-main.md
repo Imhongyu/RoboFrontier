@@ -2286,3 +2286,44 @@ The README's old pre-merge banner and Slurm's minimal-probe-only description are
 updated to the actual delivered/scoped state. `final-closure-acceptance-8bd989a.json`
 and full/native reports under the engineering root bind the source and evidence.
 Main publication, image and release-attachment receipts remain separate actions.
+
+## Published closure and 36-task native prompt boundary
+
+Reviewed closure main `0009b40` is published and clean, with production code
+identical to tested `8bd989a`. Its source image passes read-only, network-disabled
+bootstrap (3,467 files), default 36-case planning and changed-module byte checks.
+Atlas validation CI run 41384291459 succeeds at that main commit with publishing
+disabled. Nine prerelease assets verify; the original seven attachments remain
+unchanged. A disk-exhausted build is retained. Recovery evicts only ten specifically
+identified disposable build-context cache entries; source images, containers,
+volumes and experimental data are retained.
+
+A fresh 36-case Adaptive Slurm attempt at `8bd989a`, job 428903 on dgx-061, reveals
+a native launch boundary: 32 Controllers reach the synthetic HTTPS rendezvous,
+but four harder Dial sessions become unknown before sending a model request.
+The attempt is stopped using an actual Slurm batch USR1 request, never resumed.
+Job, batch and execution step finish 0:0 after 6:37, returning an unqualified
+needs_review evidence ZIP (156,724,159 bytes, SHA-256
+`26f043baac7c7cedb797ae81b4ffaa6e3916b5b4b2fc1df76abeafc565dabdd6`).
+Step peak RSS is 19,746,824 KiB. This is not a passing 36-task or model result;
+restoration and per-case stop audit remain separate pending checks.
+
+A 0.504-second Linux reproduction reaches the actual runner process-creation
+boundary with /bin/true and no network/physics. The 95,083-byte minimum Dial
+prompt launches, while the 241,504-byte larger prompt raises E2BIG before process
+creation. Native CLI invocation placed the entire public bootstrap in one argv
+element. The follow-up streams the complete prompt through stdin, retaining
+explicit session/resume/fork arguments, tools, cancellation and cost handling.
+Partial-input communicate retries never send the prompt twice; terminal input
+pipes close even after cancellation. A full-prompt checksum regression fails
+before the change and passes afterward, as do unread-large-input timeout and
+cancellation checks. Nineteen related/native checks pass, including actual
+native session resume and fork/tool boundaries. A real native CLI also transmits
+the complete large prompt to a synthetic endpoint. Complete discovery and a fresh
+36-case witness are still required before this follow-up can be delivered.
+
+The user authorizes real API checks for GPT-6 Luna and Haiku 5.5 with a combined
+US$1 budget. Existing provider variables are available in the retained Luna/Claude
+worktrees. No credential values enter tracked code, public receipts or Slurm jobs.
+Budget authorization is not a passing provider receipt; usage and source scope
+must be recorded after actual checks.
