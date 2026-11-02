@@ -89,6 +89,14 @@ def build_env(profile, base_env, config_dir):
         config_dir = home
         if not _oauth_endpoint_allowed(profile.get('base_url')):
             raise ValueError('Native login may only use the Anthropic endpoint')
+        scope = profile.get('native_config_scope', 'directory')
+        if scope not in ('default', 'directory'):
+            raise ValueError('Unknown native configuration scope')
+        if scope == 'default':
+            user_home = base_env.get('HOME')
+            if (not isinstance(user_home, str) or not Path(user_home).is_absolute()
+                    or (Path(user_home)/'.claude').resolve() != home):
+                raise ValueError('Default native login requires HOME matching the frozen configuration directory')
         if base_env.get('HOME'):
             env['HOME'] = base_env['HOME']
         credential_name=None
@@ -114,6 +122,10 @@ def build_env(profile, base_env, config_dir):
     })
     if credential_name is not None:
         env[credential_name] = key
+    if auth_mode == 'native_login' and scope == 'default':
+        # An explicitly set CLAUDE_CONFIG_DIR selects a different credential
+        # namespace even when its path equals the native default directory.
+        env.pop('CLAUDE_CONFIG_DIR', None)
     if profile.get('base_url'):
         env['ANTHROPIC_BASE_URL'] = profile['base_url']
     return env

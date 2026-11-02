@@ -37,6 +37,8 @@ def profile(name, catalog=CATALOG):
     if auth_mode not in ('api_key','oauth_token','native_login'):
         raise ValueError('Unsupported Claude authentication mode')
     if auth_mode == 'native_login':
+        if selected.get('native_config_scope', 'directory') not in ('default', 'directory'):
+            raise ValueError('Unknown native configuration scope')
         if selected['provider'] != 'anthropic' or selected.get('env_key'):
             raise ValueError('Native login requires Anthropic and no credential environment variable')
         name = selected.get('native_config_dir_env')

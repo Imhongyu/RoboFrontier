@@ -46,12 +46,20 @@ Choose the native configuration directory explicitly before preparation:
 
 ```sh
 export ROBOFRONTIER_CLAUDE_HOME="$HOME/.claude"
-CLAUDE_CONFIG_DIR="$ROBOFRONTIER_CLAUDE_HOME" claude auth login --claudeai
-CLAUDE_CONFIG_DIR="$ROBOFRONTIER_CLAUDE_HOME" claude auth status --json
+claude auth login --claudeai
+claude auth status --json
 robofrontier prepare --engine claude --profile haiku_subscription \
   --topology adaptive --render native --cases transport-a04-d1 \
   --output runs/engineering/haiku-subscription-example
 ```
+
+`haiku_subscription` uses the default native login namespace. It requires the
+selected directory to equal HOME/.claude and leaves CLAUDE_CONFIG_DIR unset.
+Claude Code 2.1.312 selects a distinct credential namespace when that variable is
+explicitly set, even to the same path. For an account authenticated with an
+explicit CLAUDE_CONFIG_DIR, choose `haiku_subscription_directory` and the same
+directory used during its native login. The selection is part of the profile
+fingerprint; receipts cannot be reused between these namespaces.
 
 The selected absolute directory is frozen in the private launch profile. Keep
 the authentication home outside the evidence batch. Preparation, batch admission

@@ -2521,3 +2521,25 @@ against the actual CLI and isolated layered configuration. User configuration
 files are unchanged. These are scope checks, not model turns or physical trials.
 Source-pinned genuine subscription prechecks and complete regression discovery
 remain required before this follow-up is published.
+
+At checkpoint `5b58f3f`, complete Mac discovery passes 1,554 checks with zero
+failures/errors and 17 conditional skips. Genuine subscription checks uncover
+limits that offline checks do not qualify. The first native Haiku precheck ends
+locally as not logged in, with zero tokens and zero API duration. The CLI reports
+different cached login states when CLAUDE_CONFIG_DIR is unset versus explicitly
+set to the same default path. A 0.001-second regression reproduces the namespace
+selection error. Default and directory login scopes are now explicit profile
+fields; default scope preserves the native unset-variable behavior and verifies
+HOME against the frozen directory. A credential-free auth-status probe then
+identifies the already-authorized Max login. Old profiles without this field
+retain directory scope. No credential is copied between namespaces.
+
+The first genuine Luna subscription image/compaction/fork check is stopped by its
+conservative observer and remains failed. Its reported counters include inherited
+parent usage in the child: summing the two counters gives 167,846 tokens and a
+US$0.335692 proxy at US$2/M, beyond the observer's US$0.25 stop threshold. The
+observer closes the native app-server; the preflight subsequently records its
+bounded deadline failure. This is not a passing compatibility receipt or a
+provider invoice. There is no robot world or physical action. Native token
+counters, fork identities and original failed reports remain retained for
+accounting and a correctly bounded fresh check.

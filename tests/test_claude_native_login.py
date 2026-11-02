@@ -13,6 +13,22 @@ from scripts.claude_benchmark import profile
 
 
 class NativeLoginTests(unittest.TestCase):
+    def test_default_native_login_preserves_the_default_credential_namespace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); native = root/'.claude'; native.mkdir()
+            selected = {**self.profile(native), 'native_config_scope':'default'}
+            env = build_env(selected, {'PATH':'/bin', 'HOME':str(root),
+                'CLAUDE_CONFIG_DIR':'/another/account'}, native)
+            self.assertEqual(env['HOME'], str(root))
+            self.assertNotIn('CLAUDE_CONFIG_DIR', env)
+
+    def test_default_native_login_rejects_a_different_home(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            selected = {**self.profile(home), 'native_config_scope':'default'}
+            with self.assertRaises(ValueError):
+                build_env(selected, {'HOME':str(home)}, home)
+
     def test_runtime_verifies_fork_history_in_the_frozen_native_home(self):
         from robofrontier.runtime_cli import native_fork_provenance
         with tempfile.TemporaryDirectory() as tmp:
