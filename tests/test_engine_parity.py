@@ -155,9 +155,16 @@ class EngineRenderingTests(unittest.TestCase):
             self.assertEqual(cmd[cmd.index('--setting-sources')+1], '')
             self.assertEqual(cmd[cmd.index('--system-prompt')+1], policy_bootstrap.SYSTEM_PROMPT)
             self.assertEqual(policy_cwd(run), run/'workspace')
-            # A tool-free fork-creation turn gets no tools at all.
-            fork = build_command('m', 'high', None, 'x', session_id='c', fork_from='p', enable_robot=False)
-            self.assertEqual(fork[fork.index('--tools')+1], '')
+            # A delegate's fork turn gets the same tools and prompt, plus the gate that holds
+            # them until the runtime activates it.
+            gate = {'open': run/'g-open', 'closed': run/'g-closed', 'deadline': 4102444800}
+            fork = build_command('m', 'high', 'mcp.json', 'go', session_id='c', fork_from='p', settings=settings,
+                                 system_prompt=policy_system_prompt(run), prompt_via_stdin=True, gate=gate)
+            self.assertEqual(fork[fork.index('--tools')+1], cmd[cmd.index('--tools')+1])
+            self.assertEqual(fork[fork.index('--system-prompt')+1], policy_bootstrap.SYSTEM_PROMPT)
+            forked = json.loads(fork[fork.index('--settings')+1])
+            self.assertEqual(forked['permissions'], settings['permissions'])
+            self.assertIn('PreToolUse', forked['hooks'])
 
     def test_codex_runs_under_the_frozen_permission_profile_without_web_search(self):
         from robofrontier.codex.launch import launch_config, profile

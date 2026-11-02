@@ -146,16 +146,17 @@ not downloaded by ordinary policy bootstrap.
 | Area | Files | Responsibility |
 | --- | --- | --- |
 | Claude tool IDs | `robofrontier/claude/robot_mcp.py` | Generate/return new request IDs, retain an ID across retransmission of the same MCP request, and return structured conflict/uncertain errors |
-| Claude delegation identity | `request_identity.py`, `fork_setup.py` | Bind the generated delegation ID to one unmatched native tool call, then create and verify the fork |
+| Claude delegation identity | `request_identity.py`, `fork_setup.py` | Bind the generated delegation ID to one unmatched native tool call, then fork each child at that call and verify its copied history |
 | Public tool instructions | `prompts/archive/claude/controller.md`, `prompts/skills/robot-collaboration/references/tools.md` | Distinguish new requests, status queries and retries of uncertain requests; retain explicit-ID compatibility |
 | Claude provider errors | `recovery.py`, `runner.py`, `session_host.py` | Recognize structured capacity failures and retain original-session recovery, backoff and retry evidence |
 | Claude scheduling | `supervisor.py`, `dispatch.py`, `adaptive_dispatch.py`, `standing_team.py` | Recover within the existing deadline; a recovering role does not claim ordinary wakes while other runnable roles continue |
 | Shared reporting | `robofrontier/run_metrics.py`, `scripts/export_run_report.py` | Emit common `host_metrics`; resolve isolated Codex homes and collected session maps |
 | Host timing | `robofrontier/codex/codex_policy_host.js`, Claude `runner.py` and `robot_mcp.py` | Record turn/tool/fork setup intervals without adding another image Base64 log |
 
-The engine-specific modules remain native implementations. Common statistics,
-public protocol and scoring do not make Codex app-server forks identical to
-Claude CLI creation turns.
+The engine-specific modules remain native implementations. Both engines fork a
+delegate at the parent's pending `delegate` call and give it the same frozen
+first message; how each native host creates that fork still differs (see
+[engine differences](#engine-differences)).
 
 ## New requests, queries and delegation
 
@@ -234,7 +235,7 @@ Collected mappings take priority over stale paths to the original server.
 | `model_process_seconds_sum` | Sum of turn durations, including tool waits and CLI overhead. |
 | `model_process_wall_seconds_union` | Union of those intervals, avoiding double-counting overlapping wall time. |
 | `tool_seconds_sum` | Host tool durations, which may overlap model-process time. |
-| `fork_setup_seconds_sum` | Claude tool-free snapshot/fork creation turns or Codex native fork RPC time. These perform different work. |
+| `fork_setup_seconds_sum` | Codex native fork RPC time; for Claude, the time from starting a child's first turn until its copied history was verified. Claude runs from before fork-at-call setup report their tool-free snapshot/fork turns here instead. |
 
 Claude prefers final `modelUsage`, aggregated across the turn's models, and uses
 `usage` only as a fallback; the two are not added. Older summary-only records are
@@ -253,15 +254,23 @@ See [evidence storage](../evidence-storage.md) for collection and archives.
 ## Engine differences
 
 Normal policy turns have no separate default timeout, while bounded startup,
-RPC and tool-free fork setup still have limits. Engine-native prompts,
+RPC and delegate fork setup still have limits. Engine-native prompts,
 compaction, context inheritance and creation work can differ. Shared elapsed,
 usage and tool metrics report these differences; they do not erase them. Equal
 effort names do not establish equal computation across providers or engines.
 
-Fork creation is the clearest example. Codex can `thread/fork` before binding,
-activation and a first prompt; Claude needs a tool-free creation turn before a
-child transcript exists (see
-[verified Claude CLI observations](claude-code.md#verified-native-cli-observations-2026-10-28)).
+Delegate creation behaves the same on both engines: the child's history ends at
+the parent's pending `delegate` call, its first input is the frozen
+`private/inputs/bootstrap/delegate.md` filled for that child, and it runs no tool
+before the runtime activates the batch. The native mechanism differs. Codex
+calls `thread/fork` (first a snapshot thread, then each child from it) and sends
+the message after activation. Claude Code creates a fork only by running its
+first turn, so a Claude child's fork *is* that turn, started with the delegate
+message; a hook holds every tool call until activation. Each Claude child forks
+directly from the blocked Controller and is verified against the same pinned
+history (see [the Claude delegate fork](claude-code.md#trusted-internal-adaptive-fork)).
+Claude therefore starts its first model request before activation and Codex
+after it; neither runs a tool before.
 Claude cost accounting uses a run-local ledger; see
 [Claude cost allowances](claude-code.md#cost-allowances-and-the-shared-ledger).
 
@@ -281,8 +290,8 @@ real task conditions below.
    evaluation. Synthetic displacement and process sealing do not establish task
    completion or model ability.
 3. Compare frozen task selection, authority, observations, timing and evaluation.
-   Record native differences such as a tool-free Claude fork-creation turn rather
-   than declaring them identical conditions.
+   Record native differences such as compaction or the native fork mechanism
+   rather than declaring them identical conditions.
 4. Verify startup, stopping, unknown actions, process exceptions and supervisor
    loss under concurrency, retaining their evidence. SIGTERM smoke does not cover
    SIGKILL, power loss or every physical action boundary.

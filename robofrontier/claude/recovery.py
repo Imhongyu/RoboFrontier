@@ -62,7 +62,7 @@ def recover(host, store, now=None):
         busy = any(a['status'] in ('pending', 'running') for a in store.actions(host.actor).values())
         busy = busy or bool(store.db.execute("SELECT 1 FROM calls WHERE actor=? AND status='accepted' LIMIT 1",
                                             (host.actor,)).fetchone())
-        # A tool-free creation turn must not be retried through this mechanism.
+        # A delegate batch still being forked must not be retried through this mechanism.
         if any(b['status'] == 'creating' for b in store.get('delegations', {}).values()): return False
         if host.capacity_retry_due is None:
             host.capacity_retry_due = now + capacity_delay(host.capacity_retry_count, host.session_id)

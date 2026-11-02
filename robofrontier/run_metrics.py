@@ -266,9 +266,11 @@ def export_metrics(run, engine):
     costs = [r['reported_cost_usd'] for r in rows if r['reported_cost_usd'] is not None]
     tools = [e for e in events if e.get('event') in ('robot_tool_completed', 'robot_tool_failed')]
     tool_seconds = [number(e.get('duration_s')) for e in tools]
+    # A Claude delegate's fork is its first turn; runs prepared before that had separate
+    # tool-free snapshot and fork turns.
     setup_seconds = ([r['duration_s'] for r in rows if r['phase'] in ('snapshot_setup', 'fork_setup')]
-                     if engine == 'claude' else
-                     [number(e.get('duration_s')) for e in events if e.get('event') in ('snapshot_created', 'fork_created')])
+                     if engine == 'claude' else [])
+    setup_seconds += [number(e.get('duration_s')) for e in events if e.get('event') in ('snapshot_created', 'fork_created')]
     intervals = [(r['ended_at']-r['duration_s'], r['ended_at']) for r in rows
                  if r['ended_at'] is not None and r['duration_s'] is not None]
     model_seconds = [r['duration_s'] for r in rows]

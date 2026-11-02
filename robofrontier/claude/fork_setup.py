@@ -1,37 +1,38 @@
-"""Host-recorded, tool-free Claude fork creation for offline engineering.
+"""Host-recorded Claude delegate forks, taken at the parent's pending `delegate` call.
 
-Does not bind, activate, or grant a child any robot permission. Runtime admission
-for Claude delegation remains disabled until the complete protocol is qualified.
+As on Codex, a child's history ends at the parent's delegate call and its first input
+is the frozen delegate message. Claude Code creates a fork only by running its first
+turn, so that turn is the fork: `--resume PARENT --fork-session` with the delegate
+message as its prompt. Until the runtime activates the batch, a gate holds every tool
+call of the child (see `runner.gate_settings`). Setup opens it only after the child's
+copied history is verified; nothing here binds, activates or grants a robot.
 """
 from robofrontier.claude.native_home import history_directory
-from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import time
-import uuid
 
-from robofrontier.claude.provenance import fork_provenance, history, transcript_rows
-from robofrontier.claude.runner import PreLaunchCancelled, run_turn
+from robofrontier.claude.provenance import ForkDiverged, first_input, fork_provenance, history, transcript_rows
 from robofrontier.delegation import Delegations
+from robofrontier.run_metrics import host_event
 from robofrontier.run_setup import write_json
 from robofrontier.claude.request_identity import matches_binding
 
 ACTOR = re.compile(r'Delegate_[a-f0-9]{12}\Z')
-SETUP_PROMPT = ('This is an engineering setup turn with no tools. Do not act on the inherited task. '
-                'Reply READY and wait for a later role assignment.')
 
 
-def _pending_history(store, parent, batch_id, actor, owner, config, cancel_event):
-    """Wait until the native transcript contains the actual blocked tool call.
+def pending_history(store, parent, batch_id, actor, owner, cancel_event=None, timeout=10):
+    """Return the parent's history once its native transcript holds the pending call.
 
     The runtime can accept the MCP call before Claude flushes its assistant
-    message. Forking the older prefix would produce inconsistent provenance.
+    message; a fork of the older prefix would not end at the delegate call.
     No model call has been launched while waiting here.
     """
-    deadline = time.monotonic() + 10
+    config = history_directory(Path(parent.run).resolve())
+    deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if cancel_event is not None and cancel_event.is_set():
             raise ValueError('Fork setup was cancelled')
@@ -77,103 +78,91 @@ def _boundary(store, parent_host, batch_id, actor, owner):
     return batch
 
 
-def create_fork(store, parent_host, batch_id, actor, owner, *, max_budget_usd,
-                timeout=90, runner=run_turn, budget_ledger=None, cancel_event=None,
-                snapshot=False, source_session=None):
-    """Create exactly one no-tool setup turn; on any ambiguity never retry.
+def fork_gate(run, actor, deadline):
+    """The gate of one delegate's first process: marker files and an epoch deadline."""
+    folder = Path(run).resolve()/'private/claude-forks'
+    return {'open': str(folder/(actor+'.gate-open')), 'closed': str(folder/(actor+'.gate-closed')),
+            'deadline': deadline}
 
-    The returned evidence is not permission to run or bind a child. In particular,
-    a caller still needs a task-wide concurrent cost ledger before enabling adaptive.
+
+def open_gate(gate):
+    Path(gate['open']).touch()
+
+
+def close_gate(gate):
+    Path(gate['closed']).touch()
+    Path(gate['open']).unlink(missing_ok=True)
+
+
+def _digest(rows):
+    return hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
+
+
+def create_fork(store, parent_host, batch_id, actor, owner, *, host, prompt, source,
+                cancel_event=None, poll_s=.05):
+    """Start one delegate forked at the pending call and verify its copied history.
+
+    `host` is the child's unstarted host (`ClaudeSessionHost.fork_delegate`) and
+    `source` the parent history at the pending call (`pending_history`). The child's
+    ID is durable before its first, potentially paid, model call. On any failure the
+    claim is left `uncertain`; a fork is never retried. The result grants nothing:
+    the child's gate stays closed until setup opens it after activation.
     """
     if not isinstance(actor, str) or not ACTOR.fullmatch(actor): raise ValueError('Invalid delegate actor')
-    if max_budget_usd is not None and (isinstance(max_budget_usd, bool) or not isinstance(max_budget_usd, (int, float)) or not 0 < max_budget_usd < float('inf')):
-        raise ValueError('Setup budget must be a finite positive number or None')
-    _boundary(store, parent_host, batch_id, actor, owner)
+    if getattr(host, 'actor', None) != actor or getattr(host, 'fork_from', None) != parent_host.session_id:
+        raise ValueError('Delegate host does not fork this parent')
+    if not isinstance(prompt, str) or not prompt.strip(): raise ValueError('A delegate message is required')
+    batch = _boundary(store, parent_host, batch_id, actor, owner)
+    if not source: raise ValueError('Parent transcript has no messages')
     run = Path(parent_host.run).resolve()
     config = history_directory(run)
-    batch = Delegations(store).batch(batch_id)
-    if snapshot and source_session is not None:
-        raise ValueError('Snapshot must come from the Controller')
-    source_id = source_session or parent_host.session_id
-    if source_session is not None:
-        if (batch.get('snapshot_thread_id') != source_id or not batch.get('snapshot_provenance')):
-            raise ValueError('Snapshot is not verified for this batch')
-        source = history(transcript_rows(config, source_id), source_id)
-    else:
-        source = _pending_history(store, parent_host, batch_id, actor, owner, config, cancel_event)
-    if not source: raise ValueError('Parent transcript has no messages')
-    digest = hashlib.sha256(json.dumps(source, sort_keys=True).encode()).hexdigest()
-    if source_session is not None and batch['snapshot_provenance'].get('snapshot_sha256') != digest:
-        raise ValueError('Snapshot history changed after verification')
-    child = str(uuid.uuid4())
-    claim_name = ('snapshot-' + hashlib.sha256(batch_id.encode()).hexdigest() if snapshot else actor)
-    claim = run / 'private/claude-forks' / (claim_name + '.json')
+    digest = _digest(source)
+    child = host.session_id
+    claim = run/'private/claude-forks'/(actor+'.json')
     claim.parent.mkdir(parents=True, exist_ok=True)
     entry = {'status': 'claimed', 'batch_id': batch_id, 'actor': actor, 'owner': owner,
-             'parent_session': parent_host.session_id, 'source_session': source_id,
-             'snapshot': snapshot, 'child_session': child,
-             'parent_history_sha256': digest, 'claimed_at': time.time(), 'tool_permissions': 'none'}
+             'parent_session': parent_host.session_id, 'source_session': parent_host.session_id,
+             'child_session': child, 'parent_history_sha256': digest,
+             'first_input_sha256': hashlib.sha256(prompt.encode()).hexdigest(),
+             'claimed_at': time.time(), 'tool_permissions': 'gated'}
     # Durable identity and intent precede the first potentially paid model call.
     with claim.open('x') as out:
         os.fchmod(out.fileno(), 0o600)
         json.dump(entry, out); out.flush(); os.fsync(out.fileno())
-    if snapshot:
-        Delegations(store).snapshot_created(batch_id, child, owner)
-    reservation = None
-    settled = False
     try:
         _boundary(store, parent_host, batch_id, actor, owner)
-        profile = parent_host.profile
-        if budget_ledger is not None:
-            reservation = 'fork-' + child
-            max_budget_usd = budget_ledger.reserve(reservation, actor, max_budget_usd)
         if cancel_event is not None and cancel_event.is_set():
-            raise PreLaunchCancelled('Fork setup cancelled before launch')
-        record = runner(profile, profile['model'], profile['effort'], None, SETUP_PROMPT, run,
-                        parent_host.base_env, session_id=child, fork_from=source_id,
-                        enable_robot=False, max_budget_usd=max_budget_usd, timeout=timeout,
-                        binary=parent_host.binary, events_name=claim_name+'-fork-setup.jsonl', cancel_event=cancel_event,
-                        actor=actor, phase='snapshot_setup' if snapshot else 'fork_setup')
-        summary = record.get('summary') or {}
-        if (record.get('process') != 'exited' or record.get('exit_code') != 0
-                or summary.get('session_id') != child or summary.get('turn_status') != 'ended'
-                or summary.get('malformed_lines') or summary.get('tool_calls') != 0):
-            raise ValueError('Fork setup outcome incomplete or unexpected')
-        cost = summary.get('total_cost_usd')
-        try:
-            amount = Decimal(str(cost)) if not isinstance(cost, bool) else Decimal('NaN')
-            if not amount.is_finite() or amount < 0 or (max_budget_usd is not None and amount == 0): raise InvalidOperation
-        except (InvalidOperation, ValueError) as error:
-            if max_budget_usd is not None:
-                raise ValueError('Fork setup cost is unknown') from error
-            amount = None
-        if max_budget_usd is not None and amount > Decimal(str(max_budget_usd)):
-            raise ValueError('Fork setup reported cost exceeds its allowance')
-        if budget_ledger is not None:
-            shared = budget_ledger.settle(reservation, amount, outcome_known=True)
-            settled = True
-            if shared['status'] == 'uncertain': raise ValueError('Shared budget is uncertain')
+            raise ValueError('Fork setup cancelled before launch')
+        began = time.monotonic()
+        if host.send(prompt).get('threadId') != child:
+            raise ValueError('Delegate fork acknowledgement has wrong session')
+        # The CLI writes the copied history as the turn starts. Until it is complete,
+        # reads may see a missing file, a partial line or a shorter copy.
+        while True:
+            if cancel_event is not None and cancel_event.is_set():
+                raise ValueError('Fork setup cancelled')
+            if host.observe()['status'] not in ('active', 'idle'):
+                raise ValueError('Delegate fork turn failed')
+            try:
+                proof = fork_provenance(parent_host.session_id, child, config, at=source)
+                copy = history(transcript_rows(config, child), child)
+            except ForkDiverged:
+                raise
+            except ValueError:
+                proof = copy = None
+            if proof is not None and first_input(copy[len(source):]) == prompt:
+                break
+            if time.time() >= batch['setup_deadline']:
+                raise ValueError('Delegate fork history was not verified before the setup deadline')
+            time.sleep(poll_s)
         _boundary(store, parent_host, batch_id, actor, owner)
-        proof = fork_provenance(source_id, child, config)
-        if proof['source_sha256'] != digest:
-            raise ValueError('Parent history changed across fork setup')
-        entry.update(status='history_verified_no_authority', completed_at=time.time(), proof=proof,
-                     reported_cost_usd=str(amount) if amount is not None else None,
-                     usage=summary.get('usage'), model_usage=summary.get('model_usage'),
-                     duration_s=record.get('duration_s'))
-        if snapshot:
-            snapshot_history = history(transcript_rows(config, child), child)
-            entry['snapshot_sha256'] = hashlib.sha256(json.dumps(snapshot_history, sort_keys=True).encode()).hexdigest()
+        entry.update(status='history_verified_gated', verified_at=time.time(), proof=proof,
+                     fork_seconds=time.monotonic()-began)
         write_json(claim, entry)
+        host_event(run, 'fork_created', actor=actor, session_id=child, parent=parent_host.session_id,
+                   duration_s=entry['fork_seconds'])
         return entry
     except Exception as error:
-        if reservation is not None and not settled:
-            try:
-                if isinstance(error, PreLaunchCancelled):
-                    budget_ledger.abandon_before_launch(reservation)
-                else:
-                    budget_ledger.settle(reservation, None, outcome_known=False)
-            except Exception: pass  # A remaining reservation still conservatively consumes its allowance.
         entry.update(status='uncertain', error_type=type(error).__name__, completed_at=time.time())
         try: write_json(claim, entry)
         except OSError: pass

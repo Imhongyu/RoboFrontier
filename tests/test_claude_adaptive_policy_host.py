@@ -40,7 +40,7 @@ class AdaptiveHostTests(unittest.TestCase):
         self.client=client
     def tearDown(self): self.ledger.close(); self.tmp.cleanup()
     def make(self):
-        return AdaptivePolicyHost(self.run,self.profile,{},self.ledger,turn_budget_usd=.2,setup_budget_usd=.1,
+        return AdaptivePolicyHost(self.run,self.profile,{},self.ledger,turn_budget_usd=.2,
                                   host_factory=FakeHost,client=self.client,verifier=lambda _:[])
     def test_binding_readiness_and_multi_role_stop(self):
         host=self.make()
@@ -63,9 +63,9 @@ class AdaptiveHostTests(unittest.TestCase):
     def test_profile_and_input_mismatch_rejected(self):
         with self.assertRaisesRegex(ValueError,'Profile differs'):
             AdaptivePolicyHost(self.run,{**self.profile,'model':'other'},{},self.ledger,turn_budget_usd=.2,
-                               setup_budget_usd=.1,host_factory=FakeHost,verifier=lambda _:[])
+                               host_factory=FakeHost,verifier=lambda _:[])
         with self.assertRaisesRegex(ValueError,'Frozen inputs changed'):
-            AdaptivePolicyHost(self.run,self.profile,{},self.ledger,turn_budget_usd=.2,setup_budget_usd=.1,
+            AdaptivePolicyHost(self.run,self.profile,{},self.ledger,turn_budget_usd=.2,
                                host_factory=FakeHost,verifier=lambda _:['changed'])
 
 

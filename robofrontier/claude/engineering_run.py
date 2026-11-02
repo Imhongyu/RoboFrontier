@@ -133,7 +133,6 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
             ledger = _ledger(run, total_budget_usd, resuming)
             policy = adaptive_policy_factory(run, profile, base_env, ledger,
                                              turn_budget_usd=turn_budget_usd,
-                                             setup_budget_usd=turn_budget_usd,
                                              **({'resume': True} if resuming else {}))
         elif topology in ('hierarchical', 'peer'):
             ledger = _ledger(run, total_budget_usd, resuming)

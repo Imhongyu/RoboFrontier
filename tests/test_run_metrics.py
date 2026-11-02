@@ -26,6 +26,19 @@ class RunMetricTests(unittest.TestCase):
             self.assertEqual(result['model_process_wall_seconds_union'],5)
             self.assertEqual(result['model_process_seconds_sum'],8)
             self.assertEqual(result['by_actor']['Delegate_a']['input_tokens'],60)
+            self.assertEqual(result['fork_setup_seconds_sum'],4)
+
+    def test_claude_delegate_fork_is_a_policy_turn_timed_by_its_fork_event(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp); output = run/'private/outputs'; output.mkdir(parents=True)
+            turn = {'event':'cli_turn_completed', 'actor':'Delegate_a', 'session_id':'c', 'at':10,
+                    'events_name':'turn1', 'phase':'policy', 'duration_s':4, 'reported_cost_usd':.1,
+                    'usage':{'input_tokens':10,'output_tokens':4}}
+            fork = {'event':'fork_created', 'actor':'Delegate_a', 'session_id':'c', 'parent':'p', 'duration_s':.5}
+            (output/'claude-host.jsonl').write_text('\n'.join(map(json.dumps,[fork, turn]))+'\n')
+            result = export_metrics(run, 'claude')
+            self.assertEqual(result['phase_counts'], {'policy':1})
+            self.assertEqual(result['fork_setup_seconds_sum'], .5)
 
     def test_codex_uses_first_last_then_cumulative_deltas_not_inherited_totals(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,14 +1,16 @@
 import hashlib
 import json
 import stat
+import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from robofrontier.claude.runner import build_command, build_env, run_turn, summarize, ROBOT_TOOL
+from robofrontier.claude.runner import build_command, build_env, gate_settings, run_turn, summarize, ROBOT_TOOL
 
 PROFILE = {'provider': 'kimi', 'model': 'kimi-k3.1-pro', 'env_key': 'KIMI_API_KEY',
            'base_url': 'https://api.moonshot.cn/anthropic', 'effort': 'high'}
@@ -104,17 +106,45 @@ print(json.dumps({'type':'result', 'subtype':'success', 'is_error':False,
         self.assertNotIn('--session-id', cmd)
         with self.assertRaises(ValueError): build_command('m', 'high', 'x', 'p', session_id='a', resume='b')
 
-    def test_fork_creation_pins_ids_and_has_no_mcp_or_builtin_tools(self):
-        cmd = build_command('m', 'high', '/run/role-mcp.json', 'p', session_id='child',
-                            fork_from='parent', enable_robot=False)
+    def test_delegate_fork_pins_ids_keeps_the_role_tools_and_gates_them(self):
+        gate = {'open': '/run/private/claude-forks/D.gate-open', 'closed': '/run/x y/D.gate-closed',
+                'deadline': 4102444800}
+        cmd = build_command('m', 'high', '/run/role-mcp.json', 'p', session_id='child', fork_from='parent', gate=gate)
         self.assertEqual(cmd[cmd.index('--resume') + 1], 'parent')
         self.assertEqual(cmd[cmd.index('--session-id') + 1], 'child')
         self.assertIn('--fork-session', cmd)
-        self.assertEqual(json.loads(cmd[cmd.index('--mcp-config') + 1]), {'mcpServers': {}})
-        self.assertEqual(cmd[cmd.index('--tools') + 1], '')
-        self.assertNotIn('--allowedTools', cmd)
-        with self.assertRaises(ValueError): build_command('m', 'high', 'x', 'p', session_id='child', fork_from='parent')
-        with self.assertRaises(ValueError): build_command('m', 'high', 'x', 'p', fork_from='parent', enable_robot=False)
+        self.assertEqual(cmd[cmd.index('--mcp-config') + 1], '/run/role-mcp.json')
+        self.assertEqual(cmd[cmd.index('--allowedTools') + 1], ROBOT_TOOL)
+        # --bare would skip the hook.
+        self.assertNotIn('--bare', cmd)
+        self.assertEqual(cmd[cmd.index('--setting-sources') + 1], '')
+        hook = json.loads(cmd[cmd.index('--settings') + 1])['hooks']['PreToolUse'][0]
+        self.assertEqual(hook['matcher'], '*')
+        self.assertIn("'/run/x y/D.gate-closed'", hook['hooks'][0]['command'])
+        self.assertGreater(hook['hooks'][0]['timeout'], 4102444800 - time.time())
+        with self.assertRaises(ValueError): build_command('m', 'high', 'x', 'p', fork_from='parent')
+        settings = {'permissions': {'deny': []}}
+        cmd = build_command('m', 'high', 'x', 'p', session_id='child', fork_from='parent', gate=gate, settings=settings)
+        merged = json.loads(cmd[cmd.index('--settings') + 1])
+        self.assertEqual(merged['permissions'], settings['permissions'])
+        self.assertIn('PreToolUse', merged['hooks'])
+        self.assertEqual(cmd.count('--settings'), 1)
+
+    def test_gate_hook_holds_until_open_and_refuses_when_closed_or_late(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / 'a folder'; folder.mkdir()
+            gate = {'open': folder / 'D.gate-open', 'closed': folder / 'D.gate-closed', 'deadline': time.time() + 20}
+            script = gate_settings(gate)['hooks']['PreToolUse'][0]['hooks'][0]['command']
+            hook = lambda: subprocess.run(['sh', '-c', script], capture_output=True, text=True, timeout=30)
+            threading.Timer(.4, gate['open'].touch).start()
+            began = time.monotonic(); done = hook()
+            self.assertEqual(done.returncode, 0); self.assertGreater(time.monotonic() - began, .3)
+            gate['open'].unlink(); gate['closed'].touch()
+            done = hook()
+            self.assertEqual(done.returncode, 2); self.assertIn('not run', done.stderr)
+            gate['closed'].unlink(); gate['deadline'] = time.time() - 1
+            script = gate_settings(gate)['hooks']['PreToolUse'][0]['hooks'][0]['command']
+            self.assertEqual(hook().returncode, 2)
 
     def test_environment_carries_only_own_profile_credential(self):
         base = {'PATH': '/bin', 'KIMI_API_KEY': SECRET, 'OPENAI_API_KEY': 'other', 'ANTHROPIC_API_KEY': 'wrong'}
