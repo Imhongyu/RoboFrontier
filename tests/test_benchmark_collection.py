@@ -323,4 +323,13 @@ class BenchmarkCollectionTests(unittest.TestCase):
                 self.assertEqual(json.loads((root/'export/batch/model/demo'/path.relative_to(run)).read_text()),[])
 
 
+class FinderMetadataTests(unittest.TestCase):
+    def test_finder_metadata_is_not_evidence(self):
+        from scripts.collect_benchmark_batch import _files
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'run').mkdir();(root/'run/events.jsonl').write_text('{}\n')
+            (root/'.DS_Store').write_bytes(b'finder');(root/'run/.DS_Store').write_bytes(b'finder')
+            self.assertEqual([p.relative_to(root).as_posix() for p in _files(root)],['run/events.jsonl'])
+
+
 if __name__=='__main__':unittest.main()

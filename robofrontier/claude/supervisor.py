@@ -35,6 +35,12 @@ class CentralizedSupervisor:
         self.sleep = sleep
         self.used = False
 
+    def _wall_limit_reached(self):
+        """The world's own wall-limit guard has fired: it pauses dispatch, stops the arms and
+        then ends the run, so a pause seen in between is that normal end, not a review stop."""
+        db = getattr(self.policy.store, 'db', None)
+        return bool(db and db.execute("SELECT 1 FROM events WHERE kind='POLICY_WALL_LIMIT' LIMIT 1").fetchone())
+
     def _turn_states(self):
         # Standing teams expose a team status; Adaptive also has child hosts
         # whose final API response can follow their physical handback.
@@ -84,6 +90,8 @@ class CentralizedSupervisor:
                     if not self.owner_alive():
                         reason = 'owner_unavailable'; break
                     if self.policy.store.get('dispatch_paused', False):
+                        if self._wall_limit_reached() and self.clock()-began < self.startup_timeout_s+self.wall_limit_s+self.seal_timeout_s:
+                            self.sleep(self.poll_s); continue
                         reason = 'dispatch_paused'; break
                     observation = self.policy.host.observe()
                     state = observation['status']
@@ -107,7 +115,7 @@ class CentralizedSupervisor:
                         if now - started_at >= self.wall_limit_s:
                             reason = 'wall_limit'; break
                         result = self.policy.cycle()
-                        if result.get('paused'):
+                        if result.get('paused') and not self._wall_limit_reached():
                             reason = 'dispatch_paused'; break
                     self.sleep(self.poll_s)
         except Exception as error:
@@ -117,7 +125,9 @@ class CentralizedSupervisor:
             # finish has already frozen the terminal world. Allow only the
             # existing native turns to receive its reply and settle their
             # accounting before cancellation. No dispatch or physics occurs.
-            if reason == 'world_ended':
+            # A wall-limit end cuts the turns off instead: no reply is due.
+            ended_by = 'wall_limit' if reason == 'world_ended' and self._wall_limit_reached() else None
+            if reason == 'world_ended' and ended_by is None:
                 try:
                     deadline = self.clock() + self.finish_turn_grace_s
                     while 'active' in self._turn_states():
@@ -150,5 +160,5 @@ class CentralizedSupervisor:
         return {'reason': reason, 'error_type': error_type, 'error': error_message, 'seal': sealed,
                 'seal_error_type': seal_error_type, 'started': started_at is not None,
                 'session_evidence': session_evidence,
-                'finish_turns_drained': finish_turns_drained,
+                'finish_turns_drained': finish_turns_drained, 'ended_by': ended_by,
                 'scope': 'engineering lifecycle; task success requires runtime evaluation'}
