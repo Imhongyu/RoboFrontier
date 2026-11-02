@@ -1,11 +1,75 @@
 """Derived host metrics with explicit missing values; never evaluator feedback."""
+from collections import Counter
 import json
+import lzma
 import math
 import os
 from pathlib import Path
+import re
 import time
 
 from . import run_layout
+
+# Native sub-agent tools: Codex's collaboration namespace and Claude's Agent/Task.
+# They bypass robot delegate (no runtime record, likely uncollected usage).
+NATIVE_SUBAGENT_TOOLS = frozenset({'spawn_agent', 'followup_task', 'send_message', 'interrupt_agent',
+                                   'wait_agent', 'list_agents', 'Agent', 'Task'})
+# A run-skills heading: "## [type] conclusion — role — tags: a, b"; each later revision
+# of that entry is appended under "### rev N — role — what changed".
+ENTRY = re.compile(r'^## \[([^\]]+)\]\s*(.*?)\s+—\s+(.+?)\s+—\s+tags:\s*(.*?)\s*$')
+REVISION = re.compile(r'^### rev\s+(\d+)\s+—\s+(.+?)\s+—\s+(.*?)\s*$')
+
+
+def open_session(path):
+    """Open a native session transcript, plain or archived (`.jsonl.xz`), as text."""
+    return lzma.open(path, 'rt') if str(path).endswith('.xz') else Path(path).open()
+
+
+def run_skills(run_dir):
+    """The run's shared lessons file: one item per entry heading, with its revisions."""
+    run_dir = Path(run_dir)
+    try:
+        lessons = run_layout.path(run_dir, 'skills_file')
+    except KeyError:
+        return []
+    if not lessons.is_file():
+        return []
+    entries = []
+    for line in lessons.read_text(errors='replace').splitlines():
+        if line.startswith('### ') and entries:
+            match = REVISION.match(line)
+            entries[-1]['revisions'].append({'rev': int(match.group(1)), 'role': match.group(2), 'change': match.group(3)}
+                                            if match else {'rev': None, 'role': None, 'change': line[4:].strip()})
+            continue
+        if not line.startswith('## '):
+            continue
+        match = ENTRY.match(line)
+        entries.append({'type': match.group(1), 'title': match.group(2), 'role': match.group(3),
+                        'tags': [t.strip() for t in match.group(4).split(',') if t.strip()], 'revisions': []}
+                       if match else {'type': None, 'title': line[3:].strip(), 'role': None, 'tags': [], 'revisions': []})
+    return [{'path': str(lessons.relative_to(run_dir)), 'bytes': lessons.stat().st_size, 'entries': entries}]
+
+
+def native_subagent_calls(paths):
+    """Count native sub-agent tool calls in Codex rollouts or Claude transcripts."""
+    counts = Counter()
+    for path in paths:
+        with open_session(path) as stream:
+            for line in stream:
+                # A cheap prefilter keeps image payloads and ordinary turns undecoded.
+                if not any(name in line for name in NATIVE_SUBAGENT_TOOLS): continue
+                try: record = json.loads(line)
+                except ValueError: continue
+                payload, names = record.get('payload') or {}, []
+                if record.get('type') == 'response_item' and payload.get('type') in ('function_call', 'custom_tool_call'):
+                    names.append(payload.get('name') or '')
+                message = record.get('message') or {}
+                if record.get('type') == 'assistant' and isinstance(message, dict) and isinstance(message.get('content'), list):
+                    names += [b.get('name') or '' for b in message['content'] if isinstance(b, dict) and b.get('type') == 'tool_use']
+                for name in names:
+                    short = re.split(r'[./]|__', name)[-1]
+                    if short in NATIVE_SUBAGENT_TOOLS: counts[short] += 1
+    return dict(counts)
 
 
 def host_event(run, event, **fields):
@@ -48,7 +112,10 @@ def usage(engine, raw, model_usage=None):
         cached = number(raw.get('cached_input_tokens', raw.get('cachedInputTokens')))
         uncached = total-cached if total is not None and cached is not None and total >= cached else None
         written = None  # Codex does not separately report cache writes here.
-    return {'input_tokens': total, 'uncached_input_tokens': uncached,
+    # Same definition for both engines: every input token not read from cache.
+    # Claude's uncached_input_tokens excludes cache writes, so it is not comparable.
+    miss = total-cached if total is not None and cached is not None and total >= cached else None
+    return {'input_tokens': total, 'uncached_input_tokens': uncached, 'cache_miss_input_tokens': miss,
             'cached_input_tokens': cached, 'cache_write_input_tokens': written,
             'output_tokens': number(raw.get('output_tokens', raw.get('outputTokens')))}
 
@@ -118,7 +185,7 @@ def export_metrics(run, engine):
             previous[tid] = normalized
             rows.append({'actor': e.get('actor'), 'session_id': tid, 'phase': 'policy',
                          'usage': delta, 'reported_cost_usd': None, 'duration_s': None, 'ended_at': None})
-    fields = ('input_tokens', 'uncached_input_tokens', 'cached_input_tokens', 'cache_write_input_tokens', 'output_tokens')
+    fields = ('input_tokens', 'uncached_input_tokens', 'cache_miss_input_tokens', 'cached_input_tokens', 'cache_write_input_tokens', 'output_tokens')
     totals = {k: sum(r['usage'][k] for r in rows) if rows and all(r['usage'][k] is not None for r in rows) else None for k in fields}
     known_usage = {k: sum(r['usage'][k] for r in rows if r['usage'][k] is not None)
                    if any(r['usage'][k] is not None for r in rows) else None for k in fields}
