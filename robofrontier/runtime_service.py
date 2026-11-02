@@ -137,6 +137,10 @@ class RuntimeService:
                 fcntl.flock(self.world_lock, fcntl.LOCK_UN)
                 self.world_lock.close()
 
+    # Robot motion requests; none may start once the run has ended.
+    PHYSICAL_OPS = ('move', 'gripper', 'action_batch')
+    ENDED_REQUEST = 'The run has ended; no new robot action is accepted'
+
     def accept(self, actor, op, data, call_id, ack_delivery=None):
         with self.lock:
             if not isinstance(data,dict):raise ValueError('Tool data must be an object')
@@ -155,6 +159,11 @@ class RuntimeService:
                 job['done'].set()
             elif old['status'] == 'running':
                 job['result'] = {'call_id': call_id, 'execution_status': 'running', 'note': 'Execution owner must supply the original result'}
+                job['done'].set()
+            elif op in self.PHYSICAL_OPS and self.ended:
+                # A request arriving as the run closes gets a definite failure at once; left
+                # accepted, it could never settle and would block the run's seal.
+                self.respond(job, {'error': self.ENDED_REQUEST})
                 job['done'].set()
             else:
                 self.queue.put(job)
@@ -217,6 +226,9 @@ class RuntimeService:
                 raise ValueError('Meta administrative operation')
             if manager and op not in ('bind','start','state','shutdown','observe'):
                 raise ValueError('Meta observes/administers; business decisions and robot actions belong to policy roles')
+            # Queued before the run ended but reached after it: still never started.
+            if op in self.PHYSICAL_OPS and self.ended:
+                raise ValueError(self.ENDED_REQUEST)
             if op == 'ready':
                 facts=self.world.robot_facts(self.config)
                 self.store.update_agent(actor, ready=True)

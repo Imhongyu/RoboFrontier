@@ -36,6 +36,25 @@ class PipelineTests(unittest.TestCase):
         self.assertIn('error',self.call('Controller','gripper',{'state':'close'})['result'])
         self.assertEqual(self.service.world.executed,[])
 
+    def test_robot_requests_after_the_run_ended_fail_at_once_and_never_block_the_seal(self):
+        from robofrontier.run_seal import _unsettled
+        self.start()
+        # Queued while running, reached only after the run ended (the cutoff race).
+        queued=self.service.accept('A','move',{'delta_m':[0,0,.01]},'queued-move')
+        self.service.store.put('lifecycle','ended')
+        self.service.pump()
+        self.assertIn('has ended',queued['result']['error'])
+        # Arriving after the end: refused without ever being queued.
+        for op,data in (('move',{'delta_m':[0,0,.01]}),('gripper',{'state':'close'}),
+                        ('action_batch',{'actions':[{'robot':'A','op':'move','parameters':{'delta_m':[0,0,.01]}}]})):
+            job=self.service.accept('A',op,data,'late-'+op)
+            self.assertTrue(job['done'].is_set()); self.assertIn('has ended',job['result']['error'])
+            self.assertEqual(self.service.store.call('late-'+op)['status'],'failed')
+        self.assertEqual(self.service.world.executed,[])
+        self.assertEqual(_unsettled(self.service.store),[])
+        # Reading the world still works after the end.
+        self.assertNotIn('error',self.call('A','observe',{'cameras':['global']})['result'])
+
     def test_worker_cannot_select_another_robot_and_admin_pause_releases_wait(self):
         self.start()
         result=self.call('A','gripper',{'robot':'B','state':'close'})['result']
