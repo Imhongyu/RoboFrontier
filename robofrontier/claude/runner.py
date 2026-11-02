@@ -233,8 +233,9 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
         maximum = amount(max_budget_usd)
         if maximum is None or maximum <= 0:
             raise ValueError('max_budget_usd must be a positive number')
-        if before is not None:
-            native_limit = float(before + maximum)
+        # Native reports retain session history, but the CLI budget limits
+        # this invocation. Adding historical cost here would enlarge the cap.
+        native_limit = float(maximum)
     cmd = build_command(model, effort, mcp_config, prompt, session_id, native_limit, binary, resume,
                         fork_from=fork_from, enable_robot=enable_robot, auth_mode=profile.get('auth_mode','api_key'),
                         prompt_via_stdin=True)

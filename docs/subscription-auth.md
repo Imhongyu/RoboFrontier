@@ -106,8 +106,8 @@ Official references: [Codex authentication](https://learn.chatgpt.com/docs/auth)
 Claude Code 2.1.312 persists a session-wide cost-state counter in its transcript.
 Resuming or forking a session inherits that counter. The runner retains the raw
 native total and subtracts only a verified prior native counter to report new
-invocation work. A per-invocation allowance is translated to the corresponding
-cumulative native CLI ceiling. Task-wide reservations continue to cover only new
+invocation work. The CLI budget remains the unchanged per-invocation allowance;
+its semantics differ from the cumulative result counter. Task-wide reservations cover only new
 work; inherited history is not charged again. Raw event bytes remain unchanged.
 
 Missing historical cost bookkeeping permits no deduction: the complete native
@@ -123,6 +123,22 @@ and was stopped and sealed before repair. The counter regression uses the actual
 native CLI against a synthetic local provider: the sum of fresh text, image,
 resume and fork work must equal the final child's inherited cumulative counter.
 No genuine provider or credential is used by that regression.
+
+A second native CLI control verifies the budget independently: two fresh/resumed
+synthetic requests each fit the same invocation allowance while their reported
+cumulative total exceeds it. The first cost fix incorrectly added historical
+cost to the native ceiling. A genuine trial exposed that error and exceeded its
+US$0.50 sub-allocation, reporting US$0.67155931 before being stopped and sealed.
+The corrected budget reconciliation retains uncertain allowances and uses
+verified final native counters only for fully closed, known-cost sessions. It
+does not rewrite an old task ledger or turn a failed trial into a passing one.
+
+Engineering launchers that share a virtual environment must verify the imported
+checkout before starting a paid process. An external-file invocation resolved
+the editable package from the older integration checkout despite a different
+working directory. That attempted finish-fix receipt is not source-qualified;
+future qualification entrypoints check the actual module root, tracked source
+cleanliness and commit, and use an explicit checkout PYTHONPATH.
 
 ## Normal finish and native reply completion
 

@@ -21,7 +21,7 @@ class NativeCostStateTests(unittest.TestCase):
         binary=fake_claude(root, f'''
 argv=sys.argv[1:]
 limit=float(argv[argv.index('--max-budget-usd')+1])
-assert abs(limit-{'0.01' if missing else '0.41'}) < 1e-10,limit
+assert abs(limit-0.01) < 1e-10,limit
 from pathlib import Path
 state=Path(os.environ['CLAUDE_CONFIG_DIR'])/'projects/project/{expected}.jsonl'
 with state.open('a') as saved:
@@ -35,7 +35,7 @@ print(json.dumps({{'type':'result','subtype':'success','is_error':False,
             resume=None if fork else source,session_id=child if fork else None,
             fork_from=source if fork else None,enable_robot=False,max_budget_usd=.01,timeout=5)
 
-    def test_resume_and_fork_charge_only_new_work_and_extend_cumulative_cap(self):
+    def test_resume_and_fork_deduct_history_without_increasing_invocation_cap(self):
         for fork in (False,True):
             with self.subTest(fork=fork),tempfile.TemporaryDirectory() as tmp:
                 root=Path(tmp);record=self.invoke(root,fork=fork)
