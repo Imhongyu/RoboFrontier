@@ -2,8 +2,9 @@
 
 This document tracks implementation gates. It is not a statement that all gates
 have passed. The reviewed engineering integration is published on `main`.
-Follow-up Oracle repairs use `codex/oracle-regrasp-continuation` until their
-source-pinned checks and review are complete. Existing source worktrees remain retained.
+Oracle repairs through `0009b40` are published. The native Claude large-prompt
+follow-up uses `codex/native-prompt-stdin` until its source-pinned delivery checks
+are complete. Existing source worktrees remain retained.
 
 ## Product
 
@@ -45,13 +46,13 @@ these fields from Git history or the repository owner.
 - [x] Integrate repaired Oracle semantics without exposing private solutions to policies; qualify the current Transport L1 full reference separately from other cases.
 - [x] Publish English-only tracked content, offline task atlas, editable full video project, detailed README and documentation; retain the original published full movie as requested.
 - [x] Exercise CPU/native macOS and real Slurm/H800 EGL/minimal-JPEG paths with explicit scope receipts.
-- [ ] Qualify 36-task execution capacity and abnormal Slurm stop/stage-out; retain real-provider and formal-scoring gates separately.
+- [x] Qualify 36-task Adaptive execution capacity and actual Slurm USR1 stop/stage-out through restored stopped evidence; retain uncertain model accounting, real-provider and formal-scoring gates separately.
 - [x] Run offline suites and clean-checkout checks; record any remaining paid/hardware qualification separately.
 - [x] Review the engineering integration before publishing or merging it into main; retain the separate qualification gates below.
 
 ## Latest scoped acceptance snapshot
 
-At final code `8bd989a`, complete discovery passes on macOS and Linux: 1,541
+At final code `8b273ab`, complete discovery passes on macOS and Linux: 1,544
 checks each, zero failures/errors and 17 conditional skips. Eight opt-in native
 Claude/real-physics checks also pass on each platform at this source, covering
 images, four overlapping worlds, ordinary actions, native delegation/mailbox
@@ -85,8 +86,15 @@ restarting worlds. Peak started tasks is four; peak overlapping motor actions is
 three. It uses a scripted HTTPS model, not a real provider or formal model score.
 The earlier job 428862 remains a separately scoped minimal EGL/JPEG probe.
 
-Real-provider/subscription lifecycle, 36-task execution capacity, abnormal Slurm
-stop and Claude formal scoring remain open. Physical candidates must qualify
+Genuine GPT-6 Luna and Haiku 5.5 API compatibility checks now pass, retaining
+their actual `b179598` precheck source and separate budget receipts. Subscription
+refresh and Claude formal scoring remain open. Two `8b273ab` Slurm attempts
+independently verify 36 overlapping Adaptive owners, 72 bound native sessions,
+ordinary actions and handbacks from stopped archive traces. All 18,239 files in
+428948's returned archive verify through full restoration without physics;
+428931's separate full restoration remains in progress. Interruption accounting
+stays uncertain.
+Physical candidates must qualify
 before any default promotion; existing release assets remain unchanged. The
 user's deferred full video rerender and unfinished publication metadata remain
 deferred. All 6,572 tracked paths/text files are subject to the English-only
@@ -2369,3 +2377,92 @@ provider environment files and are excluded from public/source/Slurm payloads.
 These are provider compatibility checks, not scored robot trials. Receipts live
 under `real-haiku-precheck-v1`, `real-luna-preflight-v2*` and the standard Luna
 model-compatibility directory; no older result is overwritten.
+
+## Native prompt spool acceptance at 8b273ab
+
+Final complete discovery passes 1,544 checks on each of macOS and Linux, with
+zero failures/errors and 17 conditional skips. The eight opt-in native/physical
+checks pass without skips on each platform in 101.493 and 101.104 seconds.
+Linux uses a fresh Git checkout with all 45,141 authenticated historical fixture
+files and explicitly selected CPU/Mesa settings. Its original snapshot fixture
+also passes 1,000 repetitions. These checks use scripted loopback models and
+retain the original failed pipe/full-discovery evidence separately.
+
+Manual review against main `0009b40` finds only the intended production change:
+keep legacy direct command construction, but supply native turns with their
+complete UTF-8 prompt through a private unlinked temporary-file descriptor.
+The parent closes its descriptor after process creation; the child owns its
+inherited descriptor. Existing timeout/cancellation polling and uncertainty
+accounting remain in force. Three regressions cover full large-prompt hashes,
+an unread prompt during timeout/cancellation, and delayed consumption after a
+poll interval. The precheck fake also accepts native stdin. No source review
+finding blocks this scoped repair. Thresholds, task goals, physical assets,
+model profiles, explicit native IDs and unknown-action fencing are unchanged.
+
+The failed 36-case attempt 428903 is fully restored and audited: all 18,523
+files verify without physics, and all 36 owners are sealed. No physical action
+was issued. Its four original launch errors correlate exactly with the four
+Dial bootstrap prompts exceeding Linux's single-argument limit. Those failures
+remain failures, and none of their stopped worlds is resumed.
+
+Fresh Slurm jobs 428931 (dgx-061) and 428948 (dgx-081) at `8b273ab` each complete
+36 Adaptive owners with 72 distinct bound Controller/Delegate native sessions.
+Their stopped, hash-verified SQLite copies independently show exactly one
+completed A +5 mm action and a finished delegation per case, with ownership
+returned to the Controller. Peak overlapping motor actions are 16 and seven;
+peak overlapping started tasks is 36 in both runs. Actual Slurm batch USR1
+requests seal all owners with no unresolved action. Job, batch and execution
+step all finish 0:0. Full restoration of 428948 verifies all 18,239 files with
+physics entrypoints prohibited and all restored runtime database hashes
+unchanged. The separate 428931 full restoration remains in progress; its
+targeted trace audit is already complete.
+
+Both returns correctly retain needs_review and incomplete-collection status:
+interruption cancels active native model turns and leaves cost accounting
+uncertain. This is independent of resolved motor actions and must not be
+cleared using the scripted producer's known zero real-provider spend. Native
+logs retain cancelled/unknown turns. The acknowledgement producer for 428948
+reduces repeated waiting requests, but is not a production runtime change and
+does not turn interruption accounting into a clean task/model result. Neither
+attempt qualifies full-task success or model ability. The model service receives
+only public task/tool inputs; no genuine provider credential reaches Slurm.
+
+The two returned ZIP hashes are respectively
+`58348d3f5dbee34da579df41e6d12c1ab95a53b6dd5bbd0d9b194750f86dc344`
+and `e5289b99a5f5098390d269e58c3ee6308e48ed396418efa6764cd3a180bc036e`.
+Targeted trace audits verify 288 selected files per return. Safe metadata,
+producer/source fingerprints and stop receipts are retained under
+`slurm-capacity-8b273ab-safe-metadata-v1`; raw task observations, sessions and
+private puzzle data are not public release attachments.
+
+A further genuine Haiku 5.5 compatibility check at `8b273ab` passes all ten
+blocked-tool fork assertions with Claude Code 2.1.312 under locked Python 3.12.
+The parent remains blocked while the child forks with an unchanged native
+history prefix; after release the parent interprets its random observation image
+and ends normally. The new receipt reports US$0.000531 against its US$0.10
+allowance. Matching basic/blocked profile hashes, current CLI version, session
+identities and cost completeness all verify. Combined conservative exposure for
+the authorized API checks is US$0.071378 of US$1; no provider invoice is inferred.
+This uses a local synthetic robot tool, with no physical world or scored trial.
+Subscription refresh and the real-task/formal-scoring conditions in
+`docs/claude-codex-parity.md` remain independent qualification requirements.
+
+The user separately authorizes a real Haiku Adaptive Transport L1 task trial,
+allocating US$0.25 from the same US$1 aggregate budget and a five-minute engineering
+stop. Its frozen public task limit remains 86,400 seconds, with unchanged prompts
+and scoring. The trial ends after 250.290 seconds at the native per-turn budget
+boundary, before the timer's stop request: four ordinary physical actions complete,
+two top-view image results return through MCP and ten native tool calls are
+recorded. No delegate is created. The native CLI reports `error_max_budget_usd`
+and US$0.05135674 against a US$0.05 per-turn estimate allowance; shared task
+accounting remains uncertain. The independent interruption evaluation reports
+false task success. The owner is sealed and exited, with no unresolved action.
+The world is never resumed and its engineering result is not relabeled scored.
+
+Closed evidence is collected and losslessly archived separately. Known CLI and
+conservative API estimates total US$0.12273474; retaining the entire task's
+US$0.25 allowance instead gives US$0.321378 exposure against US$1. Neither is a
+provider invoice, and uncertain accounting is not automatically released for
+another paid trial. These real observations/actions are useful compatibility
+evidence, but they do not complete real delegation, handback, normal finish or
+formal scored qualification. No extra paid task is launched after this outcome.

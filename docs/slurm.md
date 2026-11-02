@@ -9,9 +9,20 @@ stage/execute/collect/ZIP/stage-out flow. All 1,728 returned files verified thro
 restoration without restarting their worlds. Active databases stayed node-local;
 audit read only hash-verified stopped copies. Peak started tasks was four, with
 three overlapping motor actions. The model endpoint was a scripted HTTPS service,
-with zero real-provider calls. This qualifies that four-case normal lifecycle,
-not model ability, 36-task capacity, abnormal stop or genuine provider/subscription
-operation. The earlier job `428862` remains a minimal EGL/JPEG probe. See the
+with zero real-provider calls. This qualifies that four-case normal lifecycle.
+At source `8b273ab`, jobs `428931` and `428948` also run all 36 Adaptive owners,
+each with a native Delegate, H800 observations, a completed A +5 mm action and
+verified handback. Each has 72 distinct bound native sessions and 36 overlapping
+started tasks. Actual Slurm batch USR1 requests seal the owners with no unresolved
+action; job/batch/step finish 0:0. All 18,239 returned files from `428948` verify
+through restoration without physics. Its step peak RSS is 23,538,708 KiB with
+36 CPUs and 128 GiB requested. The scripted HTTPS endpoint makes no real-provider
+calls. Both returns retain needs_review and incomplete collection because active
+model-turn cancellation leaves accounting uncertain; resolved physical actions
+do not clear that review. This is bounded Adaptive capacity and USR1 stage-out
+evidence, without full-task/model-success, 24-hour-load, standing-team capacity,
+SIGKILL/power-loss or genuine provider/subscription claims.
+The earlier job `428862` remains a minimal EGL/JPEG probe. See the
 [acceptance ledger](development/unified-main.md) for source identities and open gates.
 
 ## Prerequisites
