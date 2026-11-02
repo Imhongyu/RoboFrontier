@@ -458,8 +458,8 @@ class Trial:
             except RuntimeError as error:
                 if not str(error).startswith(('No clear free-arm IK','No collision-free sampled free-arm route')):raise
                 rejected('direct_transit',str(error))
-            for offset in (.50,.45,.40,.35,.30):
-                z=self.task['table_height_m']+offset
+            for transit_height in (.50,.45,.40,.35,.30):
+                z=self.task['table_height_m']+transit_height
                 if z<target[2]+.14:continue
                 current=self.data.site_xpos[arm.site].copy();current[2]=z;current_r=self.data.site_xmat[arm.site].reshape(3,3).copy();high=target.copy();high[2]=z
                 try:

@@ -2101,3 +2101,15 @@ Transport seating and Mosaic contact regressions. This local result does not
 complete the full 12-goal reference; a fresh source-pinned full run is required.
 Evidence is under `runs/engineering/main-integration-oracle-final-20261102`,
 including the original full attempt, static probes and red/focused test logs.
+
+The fresh `9b5511e` run advances through the formerly blocked A_slot3 and reaches
+9/12 goals while still running; its final result is not yet claimed. It also
+reproduces a separate `matmul` exception after a finite transit search fails.
+A second sub-second regression reproduces that exact exception at Trial.place:
+the raised-transit loop reused `offset`, replacing the grasp-offset vector with
+a scalar height before the next object rotation. Naming the height separately
+preserves the vector and ordinary PlacementPlanningError for exhausted routes.
+The injected route rejection models actual cooperative admission failure; real
+IK/collision checks still run and no rejected route executes. All 19 combined
+Transport coverage/physical Oracle checks pass after both changes. Full-task,
+Linux and broader follow-up receipts remain separate from these local results.

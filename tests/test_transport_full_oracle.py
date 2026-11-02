@@ -70,6 +70,24 @@ class TransferCoverageTests(unittest.TestCase):
         np.testing.assert_array_equal(t.data.ctrl,control)
         np.testing.assert_array_equal(t.model.geom_margin,margin)
 
+    def test_failed_raised_transits_keep_the_grasp_offset_for_other_rotations(self):
+        from robofrontier.suite.oracle import PlacementPlanningError
+        t=recorded_frontier('transport_placement_seed_frontier.json')
+        t.reference_inter_robot_clearance_m=.006
+        t.arms['D'].qref=t.data.qpos[t.arms['D'].qids].copy()
+        goal=next(g for g in t.task['goals'] if g['goal_id']=='A_slot3')
+        before=t.data.qpos.copy()
+        # A cooperative admission can reject a route after an IK endpoint was
+        # clear. Exhaust that finite transit search, then try other rotations.
+        t.move_free=Mock(side_effect=RuntimeError('No collision-free sampled free-arm route [runtime admission]'))
+        t.execute=Mock(side_effect=AssertionError('Rejected routes must not execute'))
+        with self.assertRaises(PlacementPlanningError) as rejected:
+            full.place_flat(t,'D',*full.goal_pose(t,goal),lambda:full.goal_pose(t,goal))
+        self.assertGreater(rejected.exception.diagnostics['counts']['direct_transit'],0)
+        self.assertGreater(rejected.exception.diagnostics['counts']['raised_transit'],0)
+        t.execute.assert_not_called()
+        np.testing.assert_array_equal(t.data.qpos,before)
+
     def test_rolling_cylinder_long_route_is_not_left_after_stable_local_work(self):
         from types import SimpleNamespace
         side=np.array([[1.,0,0],[0,0,-1.],[0,1.,0]])
