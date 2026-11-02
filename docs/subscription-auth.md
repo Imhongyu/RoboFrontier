@@ -123,3 +123,22 @@ and was stopped and sealed before repair. The counter regression uses the actual
 native CLI against a synthetic local provider: the sum of fresh text, image,
 resume and fork work must equal the final child's inherited cumulative counter.
 No genuine provider or credential is used by that regression.
+
+## Normal finish and native reply completion
+
+A genuine protocol commissioning witness exercises real observation, delegation,
+verified native snapshot/fork, a delegate's physical move, handback, parent
+continuation and finish. Its terminal evaluator remains false because this is a
+short declared interface fixture, not a solved Transport benchmark. At source
+1367d37 the world ends normally, but the supervisor cancels the parent's pending
+native final response and leaves its reservation uncertain. That failed
+qualification receipt and all raw evidence remain unchanged.
+
+After normal world termination, the supervisor now gives only existing native
+turns up to 30 seconds to finish their reply and accounting. It neither dispatches
+another turn nor extends physical task execution. Adaptive children and standing
+roles are included. An external STOP interrupts this cleanup promptly; a timeout,
+unknown turn or failed cost record remains review-required. A recorded normal
+world end is checked before treating an exited physical owner as a crash. Normal
+engineering closure requires readable terminal evaluation and drained native
+turns. The independent task score is never inferred from process closure.

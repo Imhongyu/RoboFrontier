@@ -32,6 +32,65 @@ class Policy:
 
 
 class SupervisorTests(unittest.TestCase):
+    def test_normal_finish_drains_the_existing_turn_before_cancelling(self):
+        p=Policy();completed=[]
+        def tick():
+            completed.append(True);p.host.state='idle'
+        supervisor=self.supervisor(p,tick)
+        def bind():
+            p.dispatcher=Dispatcher();p.host.state='active'
+            p.store.data.update(lifecycle='ended',start_at=0)
+        p.bind_and_bootstrap=bind
+        original=p.stop
+        def stop():
+            self.assertTrue(completed,'Normal finish killed the CLI before its final response')
+            original()
+        p.stop=stop
+        result=supervisor.run()
+        self.assertIsNone(result['error_type'],result)
+        self.assertTrue(completed)
+        self.assertEqual(result['reason'],'world_ended')
+        self.assertTrue(result['finish_turns_drained'])
+
+    def test_finish_wait_is_bounded_and_stop_interrupts_it(self):
+        for stop_at,expected_wait in ((None,2),(1,1)):
+            with self.subTest(stop_at=stop_at):
+                p=Policy()
+                supervisor=self.supervisor(p,lambda:None,finish_turn_grace_s=2,
+                    stop_requested=lambda:stop_at is not None and self.now>=stop_at)
+                def bind():
+                    p.dispatcher=Dispatcher();p.host.state='active'
+                    p.store.data.update(lifecycle='ended',start_at=0)
+                p.bind_and_bootstrap=bind
+                result=supervisor.run()
+                self.assertEqual(self.now,expected_wait)
+                self.assertFalse(result['finish_turns_drained'])
+                self.assertTrue(p.host.stopped)
+
+    def test_adaptive_child_final_response_is_also_drained(self):
+        from types import SimpleNamespace
+        p=Policy();child=Host();child.state='active'
+        p.setup=SimpleNamespace(hosts={'Delegate_A':child})
+        supervisor=self.supervisor(p,lambda:setattr(child,'state','idle'))
+        def bind():
+            p.dispatcher=Dispatcher();p.host.state='idle'
+            p.store.data.update(lifecycle='ended',start_at=0)
+        p.bind_and_bootstrap=bind
+        result=supervisor.run()
+        self.assertEqual(self.now,1)
+        self.assertTrue(result['finish_turns_drained'])
+
+    def test_normal_owner_exit_does_not_hide_the_recorded_terminal_world(self):
+        p=Policy();supervisor=self.supervisor(p,lambda:setattr(p.host,'state','idle'))
+        def bind():
+            p.dispatcher=Dispatcher();p.host.state='active'
+            p.store.data.update(lifecycle='ended',start_at=0)
+        p.bind_and_bootstrap=bind
+        supervisor.owner_alive=lambda:p.dispatcher is None
+        result=supervisor.run()
+        self.assertEqual(result['reason'],'world_ended')
+        self.assertTrue(result['finish_turns_drained'])
+
     def supervisor(self, policy, sleep, **kwargs):
         self.now = 0
         def tick(seconds): self.now += seconds; sleep()

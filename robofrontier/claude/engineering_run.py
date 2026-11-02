@@ -190,6 +190,7 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
                       and not budget_review_required
                       and (not video_required or video_readable)
                       and (not evaluation_required or evaluation_present)
+                      and (not evaluation_required or result.get('finish_turns_drained') is True)
                       and result.get('reason') in ('world_ended', 'stop_requested', 'wall_limit'))
             result.update(status='finished' if closed else 'needs_review', owner_alive=owner_alive, scored=False,
                           budget_status=budget_status, budget_review_required=budget_review_required,

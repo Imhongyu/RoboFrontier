@@ -10,7 +10,8 @@ import time
 class CentralizedSupervisor:
     def __init__(self, policy, owner_alive, *, stop_requested=lambda: False,
                  startup_timeout_s=300, wall_limit_s=86400, poll_s=1,
-                 seal_timeout_s=30, clock=time.monotonic, wall_clock=time.time, sleep=time.sleep):
+                 seal_timeout_s=30, finish_turn_grace_s=30,
+                 clock=time.monotonic, wall_clock=time.time, sleep=time.sleep):
         for name, value, maximum in (('startup_timeout_s', startup_timeout_s, 86400),
                                      ('wall_limit_s', wall_limit_s, 86400),
                                      ('poll_s', poll_s, 60)):
@@ -18,6 +19,9 @@ class CentralizedSupervisor:
                 raise ValueError('Invalid ' + name)
         if isinstance(seal_timeout_s, bool) or not isinstance(seal_timeout_s, (int, float)) or not math.isfinite(seal_timeout_s) or not 0 <= seal_timeout_s <= 120:
             raise ValueError('Invalid seal timeout')
+        if (isinstance(finish_turn_grace_s, bool) or not isinstance(finish_turn_grace_s, (int, float))
+                or not math.isfinite(finish_turn_grace_s) or not 0 <= finish_turn_grace_s <= 120):
+            raise ValueError('Invalid finished-turn grace period')
         self.policy = policy
         self.owner_alive = owner_alive
         self.stop_requested = stop_requested
@@ -25,10 +29,20 @@ class CentralizedSupervisor:
         self.wall_limit_s = wall_limit_s
         self.poll_s = poll_s
         self.seal_timeout_s = seal_timeout_s
+        self.finish_turn_grace_s = finish_turn_grace_s
         self.clock = clock
         self.wall_clock = wall_clock
         self.sleep = sleep
         self.used = False
+
+    def _turn_states(self):
+        # Standing teams expose a team status; Adaptive also has child hosts
+        # whose final API response can follow their physical handback.
+        hosts = [self.policy.host]
+        hosts.extend(getattr(self.policy, 'hosts', {}).values())
+        setup = getattr(self.policy, 'setup', None)
+        hosts.extend(getattr(setup, 'hosts', {}).values())
+        return [host.observe()['status'] for host in hosts]
 
     def run(self):
         if self.used:
@@ -40,6 +54,7 @@ class CentralizedSupervisor:
         seal_error_type = None
         started_at = None
         session_evidence = None
+        finish_turns_drained = None
         began = self.clock()
         try:
             if self.stop_requested():
@@ -57,11 +72,11 @@ class CentralizedSupervisor:
                 while True:
                     if self.stop_requested():
                         reason = 'stop_requested'; break
-                    if not self.owner_alive():
-                        reason = 'owner_unavailable'; break
                     lifecycle = self.policy.store.get('lifecycle')
                     if lifecycle in ('ended', 'interrupted', 'recovery_required'):
                         reason = 'world_' + lifecycle; break
+                    if not self.owner_alive():
+                        reason = 'owner_unavailable'; break
                     if self.policy.store.get('dispatch_paused', False):
                         reason = 'dispatch_paused'; break
                     observation = self.policy.host.observe()
@@ -95,6 +110,21 @@ class CentralizedSupervisor:
         except Exception as error:
             error_type = type(error).__name__
         finally:
+            # finish has already frozen the terminal world. Allow only the
+            # existing native turns to receive its reply and settle their
+            # accounting before cancellation. No dispatch or physics occurs.
+            if reason == 'world_ended':
+                try:
+                    deadline = self.clock() + self.finish_turn_grace_s
+                    while 'active' in self._turn_states():
+                        remaining = deadline - self.clock()
+                        if remaining <= 0 or self.stop_requested():
+                            break
+                        self.sleep(min(self.poll_s, remaining))
+                    finish_turns_drained = all(state == 'idle' for state in self._turn_states())
+                except Exception as error:
+                    finish_turns_drained = False
+                    error_type = error_type or type(error).__name__
             # Prevent further model turns before asking the physical owner to seal.
             # A killed CLI turn has an unknown outcome, never an automatic retry.
             try:
@@ -115,4 +145,5 @@ class CentralizedSupervisor:
         return {'reason': reason, 'error_type': error_type, 'seal': sealed,
                 'seal_error_type': seal_error_type, 'started': started_at is not None,
                 'session_evidence': session_evidence,
+                'finish_turns_drained': finish_turns_drained,
                 'scope': 'engineering lifecycle; task success requires runtime evaluation'}

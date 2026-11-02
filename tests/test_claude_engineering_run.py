@@ -186,7 +186,7 @@ class EngineeringRunTests(unittest.TestCase):
                     def run(self):
                         seal={'sealed':True}
                         if unresolved is not None: seal['unresolved_action_ids']=unresolved
-                        return {'reason':'world_ended','seal':seal}
+                        return {'reason':'world_ended','seal':seal,'finish_turns_drained':True}
                 with patch('robofrontier.claude.engineering_run.CentralizedSupervisor', Supervisor):
                     result=run_engineering(run,self.env,turn_budget_usd=.5,total_budget_usd=2,wall_limit_s=30,
                                            policy_factory=Attached,owner_factory=lambda *a,**k: ExitingOwner(None))
@@ -206,7 +206,8 @@ class EngineeringRunTests(unittest.TestCase):
                     def wait(self,timeout): self.status=0
                 class Supervisor:
                     def __init__(self,*a,**k): pass
-                    def run(self): return {'reason':'world_ended','seal':{'sealed':True,'unresolved_action_ids':[]}}
+                    def run(self): return {'reason':'world_ended','seal':{'sealed':True,'unresolved_action_ids':[]},
+                                          'finish_turns_drained':True}
                 with patch('robofrontier.claude.engineering_run.CentralizedSupervisor',Supervisor):
                     result=run_engineering(run,self.env,turn_budget_usd=.5,total_budget_usd=2,wall_limit_s=30,
                                            policy_factory=Attached,owner_factory=lambda *a,**k: ExitingOwner(None))
