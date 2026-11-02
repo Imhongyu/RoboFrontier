@@ -3,7 +3,9 @@ from collections import Counter
 from copy import deepcopy
 import hashlib
 import json
+import ctypes
 import math
+import os
 from pathlib import Path
 import shutil
 import xml.etree.ElementTree as ET
@@ -80,15 +82,48 @@ def validate_scene_asset(task):
     return folder,env
 
 
+try:  # macOS clonefile(2); absent elsewhere.
+    _clonefile=ctypes.CDLL(None,use_errno=True).clonefile
+    _clonefile.argtypes=(ctypes.c_char_p,ctypes.c_char_p,ctypes.c_uint32)
+except (AttributeError,OSError):
+    _clonefile=None
+FICLONE=0x40049409  # Linux reflink ioctl (Btrfs, XFS, bcachefs).
+
+
+def _reflink(source,target):
+    import fcntl
+    with open(source,'rb') as src,open(target,'xb') as dst:
+        try:fcntl.ioctl(dst.fileno(),FICLONE,src.fileno())
+        except OSError:
+            dst.close();os.unlink(target);raise
+    shutil.copystat(source,target)
+
+
+def clone_or_copy(source,target):
+    """Copy-on-write clone where the file system supports it (APFS clonefile, Linux
+    reflink), else a plain copy.
+
+    A clone takes no extra space yet stays an independent file: writing to a run's
+    frozen copy never reaches the source or other runs, unlike a hard link."""
+    try:
+        if _clonefile is not None:
+            if _clonefile(os.fsencode(source),os.fsencode(target),0)==0:
+                shutil.copystat(source,target);return target
+        elif hasattr(os,'uname') and os.uname().sysname=='Linux':
+            _reflink(source,target);return target
+    except (OSError,ImportError):pass
+    return shutil.copy2(source,target)
+
+
 def freeze_scene(task,directory):
-    """Copy the actual scene/meshes into the run; preserve relative asset paths."""
+    """Freeze the actual scene/meshes into the run; preserve relative asset paths."""
     task=deepcopy(task);source=ROOT/task['scene_asset'];dest=directory/'private/inputs/scene'
-    dest.mkdir(parents=True);shutil.copytree(source/'assets',dest/'assets')
     root=ET.parse(source/'scene.xml').getroot();compiler=root.find('compiler')
+    dest.mkdir(parents=True);shutil.copytree(source/'assets',dest/'assets',copy_function=clone_or_copy)
     if (source/'workstation.json').exists():
         # Keep the exact canonical bytes/hash used by offline factory replay.
         for name in ('scene.xml','workstation.json','environment.json','task.json'):
-            shutil.copy2(source/name,dest/name)
+            clone_or_copy(source/name,dest/name)
     else:
         meshes=(source/compiler.get('meshdir')).resolve()
         shutil.copytree(meshes,dest/'model-assets');compiler.set('meshdir','model-assets')

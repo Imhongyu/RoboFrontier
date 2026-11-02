@@ -161,6 +161,17 @@ def build_world(directory, task=None):
     return mujoco.MjModel.from_xml_string(xml),xml
 
 
+
+def portable_xml(xml,folder):
+    """The loaded model's XML with absolute asset paths made relative to `folder`, so a
+    saved copy still loads after the run moves to another machine or directory."""
+    root=ET.fromstring(xml)
+    compiler=root.find('compiler')
+    for element,key in [(compiler,'meshdir'),(compiler,'texturedir')]+[(t,'file') for t in root.iter('texture')]+[(m,'file') for m in root.iter('mesh')]:
+        value=element.get(key) if element is not None else None
+        if value and os.path.isabs(value):element.set(key,os.path.relpath(value,folder))
+    return ET.tostring(root,encoding='unicode')
+
 class Arm(PandaArm):
     def __init__(self,model,data,name,base_y=None,initialized=False):
         self.base_y=float(model.body(name+'_link0').pos[1]) if base_y is None else base_y
@@ -203,7 +214,7 @@ class World:
             from .spring_dial import update_display
             update_display(self.model,dict(ready=False,correct_count=None,won=False))
         output=self.directory/'private/outputs';output.mkdir(parents=True,exist_ok=True)
-        (output/'scene.xml').write_text(self.xml)
+        (output/'scene.xml').write_text(portable_xml(self.xml,output))
 
     @property
     def time(self):return float(self.data.time)

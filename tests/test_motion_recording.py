@@ -47,6 +47,10 @@ class MotionRecordingTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'checksum'):MotionTimeline(timeline,reader)
             self.assertTrue(any(e['event']=='rgba' for e in reader.events()))
             portable=Workstation(path/'source');self.assertEqual(portable.manifest['scene_sha256'],self.w.manifest['scene_sha256'])
+            # Frozen files are clones of the shared cache, never hard links to it.
+            frozen=path/'source/scene.xml';self.assertEqual(frozen.stat().st_nlink,1)
+            cached=path/'asset-cache'/hashlib.sha256(frozen.read_bytes()).hexdigest()
+            frozen.write_text('changed');self.assertNotEqual(cached.read_text(),'changed')
     def test_interrupted_orphan_complete_chunk_is_recovered(self):
         with tempfile.TemporaryDirectory() as td:
             path=Path(td)/'motion';writer=MotionWriter(path,self.source,self.w.model,self.w.data,hz=60,chunk_seconds=.05)
