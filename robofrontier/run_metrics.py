@@ -25,6 +25,31 @@ def open_session(path):
     return lzma.open(path, 'rt') if str(path).endswith('.xz') else Path(path).open()
 
 
+def session_stem(path):
+    """A transcript's path without `.jsonl` or `.jsonl.xz`: its session-linked folder."""
+    path = Path(path)
+    for suffix in ('.jsonl.xz', '.jsonl'):
+        if path.name.endswith(suffix): return path.with_name(path.name[:-len(suffix)])
+    raise ValueError('Not a session transcript: '+str(path))
+
+
+def session_glob(folder, pattern):
+    """Transcripts under `folder` matching `pattern` (a `*.jsonl` glob), plain or archived.
+
+    A transcript present in both forms counts once, as its plain file."""
+    found = {}
+    for path in Path(folder).rglob(pattern+'.xz'): found[session_stem(path)] = path
+    for path in Path(folder).rglob(pattern): found[session_stem(path)] = path
+    return sorted(found.values())
+
+
+def codex_run_transcripts(run, thread):
+    """The run's own copies of a Codex thread (run-v6 private/engine/transcripts/)."""
+    try: folder = run_layout.path(run, 'engine_transcripts')
+    except KeyError: return []
+    return session_glob(folder, '*'+thread+'*.jsonl') if thread and folder.is_dir() else []
+
+
 def run_skills(run_dir):
     """The run's shared lessons file: one item per entry heading, with its revisions."""
     run_dir = Path(run_dir)
@@ -242,6 +267,8 @@ def native_codex_sessions(run, thread, codex_home=None):
     """
     if not thread: return []
     run = Path(run).resolve()
+    own = codex_run_transcripts(run, thread)
+    if own and codex_home is None: return own
     if codex_home is not None:
         home = Path(codex_home).expanduser().resolve()
     else:
@@ -265,4 +292,4 @@ def native_codex_sessions(run, thread, codex_home=None):
             if home is None and marker.is_file():
                 home = Path(json.loads(marker.read_text())['codex_home']).expanduser().resolve()
         if home is None: home = Path(os.environ.get('CODEX_HOME', Path.home()/'.codex')).expanduser().resolve()
-    return sorted((home/'sessions').rglob('*'+thread+'*.jsonl'))
+    return session_glob(home/'sessions', '*'+thread+'*.jsonl')

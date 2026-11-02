@@ -5,6 +5,7 @@ evidence collector, not a score validator or an authentication backup.
 """
 from robofrontier import run_layout
 from robofrontier.claude.native_home import history_directory
+from robofrontier.run_metrics import codex_run_transcripts, session_glob, session_stem
 from robofrontier.run_setup import write_json
 import argparse
 from contextlib import ExitStack
@@ -65,6 +66,22 @@ def _alive(pid):
         return False
     except (PermissionError, TypeError, ValueError):
         return True
+
+
+def native_matches(engine, run, home, tid):
+    """Where one native session is looked up and its transcripts there, plain or archived.
+
+    A run-v6 Codex run carries its own copies; earlier Codex runs use the shared home."""
+    if engine == 'claude':
+        root = history_directory(run)
+        return root, [p for p in session_glob(root/'projects', tid+'.jsonl') if p.parent.parent == root/'projects']
+    own = codex_run_transcripts(run, tid)
+    return (own[0].parent, own) if own else (home/'sessions', session_glob(home/'sessions', '*'+tid+'.jsonl'))
+
+
+def session_name(tid, transcript):
+    """The collected file name keeps the transcript's form: archived copies stay `.jsonl.xz`."""
+    return tid+('.jsonl.xz' if transcript.name.endswith('.xz') else '.jsonl')
 
 
 def host_is_live(pid, run):
@@ -260,13 +277,13 @@ def collect_batch(batch_path, output, *, codex_home=None):
                         issues.append(str(actor)+': missing or invalid session id')
                         continue
                     config = history_directory(run)
-                    matches = list(config.glob('projects/*/'+tid+'.jsonl')) if engine == 'claude' else list((home/'sessions').rglob('*'+tid+'.jsonl'))
-                    native_queries.append((config if engine == 'claude' else home/'sessions', tid, sorted(matches)))
+                    _, matches = native_matches(engine, run, home, tid)
+                    native_queries.append((run, home, tid, matches))
                     if len(matches) != 1:
                         issues.append(str(actor)+': expected one native session, found '+str(len(matches)))
                         continue
                     base = Path('sessions')/job['profile'] if job.get('profile') else Path('sessions')
-                    rel = base/job['case_id']/(tid+'.jsonl')
+                    rel = base/job['case_id']/session_name(tid, matches[0])
                     checksum = copy_stable(matches[0], temporary/rel)
                     hashes[rel.as_posix()] = checksum
                     native_sources[matches[0]] = checksum
@@ -281,11 +298,11 @@ def collect_batch(batch_path, output, *, codex_home=None):
                         roles[-1]['native_session'] = original_rel.as_posix()
                     # Native Claude may keep session-linked auxiliary transcripts.
                     # Preserve these too, without copying configuration or auth files.
-                    sidecars = matches[0].with_suffix('')
+                    sidecars = session_stem(matches[0])
                     if engine == 'claude':
                         native_directories[sidecars] = sorted(_files(sidecars))
                         for extra in native_directories[sidecars]:
-                            extra_rel = rel.with_suffix('')/extra.relative_to(sidecars)
+                            extra_rel = rel.parent/tid/extra.relative_to(sidecars)
                             hashes[extra_rel.as_posix()] = copy_stable(extra, temporary/extra_rel)
                             native_sources[extra] = hashes[extra_rel.as_posix()]
                             original_rel = Path('batch')/run.relative_to(batch_path)/native_config/extra.relative_to(config)
@@ -302,15 +319,13 @@ def collect_batch(batch_path, output, *, codex_home=None):
                         if not isinstance(tid, str) or not ID.fullmatch(tid):
                             issues.append(str(delegation_id)+': invalid snapshot session id')
                             continue
-                        native_root = history_directory(run) if engine == 'claude' else home/'sessions'
-                        matches = sorted(native_root.glob('projects/*/'+tid+'.jsonl') if engine == 'claude'
-                                         else native_root.rglob('*'+tid+'.jsonl'))
-                        native_queries.append((native_root, tid, matches))
+                        native_root, matches = native_matches(engine, run, home, tid)
+                        native_queries.append((run, home, tid, matches))
                         if len(matches) != 1:
                             issues.append(str(delegation_id)+': expected one snapshot session, found '+str(len(matches)))
                             continue
                         base = Path('sessions')/job['profile'] if job.get('profile') else Path('sessions')
-                        rel = base/job['case_id']/(tid+'.jsonl')
+                        rel = base/job['case_id']/session_name(tid, matches[0])
                         checksum = copy_stable(matches[0], temporary/rel)
                         hashes[rel.as_posix()] = checksum
                         native_sources[matches[0]] = checksum
@@ -320,10 +335,10 @@ def collect_batch(batch_path, output, *, codex_home=None):
                             native_rel = Path('batch')/run.relative_to(batch_path)/native_config/matches[0].relative_to(native_root)
                             hashes[native_rel.as_posix()] = copy_stable(matches[0], temporary/native_rel)
                             snapshot_sessions[-1]['native_session'] = native_rel.as_posix()
-                            sidecars = matches[0].with_suffix('')
+                            sidecars = session_stem(matches[0])
                             native_directories[sidecars] = sorted(_files(sidecars))
                             for extra in native_directories[sidecars]:
-                                extra_rel = rel.with_suffix('')/extra.relative_to(sidecars)
+                                extra_rel = rel.parent/tid/extra.relative_to(sidecars)
                                 hashes[extra_rel.as_posix()] = copy_stable(extra, temporary/extra_rel)
                                 native_sources[extra] = hashes[extra_rel.as_posix()]
                                 original_rel = Path('batch')/run.relative_to(batch_path)/native_config/extra.relative_to(native_root)
@@ -378,9 +393,8 @@ def collect_batch(batch_path, output, *, codex_home=None):
             for directory, initial in native_directories.items():
                 if sorted(_files(directory)) != initial:
                     raise ValueError('Native auxiliary session inventory changed: '+str(directory))
-            for directory, tid, initial in native_queries:
-                matches = directory.glob('projects/*/'+tid+'.jsonl') if engine == 'claude' else directory.rglob('*'+tid+'.jsonl')
-                if sorted(matches) != initial:
+            for run, home, tid, initial in native_queries:
+                if native_matches(engine, run, home, tid)[1] != initial:
                     raise ValueError('Native session lookup changed: '+tid)
             report = {'schema': 'robofrontier.policy-collection.v1', 'engine': engine,
                       'batch_status': state['status'], 'source_batch': str(batch_path),

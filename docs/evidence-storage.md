@@ -248,3 +248,26 @@ keeps sources by default and never converts an uncertain action into a replay.
   reads. Converting finished Dial, Mosaic, Relay and Transport logs offline gave
   about 11% of the original size, with every event field recoverable at every
   original sample time.
+
+## Session transcripts
+
+A Claude run keeps its transcripts in its own `private/engine/config/projects/`.
+Codex writes them into its shared home; at the end of every segment the Codex
+host copies each thread of the run (roles, delegates and snapshot anchors) into
+`private/engine/transcripts/`, verified by SHA-256 and listed in `index.json`.
+The host never deletes the home originals, because a continued segment resumes
+those threads. Reports and collection read the run's copies first.
+
+Once a run is final and idle, archive it:
+
+```sh
+.venv/bin/python -m robofrontier.session_archive archive RUN_DIR
+```
+
+Each transcript becomes `.jsonl.xz` in place, and for Codex the home originals
+are removed. Every compressed copy must decompress to the original SHA-256 and
+be recorded in `private/outputs/session-archive.json` before its original goes;
+a home original goes only while it still equals the run's verified copy. An
+interrupted run that could still be continued is refused unless `--final` says
+it will not be. Readers accept both forms, and an archive that stops part way
+resumes on the next call.

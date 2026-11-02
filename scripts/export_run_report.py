@@ -8,7 +8,7 @@ from robofrontier import run_layout
 from robofrontier.runtime_store import RuntimeStore
 from robofrontier.run_setup import write_json, verify_inputs
 from robofrontier.action_batch import external_wait
-from robofrontier.run_metrics import export_metrics, native_codex_sessions, native_subagent_calls, run_skills
+from robofrontier.run_metrics import export_metrics, native_codex_sessions, native_subagent_calls, open_session, run_skills, session_glob
 
 
 def occupancy(intervals, start, end):
@@ -41,14 +41,14 @@ def model_evidence(directory, actor, thread, config, codex_home=None):
             except (OSError, ValueError, AttributeError, TypeError):
                 continue
         config_dir=run_layout.path(directory,'engine_config','claude')/'projects'
-        transcripts=sorted(config_dir.glob('*/'+thread+'.jsonl'))+sorted(config_dir.glob('*/'+thread+'.jsonl.xz')) if thread else []
+        transcripts=[p for p in session_glob(config_dir,thread+'.jsonl') if p.parent.parent==config_dir] if thread else []
         return {'thread_id':thread, 'turns':turns, 'verified':False,
                 'native_subagent_calls':native_subagent_calls(transcripts),
                 'source':'claude_host_reported_model_not_provider_identity'}
     turns=[]
     paths=native_codex_sessions(directory, thread, codex_home)
     for path in paths:
-        with path.open() as stream:
+        with open_session(path) as stream:
             for line in stream:
                 if '"turn_context"' not in line:continue
                 record=json.loads(line)

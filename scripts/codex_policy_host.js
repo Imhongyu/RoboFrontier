@@ -355,6 +355,16 @@ Use your assigned native session and bound robot tools. Read public task evidenc
           await this.rpc.call('turn/interrupt',{threadId:id,turnId:s.latestTurn.id});} catch {}
       }
       if (this.rpc) await this.rpc.close();
+      // Codex has stopped writing: copy this run's threads into the run, verified. The home
+      // keeps the originals so a continued segment can resume them (robofrontier.session_archive).
+      try {
+        // Runs prepared before run-v6 have no engine_transcripts and keep theirs in the home.
+        if ('engine_transcripts' in this.layout) {
+          const kept=JSON.parse(execFileSync(this.python,['-m','robofrontier.session_archive','keep',this.run],
+            {cwd:this.cwd??path.resolve(__dirname,'..'),encoding:'utf8',env:process.env}));
+          this.event({event:'transcripts_kept',threads:kept.threads,complete:kept.complete});
+        }
+      } catch(error) {this.event({event:'transcripts_error',message:error.message});}
       if (sealError) throw new Error('Run seal incomplete; manual review required: '+sealError.message
         +(failure?' (after host error: '+failure.message+')':''));
     }

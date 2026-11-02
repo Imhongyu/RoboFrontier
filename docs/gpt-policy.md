@@ -200,8 +200,9 @@ start without that login. The policy permission profile denies the home.
 
 New API runs isolate Codex homes per task. That task's Controller, snapshots,
 and delegates share its home to retain native lineage. Different tasks have
-different homes. The resolved home is recorded in `<run>/codex-home.json`;
-original transcripts are under its `sessions/` directory. Legacy shared-home
+different homes. The resolved home is recorded in the run's Codex home marker;
+original transcripts are under its `sessions/` directory, and run-v6 runs also
+keep verified copies in `private/engine/transcripts/` ([evidence storage](evidence-storage.md#session-transcripts)). Legacy shared-home
 runs keep their recorded location. Collection preserves the relevant native
 traces without exporting authentication/config/state databases.
 
