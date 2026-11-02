@@ -117,4 +117,3 @@ print(json.dumps({'type':'result','subtype':'success','is_error':False,
             self.assertEqual(auth.read_text(), 'native-owned sentinel')
             self.assertFalse((run / 'private/claude-config').exists())
             self.assertFalse(any(run.rglob('.credentials.json')))
-

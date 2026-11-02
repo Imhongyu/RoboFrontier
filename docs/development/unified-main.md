@@ -2543,3 +2543,67 @@ bounded deadline failure. This is not a passing compatibility receipt or a
 provider invoice. There is no robot world or physical action. Native token
 counters, fork identities and original failed reports remain retained for
 accounting and a correctly bounded fresh check.
+
+## Managed subscription source-pinned acceptance at c1c7abb
+
+Complete discovery passes 1,556 checks on each of macOS and Linux, with zero
+failures/errors and 17 conditional skips. Linux uses an independent committed
+checkout and verifies all 45,141 pinned fixture files before discovery; the
+snapshot boundary stress test also passes 1,000 repetitions. Eight opt-in native
+Claude/real-physics checks pass on each platform without skips in 98.478 and
+98.904 seconds. Their model endpoints remain synthetic loopback services. These
+results do not qualify subscription concurrency, every physical interruption
+boundary, or real-model task-solving ability.
+
+Genuine Haiku 5.5 native Max subscription prechecks at this source pass all four
+basic checks and all ten blocked-parent fork assertions. Profile fingerprints,
+CLI version, explicit native identities, cost completeness and both receipts
+match current configuration. Their list-price estimates are US$0.005948 and
+US$0.001311. No provider API key is supplied and no physical world is involved.
+The earlier namespace failure remains separate and failed.
+
+The fresh GPT-6 Luna high native Pro subscription check passes image/function
+round trip, manual compaction, verified parent identity and inherited image/tool
+history in the child. Effective native MCP configuration is checked before the
+first model turn. Automatic compaction, long-context stress and independent
+backend alias verification remain unclaimed. A native counter observer counts
+142,120 tokens, conservatively estimated at US$0.284240 using US$2/M for every
+token type. It subtracts inherited fork totals only when native cumulative and
+last-turn counters prove inheritance; the separate compaction counter is added.
+The observer was replayed against the original recorded failure before this
+fresh invocation. It changes no requests, model selection or tool results.
+The failed first check is moved with identical per-file hashes to a dedicated
+failure directory, never overwritten or relabeled passing.
+
+Including the entire uncertain physical trial allowance, the old failed Luna
+proxy and all native Haiku estimates, reserved exposure is US$0.9493736 against
+the user's unchanged US$1 aggregate authorization. US$0.0506264 remains. These
+are conservative proxies and native CLI list-price estimates, not invoices.
+No uncertain reservation is released and no further physical/model trial is
+implicitly authorized by a compatibility receipt.
+
+Review against main 8b75325 covers all changed production paths: native home
+selection, default/directory credential namespaces, no credential environment
+inheritance, prelaunch endpoint validation, history provenance and stopped
+collection, including collection rejection when the auth home is inside the
+batch. Only bound session histories and sidecars enter stopped exports; the
+original account store remains native-owned. Missing live auth is not replaced
+by an exported history directory. The known-server disable overrides and the
+effective-config admission check keep unrelated Codex MCP servers out of policy
+tools. No blocking engineering-code finding remains in this scoped review.
+
+A separate zero-provider experiment evaluates Claude's official safe mode.
+That mode also removes the explicitly assigned robot MCP, so it is not promoted
+into the benchmark launcher. Its failed tool check and earlier relative-path
+driver failures remain separate from genuine subscription receipts. The
+production settings-source and strict-MCP options remain unchanged.
+
+The local single-account Codex forced-refresh/persistence witness passes.
+Claude login and cached-login compatibility pass, but actual expired-token
+refresh is still unverified: the documented CLI offers login/status/logout and
+no force-refresh action. Credentials and the system clock are not altered to
+manufacture expiry. Claude formal scored execution remains closed; the earlier
+real physical trial does not establish delegation, handback or normal finish.
+Docker/Slurm subscription authentication and concurrent account refresh also
+remain outside these local receipts. Candidate defaults are not promoted and
+the user's full-video rerender deferral remains in effect.
