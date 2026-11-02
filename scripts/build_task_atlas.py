@@ -204,8 +204,8 @@ def _verify(output, sources, expected=None):
     data = json.loads((output/'tasks.json').read_text())
     expected = current_data() if expected is None else expected
     if data != expected:
-        # A metadata-only historical-index substitution changes the release
-        # identity, not the original images or any public task contract.
+        # A reviewed task-only revision changes the release identity, not the
+        # captured images (configs/policy-assets.json archive_release_sha256).
         from scripts.benchmark_handoff import pinned_asset_release
         try:
             original_release = pinned_asset_release(ROOT,
@@ -312,14 +312,15 @@ def refresh(source, output, source_revision):
     old=json.loads((source/'tasks.json').read_text())
     data=current_data()
     if data['release_sha256']!=old['release_sha256']:
-        # The reviewed metadata-only historical-index substitution keeps the captured
-        # release identity (see _verify); any other release change needs a new capture.
+        # A reviewed task-only revision keeps the captured release identity (see
+        # _verify); any other release change needs a new capture.
         from scripts.benchmark_handoff import pinned_asset_release
         if old['release_sha256']==pinned_asset_release(ROOT,json.loads((ROOT/'configs/policy-assets.json').read_text())):
             data=dict(data,release_sha256=old['release_sha256'])
-    # Text-only refresh: the same cases, scenes and captured views; only contract text may change.
-    if (data['release_sha256']!=old['release_sha256'] or
-            [(c['id'],c['views'],c['source']) for c in data['cases']]!=[(c['id'],c['views'],c['source']) for c in old['cases']]):
+    # Text-only refresh: the same cases, scenes and captured views; only the contract
+    # (its text and its task hash) may change.
+    captured=lambda cases:[(c['id'],c['views'],{k:v for k,v in c['source'].items() if k!='task_sha256'}) for c in cases]
+    if data['release_sha256']!=old['release_sha256'] or captured(data['cases'])!=captured(old['cases']):
         raise ValueError('Release, cases or scenes changed; build and capture a new atlas instead')
     (output/'tasks.json').write_bytes(encoded(data))
     for record in data['cases']:(output/'tasks'/(record['id']+'.json')).write_bytes(encoded(record))
