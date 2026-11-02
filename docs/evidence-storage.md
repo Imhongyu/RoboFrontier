@@ -228,3 +228,23 @@ information. Keep it private and review before sharing. Excluding authentication
 stores does not anonymize a dataset. Retain an independent backup and verify
 restoration/use before considering source cleanup. Automatic evidence processing
 keeps sources by default and never converts an uncertain action into a replay.
+
+## Storage settings for new policy runs
+
+`configs/harnesses/policy.json` freezes two settings into each run's
+`harness.json`; runs prepared without them keep the original behaviour.
+
+- `motion_hz: 30`: motion is recorded at 30 states per simulated second
+  (float32, XOR deltas and NPZ chunks are unchanged). Colour changes are still
+  written on the physics clock to `motion/events.jsonl`. The default is 60.
+- `process_log: "events-1s"`: the first line of `suite-process.jsonl` is the
+  header `robofrontier.suite-process.v2`. The scorer still samples every 0.02
+  simulated seconds; whenever a non-continuous result field changes it writes a
+  `type: event` line, and every second and at the end it writes a
+  `type: snapshot` line with object poses. Continuous fields (accumulated `*_s`
+  seconds, `samples`, raw Dial angles, speeds and clearances, Relay
+  `timber_inside_fraction`) appear only in snapshots, also inside nested lists.
+  The default `full` keeps a complete snapshot every 0.1 s, which Oracle tooling
+  reads. Converting finished Dial, Mosaic, Relay and Transport logs offline gave
+  about 11% of the original size, with every event field recoverable at every
+  original sample time.

@@ -118,10 +118,46 @@ class FamilyReleaseTests(unittest.TestCase):
                     try:
                         world.start_trial()
                         self.assertIsNotNone(world.suite_sampler)
-                        self.assertEqual(world.motion_recorder.meta['sample_hz'], 60)
+                        self.assertEqual(world.motion_recorder.meta['sample_hz'], 30)
                         self.assertEqual(world.time, 0.)
                     finally:
                         world.close()
+
+    def test_policy_harness_records_motion_at_its_frozen_rate(self):
+        from robofrontier.pipeline import World
+        from robofrontier.task_config import load_harness
+        self.assertEqual(read(ROOT/'configs/harnesses/policy.json')['motion_hz'], 30)
+        with tempfile.TemporaryDirectory() as tmp, patch('mujoco.mj_step', side_effect=AssertionError('No physics')):
+            run = prepare('mosaic-a04-6x12-d1', Path(tmp)/'run', harness=ROOT/'configs/harnesses/policy.json')
+            self.assertEqual(read(run/'private/inputs/harness.json')['motion_hz'], 30)
+            world = World(run, read(run/'private/inputs/task.json'))
+            try:
+                world.start_trial()
+                self.assertEqual(world.motion_recorder.meta['sample_hz'], 30)
+                self.assertEqual(world.suite_sampler.log_format, 'events-1s')
+                header = json.loads((run/'private/outputs/suite-process.jsonl').read_text().splitlines()[0])
+                self.assertEqual((header['schema'], header['snapshot_interval_s']), ('robofrontier.suite-process.v2', 1.0))
+            finally:
+                world.close()
+            # A harness frozen before motion_hz existed keeps the original 60 Hz.
+            legacy_cfg = {k: v for k, v in read(ROOT/'configs/harnesses/policy.json').items() if k not in ('motion_hz', 'process_log')}
+            legacy_path = Path(tmp)/'legacy.json'; legacy_path.write_text(json.dumps(legacy_cfg))
+            legacy = prepare('mosaic-a04-6x12-d1', Path(tmp)/'legacy', harness=legacy_path)
+            world = World(legacy, read(legacy/'private/inputs/task.json'))
+            try:
+                world.start_trial()
+                self.assertEqual(world.motion_recorder.meta['sample_hz'], 60)
+                self.assertEqual(world.suite_sampler.log_format, 'full')
+            finally:
+                world.close()
+            bad = Path(tmp)/'bad.json'
+            for value in (0, -30, True, float('nan')):
+                bad.write_text(json.dumps({**read(ROOT/'configs/harnesses/policy.json'), 'motion_hz': value}))
+                with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'motion sampling'):
+                    load_harness(bad)
+            bad.write_text(json.dumps({**read(ROOT/'configs/harnesses/policy.json'), 'process_log': 'every-step'}))
+            with self.assertRaisesRegex(ValueError, 'process log format'):
+                load_harness(bad)
 
 
 if __name__ == '__main__':

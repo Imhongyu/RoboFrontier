@@ -296,11 +296,18 @@ class World:
         if self.task.get('kind')=='frontier_suite':
             from .suite.evaluate import Monitor
             secret=json.loads((self.directory/'private/inputs/suite-code.json').read_text())['code_symbols'] if self.task['family']=='dial' else None
-            self.suite_sampler=Monitor(self,secret=secret,log_path=self.directory/'private/outputs/suite-process.jsonl')
+            # Runs frozen before process_log existed keep the original 0.1 s full snapshots.
+            harness=self.directory/'private/inputs/harness.json'
+            frozen=json.loads(harness.read_text()) if harness.exists() else {}
+            self.suite_sampler=Monitor(self,secret=secret,log_path=self.directory/'private/outputs/suite-process.jsonl',
+                                       log_format=frozen.get('process_log','full'))
             source=self.directory/Path(self.task['scene_asset']).parent
             if (source/'workstation.json').exists():
                 from .motion_recording import MotionWriter
-                self.motion_recorder=MotionWriter(self.directory/'private/outputs/motion',source,self.model,self.data,cache=ROOT/'runs/state-assets')
+                # Runs frozen before motion_hz existed keep the original 60 Hz.
+                hz=frozen.get('motion_hz',60)
+                self.motion_recorder=MotionWriter(self.directory/'private/outputs/motion',source,self.model,self.data,hz=hz,
+                                                  cache=ROOT/'runs/state-assets')
         if self.task.get('kind')=='spring_dial':
             from .spring_dial_task import SpringDialSampler
             self.spring_sampler=SpringDialSampler(self)

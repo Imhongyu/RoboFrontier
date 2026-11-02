@@ -5,6 +5,22 @@ from pathlib import Path
 import mujoco,numpy as np
 
 DIGITS={0:'abcdef',1:'bc',2:'abged',3:'abgcd',4:'fgbc',5:'afgcd',6:'afgedc',7:'abc',8:'abcdefg',9:'abfgcd'}
+# Process-log formats. 'full': a snapshot with object poses every 0.1 s (Oracle
+# tooling reads this). 'events-1s': an event whenever a non-continuous result
+# field changes, checked at every 20 ms sample, plus a full snapshot every 1 s
+# and at the end. Detection itself is identical in both.
+PROCESS_LOG_FORMATS={'full':.10,'events-1s':1.0}
+# Fields that change with time alone; 'events-1s' keeps them in snapshots only.
+CONTINUOUS_FIELDS=frozenset({'sim_time_s','samples','private_angles_deg','private_angle_speeds_rad_s','private_clearance_m',
+                             'timber_inside_fraction'})
+
+def event_fields(value):
+    """The result without clocks, accumulated seconds (*_s) and raw dial measurements."""
+    if isinstance(value,dict):
+        return {k:event_fields(v) for k,v in value.items() if k not in CONTINUOUS_FIELDS and not k.endswith('_s')}
+    # Per-goal and per-dial results are lists of records with the same continuous fields.
+    if isinstance(value,(list,tuple)):return [event_fields(v) for v in value]
+    return value
 
 def geom_extent(model,data,g):
     r=data.geom_xmat[g].reshape(3,3);size=model.geom_size[g];typ=model.geom_type[g]
@@ -57,7 +73,7 @@ class SupportQualification:
         return bool(present and self.qualified)
 
 class Monitor:
-    def __init__(self,world,secret=None,log_path=None):
+    def __init__(self,world,secret=None,log_path=None,log_format='full'):
         self.w=world;self.m=world.model;self.d=world.data;self.task=world.task;self.family=self.task['family'];self.robots=list(world.arms);self.robot_index={r:i for i,r in enumerate(self.robots)}
         self.geom_owner=np.full(self.m.ngeom,-1,dtype=int);self.finger=np.full(self.m.ngeom,-1,dtype=int)
         roots={self.m.body(r+'_link0').id:i for i,r in enumerate(self.robots)}
@@ -78,6 +94,12 @@ class Monitor:
         self.contact_episodes = ContactEpisodes()
         self.motion_overlap_s=0.;self.any_motion_s=0.;self.robot_motion_s=0.;self.max_moving=0
         self.log=Path(log_path).open('w') if log_path else None;self.active=True
+        if log_format not in PROCESS_LOG_FORMATS:raise ValueError('Unknown process log format')
+        self.log_format=log_format;self.snapshot_interval=PROCESS_LOG_FORMATS[log_format];self.last_event=None;self.final_logged=False
+        if self.log and log_format!='full':
+            # Self-describing header; 'full' logs keep their original line-per-snapshot form.
+            self.log.write(json.dumps(dict(schema='robofrontier.suite-process.v2',format=log_format,snapshot_interval_s=self.snapshot_interval,
+                sample_interval_s=.02,continuous_fields=sorted(CONTINUOUS_FIELDS)+['*_s']))+'\n');self.log.flush()
         self.result_cache={};self.goal_since=None;self.since=np.full((len(self.task['goals']),len(self.names)),np.nan)
         if self.family=='dial':
             self.dials=self.task['dials'];n=len(self.dials);self.blue={};self.red={};self.module_geoms=[];self.blue_qualification=[SupportQualification() for _ in range(n)];self.dial_ready=[False]*n;self.previous_red=set();self.unsupported_since={}
@@ -192,9 +214,22 @@ class Monitor:
         if self.family=='dial':self.sample_dial(dt)
         elif self.family=='relay':self.relay_v2.sample() if hasattr(self,'relay_v2') else self.sample_relay()
         else:self.sample_goals()
-        if self.log and t>=self.next_log:
-            self.next_log=t+.10;record=dict(sim_time_s=t,result=self.result(),objects={n:dict(position_m=self.d.body(n).xpos.tolist(),quaternion_wxyz=self.d.body(n).xquat.tolist()) for n in self.names})
-            self.log.write(json.dumps(record,allow_nan=False)+'\n');self.log.flush()
+        if self.log:self.log_sample(t)
+    def log_sample(self,t,final=False):
+        result=self.result()
+        if self.log_format=='full':
+            if not final and t<self.next_log:return
+            self.next_log=t+self.snapshot_interval;record=dict(sim_time_s=t,result=result,objects=self.object_poses())
+        else:
+            events=json.dumps(event_fields(result),sort_keys=True,allow_nan=False)
+            if final or t>=self.next_log:
+                self.next_log=t+self.snapshot_interval;record=dict(type='snapshot',sim_time_s=t,result=result,objects=self.object_poses())
+            elif events!=self.last_event:record=dict(type='event',sim_time_s=t,result=result)
+            else:return
+            self.last_event=events
+        self.log.write(json.dumps(record,allow_nan=False)+'\n');self.log.flush()
+    def object_poses(self):
+        return {n:dict(position_m=self.d.body(n).xpos.tolist(),quaternion_wxyz=self.d.body(n).xquat.tolist()) for n in self.names}
     def sample_goals(self):
         n=len(self.names);goals=self.task['goals'];eligible=np.zeros((len(goals),n),bool)
         positions=np.array([self.d.body(n).xpos for n in self.names]);vel=[self.velocity(b) for b in self.bodies]
@@ -361,5 +396,13 @@ class Monitor:
         if self.terminal_scoring(): result['robot_contact_episodes'] = self.contact_episodes.report()
         return result
     def close(self):
-        if self.log:self.log.close()
-    def finish(self):self.active=False
+        if self.log:
+            if self.log_format!='full' and not self.final_logged:
+                # Interrupted runs: best-effort final state; closing must not fail on it.
+                try:self.log_sample(float(self.d.time),final=True)
+                except Exception:pass
+            self.log.close()
+    def finish(self):
+        self.active=False
+        if self.log and self.log_format!='full' and not self.final_logged:
+            self.log_sample(float(self.d.time),final=True);self.final_logged=True
