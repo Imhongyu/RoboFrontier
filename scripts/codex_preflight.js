@@ -1,12 +1,14 @@
 // Explicitly invoked paid connectivity test, separate from scored robot trials.
 const fs=require('node:fs'),path=require('node:path');
-const {CodexRpc,requireNoMcpServers}=require('./codex_rpc');
+const {CodexRpc,STARTUP_ACK_MS,requireNoMcpServers}=require('./codex_rpc');
 async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
   const launch=JSON.parse(fs.readFileSync(path.join(folder,'launch.json')));
+  // Written with colors.png by robofrontier/preflight_probe.py: random left/right colours.
+  const probe=JSON.parse(fs.readFileSync(path.join(folder,'probe.json')));
   const waits=new Map();
   let resolveCompact;
   const compacted=new Promise(r=>resolveCompact=r);
-  const tools=new Map(); let compact=false,id,childId;
+  const tools=new Map(),calls=new Map(); let compact=false,id,childId;
   const serverLog=fs.openSync(path.join(folder,'server.log'),'a');
   const rpc=new Rpc(launch.args,{stderr:serverLog,
     onEvent:m=>{
@@ -16,11 +18,11 @@ async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
     },onRequest:async(m,p)=>{
       if(m!=='item/tool/call' || p.tool!=='protocol_check')throw new Error('Unsupported preflight request');
       const a=typeof p.arguments==='string'?JSON.parse(p.arguments):p.arguments;
-      const valid=a.left==='red'&&a.right==='blue'; tools.set(p.threadId,valid);
+      const valid=a.left===probe.left&&a.right===probe.right; tools.set(p.threadId,valid); calls.set(p.threadId,a);
       return {success:valid,contentItems:[{type:'inputText',text:valid?'VISION_TOOL_OK':'Incorrect image colors'}]};
     }});
   fs.closeSync(serverLog);
-  let report={passed:false,model:launch.model,provider:launch.provider,effort:launch.effort,
+  let report={passed:false,model:launch.model,provider:launch.provider,effort:launch.effort,probe_version:probe.version,
     actual_provider_model_verified:false,context_window:launch.context_window,
     auto_compact_token_limit:launch.auto_compact_token_limit,context_stress_tested:false,
     automatic_compaction_tested:false,smoke_only:smokeOnly,
@@ -41,15 +43,18 @@ async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
     }
     const a=await rpc.call('thread/start',{cwd:folder,model:launch.model,modelProvider:launch.provider,
       approvalPolicy:'never',sandbox:'read-only',dynamicTools:[{type:'function',name:'protocol_check',
-        description:'Submit the two dominant image colors from left to right.',inputSchema:{type:'object',
-        properties:{left:{type:'string'},right:{type:'string'}},required:['left','right']}}]});id=a.thread.id;
+        description:'Submit the color of the left half and of the right half of the image.',inputSchema:{type:'object',
+        properties:{left:{type:'string',enum:probe.colors},right:{type:'string',enum:probe.colors}},required:['left','right']}}]},
+      STARTUP_ACK_MS);id=a.thread.id;
     await rpc.call('thread/name/set',{threadId:id,name:'API preflight · '+launch.model});
     const finished=nextTurn(id);
     await rpc.call('turn/start',{threadId:id,model:launch.model,effort:launch.effort,input:[
-      {type:'text',text:'Inspect the attached image. Call protocol_check with the dominant color in the left half and the right half, using lowercase English color names. Then reply with the tool result. Do not use shell or other tools.'},
+      {type:'text',text:probe.prompt+' Call protocol_check with those two colors. Then reply with the tool result. Do not use shell or other tools.'},
       {type:'localImage',path:path.join(folder,'colors.png')} ]});
     const turn=await deadline(finished,180000);
-    if(turn.status!=='completed' || !tools.get(id))throw new Error('Parent image/tool turn failed: '+JSON.stringify(turn.error));
+    // Say which check failed: the turn itself, a missing tool call, or wrong colors.
+    if(turn.status!=='completed' || !tools.get(id))throw new Error('Parent image/tool turn failed: '+JSON.stringify(
+      {status:turn.status,error:turn.error,tool_called:calls.has(id),arguments:calls.get(id)??null}));
     if(smokeOnly) {
       report={...report,passed:true,vision_and_function:true,thread_id:id};
       return report;

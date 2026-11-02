@@ -269,6 +269,9 @@ def _run_batch_locked(folder, parallel, batch):
         expected=__import__('hashlib').sha256(json.dumps(launch['profile'],sort_keys=True).encode()).hexdigest()
         if not checked.get('passed') or checked.get('profile_sha256')!=expected:
             raise ValueError('Model compatibility preflight missing/failed or provider configuration changed')
+        from robofrontier.preflight_probe import VERSION as PROBE_VERSION
+        if checked.get('probe_version')!=PROBE_VERSION:
+            raise ValueError('Model preflight predates the current image check; rerun preflight')
         catalog_sha=__import__('hashlib').sha256((run/'private/inputs/models.json').read_bytes()).hexdigest()
         version=subprocess.check_output(['codex','--version'],text=True).strip()
         if checked.get('catalog_sha256')!=catalog_sha or checked.get('codex_version')!=version:
@@ -360,8 +363,8 @@ def main():
         print(json.dumps(dict(model_calls=0,simulator_started=False,parallel=args.parallel,
                               task_count=len(jobs),jobs=jobs),ensure_ascii=False,indent=2))
     elif args.command=='preflight':
-        from PIL import Image, ImageDraw
         import hashlib
+        from robofrontier import preflight_probe
         for name in args.models:
             selected=profile(name,args.model_config)
             key=selected.get('env_key')
@@ -372,11 +375,12 @@ def main():
             # A failed/interrupted new check must not leave an older pass usable
             # under the new provider/model fingerprint.
             write_json(target/'report.json',{'passed':False,'error':'Preflight did not complete'})
-            image=Image.new('RGB',(512,512),'red');ImageDraw.Draw(image).rectangle((256,0,511,511),fill='blue');image.save(target/'colors.png')
+            write_json(target/'probe.json',preflight_probe.write(target/'colors.png',*preflight_probe.choose()))
             command=['node',str(ROOT/'scripts/codex_preflight.js'),str(target)]
             if args.smoke_only:command.append('--smoke-only')
             result=subprocess.run(command)
             receipt=read(target/'report.json');receipt['profile_sha256']=hashlib.sha256(json.dumps(selected,sort_keys=True).encode()).hexdigest()
+            receipt['probe_version']=preflight_probe.VERSION
             if result.returncode:receipt['passed']=False
             if receipt.get('passed'):
                 receipt['catalog_sha256']=hashlib.sha256((target/'models.json').read_bytes()).hexdigest()

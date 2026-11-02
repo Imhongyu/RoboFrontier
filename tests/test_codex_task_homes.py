@@ -1,4 +1,5 @@
 import hashlib
+from robofrontier import preflight_probe
 import json
 import os
 from pathlib import Path
@@ -28,7 +29,8 @@ class CodexTaskHomesTests(unittest.TestCase):
             catalog = (Path(jobs[0]['run_directory'])/'private/inputs/models.json').read_bytes()
             write_json(root/'runs/engineering/model-compatibility/luna/report.json', {
                 'passed': True, 'profile_sha256': hashlib.sha256(json.dumps(selected, sort_keys=True).encode()).hexdigest(),
-                'catalog_sha256': hashlib.sha256(catalog).hexdigest(), 'codex_version': 'test-cli'})
+                'catalog_sha256': hashlib.sha256(catalog).hexdigest(), 'codex_version': 'test-cli',
+                'probe_version': preflight_probe.VERSION})
             write_json(batch/'batch.json', {'status': 'prepared_not_started', 'jobs': jobs,
                 'execution': {'codex_home_scope': 'task', 'startup_interval_s': 0}})
             initialized, launched = [], []

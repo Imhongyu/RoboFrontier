@@ -45,7 +45,7 @@ class ReadinessTests(unittest.TestCase):
             old=target[key];target[key]=value
             self.assertFalse(self.check()['precheck_evidence_matches'],(key,value))
             target[key]=old
-        del self.basic['checks'][1]['checks']['image_color_named']
+        del self.basic['checks'][1]['checks']['image_colors_named']
         self.assertFalse(self.check()['precheck_evidence_matches'])
     def test_invalid_receipt_files_do_not_count(self):
         result=check_receipts('test',self.root/'missing',self.root/'also-missing',selected=self.profile,version=self.version)
@@ -66,7 +66,7 @@ class ReadinessTests(unittest.TestCase):
             selected={'model':'claude-opus-5-5','effort':'high','env_key':'FAKE_KEY',
                       'base_url':f'http://127.0.0.1:{server.server_port}'}
             env={'PATH':os.environ['PATH'],'FAKE_KEY':'synthetic'}
-            with patch.object(claude_precheck.secrets,'choice',return_value='green'), \
+            with patch.object(claude_precheck.preflight_probe,'choose',return_value=('green','red')), \
                  patch.object(claude_precheck,'profile',return_value=selected), \
                  patch.object(claude_blocked_precheck,'profile',return_value=selected):
                 basic=claude_precheck.run_precheck('synthetic',self.root/'basic',2,env,check_fork=True)

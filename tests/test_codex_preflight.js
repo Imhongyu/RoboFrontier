@@ -8,7 +8,7 @@ function fakeRpc({badParent=false,badChild=false,badImage=false,noFork=false,inh
     async close(){}
     async call(method,p={}) {
       if(method==='config/read')return {config:{mcp_servers:inheritedMcp?{personal:{enabled:true}}:{}}};
-      if(method==='thread/start'){onThreadStart();return {thread:{id:'parent'}};}
+      if(method==='thread/start'){onThreadStart(p);return {thread:{id:'parent'}};}
       if(noFork && ['thread/fork','thread/compact/start'].includes(method))throw new Error('Smoke must not fork/compact');
       if(method==='thread/fork')return {thread:{id:'child',forkedFromId:badParent?'other':'parent'}};
       if(method==='thread/compact/start') {
@@ -29,6 +29,8 @@ async function run(opts,mode={},provider='sample') {
   const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rf-preflight-'));
   try {
     fs.writeFileSync(path.join(folder,'launch.json'),JSON.stringify({args:[],model:'sample',provider,effort:'high',context_window:272000,auto_compact_token_limit:245000}));
+    fs.writeFileSync(path.join(folder,'probe.json'),JSON.stringify({version:'test',left:'red',right:'blue',
+      colors:['blue','green','red','yellow'],prompt:'Name the left and right colors.'}));
     return await preflight(folder,fakeRpc(opts),mode);
   } finally {fs.rmSync(folder,{recursive:true,force:true});}
 }
@@ -61,4 +63,11 @@ test('subscription preflight retains full protocol checks after native tool admi
   assert.equal(result.passed,true);assert.equal(result.native_mcp_config_verified,true);
   assert.equal(result.auth_mode,'native_managed_subscription');
   assert.equal(result.fork_history_and_tool,true);
+});
+test('the colour check offers a fixed list and reports what the model answered',async()=>{
+  let start;const ok=await run({onThreadStart:p=>{start=p;}});assert.equal(ok.passed,true);assert.equal(ok.probe_version,'test');
+  const schema=start.dynamicTools[0].inputSchema.properties;
+  assert.deepEqual(schema.left.enum,['blue','green','red','yellow']);assert.deepEqual(schema.right.enum,schema.left.enum);
+  const bad=await run({badImage:true},{smokeOnly:true});
+  assert.equal(bad.passed,false);assert.match(bad.error,/"tool_called":true/);assert.match(bad.error,/"left":"green"/);
 });
