@@ -15,6 +15,9 @@ const frozenText=(run,name)=>{const file=path.join(run,'private/inputs/bootstrap
 // consecutive resumes of a session, 10/20/40 s apart plus a 0-5 s jitter fixed by the
 // session ID (so many runs do not retry together); a completed turn resets the count.
 const MAX_CAPACITY_RETRIES=3;
+// As in robofrontier/claude/supervisor.py (finish_turn_grace_s): after a normal finish the
+// world is already frozen, so existing turns may write their final reply before closing.
+const FINISH_TURN_GRACE_MS=30000;
 const capacityDelayMs=(attempt,id)=>10000*2**attempt+[...String(id)].reduce((n,c)=>n+c.charCodeAt(0),0)%5000;
 const LEGACY_SYSTEM_PROMPT='You are a RoboFrontier policy agent running in Codex. Follow the frozen public task, current role, tool protocol and evidence boundaries. Use your assigned robot tools. Preserve original call IDs across uncertain results. Do not manage the model host, modify the benchmark, or read private evaluation data.';
 function toolFailure(callId, stdout) {
@@ -195,6 +198,23 @@ Follow policy-rules.md: continue observing, acting and recovering while unfinish
 Use your assigned native session and bound robot tools. Read public task evidence within your role; your connection is for authentication only. Keep experience local to this run. Oracle solutions, other trials, private scene/XML, private evaluation and engineering source are outside policy evidence. Preserve the benchmark, physics and harness.
 `;
   }
+  // After a normal finish, wait up to the grace for replies already in progress. No
+  // dispatch or physics happens here. Returns whether every turn settled.
+  async drainFinishedTurns(graceMs=FINISH_TURN_GRACE_MS,pollMs=500) {
+    try {
+      if ((await this.admin('snapshot')).lifecycle!=='ended') return null;
+      const deadline=Date.now()+graceMs;let drained=false;
+      for (;;) {
+        const states=await Promise.all([...this.actors.keys()].map(id=>
+          this.observe(id).then(s=>s.thread.status.type,()=>'unknown')));
+        if (!states.includes('active')) {drained=true;break;}
+        if (Date.now()>=deadline) break;
+        await sleep(pollMs);
+      }
+      this.event({event:'finish_turns_drained',drained});
+      return drained;
+    } catch(error) {this.event({event:'finish_drain_error',message:error.message});return false;}
+  }
   async startInitialRoles(roles, startupProtocol) {
     const direct=['direct_controller_v2','direct_team_v3'].includes(startupProtocol);
     if (!direct && startupProtocol!=='ready_barrier_v1') throw new Error('Unknown startup protocol');
@@ -289,7 +309,9 @@ Use your assigned native session and bound robot tools. Read public task evidenc
       // Kept for the report: a failing seal below would otherwise replace this error.
       failure=error;this.event({event:'host_error',message:error.message});throw error;
     } finally {
+      const stopRequested=this.stopped||fs.existsSync(this.hostPath('stop'));
       this.stopped=true;
+      if (!failure && !stopRequested && this.rpc) await this.drainFinishedTurns();
       // Seal the existing owner; never recreate its physical world.
       let sealError;
       try {const result=await this.admin('seal',{timeout_s:30});
