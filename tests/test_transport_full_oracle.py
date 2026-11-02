@@ -88,6 +88,33 @@ class TransferCoverageTests(unittest.TestCase):
         t.execute.assert_not_called()
         np.testing.assert_array_equal(t.data.qpos,before)
 
+    def test_contact_approach_executes_a_controller_admissible_ik_continuation(self):
+        from robofrontier.suite import transport_oracle_v2 as ref
+        from robofrontier.task_config import load_harness
+        fixture=json.loads((ROOT/'tests/fixtures/transport_regrasp_contact_frontier.json').read_text())
+        import hashlib
+        self.assertEqual(hashlib.sha256((ROOT/fixture['scene']/'scene.xml').read_bytes()).hexdigest(),fixture['scene_sha256'])
+        t=recorded_frontier('transport_regrasp_contact_frontier.json')
+        t.cfg=load_harness(ROOT/'configs/harness-frontier-v2-servo2.json')
+        robot=fixture['robot'];arm=t.arms[robot];arm.qref=np.array(fixture['approach_joint_rad'])
+        executed=[]
+        def projected_execute(label,commands,allow_failure=False):
+            # Scratch FK only: exercise the real API validator at every waypoint.
+            # This is not a physical motor-success or task-completion witness.
+            for r,(op,params) in commands.items():
+                a=t.arms[r];prepared=a.validate(op,params,t.cfg,t.task['workspace_world_m']['lower'],t.task['workspace_world_m']['upper'])
+                if 'joint_goal' in prepared:q=prepared['joint_goal']
+                else:q,_=a.ik.solve(prepared['goal'],prepared['rotation'],a.qref,250)
+                a.qref=q.copy();t.data.qpos[a.qids]=q
+            mujoco.mj_forward(t.model,t.data);executed.append(label)
+            return {r:dict(status='completed',call_id='static-'+str(len(executed))) for r in commands}
+        t.execute=projected_execute;t.wait=Mock()
+        t.reference_inter_robot_clearance_m=.006
+        with patch.object(mujoco,'mj_step',side_effect=AssertionError('Static regression must not step physics')):
+            ref._approach_regrasp_contact(t,robot,np.array(fixture['target_m']),np.array(fixture['tool_rotation']))
+        self.assertTrue(executed)
+        self.assertTrue(all(label.startswith('regrasp-contact') for label in executed))
+
     def test_rolling_cylinder_long_route_is_not_left_after_stable_local_work(self):
         from types import SimpleNamespace
         side=np.array([[1.,0,0],[0,0,-1.],[0,1.,0]])

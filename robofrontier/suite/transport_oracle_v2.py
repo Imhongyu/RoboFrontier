@@ -560,6 +560,18 @@ def withdraw_released_donor(trial,donor,receiver,name,restore_force=None):
         raise RuntimeError('Air-regrasp payload not retained after donor withdrawal')
 
 
+def _approach_regrasp_contact(trial, receiver, point, tool):
+    """Execute the same four waypoints checked by the 150 mm continuation.
+
+    A direct IK jump can miss a valid branch reached by those short segments.
+    Each actual command retains the ordinary controller/admission checks.
+    """
+    start=np.asarray(point)-tool[:,2]*.15
+    for index,fraction in enumerate((.25,.5,.75,1.)):
+        target=start*(1-fraction)+np.asarray(point)*fraction
+        trial.move(receiver,target,tool,'regrasp-contact-'+str(index),precise=fraction==1.)
+
+
 def regrasp_held_plug(trial, donor, name, *, keep_receiver_held=False,
                      allowed_receivers=None,candidate_centers=None,receiver_tilt_deg=0.,receiver_depths=None,future_goal=None,planning_budget_s=120.):
     """Real handover, optionally retaining its actual carrier for a successor.
@@ -603,7 +615,7 @@ def regrasp_held_plug(trial, donor, name, *, keep_receiver_held=False,
     trial.move_free(receiver, point-tool[:,2]*.15, tool, 'regrasp-receiver-approach',
                     continuation=(point, tool, (name,)), continuation_clearance=.001,
                     preferred_seed=plan.get('receiver_approach_q'))
-    trial.move(receiver, point, tool, 'regrasp-contact', precise=True)
+    _approach_regrasp_contact(trial, receiver, point, tool)
     force = getattr(trial,'transport_grasp_force_n',70.)
     force = min(force, trial.cfg['allowed_grasp_force_n'][1])
     trial.execute('regrasp-receiver-close', {receiver: ('gripper', dict(

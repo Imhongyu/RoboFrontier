@@ -2156,3 +2156,34 @@ Receipts include `full-{mac,linux}-placement-c830202.json`, the final trial's
 and `final-engineering-acceptance-c830202.json` under the engineering root.
 The public acceptance artifact summarizes the same scoped assertions; its source
 identity does not cover later documentation-only commits automatically.
+
+## Current Transport L2 continuation follow-up
+
+A fresh `29e1211` current-scene Transport L2 reference reached 11/12 goals before
+its explicit 600-second engineering stop. Physics remained valid, every action
+resolved and the process clean, with zero inter-robot contacts. The final job
+retained B/B_item1 after receiver D's contact approach failed with
+`No clear free-arm IK D/regrasp-contact`. This is incomplete evidence, not a
+physical impossibility or model failure; its stopped world is not resumed.
+
+A sub-second read-only reproduction reconstructs the original candidate exactly
+(zero maximum donor-joint difference), then its target from recorded donor state
+865 and receiver state 869. A single direct IK solve misses the native angular
+limit: 0.021115 rad versus 0.020. Two/four shorter continuation solves pass every
+ordinary native endpoint check. The candidate planner had screened four short
+continuation segments; execution instead requested one full 150 mm displacement.
+The follow-up executes those same four waypoints through ordinary moves, retains
+the final precise approach and leaves controller, collision/support and task
+thresholds unchanged. Its real-controller FK regression went red on the original
+call chain and now passes. Related planning checks pass 46/46; combined Transport
+coverage/physical Oracle checks pass 20/20.
+
+A separate controlled forward phase initializes archived pose 869 and the recorded
+50 N donor pressure-hold mode before its first step. This is a new engineering
+fixture, not exact checkpoint restoration. It executes ordinary guarded commands,
+obtains actual bilateral support from B and D, and finishes with clean process,
+resolved execution and valid physics in 5.535 seconds. The initial fixture setup
+failures remain retained. Its inherited 11-goal arrangement is not a full-task
+witness and is not stitched into another result. A new source-pinned complete run
+is required before closing this follow-up. Evidence remains under the engineering
+root with `l2-` and `transport-current-l2-` prefixes.
