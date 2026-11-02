@@ -1,7 +1,7 @@
 # Unified command-line configuration
 
 This interface is being integrated on `integration/unified-main`. It has not yet
-replaced the GitHub default branch. See the [acceptance ledger](development/unified-main.md)
+replaced the GitHub default branch. See the [acceptance ledger](archive/unified-main.md)
 for checks still required before publishing a unified release.
 
 ## Installation in this checkout

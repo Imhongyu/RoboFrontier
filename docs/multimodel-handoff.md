@@ -131,8 +131,8 @@ lock/installer; it is not downloaded by ordinary policy bootstrap.
 
 The native Codex catalog is `configs/models.json`; Claude has
 `configs/claude-models.json`. Profiles are not provider-availability certificates.
-The dated [pricing research](model-pricing-20261028.md) and
-[compatibility comparison](model-compatibility-20261028.md) are historical research,
+The dated [pricing research](archive/model-pricing-20261028.md) and
+[compatibility comparison](archive/model-compatibility-20261028.md) are historical research,
 not current price/rate-limit guarantees. Candidate models not in the catalog
 cannot be launched merely because they appear in those tables.
 

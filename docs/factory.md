@@ -238,5 +238,5 @@ its older recordings are not relabeled as executions of a new physical release.
 Current Docker policy images do not include Blender or expose the Factory command
 through `container`; use native Factory commands or an explicitly provisioned
 render host. This remains separate from the already tested Docker MuJoCo CPU
-observation path. See the [integration ledger](development/unified-main.md) for
+observation path. See the [integration ledger](archive/unified-main.md) for
 real checks and remaining cross-background/hardware acceptance.

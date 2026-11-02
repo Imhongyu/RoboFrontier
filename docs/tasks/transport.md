@@ -67,7 +67,7 @@ execution. Later rolling-friction assets and commissioning attempts have their
 own fingerprints and evidence. Historical qualification must not be inherited
 by a changed scene, controller, or contact candidate. Current integration
 acceptance and outstanding full-task gates are in the
-[integration ledger](../development/unified-main.md) and [Oracle guide](../oracle.md).
+[integration ledger](../archive/unified-main.md) and [Oracle guide](../oracle.md).
 
 ## Restore current assets or build a review package
 

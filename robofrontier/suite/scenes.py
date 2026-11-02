@@ -24,7 +24,7 @@ PALETTE={'red':[.85,.13,.13],'blue':[.07,.39,.78],'yellow':[.97,.75,.12],'white'
 
 def catalog():
     if not CATALOG.exists():
-        source=json.loads((ROOT/'docs/plans/suite-v1/matrix.json').read_text())
+        source=json.loads((ROOT/'configs/suites/frontier-v1-matrix.json').read_text())
         source.update(version=1,status='development; per-case evidence required')
         for c in source['cases']:c['directory']=str(case_directory(c).relative_to(ROOT))
         write_json(CATALOG,source)

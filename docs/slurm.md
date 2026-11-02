@@ -23,7 +23,7 @@ do not clear that review. This is bounded Adaptive capacity and USR1 stage-out
 evidence, without full-task/model-success, 24-hour-load, standing-team capacity,
 SIGKILL/power-loss or genuine provider/subscription claims.
 The earlier job `428862` remains a minimal EGL/JPEG probe. See the
-[acceptance ledger](development/unified-main.md) for source identities and open gates.
+[acceptance ledger](archive/unified-main.md) for source identities and open gates.
 
 ## Prerequisites
 

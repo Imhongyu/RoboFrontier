@@ -8,7 +8,7 @@ certificates. Native permanent Worker engineering is documented in
 [standing teams](claude-standing-teams.md); full scored qualification remains
 a gate. See [the component map](claude-codex-parity.md),
 [harness alignment](harness-alignment.md) and
-[the current acceptance ledger](development/unified-main.md).
+[the current acceptance ledger](archive/unified-main.md).
 
 ## Current startup, time and finish contract
 
