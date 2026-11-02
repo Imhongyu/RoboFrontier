@@ -10,10 +10,10 @@ import mujoco
 import numpy as np
 from PIL import Image
 
-from .recording import Episode, Video
+from ..recording import Episode, Video
 from .bridge import Bridge
-from .sim import Simulation
-from .scene import ROOT
+from ..sim import Simulation
+from ..scene import ROOT
 
 
 class App:

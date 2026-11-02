@@ -255,7 +255,7 @@ archive into ordinary files before importing its motion directory.
 `export` creates a portable directory from explicit scene, release, cameras,
 asset and source-root inputs. `pack` verifies every file and writes tar.gz.
 The package retains original edit and motion bytes; identical files share hard
-links. `factory_bundle.split_archive` creates part metadata, pinned after
+links. `robofrontier.factory.bundle.split_archive` creates part metadata, pinned after
 publication in `configs/factory-assets.json`. Publish changed data under a new
 name and hashes; keep older releases for historical reproduction. Do not change
 the policy `current.json` to switch Factory data.

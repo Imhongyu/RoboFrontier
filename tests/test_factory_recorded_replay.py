@@ -2,11 +2,11 @@ import json,tempfile,unittest
 from pathlib import Path
 from unittest.mock import patch
 import numpy as np
-from robofrontier.factory_workstations import FactoryPlayback
+from robofrontier.factory.workstations import FactoryPlayback
 from robofrontier.motion_recording import MotionWriter,MotionReader
 from robofrontier.workstation import Workstation
 from robofrontier.task_families import ROOT,RELEASE,read
-from robofrontier.factory_playback import current_scene
+from robofrontier.factory.playback import current_scene
 
 class FactoryRecordedReplayTests(unittest.TestCase):
  def test_moving_robot_module_and_display_reconstruct_without_physics(self):

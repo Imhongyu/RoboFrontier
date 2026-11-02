@@ -9,7 +9,7 @@ import secrets
 import threading
 import time
 
-from .scene import ROOT
+from ..scene import ROOT
 
 
 @dataclass

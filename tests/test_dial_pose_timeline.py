@@ -99,7 +99,7 @@ class MotionEditTests(unittest.TestCase):
                 EditedMotion(path, edit)
 
     def test_factory_translation_yaw_preserve_every_visible_geometry(self):
-        from robofrontier.factory_workstations import FactoryPlayback, compose
+        from robofrontier.factory.workstations import FactoryPlayback, compose
         from robofrontier.robot_control import quat_matrix
         root = Path(__file__).resolve().parents[1]
         case = json.loads((root/'configs/suites/dial-best5-r11.json').read_text())['cases'][0]
@@ -116,7 +116,7 @@ class MotionEditTests(unittest.TestCase):
             catalog.write_text(json.dumps(dict(cases=[case])))
             yaw = .63
             shift = np.array([9.,-4.,.25])
-            with patch('robofrontier.factory_workstations.placements',return_value=[place]):
+            with patch('robofrontier.factory.workstations.placements',return_value=[place]):
                 scene = compose(shell,catalog,folder/'factory',{case['id']:dict(translation_m=shift.tolist(),yaw_rad=yaw)})
             play = FactoryPlayback(scene)
             source.data.qpos[source.model.joint('A_joint1').qposadr[0]] += .12

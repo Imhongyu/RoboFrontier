@@ -2,9 +2,9 @@
 from copy import deepcopy
 from pathlib import Path
 
-from .configuration import ROOT, load_configuration, validate_configuration
-from . import factory_bundle as bundle
-from . import factory_server as server
+from ..configuration import ROOT, load_configuration, validate_configuration
+from . import bundle
+from . import server
 
 
 def _path(value):
@@ -133,7 +133,7 @@ def _frozen(plan_path):
 def execute(args):
     action = args.factory_action
     if action == 'edit-video':
-        from .factory_editorial import render
+        from .editorial import render
         return render(args.project, args.input, args.output)
     if action in ('run', 'status', 'submit'):
         if action == 'status':
@@ -173,7 +173,7 @@ def execute(args):
     if action == 'setup':
         return dict(receipt, data_root=str(data), model_calls=0)
     if action == 'project':
-        from .factory_editorial import create
+        from .editorial import create
         return create(data, args.output)
     if action == 'import-motion':
         result = server.import_motion(data, args.recording, args.output, speedup=factory['import_speedup'])

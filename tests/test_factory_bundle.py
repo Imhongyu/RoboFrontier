@@ -9,8 +9,8 @@ import unittest
 
 import numpy as np
 
-from robofrontier import factory_bundle as bundle
-from robofrontier import factory_server as server
+from robofrontier.factory import bundle
+from robofrontier.factory import server
 
 
 def fixture(root):
@@ -154,7 +154,7 @@ class FactoryBundleTests(unittest.TestCase):
             script='''
 import subprocess,sys
 from unittest.mock import patch
-from robofrontier import factory_server as server
+from robofrontier.factory import server
 original=subprocess.Popen
 def launch(argv,**kwargs):
     return original([sys.executable,'-c',

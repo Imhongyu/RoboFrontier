@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
 import mujoco,numpy as np
-from robofrontier.factory_workstations import FactoryPlayback,vec
+from robofrontier.factory.workstations import FactoryPlayback,vec
 from robofrontier.robot_control import matrix_quat
 from robofrontier.workstation import Workstation
 

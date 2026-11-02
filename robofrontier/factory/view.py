@@ -18,7 +18,7 @@ import mujoco
 import numpy as np
 from PIL import Image
 
-from .factory_scene import ROOT, LAYERS
+from .scene import ROOT, LAYERS
 
 
 def _rss_mib():
@@ -120,8 +120,8 @@ def serve(scene, renderer='classic', width=1280, height=720, port=0, play=False)
     r=FactoryRenderer(scene,renderer,width,height);commands=queue.Queue(maxsize=128);lock=threading.Lock()
     timeline=None;playback_started=time.perf_counter();playback_state=None
     if play:
-        from .factory_playback import FactoryTimeline
-        from .task_families import RELEASE,read
+        from .playback import FactoryTimeline
+        from ..task_families import RELEASE,read
         timeline=FactoryTimeline(scene,read(ROOT/RELEASE),model=r.model,data=r.data)
     shared={'jpeg':None,'status':{},'error':None};captures=ROOT/'outputs/robo-factory/captures';captures.mkdir(parents=True,exist_ok=True)
     page=(ROOT/'assets/robo_factory/viewer.html').read_bytes();stop=threading.Event()

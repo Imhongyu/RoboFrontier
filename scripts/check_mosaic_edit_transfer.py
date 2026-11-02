@@ -7,7 +7,7 @@ import mujoco
 import numpy as np
 from PIL import Image
 
-from robofrontier.factory_workstations import FactoryPlayback
+from robofrontier.factory.workstations import FactoryPlayback
 from robofrontier.motion_edit import MotionEdit
 from robofrontier.motion_recording import MotionReader, digest
 from robofrontier.robot_control import quat_matrix
@@ -22,7 +22,7 @@ def check(timelines, factory, output, render_case=None):
     index = json.loads((timelines / 'index.json').read_text())
     renderer = None
     if render_case:
-        from robofrontier.factory_view import FactoryRenderer
+        from robofrontier.factory.view import FactoryRenderer
         renderer = FactoryRenderer(factory, renderer='classic', width=960, height=600)
     play = FactoryPlayback(factory, model=renderer.model if renderer else None,
                            data=renderer.data if renderer else None)

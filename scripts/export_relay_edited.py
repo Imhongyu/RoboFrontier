@@ -18,7 +18,7 @@ from robofrontier.relay_motion_edit import (
 )
 from robofrontier.motion_recording import MotionReader, digest, freeze_source
 from robofrontier.workstation import Workstation
-from robofrontier.factory_workstations import compose
+from robofrontier.factory.workstations import compose
 
 
 def write_json(path, data):

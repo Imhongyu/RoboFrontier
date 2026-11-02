@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 from robofrontier.cli import main, _frozen_configuration
 from robofrontier.configuration import load_configuration, validate_configuration
-from robofrontier import factory_bundle as bundle
-from robofrontier import factory_server as server
+from robofrontier.factory import bundle
+from robofrontier.factory import server
 from test_factory_bundle import fixture, tour_fixture
 
 

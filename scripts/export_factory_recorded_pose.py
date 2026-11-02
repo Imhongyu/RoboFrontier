@@ -10,8 +10,8 @@ from pathlib import Path
 
 import numpy as np
 
-from robofrontier.factory_workstations import FactoryPlayback
-from robofrontier.factory_playback import current_scene
+from robofrontier.factory.workstations import FactoryPlayback
+from robofrontier.factory.playback import current_scene
 from robofrontier.motion_recording import MotionReader
 from robofrontier.replay_edit import ReplayEdit
 from robofrontier.robot_control import quat_matrix

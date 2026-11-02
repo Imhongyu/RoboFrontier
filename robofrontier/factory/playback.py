@@ -5,14 +5,14 @@ from pathlib import Path
 
 import numpy as np
 
-from .motion_recording import MotionReader, digest
-from .motion_timeline import sample_timeline
-from .workstation import Workstation
-from .factory_workstations import FactoryPlayback
+from ..motion_recording import MotionReader, digest
+from ..motion_timeline import sample_timeline
+from ..workstation import Workstation
+from .workstations import FactoryPlayback
 
 
 def current_scene():
-    from .task_families import ROOT
+    from ..task_families import ROOT
     pointer=ROOT/'outputs/robo-factory/current.json'
     if pointer.exists():
         path=Path(json.loads(pointer.read_text())['scene'])
@@ -40,7 +40,7 @@ class StationTrack:
         if recorded_id != spec['id']:
             # A derived L3 is a visual presentation of the physically identical
             # L2 stream, not a separate L3 execution or success certificate.
-            from .suite.mosaic_equivalence import check
+            from ..suite.mosaic_equivalence import check
             source_dir = self.reader.path / 'source'
             proof = check(source_dir, spec['directory'])
             if (not proof['equivalent_for_command_candidate'] or
@@ -61,20 +61,20 @@ class StationTrack:
             raise ValueError('Station source/edit identity differs')
         self._poses = None
         if self.edit.get('schema')=='robofrontier.station-edit.v2':
-            from .station_edit import StationEdit
+            from ..station_edit import StationEdit
             self.indices=StationEdit(self.edit_path,self.reader).select(speed,fps)
         elif 'derived_track' in spec:
             self._load_relay(Path(spec['derived_track']))
         elif self.edit.get('producer') == 'transport':
-            from .suite.transport_motion_edit import TransportEdit
+            from ..suite.transport_motion_edit import TransportEdit
             edit = TransportEdit(self.edit_path)
             self.indices = sample_timeline(edit.keep, self.reader.meta['sample_hz'], speed, fps)
         elif 'dial_profile' in self.edit:
-            from .suite.dial_motion_edit import DialReplayTrack
+            from ..suite.dial_motion_edit import DialReplayTrack
             with DialReplayTrack(spec['recording'], self.edit_path, fps, speed) as track:
                 self.indices = track.indices.copy()
         else:
-            from .replay_edit import ReplayEdit
+            from ..replay_edit import ReplayEdit
             edit = ReplayEdit(self.edit_path, self.reader)
             if edit.exact and (fps != edit.fps or speed != edit.speed):
                 raise ValueError('Exact reviewed frames require their declared cadence')
@@ -94,7 +94,7 @@ class StationTrack:
         for name, key in [('track.npz','track_sha256'), ('events.jsonl','events_sha256'),
                           ('initial-rgba.json','initial_rgba_sha256')]:
             if digest(folder/name) != self.edit[key]:raise ValueError('Relay track data changed: '+name)
-        from .relay_motion_edit import video_rows
+        from ..relay_motion_edit import video_rows
         with np.load(folder/'track.npz', allow_pickle=False) as z:
             rows, _ = video_rows(z['edited_time_s'], z['duration_s'], self.fps, self.speed)
             middle = rows[1:-1]

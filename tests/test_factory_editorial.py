@@ -10,7 +10,9 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from robofrontier import factory_bundle as bundle, factory_editorial as editorial, factory_server as server
+from robofrontier.factory import bundle
+from robofrontier.factory import editorial
+from robofrontier.factory import server
 from robofrontier.cli import main
 from test_factory_bundle import tour_fixture
 
