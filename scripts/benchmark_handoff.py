@@ -26,25 +26,16 @@ def digest(path):
 
 
 def pinned_asset_release(root, config):
-    """Admit only the reviewed nine historical-edit metadata substitutions."""
+    """The task release the pinned asset archive was built for, once this release is reviewed.
+
+    A reviewed task-only revision (contract text, scoring rules, historical-edit
+    metadata) keeps every scene asset, so it reuses the archive; restore_assets still
+    checks each scene and Panda file against this release's own hashes, so a changed
+    asset can never be restored from it."""
     current = digest(root/RELEASE)
-    if current == config['release_sha256']:
-        return current
-    receipt = config.get('historical_edit_index_release', {})
-    if current != receipt.get('sha256'):
+    if current != config['release_sha256']:
         raise ValueError('Task release does not match pinned R14 asset package')
-    release = read(root/RELEASE)
-    entries = release['families']['mosaic']['oracle']
-    if len(entries) != 9:
-        raise ValueError('Unreviewed historical edit case count')
-    for entry in entries:
-        if entry.pop('historical_edit', None) != receipt['index_reference']:
-            raise ValueError('Unreviewed historical edit reference')
-    unchanged = hashlib.sha256(json.dumps(release, sort_keys=True,
-        separators=(',', ':'), ensure_ascii=True).encode()).hexdigest()
-    if unchanged != receipt['unchanged_fields_sha256']:
-        raise ValueError('Unreviewed asset release fields changed')
-    return config['release_sha256']
+    return config.get('archive_release_sha256', current)
 
 
 def scene_assets(root=ROOT):

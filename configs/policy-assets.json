@@ -3,15 +3,6 @@
   "url": "https://github.com/changxuanfan/robofrontier/releases/download/handoff-20261028/policy-assets-rolling003-20261029.tar.gz",
   "archive_sha256": "1bb7420c38c44b7e2f469d3789a1c0096a4f5cf6d377894d1ae2c1b0a8de2d31",
   "panda_source_sha256": "b3702cb6a1f33835ebf19cfa303b4108ce67dd4aece802d8f732f3b984736c4d",
-  "release_sha256": "b432892f174f9394927905345fc860b68b3ebc64d7c276530635eda79a699d1c",
-  "historical_edit_index_release": {
-    "sha256": "bc920c05dd5eb42dbd4e122cd505b09f22bd7efb0110e3fc4dd53cd2ae0f3b33",
-    "original_release_commit": "696000cda8d26e50cc17d12e9eba3ea422ae11f4",
-    "unchanged_fields_sha256": "9f36a64d8658819de4a87b924c34aa6f40828e75df6137ea17c8f6a2890e659c",
-    "index_reference": {
-      "kind": "mosaic_video_index",
-      "path": "outputs/oracle/mosaic-continuation-20261026/videos/video-index.json",
-      "sha256": "41f2c1608f94b3ddacf6c0060fad3835d3823c5914fa87dfb0afbb8e7d751a39"
-    }
-  }
+  "archive_release_sha256": "b432892f174f9394927905345fc860b68b3ebc64d7c276530635eda79a699d1c",
+  "release_sha256": "2e743ce24d071289fd0b63712e5b79eefdd02ef030b9dad0ee11e515ce81e66d"
 }
