@@ -15,11 +15,13 @@ from .policy_bootstrap import SKILLS_HEADER, write_bootstraps
 from .task_config import ROOT, load_task, load_harness, public_task,physical_control_fingerprint
 
 
+# Every robofrontier/*.py, including both engine packages and benchmark_common,
+# is frozen for each run; these are an engine's sources outside that tree.
 ENGINE_SCRIPTS = {
-    'codex': ('benchmark.py', 'codex_rpc.js', 'codex_policy_host.js', 'codex_preflight.js'),
-    # Claude's CLI imports shared selection, dotenv, digest and asset helpers
-    # from these modules even though benchmark.py also exposes Codex commands.
-    'claude': ('claude_benchmark.py', 'benchmark.py', 'benchmark_handoff.py', 'tasks.py'),
+    'codex': ('robofrontier/codex/codex_rpc.js', 'robofrontier/codex/codex_policy_host.js',
+              'robofrontier/codex/codex_preflight.js'),
+    # Claude's CLI imports shared digest, asset and case-check helpers from these.
+    'claude': ('scripts/claude_benchmark.py', 'scripts/benchmark_handoff.py', 'scripts/tasks.py'),
 }
 
 
@@ -162,8 +164,8 @@ def prepare_run(directory, task_path=None, harness_path=None, private_puzzle_pat
     paths += [path for path in (ROOT/'prompts').rglob('*.md') if 'archive' not in path.relative_to(ROOT/'prompts').parts]
     # Freeze only the policy-host scripts of this run's engine, so editing the other
     # engine's host never invalidates a prepared batch.
-    paths += [ROOT/'scripts'/name for name in ('create_pipeline_run.py','meta_dispatcher.js','export_run_report.py')
-              + ENGINE_SCRIPTS[cfg.get('engine','codex')]]
+    paths += [ROOT/'scripts'/name for name in ('create_pipeline_run.py','meta_dispatcher.js','export_run_report.py')]
+    paths += [ROOT/name for name in ENGINE_SCRIPTS[cfg.get('engine','codex')]]
     paths += [ROOT/'docs'/name for name in ('meta-runbook.md','architecture.md','harness-v2-verification.md')]
     source_hashes = {}
     for source in paths:

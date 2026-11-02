@@ -11,7 +11,7 @@ from pathlib import Path
 
 from robofrontier.claude.profile_identity import fingerprint
 from robofrontier.task_families import ROOT
-from scripts.benchmark import load_env
+from robofrontier.benchmark_common import load_env
 from scripts.claude_benchmark import profile
 from scripts.claude_precheck import claude_version
 

@@ -64,7 +64,7 @@ def add_arguments(subparsers):
 def plan(config):
     if 'oracle' not in config:
         raise ValueError('Use current operator settings to prepare a new Oracle execution')
-    from scripts.benchmark import select_cases
+    from robofrontier.benchmark_common import select_cases
     selection = config['selection']
     selected = select_cases(selection['families'] or None, selection['cases'] or None,
                             selection['level'] or None, selection['min_arms'])

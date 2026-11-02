@@ -41,7 +41,7 @@ def _catalog_file(config):
 
 
 def plan(config):
-    from scripts.benchmark import select_cases
+    from robofrontier.benchmark_common import select_cases
     selection = config['selection']
     selected = select_cases(selection['families'] or None, selection['cases'] or None,
                             selection['level'] or None, selection['min_arms'])
@@ -58,9 +58,9 @@ def plan(config):
 
 
 def prepare(output, config):
-    from scripts.benchmark import prepare_batch
+    from robofrontier.codex.batch import prepare_batch
     from scripts.benchmark_handoff import setup_assets
-    from scripts.benchmark import load_env
+    from robofrontier.benchmark_common import load_env
     from .run_setup import write_json
     policy, selection = config['policy'], config['selection']
     load_env(ROOT/'.env')
@@ -112,7 +112,7 @@ def prepare(output, config):
 
 def preflight(config, *, confirm_spend=False, smoke_only=False, max_budget_usd=None):
     """Explicit paid connectivity check; preparation and planning never call it."""
-    from scripts.benchmark import load_env
+    from robofrontier.benchmark_common import load_env
     load_env(ROOT/'.env')
     policy = config['policy']
     if not confirm_spend:
@@ -130,7 +130,7 @@ def preflight(config, *, confirm_spend=False, smoke_only=False, max_budget_usd=N
             output = ROOT/'runs/engineering/claude-precheck'/uuid.uuid4().hex
             return run_precheck(policy['profile'], output, max_budget_usd, dict(os.environ),
                                 check_fork=not smoke_only, catalog=catalog)
-        from scripts.benchmark import profile, launch_config, initialize_codex_home
+        from robofrontier.codex.launch import profile, launch_config, initialize_codex_home
         selected = profile(policy['profile'], catalog)
         key = selected.get('env_key')
         if key and not os.environ.get(key):
@@ -142,14 +142,14 @@ def preflight(config, *, confirm_spend=False, smoke_only=False, max_budget_usd=N
             fingerprint = hashlib.sha256(json.dumps(selected, sort_keys=True).encode()).hexdigest()[:20]
             home = ROOT/'.robofrontier/preflight'/fingerprint
         else:
-            from scripts.benchmark import codex_home
+            from robofrontier.codex.launch import codex_home
             home = Path(config['runtime']['codex_home']).expanduser().resolve() if config['runtime']['codex_home'] else codex_home(env)
         home.mkdir(parents=True, exist_ok=True, mode=0o700)
         env['CODEX_HOME'] = str(home)
         folder = ROOT/'runs/engineering'/('model-smoke' if smoke_only else 'model-compatibility')/policy['profile']
         folder.mkdir(parents=True, exist_ok=True)
         initialize_codex_home(launch_config(selected, folder), folder, env=env)
-        command = [sys.executable, '-m', 'scripts.benchmark', 'preflight', '--models', policy['profile'],
+        command = [sys.executable, '-m', 'robofrontier.codex.batch', 'preflight', '--models', policy['profile'],
                    '--model-config', str(catalog)]
         if smoke_only:
             command.append('--smoke-only')
@@ -191,7 +191,7 @@ def run(batch, *, engineering=False, continuing=False):
                           startup_timeout_s=config['batch']['startup_timeout_s'],
                           wall_limit_s=config['batch']['task_wall_limit_s'], continuing=continuing)
     else:
-        from scripts.benchmark import run_batch
+        from robofrontier.codex.batch import run_batch
         run_batch(batch, config['batch']['parallel'], continuing=continuing)
         state = json.loads((Path(batch)/'batch.json').read_text())
     result = {'batch': str(Path(batch).resolve()), 'status': state['status']}
@@ -348,7 +348,7 @@ def main(argv=None):
                 emit(report)
                 return 0 if report.get('passed') else 2
             elif args.command == 'slurm-submit':
-                from scripts.benchmark import load_env
+                from robofrontier.benchmark_common import load_env
                 from .slurm_job import submit
                 load_env(ROOT/'.env')
                 emit(submit(config, args.output, queue=args.queue, engineering=args.engineering))
@@ -359,7 +359,7 @@ def main(argv=None):
             from .durable import submit as submit_durable
             emit(submit_durable(args.batch, engineering=args.engineering))
         elif args.command == 'run':
-            from scripts.benchmark import load_env
+            from robofrontier.benchmark_common import load_env
             load_env(ROOT/'.env')
             emit(run(args.batch, engineering=args.engineering, continuing=args.continuing))
         elif args.command == 'status':

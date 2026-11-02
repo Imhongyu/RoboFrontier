@@ -37,11 +37,11 @@ Run a Python module with `.venv/bin/python -m scripts.NAME` from the repository 
 
 ### Benchmark engines and runs
 
-Native Codex and Claude hosts, preparation and provider checks. `robofrontier` calls these.
+Native Codex and Claude hosts, preparation and provider checks. `robofrontier` calls these. The Codex batch runner and Node host (`codex_policy_host.js`, `codex_rpc.js`, `codex_preflight.js`, `codex_initialize.js`) are in `robofrontier/codex/`.
 
 | Script | Purpose |
 | --- | --- |
-| `benchmark.py` | Prepare and supervise independent Codex CLI policy tasks. |
+| `benchmark.py` | Entry point for `python -m scripts.benchmark`; the Codex engine lives in `robofrontier/codex/`. |
 | `benchmark_handoff.py` | Inspect a checkout and transfer only the runtime assets needed by policy tasks. |
 | `check_codex_cli.py` | Exercise installed Codex RPC, images, dynamic tools and forks against a LOCAL stub. |
 | `check_codex_snapshot.py` | Exercise snapshot forks and per-child prompts with a local Responses stub. |
@@ -50,10 +50,6 @@ Native Codex and Claude hosts, preparation and provider checks. `robofrontier` c
 | `claude_offline_probe.py` | Exercise Claude CLI against local simulated model and robot servers. |
 | `claude_precheck.py` | Real Claude precheck for one model profile under an explicit spend cap. |
 | `claude_readiness.py` | Compare Claude precheck receipts with current configuration. |
-| `codex_initialize.js` | Initialize Codex state without starting a model turn or making inference requests. |
-| `codex_policy_host.js` | One independent CLI host per task. |
-| `codex_preflight.js` | Explicitly invoked paid connectivity test, separate from scored robot trials. |
-| `codex_rpc.js` | Codex CLI app-server transport. |
 | `create_pipeline_run.py` | Prepare a run only: no GUI, model calls, session creation or robot actions. |
 | `luna_cpu.py` | Headless GPT-6 Luna benchmark entrypoint. |
 | `meta_dispatcher.js` | Loaded by Meta into functions.exec. |

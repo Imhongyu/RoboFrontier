@@ -7,13 +7,15 @@ import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 
-from scripts.benchmark import profile, launch_config, prepare_batch, load_env, select_cases
+from robofrontier.benchmark_common import load_env, select_cases
+from robofrontier.codex import batch as benchmark
+from robofrontier.codex.batch import prepare_batch
+from robofrontier.codex.launch import profile, launch_config
 from robofrontier.runtime_cli import fork_provenance
 from robofrontier.task_families import prepare
 from robofrontier.runtime_service import RuntimeService
 from test_policy_probe import BudgetWorld
 from fake_pipeline import fake_capture
-from scripts import benchmark
 
 
 class CliBenchmarkTests(unittest.TestCase):

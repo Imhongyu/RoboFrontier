@@ -19,7 +19,7 @@ from unittest.mock import patch
 
 from robofrontier import policy_access
 from robofrontier.run_layout import manifest_record
-from scripts.benchmark import hidden_skills, launch_config
+from robofrontier.codex.launch import hidden_skills, launch_config
 
 ROOT = Path(__file__).resolve().parents[1]
 STUB = dict(model='offline-protocol', provider='offline_protocol', effort='high', vision=True,
@@ -72,7 +72,7 @@ def responses_stub(requests, steps, namespace=None, before=None):
 
 
 DRIVER = r'''
-const fs=require('fs'),{CodexRpc}=require(process.argv[1]+'/scripts/codex_rpc');
+const fs=require('fs'),{CodexRpc}=require(process.argv[1]+'/robofrontier/codex/codex_rpc');
 const out=process.argv[2],launch=JSON.parse(fs.readFileSync(out+'/launch.json')),run=fs.readFileSync(out+'/run.txt','utf8');
 process.env.ROBOFRONTIER_OFFLINE_STUB_TOKEN='local-stub-no-credential';
 (async()=>{let done;
@@ -143,7 +143,7 @@ class AppServerPermissionTests(unittest.TestCase):
             try:
                 out = t / 'out'; (run / 'private/inputs').mkdir(parents=True, exist_ok=True); out.mkdir()
                 stub = dict(STUB, base_url='http://127.0.0.1:%d' % server.server_port)
-                with patch('scripts.benchmark.hidden_skills', lambda: hidden_skills(home=home, repo=repo)):
+                with patch('robofrontier.codex.launch.hidden_skills', lambda: hidden_skills(home=home, repo=repo)):
                     launch = launch_config(stub, out, run_dir=run)
                 (out / 'launch.json').write_text(json.dumps(launch)); (out / 'run.txt').write_text(str(run / 'workspace'))
                 # Persisted threads (needed for fork) go to a throwaway Codex home, never the user's.

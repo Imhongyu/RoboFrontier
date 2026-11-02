@@ -9,7 +9,7 @@ from robofrontier import run_layout
 MAX_CAPACITY_RETRIES = 3
 BASE_DELAY_SECONDS = 10
 MAX_DELAY_SECONDS = 60
-# The same policy as the Codex host (scripts/codex_policy_host.js): 10/20/40 s plus a
+# The same policy as the Codex host (robofrontier/codex/codex_policy_host.js): 10/20/40 s plus a
 # 0-5 s jitter fixed by the session ID, so many runs do not retry together.
 JITTER_SECONDS = 5
 

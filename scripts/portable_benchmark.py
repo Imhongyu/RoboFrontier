@@ -10,7 +10,8 @@ from datetime import datetime
 
 from robofrontier import run_layout
 from robofrontier.task_families import ROOT
-from scripts.benchmark import load_env, prepare_batch, run_batch
+from robofrontier.benchmark_common import load_env
+from robofrontier.codex.batch import prepare_batch, run_batch
 from scripts.luna_cpu import batch_codex_home, render_probe, sandbox_probe
 
 DEFAULT_CASES = ['transport-a04-d1', 'transport-a08-d1', 'mosaic-a04-6x12-d1',

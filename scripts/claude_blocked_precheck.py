@@ -19,7 +19,7 @@ from robofrontier.claude.provenance import fork_provenance, history, transcript_
 from robofrontier.claude.profile_identity import fingerprint
 from robofrontier.claude.runner import run_turn
 from robofrontier.task_families import ROOT
-from scripts.benchmark import load_env
+from robofrontier.benchmark_common import load_env
 from scripts.claude_benchmark import profile
 from scripts.claude_precheck import MIN_TURN_BUDGET, PROMPTS, World, claude_version, setup_run
 

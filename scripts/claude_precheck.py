@@ -25,7 +25,7 @@ from robofrontier.claude.profile_identity import fingerprint
 from robofrontier.claude.runner import run_turn
 from robofrontier.claude.provenance import fork_provenance
 from robofrontier.task_families import ROOT
-from scripts.benchmark import load_env
+from robofrontier.benchmark_common import load_env
 from scripts.claude_benchmark import profile
 
 MIN_TURN_BUDGET = 0.02
