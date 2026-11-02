@@ -470,7 +470,8 @@ def main():
                         last_body=(bp.copy(),br.copy())
                 mutable=np.isin(ids,animation.get('appearance_geom_ids',ids))if grouped else np.ones(len(ids),bool)
                 if grouped and ordinal==0:
-                    frozen=np.asarray([specs[int(gid)]['rgba']for gid in ids[~mutable]],dtype=np.float32)
+                    # Shaped (n, 4) even when every geometry may change color and n is zero.
+                    frozen=np.asarray([specs[int(gid)]['rgba']for gid in ids[~mutable]],dtype=np.float32).reshape(-1,4)
                 if grouped and not np.array_equal(colors[~mutable],frozen):raise ValueError('Appearance events missing from mutable geometry set')
                 for gid,position,rotation,rgba in zip(ids[mutable],positions[mutable],rotations[mutable],colors[mutable]):
                     gid=int(gid);obj=objects[gid]
