@@ -2,7 +2,7 @@
 
 This document tracks implementation gates. It is not a statement that all gates
 have passed. The reviewed engineering integration is published on `main`.
-Follow-up Oracle repairs use `codex/oracle-placement-ik-fallback` until their
+Follow-up Oracle repairs use `codex/oracle-regrasp-continuation` until their
 source-pinned checks and review are complete. Existing source worktrees remain retained.
 
 ## Product
@@ -2187,3 +2187,43 @@ failures remain retained. Its inherited 11-goal arrangement is not a full-task
 witness and is not stitched into another result. A new source-pinned complete run
 is required before closing this follow-up. Evidence remains under the engineering
 root with `l2-` and `transport-current-l2-` prefixes.
+
+## Fresh continuation witnesses and native SQLite close race
+
+At `f9d532d`, fresh current-scene Transport L1 and L2 references each complete
+12/12 goals in one world. All independent v2 verdicts are true, with no unresolved
+actions or inter-robot contacts. Their recorded active wall times are 382.518 and
+501.607 seconds. Each uses ordinary guarded actuator commands and no model or
+external repair input. Earlier failed worlds remain stopped and retained.
+These receipts qualify the two cases, not all Transport sizes or difficulty levels.
+
+Mac complete discovery passes 1,537 checks, zero failures/errors and 17 conditional
+skips at that source. Linux passes 65 related checks, but its subsequent complete
+discovery exits with native SIGSEGV. A discovery-prefix loop reproduces on attempt
+two; the single adaptive snapshot test repeated 100 times crashes in 0.66 seconds.
+The worker stack is BudgetLedger COMMIT while teardown closes shared databases.
+Both failed runs and their unchanged source checkout remain retained.
+
+Two deterministic regressions show that BudgetLedger and RuntimeStore close can
+enter the native connection while another thread holds their transaction lock.
+They fail before the repair and pass after close acquires the existing RLock.
+No SQL transaction body or uncertain reservation is replayed. Linux SQLite reports
+THREADSAFE=1 and Python threadsafety=3. With only the close-lock repair mounted
+over the original source, the original snapshot/teardown loop passes 1,000 times
+in 42.843 seconds. The adaptive fixture now also joins its child turns before
+closing stores and verifies the expected settled total. Production session state
+becomes idle only after settlement and evidence writing under its session lock;
+policy closure checks that state before closing the runtime store. Forty-two
+related checks pass. Complete discovery of this final repair is still pending.
+
+Separately, actual Slurm job 428877 at main `29e1211` completes four Single native
+Claude/physics owners on dgx-061 with NVIDIA H800 observations. The unchanged
+production stage/execute/collect/ZIP/stage-out path returns 1,728 files, all verified
+through extraction and restoration without restarting the source worlds. Every
+case completes an A +5 mm action, seals without unresolved IDs and retains its
+86,400-second public task limit. Four distinct native sessions and 896x560 JPEGs
+are recorded; peak started tasks is four, peak overlapping motor actions is three.
+The HTTPS model is scripted, with zero real-provider calls and no formal model
+score claim. This closes that four-case normal lifecycle scope only: 36-task
+capacity, abnormal Slurm stop and genuine provider/subscription qualification
+remain open. Raw task/session evidence remains private under the engineering root.

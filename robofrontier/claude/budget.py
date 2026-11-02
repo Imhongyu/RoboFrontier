@@ -127,4 +127,6 @@ class BudgetLedger:
                                       (time.time(), reservation_id)).rowcount
             if updated != 1: raise ValueError('Reservation is not pending')
 
-    def close(self): self.db.close()
+    def close(self):
+        with self.lock:
+            self.db.close()

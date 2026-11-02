@@ -79,7 +79,8 @@ class RuntimeStore:
                 raise
 
     def close(self):
-        self.db.close()
+        with self.lock:
+            self.db.close()
 
     def get(self, key, default=None):
         with self.lock:

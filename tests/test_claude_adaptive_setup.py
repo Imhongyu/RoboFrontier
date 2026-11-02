@@ -28,14 +28,22 @@ class AdaptiveSetupTests(unittest.TestCase):
         launch=self.run/'private/inputs/claude.json'; launch.parent.mkdir(parents=True)
         launch.write_text(json.dumps({'profile':self.parent.profile}))
         self.child_calls=[]
-    def tearDown(self): self.ledger.close(); fixtures.ForkSetupTests.tearDown(self)
+        self.child_hosts=[]
+    def tearDown(self):
+        for host in self.child_hosts:
+            host.wait(3)
+            self.assertFalse(host.worker and host.worker.is_alive(), 'Child turn did not finish before cleanup')
+        self.ledger.close()
+        fixtures.ForkSetupTests.tearDown(self)
     def child_runner(self,*args,**kwargs):
         self.child_calls.append(kwargs)
         return {'process':'exited','exit_code':0,'summary':{'session_id':kwargs['resume'],
                 'turn_status':'ended','malformed_lines':0,'total_cost_usd':.02}}
     def fork(self,*args,**kwargs): return create_fork(*args,runner=self.runner,**kwargs)
     def child(self,*args,**kwargs):
-        return ClaudeSessionHost.adopt_verified_fork(*args,runner=self.child_runner,_verifier=lambda _:[],**kwargs)
+        host=ClaudeSessionHost.adopt_verified_fork(*args,runner=self.child_runner,_verifier=lambda _:[],**kwargs)
+        self.child_hosts.append(host)
+        return host
     def coordinator(self, **kwargs):
         return AdaptiveForkSetup(self.store,self.parent,self.ledger,'owner',setup_budget_usd=.1,
                                  child_budget_usd=.2,fork_factory=kwargs.get('fork',self.fork),child_factory=self.child)
@@ -146,6 +154,9 @@ class AdaptiveSnapshotTests(unittest.TestCase):
         self.assertTrue(batch.get('snapshot_thread_id'))
         self.assertTrue(all(child['verified'] for child in batch['children']))
         self.assertEqual(batch['source_provenance']['source_thread_id'],batch['snapshot_thread_id'])
+        for host in self.child_hosts:
+            self.assertEqual(host.wait(3)['status'],'idle')
+        self.assertEqual(self.ledger.snapshot()['reported_spend_usd'],'0.07')
 
     def test_snapshot_mutation_before_first_child_fails_closed(self):
         def mutate(*args,**kwargs):
