@@ -106,8 +106,11 @@ def launch_config(p, folder, run_dir=None):
         # the host checks the effective configuration again before inference.
         home = codex_home()
         directory = Path(folder).resolve()
+        # The personal ~/.codex is only a configuration layer when it is the active home.
+        personal = (Path.home()/'.codex/config.toml').resolve()
         configs = {home/'config.toml', *(parent/'.codex/config.toml'
-                    for parent in (directory, *directory.parents))}
+                    for parent in (directory, *directory.parents)
+                    if (parent/'.codex/config.toml').resolve() != personal)}
         overrides = set()
         for config in configs:
             if not config.is_file():

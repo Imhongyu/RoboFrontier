@@ -15,6 +15,20 @@ class SharedBudgetTests(unittest.TestCase):
         self.ledger=BudgetLedger.create(self.path, 1)
     def tearDown(self): self.ledger.close(); self.tmp.cleanup()
 
+    def test_a_cut_off_turn_keeps_the_cost_its_cli_still_reported(self):
+        # Uncapped run: a cancelled turn's reported cost is recorded as uncertain, then
+        # settled when the run ends at its wall limit; the cost must survive the settle.
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger=BudgetLedger.create(Path(tmp)/'uncapped.sqlite')
+            try:
+                ledger.reserve('cut','Controller'); ledger.reserve('silent','Delegate')
+                ledger.settle('cut',0.0189,outcome_known=False)
+                snapshot=ledger.settle_interrupted()
+                self.assertEqual({r['id']:(r['status'],r['cost']) for r in snapshot['reservations']},
+                                 {'cut':('settled','0.0189'),'silent':('settled',None)})
+                self.assertEqual((snapshot['reported_spend_usd'],snapshot['unreported_cost_count']),('0.0189',1))
+            finally: ledger.close()
+
     def test_busy_budget_reservation_waits_and_is_recorded_once(self):
         from robofrontier import sqlite_busy
         self.assertEqual(self.ledger.db.execute('PRAGMA busy_timeout').fetchone()[0],30000)

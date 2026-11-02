@@ -125,7 +125,9 @@ def _files(root):
                 raise ValueError('Symlink inside evidence; resolve explicitly before collecting: ' + str(parent/name))
         # run-v3 keeps the native configuration in private/claude-config, run-v6 in private/engine/config.
         dirs[:] = sorted(d for d in dirs if d != 'claude-config' and not (d == 'config' and parent.name == 'engine'))
-        for name in sorted(files):
+        # Finder writes .DS_Store into any folder it shows, even during collection;
+        # it is desktop metadata, not run evidence.
+        for name in sorted(f for f in files if f != '.DS_Store'):
             path = parent/name
             if not path.is_file():
                 raise ValueError('Nonregular evidence file: ' + str(path))

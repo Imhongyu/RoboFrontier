@@ -98,6 +98,35 @@ class SupervisorTests(unittest.TestCase):
         return CentralizedSupervisor(policy, lambda: True, clock=lambda: self.now, wall_clock=lambda: self.now, sleep=tick,
                                      poll_s=1, startup_timeout_s=3, wall_limit_s=4, **kwargs)
 
+    def test_the_worlds_wall_limit_pause_is_a_normal_end_without_a_reply_drain(self):
+        # The world's guard pauses dispatch, stops the arms, then ends the run. The pause
+        # seen in between is that end, and the cut-off turn owes no final reply.
+        import sqlite3
+        p = Policy(); p.store.db = sqlite3.connect(':memory:')
+        p.store.db.execute('CREATE TABLE events(kind TEXT)')
+        def bind():
+            p.dispatcher = Dispatcher(); p.host.state = 'active'
+            p.store.data.update(lifecycle='running', start_at=0)
+        p.bind_and_bootstrap = bind
+        steps = []
+        def tick():
+            steps.append(1)
+            if len(steps) == 1:
+                p.store.data['dispatch_paused'] = True
+                p.store.db.execute("INSERT INTO events VALUES ('POLICY_WALL_LIMIT')")
+            elif len(steps) == 3:
+                p.store.data['lifecycle'] = 'ended'
+        result = self.supervisor(p, tick, finish_turn_grace_s=30).run()
+        self.assertEqual((result['reason'], result['ended_by']), ('world_ended', 'wall_limit'))
+        self.assertIsNone(result['finish_turns_drained'])
+        # Without the guard's record, a pause is still a review stop.
+        p2 = Policy()
+        def bind2():
+            p2.dispatcher = Dispatcher(); p2.host.state = 'active'
+            p2.store.data.update(lifecycle='running', start_at=0, dispatch_paused=True)
+        p2.bind_and_bootstrap = bind2
+        self.assertEqual(self.supervisor(p2, lambda: None).run()['reason'], 'dispatch_paused')
+
     def test_ready_then_start_dispatch_wall_limit_and_seal(self):
         p = Policy()
         def tick(): p.host.state = 'idle'; p.store.ready = True

@@ -138,4 +138,43 @@ class RunEvidenceTests(unittest.TestCase):
         self.assertIsNone(usage('codex', {'inputTokens':100})['cache_miss_input_tokens'])
 
 
+class TranscriptCostTests(unittest.TestCase):
+    PRICES = {'source': 'test', 'cache_write_5m_multiplier': 1.25, 'cache_write_1h_multiplier': 2.0,
+              'models': {'m': {'input': 1.0, 'output': 10.0, 'cache_read': 0.1, 'long_prompt_threshold_tokens': 1000,
+                               'long_prompt_input': 2.0, 'long_prompt_output': 20.0}}}
+
+    def run_with(self, root, messages):
+        from robofrontier import run_layout
+        run = Path(root)/'run'; (run/'private/inputs').mkdir(parents=True)
+        (run/'private/inputs/manifest.json').write_text(json.dumps({'engine': 'claude', **run_layout.manifest_record('claude')}))
+        projects = run_layout.path(run, 'engine_config', 'claude')/'projects/p'; (projects/'s/subagents').mkdir(parents=True)
+        lines = [json.dumps({'message': m}) for m in messages]
+        (projects/'s.jsonl').write_text('\n'.join(lines[:-1])+'\n')
+        (projects/'s/subagents/agent-1.jsonl').write_text(lines[-1]+'\n')
+        return run
+
+    def test_each_request_is_priced_once_at_its_prompt_tier(self):
+        from robofrontier.run_metrics import claude_transcript_cost
+        small = {'id': 'a', 'model': 'm', 'usage': {'input_tokens': 100, 'cache_read_input_tokens': 200, 'output_tokens': 10,
+                 'cache_creation_input_tokens': 400, 'cache_creation': {'ephemeral_5m_input_tokens': 400, 'ephemeral_1h_input_tokens': 0}}}
+        large = {'id': 'b', 'model': 'm', 'usage': {'input_tokens': 2000, 'output_tokens': 100}}
+        with tempfile.TemporaryDirectory() as tmp:
+            # Transcripts repeat a message once per content block; the sub-agent's request counts too.
+            run = self.run_with(tmp, [small, small, large])
+            result = claude_transcript_cost(run, self.PRICES)
+            expected = (100*1 + 200*0.1 + 400*1.25 + 10*10)/1e6 + (2000*2 + 100*20)/1e6
+            self.assertAlmostEqual(result['estimated_cost_usd'], expected)
+            self.assertEqual(result['priced_requests'], 2)
+            self.assertEqual(result['tokens']['output_tokens'], 110)
+        with tempfile.TemporaryDirectory() as tmp:
+            run = self.run_with(tmp, [small, {**large, 'model': 'third-party'}])
+            result = claude_transcript_cost(run, self.PRICES)
+            self.assertIsNone(result['estimated_cost_usd']); self.assertEqual(result['unpriced_models'], ['third-party'])
+
+    def test_the_catalog_prices_the_anthropic_models_it_uses(self):
+        from robofrontier.run_metrics import claude_pricing
+        prices = claude_pricing()['models']
+        self.assertEqual((prices['claude-haiku-5-5']['input'], prices['claude-haiku-5-5']['output']), (0.10, 0.50))
+
+
 if __name__ == '__main__': unittest.main()
