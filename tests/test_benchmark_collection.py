@@ -133,6 +133,36 @@ class BenchmarkCollectionTests(unittest.TestCase):
                 collect_batch(batch, root/'export')
             self.assertFalse((root/'export').exists())
 
+    def test_managed_claude_snapshot_history_survives_account_independent_restore(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);batch,run,_=self.make_batch(root,'claude')
+            home=root/'shared-native-home'
+            (run/'private/claude-config').rename(home)
+            write(run/'private/inputs/claude.json',{'profile':{
+                'auth_mode':'native_login','provider':'anthropic','env_key':None,
+                'native_config_dir':str(home)}})
+            with sqlite3.connect(run/'private/state/runtime.sqlite') as conn:
+                conn.execute('create table meta(key text,value text)')
+                conn.executemany('insert into meta values (?,?)',[
+                    ('lifecycle',json.dumps('ended')),
+                    ('delegations',json.dumps({'batch-1':{'snapshot_thread_id':'anchor'}}))])
+            native=home/'projects/project/anchor.jsonl'
+            write(native,{'sessionId':'anchor','text':'inherited snapshot'})
+            write(native.with_suffix('')/'tool-results/image-ref.json',{'image':'preserved'})
+            report=collect_batch(batch,root/'export')
+            self.assertTrue(report['complete'])
+            row=report['jobs'][0]
+            self.assertEqual(len(row['roles']),2)
+            self.assertEqual([x['thread_id'] for x in row['snapshot_sessions']],['anchor'])
+            create(root/'export',root/'archive');verify(root/'archive',root/'restored')
+            home.rename(root/'retained-native-home')
+            from robofrontier.claude.native_home import history_directory
+            copied=history_directory(root/'restored/batch/model/demo')/'projects/project'
+            self.assertEqual((copied/'anchor.jsonl').read_bytes(),
+                             (root/'retained-native-home/projects/project/anchor.jsonl').read_bytes())
+            self.assertTrue((copied/'anchor/tool-results/image-ref.json').is_file())
+            self.assertFalse(list((root/'restored').rglob('.credentials.json')))
+
     def test_snapshot_anchor_is_collected_without_becoming_a_policy_role(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);batch,run,sessions=self.make_batch(root)

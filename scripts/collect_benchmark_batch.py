@@ -289,20 +289,9 @@ def collect_batch(batch_path, output, *, codex_home=None):
                             hashes[original_rel.as_posix()] = copy_stable(extra, temporary/original_rel)
                 if not roles:
                     issues.append('no recorded policy role sessions')
-                if engine == 'claude':
-                    launch_file = run/'private/inputs/claude.json'
-                    launch = load(launch_file) if launch_file.is_file() else {}
-                    if launch.get('profile', {}).get('auth_mode') == 'native_login':
-                        relative = Path('batch')/run.relative_to(batch_path)/'private/state/claude-collected-sessions.json'
-                        marker = temporary/relative
-                        if not marker.exists():
-                            write_json(marker, {'schema':'robofrontier.claude-collected-sessions.v1',
-                                                'writers_stopped':True,
-                                                'session_ids':[role['thread_id'] for role in roles]})
-                        hashes[relative.as_posix()] = digest(marker)
                 # Snapshot anchors are not policy actors, but are required to
                 # reconstruct and audit the native lineage of their delegates.
-                if engine == 'codex':
+                if engine in ('codex', 'claude'):
                     for delegation_id, delegation in meta.get('delegations', {}).items():
                         tid = delegation.get('snapshot_thread_id')
                         if tid is None:
@@ -310,8 +299,10 @@ def collect_batch(batch_path, output, *, codex_home=None):
                         if not isinstance(tid, str) or not ID.fullmatch(tid):
                             issues.append(str(delegation_id)+': invalid snapshot session id')
                             continue
-                        matches = sorted((home/'sessions').rglob('*'+tid+'.jsonl'))
-                        native_queries.append((home/'sessions', tid, matches))
+                        native_root = history_directory(run) if engine == 'claude' else home/'sessions'
+                        matches = sorted(native_root.glob('projects/*/'+tid+'.jsonl') if engine == 'claude'
+                                         else native_root.rglob('*'+tid+'.jsonl'))
+                        native_queries.append((native_root, tid, matches))
                         if len(matches) != 1:
                             issues.append(str(delegation_id)+': expected one snapshot session, found '+str(len(matches)))
                             continue
@@ -322,6 +313,29 @@ def collect_batch(batch_path, output, *, codex_home=None):
                         native_sources[matches[0]] = checksum
                         snapshot_sessions.append({'delegation_id':delegation_id,'thread_id':tid,
                                                   'session':rel.as_posix(),'sha256':checksum})
+                        if engine == 'claude':
+                            native_rel = Path('batch')/run.relative_to(batch_path)/'private/claude-config'/matches[0].relative_to(native_root)
+                            hashes[native_rel.as_posix()] = copy_stable(matches[0], temporary/native_rel)
+                            snapshot_sessions[-1]['native_session'] = native_rel.as_posix()
+                            sidecars = matches[0].with_suffix('')
+                            native_directories[sidecars] = sorted(_files(sidecars))
+                            for extra in native_directories[sidecars]:
+                                extra_rel = rel.with_suffix('')/extra.relative_to(sidecars)
+                                hashes[extra_rel.as_posix()] = copy_stable(extra, temporary/extra_rel)
+                                native_sources[extra] = hashes[extra_rel.as_posix()]
+                                original_rel = Path('batch')/run.relative_to(batch_path)/'private/claude-config'/extra.relative_to(native_root)
+                                hashes[original_rel.as_posix()] = copy_stable(extra, temporary/original_rel)
+                if engine == 'claude':
+                    launch_file = run/'private/inputs/claude.json'
+                    launch = load(launch_file) if launch_file.is_file() else {}
+                    if launch.get('profile', {}).get('auth_mode') == 'native_login':
+                        relative = Path('batch')/run.relative_to(batch_path)/'private/state/claude-collected-sessions.json'
+                        marker = temporary/relative
+                        if not marker.exists():
+                            write_json(marker, {'schema':'robofrontier.claude-collected-sessions.v1',
+                                                'writers_stopped':True,
+                                                'session_ids':[entry['thread_id'] for entry in roles + snapshot_sessions]})
+                        hashes[relative.as_posix()] = digest(marker)
                 results = run/'private/outputs'
                 if not any((results/name).is_file() for name in ('evaluation.json', 'interruption-evaluation.json', 'budget-cutoff.json')):
                     issues.append('no final/interruption evaluation')

@@ -2607,3 +2607,36 @@ real physical trial does not establish delegation, handback or normal finish.
 Docker/Slurm subscription authentication and concurrent account refresh also
 remain outside these local receipts. Candidate defaults are not promoted and
 the user's full-video rerender deferral remains in effect.
+
+## Subscription evidence collection follow-up
+
+Review finds that shared native Claude homes need their bound Adaptive snapshot
+anchors collected as well as policy-role sessions. The prior collector handled
+snapshot anchors only for Codex; an account-independent archive regression fails
+in 0.015 seconds with an empty snapshot inventory despite a recorded anchor and
+an existing native transcript. Collection now copies the recorded Claude anchor
+and its session sidecars, records it separately from actors, and includes its ID
+in a new stopped-history marker. Unrelated sessions and credentials remain
+excluded. Restoring the archive with the original native home unavailable retains
+both the snapshot history and its image-reference sidecar. The original failed
+regression and a separate test-driver module-name error remain preserved.
+
+A second, newly authorized physical engineering trial uses Haiku's native Max
+subscription at cb8d013 with unchanged Adaptive Transport L1 public inputs. Its
+allowance is US$0.04 from the same aggregate budget, US$0.01 per turn, with an
+external three-minute stop and the original public 24-hour task limit. A local
+driver argument error occurs before the batch is claimed or a world/model is
+started; the corrected driver uses that still-unclaimed preparation once. The
+trial performs two robot calls including a real observation and ends its native
+turn normally, reporting US$0.0095626 as a list-price estimate. It issues no
+physical action, delegation, handback or normal task finish before the external
+stop. The independent interruption evaluation reports false task success. Its
+owner is sealed and exited with no unresolved action; accounting is tracking
+without a budget-review requirement. This remains an unsuccessful qualification
+attempt, not a formal scored result or proof of model task-solving ability.
+
+Keeping even this trial's full US$0.04 allowance reserved gives US$0.9893736
+aggregate exposure and US$0.0106264 remaining. The original uncertain API trial
+allowance and failed Luna proxy remain fully reserved. No further model trial
+is launched automatically. Actual Claude expired-token refresh and formal scored
+qualification are still open gates; no passing source test clears them.
