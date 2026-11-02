@@ -30,6 +30,22 @@ class CliBenchmarkTests(unittest.TestCase):
             self.assertIn('profiles.other.mcp_servers.extra.enabled=false', result['args'])
             self.assertEqual(config.read_text(), content)
 
+    def test_the_personal_codex_config_is_not_a_layer_of_a_dedicated_home(self):
+        # Codex does not load ~/.codex when CODEX_HOME points elsewhere; disabling its
+        # servers would add half-defined entries that the app-server rejects.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); user = root/'user'; (user/'.codex').mkdir(parents=True)
+            (user/'.codex/config.toml').write_text('[mcp_servers.personal_only]\ncommand="unused"\n')
+            home = root/'dedicated'; home.mkdir(); (home/'config.toml').write_text('[mcp_servers.shared]\ncommand="unused"\n')
+            output = user/'repo/runs/preflight'; output.mkdir(parents=True)
+            with patch.dict(os.environ, {'CODEX_HOME': str(home)}), patch('pathlib.Path.home', return_value=user):
+                args = ' '.join(launch_config(profile('luna_subscription'), output)['args'])
+            self.assertIn('mcp_servers.shared.enabled=false', args)
+            self.assertNotIn('personal_only', args)
+            # When the personal folder is the active home it is still read.
+            with patch.dict(os.environ, {'CODEX_HOME': str(user/'.codex')}), patch('pathlib.Path.home', return_value=user):
+                self.assertIn('mcp_servers.personal_only.enabled=false', ' '.join(launch_config(profile('luna_subscription'), output)['args']))
+
     def test_profile_selected_standing_workers_use_direct_team_start(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary)
