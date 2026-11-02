@@ -98,7 +98,7 @@ The site's normal Slurm environment/spool protections still apply. Do not share
 Subscription/OAuth credentials are not staged by this entry. Claude API runs
 remain explicitly unqualified engineering drafts and require --engineering.
 All four native Claude modes have engineering entries; see
-[standing teams](engines/claude.md#standing-teams). Their local lifecycle checks do not
+[standing teams](engines/claude-code.md#standing-teams). Their local lifecycle checks do not
 establish real-cluster or provider qualification.
 
 ## Preflight and submit

@@ -10,7 +10,7 @@ the two engines share and where they differ. Use the
 | Guide | Contents |
 | --- | --- |
 | [Codex engine](codex.md) | Native app-server policy execution, the retained `scripts.benchmark` interface, Luna on Linux CPU and Slurm |
-| [Claude engine](claude.md) | Native Claude CLI/MCP engineering entries, authentication, cost ledger, standing teams, prechecks and historical evidence |
+| [Claude engine](claude-code.md) | Native Claude CLI/MCP engineering entries, authentication, cost ledger, standing teams, prechecks and historical evidence |
 | [Providers](providers.md) | Model catalogs and profiles, the authentication matrix, third-party endpoints, preflight and multi-model batches |
 | [Runtime protocol notes](../protocol.md) | Observation images, SQLite writer contention, direct START and terminal scoring, robot tool errors |
 
@@ -26,7 +26,7 @@ New Single/Adaptive runs use direct Controller START; both engines use direct
 team START for initial standing-team roles. `ready` is a capability query in
 those runs. Historical `ready_barrier_v1` inputs retain their old READY/idle
 barrier. Claude exposes all four engineering topologies. Native permanent
-Workers are documented in [Claude standing teams](claude.md#standing-teams);
+Workers are documented in [Claude standing teams](claude-code.md#standing-teams);
 formal scored Claude execution remains unavailable.
 
 Current policy selection retains Transport R14, Mosaic R14, Relay's final goal
@@ -177,7 +177,7 @@ matching waits at most ten seconds. Missing or ambiguous evidence rejects the
 submission rather than guessing provenance. The explicit delegation-ID path
 remains compatible. Preserve parent/child transcripts and tool-result directories.
 The fork itself is described under
-[internal Adaptive delegation](claude.md#native-sessions-tools-and-internal-delegation).
+[internal Adaptive delegation](claude-code.md#native-sessions-tools-and-internal-delegation).
 
 ## Capacity and rate-limit recovery
 
@@ -261,9 +261,9 @@ effort names do not establish equal computation across providers or engines.
 Fork creation is the clearest example. Codex can `thread/fork` before binding,
 activation and a first prompt; Claude needs a tool-free creation turn before a
 child transcript exists (see
-[verified Claude CLI observations](claude.md#verified-native-cli-observations-2026-10-28)).
+[verified Claude CLI observations](claude-code.md#verified-native-cli-observations-2026-10-28)).
 Claude cost accounting uses a run-local ledger; see
-[Claude cost allowances](claude.md#cost-allowances-and-the-shared-ledger).
+[Claude cost allowances](claude-code.md#cost-allowances-and-the-shared-ledger).
 
 ## Real qualification still required
 
@@ -321,7 +321,7 @@ scoring after `finish`, deadline/SIGTERM stop and collection. The synthetic
 unsuccessful. It tests scorer isolation, not successful task completion. Real
 model task completion, concurrent roles, current provider behavior and scored
 Claude qualification remain separate acceptance requirements. Per-check history
-is in [Claude historical physics checks](claude.md#historical-local-integration-and-physics-checks).
+is in [Claude historical physics checks](claude-code.md#historical-local-integration-and-physics-checks).
 
 ## Historical migration checks
 
@@ -346,6 +346,6 @@ and waited on READY/idle. The first adaptive drafts and synthetic runtime tests
 later connected delegation, setup, scheduling and stopping. Subsequent real
 MuJoCo/CLI loopback tests exercised those paths. Current direct START supersedes
 the old barrier only for new inputs; old recordings keep their original protocol.
-See [Claude provider prechecks and historical evidence](claude.md#provider-prechecks-and-historical-evidence)
+See [Claude provider prechecks and historical evidence](claude-code.md#provider-prechecks-and-historical-evidence)
 for preserved historical provider prechecks, costs, physical smoke scope and
 remaining lifecycle gates.

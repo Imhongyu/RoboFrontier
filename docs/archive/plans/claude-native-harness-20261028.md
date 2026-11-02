@@ -8,7 +8,7 @@ and neutralized shared core, with a passing Haiku preflight; policy hosting,
 supervision and delegation were still pending at that point. Later work has
 superseded that implementation status. Consult the current
 [engine comparison](../../engines/README.md),
-[standing-team guide](../../engines/claude.md#standing-teams) and
+[standing-team guide](../../engines/claude-code.md#standing-teams) and
 [integration evidence ledger](../unified-main.md).
 
 Provider compatibility, package versions and vendor policy statements below

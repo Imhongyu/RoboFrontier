@@ -17,6 +17,7 @@ __pycache__/
 /.codex-luna/
 /.codex-tools/
 /.robofrontier/
+/.claude/
 /MUJOCO_LOG.TXT
 
 # Credentials stay local; only the templates are tracked.

@@ -81,7 +81,7 @@ unscored engineering results. This restriction belongs to RoboFrontier; provider
 authentication documentation cannot certify task success or clear it.
 [CLI admission](../../robofrontier/cli.py),
 [Engineering launcher](../../robofrontier/claude/engineering_run.py),
-[Local authentication contract](../engines/claude.md#authentication).
+[Local authentication contract](../engines/claude-code.md#authentication).
 
 ## Next steps without a passive expiry wait
 

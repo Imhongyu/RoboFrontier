@@ -6,7 +6,7 @@ guide was first written while the checkout was integrating
 `integration/unified-main`, before that work replaced the published default
 branch. The native `scripts.benchmark` entry is retained for Codex compatibility
 and has different defaults from the unified entry. Engine-specific details are
-in the [Codex](codex.md) and [Claude](claude.md) guides; installation, the `.env`
+in the [Codex](codex.md) and [Claude](claude-code.md) guides; installation, the `.env`
 file and policy assets are in [shared setup](README.md#shared-setup).
 
 ## Catalogs and profiles
@@ -54,11 +54,11 @@ These profiles have separate compatibility receipts.
 | Codex | Native ChatGPT login | `luna_subscription` (also `sol61_subscription`, `terra61_subscription` in the catalog) | Codex native store in a dedicated or explicitly shared Codex home | [Codex authentication](codex.md#authentication-and-codex-homes) |
 | Codex | Third-party API key (Responses) | `deepseek`, `qwen`, `glm`, `kimi` | `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY` + `DASHSCOPE_BASE_URL`, `ZAI_API_KEY`, `KIMI_API_KEY` | [Codex Responses endpoints](#codex-responses-endpoints) |
 | Codex | OpenLux API key | `openlux-luna`, `openlux-terra` | `OPENLUX_API_KEY` | [OpenLux Terra](../archive/openlux-terra.md) |
-| Claude | Long-lived subscription token from `claude setup-token` | `haiku_subscription_token` (default) | `CLAUDE_CODE_OAUTH_TOKEN` | [Claude authentication](claude.md#default-subscription-token) |
-| Claude | Older explicit OAuth token mode | `opus_subscription` | `CLAUDE_CODE_OAUTH_TOKEN` | [Claude authentication](claude.md#authentication) |
-| Claude | Native saved login, default namespace | `haiku_subscription` | `ROBOFRONTIER_CLAUDE_HOME` = `HOME/.claude`, `CLAUDE_CONFIG_DIR` unset | [Saved login](claude.md#native-saved-login) |
-| Claude | Native saved login, explicit directory | `haiku_subscription_directory` | `ROBOFRONTIER_CLAUDE_HOME` = the `CLAUDE_CONFIG_DIR` used at login | [Saved login](claude.md#native-saved-login) |
-| Claude | Anthropic API key | `haiku`, `opus` | `ANTHROPIC_API_KEY` | [Claude authentication](claude.md#authentication) |
+| Claude | Long-lived subscription token from `claude setup-token` | `haiku_subscription_token` (default) | `CLAUDE_CODE_OAUTH_TOKEN` | [Claude authentication](claude-code.md#default-subscription-token) |
+| Claude | Older explicit OAuth token mode | `opus_subscription` | `CLAUDE_CODE_OAUTH_TOKEN` | [Claude authentication](claude-code.md#authentication) |
+| Claude | Native saved login, default namespace | `haiku_subscription` | `ROBOFRONTIER_CLAUDE_HOME` = `HOME/.claude`, `CLAUDE_CONFIG_DIR` unset | [Saved login](claude-code.md#native-saved-login) |
+| Claude | Native saved login, explicit directory | `haiku_subscription_directory` | `ROBOFRONTIER_CLAUDE_HOME` = the `CLAUDE_CONFIG_DIR` used at login | [Saved login](claude-code.md#native-saved-login) |
+| Claude | Anthropic API key | `haiku`, `opus` | `ANTHROPIC_API_KEY` | [Claude authentication](claude-code.md#authentication) |
 | Claude | Third-party API key (Anthropic-compatible) | `kimi`, `kimi_code`, `qwen`, `glm`, `deepseek` | The catalog's credential variable; Qwen also `DASHSCOPE_ANTHROPIC_BASE_URL` | [Claude-compatible endpoints](#claude-compatible-endpoints) |
 
 The table reflects the catalog files when this guide was written; the catalogs
@@ -172,7 +172,7 @@ Native Codex compatibility reports remain under
 `runs/engineering/model-smoke/<profile>/report.json` and
 `runs/engineering/model-compatibility/<profile>/report.json` respectively.
 Claude prechecks are described in
-[Claude provider prechecks](claude.md#provider-prechecks-and-historical-evidence).
+[Claude provider prechecks](claude-code.md#provider-prechecks-and-historical-evidence).
 
 ## Qualification and limits
 

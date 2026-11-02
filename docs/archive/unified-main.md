@@ -791,7 +791,7 @@ under `runs/engineering/main-integration-task-atlas-20261101/` with the
 they were conducted before committing this implementation.
 
 The README, unified CLI, component map and handoff now describe four native
-engineering modes and link the new [standing-team guide](../engines/claude.md#standing-teams).
+engineering modes and link the new [standing-team guide](../engines/claude-code.md#standing-teams).
 It explains task versus role concurrency, initial role counts, native names,
 resource implications, clock semantics, recovery, evidence and reproducible test
 commands. Formal scored Claude execution, genuine provider lifecycle/ability,

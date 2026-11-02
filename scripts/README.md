@@ -17,7 +17,7 @@ repository root. Keep existing module names when reproducing historical evidence
 | `robofrontier slurm-submit` | Freeze a submission and optionally queue node-local execution with verified stage-out |
 | `robofrontier factory/oracle` | Replay frozen motion in Factory, or explicitly run privileged reference execution; neither is a policy benchmark launch |
 | `benchmark models/plan/preflight/prepare/run/status/stop` | Native Codex interface retained for compatibility, with model selection, task filters, provider checks, concurrency, and START-based task limits |
-| `claude_benchmark` | Native Claude draft, provider-check, and explicitly unqualified engineering interface; see the [Claude guide](../docs/engines/claude.md) |
+| `claude_benchmark` | Native Claude draft, provider-check, and explicitly unqualified engineering interface; see the [Claude guide](../docs/engines/claude-code.md) |
 | `benchmark_handoff doctor/init-env/assets/restore` | Inspect handoff prerequisites, create a private local environment file, and export/restore assets with SHA verification |
 | `check_codex_cli` | Exercise the real Codex CLI's tools, images, and forks against a local Responses stub, without external model calls |
 | `curate_repository` | Plan and verify data cleanup while protecting frozen source recordings |

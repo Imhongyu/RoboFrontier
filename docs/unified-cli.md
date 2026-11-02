@@ -205,7 +205,7 @@ for file versus OS credential storage and native sign-in behavior.
 Claude planning/preparation uses its native catalog and runner. All four
 topologies have engineering entries. Standing modes create one native Claude
 session per initial role and use the shared mailbox/scheduler; they are not
-simulated Adaptive delegations. See [Claude standing teams](engines/claude.md#standing-teams)
+simulated Adaptive delegations. See [Claude standing teams](engines/claude-code.md#standing-teams)
 for role counts and the scoped checks. Formal scored qualification remains closed.
 
 ```sh
