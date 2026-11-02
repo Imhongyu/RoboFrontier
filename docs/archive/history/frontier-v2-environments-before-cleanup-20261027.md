@@ -1,4 +1,4 @@
-> Historical environment snapshot. See the [current environment entry](../../frontier-v2-environments.md) for current selections and status.
+> Historical environment snapshot. See the [current environment entry](../../tasks/README.md) for current selections and status.
 
 Current environment draft: [Transport R13](transport-r13.md),
 covering only the nine transport scenes; the other27 scenes retain R10.

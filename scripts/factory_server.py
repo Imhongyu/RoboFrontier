@@ -3,8 +3,8 @@ import argparse
 import json
 from pathlib import Path
 
-from robofrontier import factory_bundle as bundle
-from robofrontier import factory_server as server
+from robofrontier.factory import bundle
+from robofrontier.factory import server
 
 
 def main():
@@ -61,10 +61,10 @@ def main():
     elif command=='doctor':result=server.doctor(**args)
     elif command=='import-motion':result=server.import_motion(**args)
     elif command=='project':
-        from robofrontier.factory_editorial import create
+        from robofrontier.factory.editorial import create
         result=create(**args)
     elif command=='edit-video':
-        from robofrontier.factory_editorial import render
+        from robofrontier.factory.editorial import render
         result=render(args['project'],args['input'],args['output'])
     elif command=='prepare':result=server.prepare(**args)
     elif command=='run':result=server.run_job(args.pop('plan'),**args)

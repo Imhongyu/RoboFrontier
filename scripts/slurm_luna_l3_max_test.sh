@@ -14,7 +14,7 @@ Perform an explicitly authorized provider preflight separately, then submit:
 
 The example selects maximum-arm Level 3 tasks, parallel 4, Luna high/adaptive,
 CPU rendering, and a 3600-second task limit from each persisted START.
-See docs/luna-cpu.md and docs/slurm.md for storage, stop and collection details.
+See docs/engines/codex.md and docs/slurm.md for storage, stop and collection details.
 No model call or simulation was started by this script.
 HELP
 exit 2

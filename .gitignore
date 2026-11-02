@@ -17,13 +17,13 @@ __pycache__/
 /.codex-luna/
 /.codex-tools/
 /.robofrontier/
+/.claude/
 /MUJOCO_LOG.TXT
 
 # Credentials stay local; only the templates are tracked.
 /.env
 /.env.*
 !/.env.example
-!/.env.claude.example
 
 # Large environment assets and previews are materialized per worktree.
 /configs/environments/**/assets/

@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from scipy.spatial import ConvexHull
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = ROOT / 'configs/backgrounds/robo_factory.json'
 LAYERS = {'structure': 0, 'roof': 1, 'north': 2, 'south': 3, 'west': 4, 'east': 5}
 
@@ -708,8 +708,8 @@ class _Builder:
         settings=self.cfg.get('workstation_dressing',{})
         if not settings.get('enabled'):return
         import mujoco
-        from .factory_workstations import placements
-        from .workstation import Workstation
+        from .workstations import placements
+        from ..workstation import Workstation
         catalog_path=ROOT/settings['catalog'];catalog=json.loads(catalog_path.read_text())
         self.dressing_catalog_sha256=_hash(catalog_path)
         plan=placements(catalog,self.cfg['regions'],ROOT)
@@ -850,7 +850,7 @@ class _Builder:
         for region in self.cfg['regions']:
             x0,y0,x1,y1=region['bounds_xy_m']
             occupied=[p['planning_bounds_xy_m'] for p in getattr(self,'dressing_plan',[]) if p['family']==region['id']]
-            from .factory_labels import region_title,bounds,overlaps
+            from .labels import region_title,bounds,overlaps
             title,half=region_title(region);occupied.append(bounds(title,half))
             for i,(x,y) in enumerate(((x0+.8,(y0+y1)/2),(x1-.8,(y0+y1)/2),((x0+x1)/2,y0+.8),((x0+x1)/2,y1-.8))):
                 for dx in (0,-5.2,5.2,-6.5,6.5):
@@ -1013,7 +1013,7 @@ def build_factory(config_path=DEFAULT_CONFIG, output=None, workstation_catalog=N
     if config['appearance'].get('whole_floor_finish',False):_floor_finish(assets/'textures',config)
     scene,manifest=_Builder(config,assets,output).finish()
     # Local, relative assets make the resulting scene directory portable.
-    (assets/'asset-manifest.json').write_text(json.dumps({'generated_by':'robofrontier.factory_scene','seed':config['seed'],'third_party':[{'id':'Barlow Condensed','source':'https://github.com/google/fonts/tree/main/ofl/barlowcondensed','license':'SIL Open Font License 1.1','license_file':'fonts/OFL.txt'},{'id':'concrete_floor_02','source':'https://polyhaven.com/a/concrete_floor_02','license':'CC0 1.0','metadata':'source/polyhaven/source.json'}],'assets':manifest['assets']},indent=2)+'\n')
+    (assets/'asset-manifest.json').write_text(json.dumps({'generated_by':'robofrontier.factory.scene','seed':config['seed'],'third_party':[{'id':'Barlow Condensed','source':'https://github.com/google/fonts/tree/main/ofl/barlowcondensed','license':'SIL Open Font License 1.1','license_file':'fonts/OFL.txt'},{'id':'concrete_floor_02','source':'https://polyhaven.com/a/concrete_floor_02','license':'CC0 1.0','metadata':'source/polyhaven/source.json'}],'assets':manifest['assets']},indent=2)+'\n')
     # Output folders may be reused; do not retain obsolete generated mesh copies.
     active_meshes={file.name for file in (assets/'meshes').glob('factory_*.obj')}
     for file in (output/'assets/meshes').glob('factory_*.obj'):

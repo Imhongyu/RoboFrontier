@@ -189,7 +189,7 @@ capability query; it is not a model-readiness gate. Old `ready_barrier_v1` input
 keep their frozen legacy behavior. Direct START does not change robot ownership.
 
 Claude exposes all four modes as explicit engineering drafts, including native
-standing Workers with independent sessions. See [Claude standing teams](docs/claude-standing-teams.md)
+standing Workers with independent sessions. See [Claude standing teams](docs/engines/claude-code.md#standing-teams)
 for commands, resource implications and measured coverage. Formal scored Claude
 lifecycle qualification remains an integration gate. Use the engine-specific guide rather than assuming that a
 Codex app-server tool/fork interface exists in Claude Code. API and native

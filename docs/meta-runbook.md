@@ -48,7 +48,7 @@ queries capabilities and does not require another START. Frozen Legacy READY
 runs keep their original gate. All four native Claude modes remain explicitly
 unqualified engineering paths. Standing modes use distinct persistent native
 sessions, not Adaptive delegations; see the
-[standing-team guide](claude-standing-teams.md). Formal scoring remains closed.
+[standing-team guide](engines/claude-code.md#standing-teams). Formal scoring remains closed.
 
 The default public task limit is 24 hours from persisted START. Do not replace
 it with a short engineering test duration in the public task. Use the explicit

@@ -44,7 +44,7 @@ handover and sender-authorized recovery are process criteria; the current public
 overlay does not require a clean process history or an airborne handover for
 terminal success. Models may recover through ordinary robot actions. Reset,
 respawn, direct object-state writes, welds and history erasure are unavailable.
-See [shared START and scoring semantics](direct-start-terminal-scoring.md).
+See [shared START and scoring semantics](../protocol.md#direct-controller-startup-and-terminal-scoring-v2).
 
 `robofrontier/suite/relay_contract.py` defines the base
 `relay-final-goal-50mm-v1` contract. `robofrontier/task_families.py` applies the
@@ -54,8 +54,8 @@ rule. Old recordings retain their original contract and native verdict.
 
 ## Execution and reference code
 
-Use the [unified CLI](unified-cli.md) for native model runs and the
-[Oracle interface](oracle.md) for privileged references. Unified Oracle execution
+Use the [unified CLI](../unified-cli.md) for native model runs and the
+[Oracle interface](../oracle.md) for privileged references. Unified Oracle execution
 has a configurable 24-hour engineering limit from owner launch, separate from
 the policy's START clock. An Oracle monitor's engineering corrections are not
 an autonomous model result.
@@ -97,8 +97,8 @@ new current-source qualification:
 - Retained dependencies and retired-source manifest: `runs/engineering/relay-cleanup-20261027/manifest.json`.
 
 Original 60-Hz streams, appearance events, failure/recovery/control-correction
-hashes, reports and videos remain evidence. See [recording and replay](relay-recorded-video.md),
-[merge notes](archive/plans/suite-v2/relay-merge-handoff.md) and the
-[current task-family entry](gpt-policy.md). Historical Factory presentations use
+hashes, reports and videos remain evidence. See [recording and replay](../relay-recorded-video.md),
+[merge notes](../archive/plans/suite-v2/relay-merge-handoff.md) and the
+[current task-family entry](README.md). Historical Factory presentations use
 independent per-table loops at 20x/30 fps; static neighboring tables do not imply
 simultaneous task completion.

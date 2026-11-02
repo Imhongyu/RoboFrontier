@@ -3,7 +3,7 @@
 This is the dated family-branch handoff. Pending work describes that stage;
 current integrated progress is in the [acceptance ledger](../../unified-main.md).
 The then-planned hold-final playback was later superseded by independent loops.
-Current task/default entries are in [docs/relay.md](../../../relay.md), without
+Current task/default entries are in [docs/tasks/relay.md](../../../tasks/relay.md), without
 requiring reconstruction from dozens of continuation logs. Full history remains
 in `docs/history/`.
 

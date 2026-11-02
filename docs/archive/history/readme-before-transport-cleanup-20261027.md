@@ -22,7 +22,7 @@ engineering experience were not supplied to the policies. Its retired local
 results/video directory was
 `outputs/gpt/frontier-v2-minimum-20m-20261025/README.md`, not distributed here.
 
-- [36-environment catalog](../../frontier-v2-environments.md).
+- [36-environment catalog](../../tasks/README.md).
 - [Transport R11 scope and static checks](transport-r11.md).
 - [Transport R12 goal-spacing changes](transport-r12.md).
 - [Transport R13 whiteboard shortened by 20 mm](transport-r13.md).

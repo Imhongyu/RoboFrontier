@@ -97,7 +97,7 @@ entry should put active SQLite files directly on Lustre/NFS. Real cluster,
 NVIDIA and provider resource qualification remain separate acceptance gates.
 
 The earlier `scripts.luna_cpu` and `scripts.portable_benchmark` commands are
-legacy interfaces documented in the [Luna CPU guide](../luna-cpu.md). Their old short-test limits, batch-shared homes
+legacy interfaces documented in the [Luna CPU guide](../engines/codex.md#luna-on-linux-cpu-and-slurm). Their old short-test limits, batch-shared homes
 and manual privileged Docker invocation are not the unified configuration.
 Do not submit the retired Luna sbatch scripts to switch this profile; use the
 current Slurm submission command and site-specific settings instead.

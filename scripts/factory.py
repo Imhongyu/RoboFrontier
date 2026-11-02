@@ -10,8 +10,8 @@ import shutil
 import numpy as np
 
 from robofrontier.task_families import ROOT, RELEASE, read
-from robofrontier.factory_playback import FactoryTimeline,current_scene
-from robofrontier.factory_cameras import shots, camera_at, place_station_camera
+from robofrontier.factory.playback import FactoryTimeline,current_scene
+from robofrontier.factory.cameras import shots, camera_at, place_station_camera
 from robofrontier.run_setup import write_json
 from robofrontier.motion_recording import digest
 
@@ -95,12 +95,12 @@ def export_animation(args):
 
 
 def build(output,release_path=None):
-    from robofrontier.factory_scene import build_factory
-    from robofrontier.factory_workstations import compose
+    from robofrontier.factory.scene import build_factory
+    from robofrontier.factory.workstations import compose
     output=Path(output)
     shell=output.parent/(output.name+'-shell')
     if output.exists() or shell.exists():raise FileExistsError('Choose a new factory output')
-    from robofrontier.factory_bundle import resolved_release
+    from robofrontier.factory.bundle import resolved_release
     data_root=ROOT/'runs/factory-data/r14'
     if release_path is None:
         if not (data_root/'bundle.json').exists():
@@ -182,7 +182,7 @@ def main():
     elif args.command=='video':print(json.dumps(render_offline(args),indent=2))
     elif args.command=='poses':print(json.dumps(export_animation(args),indent=2))
     else:
-        from robofrontier.factory_view import serve
+        from robofrontier.factory.view import serve
         serve(args.scene,play=True)
 
 

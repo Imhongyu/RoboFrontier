@@ -7,8 +7,8 @@ The original note reported an offline runner, role-bound MCP, preflight commands
 and neutralized shared core, with a passing Haiku preflight; policy hosting,
 supervision and delegation were still pending at that point. Later work has
 superseded that implementation status. Consult the current
-[engine comparison](../../claude-codex-parity.md),
-[standing-team guide](../../claude-standing-teams.md) and
+[engine comparison](../../engines/README.md),
+[standing-team guide](../../engines/claude-code.md#standing-teams) and
 [integration evidence ledger](../unified-main.md).
 
 Provider compatibility, package versions and vendor policy statements below

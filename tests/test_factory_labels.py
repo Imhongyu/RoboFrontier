@@ -1,5 +1,5 @@
 import unittest
-from robofrontier.factory_labels import place_label, overlaps, region_title
+from robofrontier.factory.labels import place_label, overlaps, region_title
 
 
 class LabelPlacementTests(unittest.TestCase):

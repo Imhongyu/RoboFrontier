@@ -14,15 +14,16 @@ import tempfile
 import time
 import uuid
 
-from .factory_bundle import digest, inside, read, resolved_release, verify, write
+from .bundle import digest, inside, read, resolved_release, verify, write
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PLAN_SCHEMA = 'robofrontier.factory-render-plan.v1'
 
 
 def code_hashes():
     files = set((ROOT/'robofrontier').glob('*.py'))
-    files.update((ROOT/'robofrontier/suite').glob('*.py'))
+    for package in ('suite', 'factory', 'demo'):
+        files.update((ROOT/'robofrontier'/package).glob('*.py'))
     files.update((ROOT/'scripts').glob('*factory*.py'))
     files.add(ROOT/'scripts/promo_preview.py')
     return {p.relative_to(ROOT).as_posix():digest(p) for p in sorted(files) if p.is_file()}
@@ -72,11 +73,11 @@ def import_motion(data_root, recording, output, speedup=1.):
     an Oracle edit or a benchmark qualification, and changes no source evidence.
     """
     import numpy as np
-    from .factory_scene import build_factory
-    from .factory_workstations import compose
-    from .motion_recording import MotionReader
+    from .scene import build_factory
+    from .workstations import compose
+    from ..motion_recording import MotionReader
     from scripts.export_factory_blender import export as export_blender
-    from .factory_bundle import export as export_bundle
+    from .bundle import export as export_bundle
     data_root, recording, output=Path(data_root).resolve(),Path(recording).resolve(),Path(output).resolve()
     verify(data_root)
     reader=MotionReader(recording)
@@ -128,8 +129,8 @@ def import_motion(data_root, recording, output, speedup=1.):
 def prepare(data_root, output, families=None, levels=None, views=('front', 'side'), cases=None,
             duration_s=None, width=1920, height=1080, samples=64, mode='desks', device=None,
             effective_configuration=None, asset_lock_sha256=None, project=None):
-    from .motion_recording import MotionReader
-    from .station_edit import StationEdit
+    from ..motion_recording import MotionReader
+    from ..station_edit import StationEdit
     initial_code=code_hashes()
     data_root, output = Path(data_root).resolve(), Path(output).resolve()
     verified = verify(data_root)
@@ -143,7 +144,7 @@ def prepare(data_root, output, families=None, levels=None, views=('front', 'side
         raise ValueError('An editorial project is only used for the full Factory tour')
     editorial = None
     if project is not None:
-        from .factory_editorial import load
+        from .editorial import load
         editorial = load(project, data_root)
     release = resolved_release(data_root)
     known_cases={s['id'] for f in release['families'].values() for s in f['oracle']}
@@ -192,7 +193,7 @@ def prepare(data_root, output, families=None, levels=None, views=('front', 'side
         staged = Path(temporary)
         frozen_editorial = None
         if mode == 'promo':
-            from .factory_editorial import _create_verified, freeze, load
+            from .editorial import _create_verified, freeze, load
             if project is None:
                 _create_verified(data_root, staged/'editorial')
                 loaded = load(staged/'editorial/project.json', data_root)
@@ -238,7 +239,7 @@ def load_plan(path, check_inputs=True):
     if digest(Path(plan['data_root'])/'bundle.json') != plan['bundle_sha256']:
         raise ValueError('Prepared data release changed')
     if 'editorial' in plan:
-        from .factory_editorial import load
+        from .editorial import load
         editorial = plan['editorial']
         loaded = load(inside(path.parent/'editorial', editorial['project']), plan['data_root'])
         if loaded['files'] != editorial['files']:
@@ -269,7 +270,7 @@ def completed(job_dir, verify_video=False, *, plan=None):
         if review.get('full_decode_passed') is not True or review.get('video_sha256') != digest(final):
             raise ValueError('Completed editorial movie was not verified')
         if plan is not None and 'editorial' in plan:
-            from .factory_editorial import load
+            from .editorial import load
             retained = load(inside(final.parent/'project',plan['editorial']['project']))
             if (review.get('project_files') != plan['editorial']['files']
                     or retained['files'] != plan['editorial']['files']):
@@ -375,7 +376,7 @@ def run_job(plan_path, index, blender=None, scratch=None):
                     or report['animation']['frames']!=job['frames'] or report['animation']['fps']!=plan['fps']):
                 raise ValueError('Video decode validation did not pass')
             if 'editorial' in plan:
-                from .factory_editorial import render
+                from .editorial import render
                 render(path.parent/'editorial'/plan['editorial']['project'], work/'render/factory.mp4',
                        work/'editorial', run_command=command)
             if code_hashes()!=plan['code_hashes']:

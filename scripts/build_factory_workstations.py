@@ -1,7 +1,7 @@
 """Compose frozen workstations for display; never run physics or an Oracle."""
 import argparse,json
 from pathlib import Path
-from robofrontier.factory_workstations import compose
+from robofrontier.factory.workstations import compose
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--shell',type=Path,required=True);p.add_argument('--catalog',type=Path,default=Path('configs/suites/frontier-current-oracle.json'));p.add_argument('--output',type=Path,required=True)

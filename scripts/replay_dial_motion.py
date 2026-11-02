@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from robofrontier.factory_workstations import FactoryPlayback
+from robofrontier.factory.workstations import FactoryPlayback
 from robofrontier.suite.dial_pose_timeline import EditedMotion, checksum, playback_speed, DIAL_VIDEO_FPS
 from robofrontier.motion_recording import MotionReader
 from robofrontier.run_setup import write_json

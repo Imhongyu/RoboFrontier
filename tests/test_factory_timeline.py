@@ -6,9 +6,9 @@ from unittest.mock import patch
 import numpy as np
 
 from robofrontier.task_families import ROOT,RELEASE,read
-from robofrontier.factory_playback import StationTrack,FactoryTimeline,current_scene
-from robofrontier.factory_cameras import shots,camera_at
-from robofrontier.factory_bundle import resolved_release,read as read_bundle
+from robofrontier.factory.playback import StationTrack,FactoryTimeline,current_scene
+from robofrontier.factory.cameras import shots,camera_at
+from robofrontier.factory.bundle import resolved_release,read as read_bundle
 
 
 def portable_data(test):

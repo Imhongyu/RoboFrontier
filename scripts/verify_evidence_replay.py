@@ -49,7 +49,7 @@ def simple_frames(recording, indices):
 
 def factory_frames(recording, indices, factory):
     """Diagnostic pixels/FK only; production factory video remains Cycles."""
-    from robofrontier.factory_workstations import FactoryPlayback
+    from robofrontier.factory.workstations import FactoryPlayback
     reader = MotionReader(recording)
     source = Workstation(Path(recording)/'source')
     play = FactoryPlayback(factory)

@@ -10,8 +10,8 @@ from robofrontier.motion_recording import MotionReader
 from robofrontier.motion_timeline import sample_timeline,resolve_timeline
 from robofrontier.replay_edit import ReplayEdit
 from robofrontier.workstation import Workstation
-from robofrontier.factory_workstations import FactoryPlayback
-from robofrontier.factory_playback import current_scene
+from robofrontier.factory.workstations import FactoryPlayback
+from robofrontier.factory.playback import current_scene
 from robofrontier.run_setup import write_json
 
 

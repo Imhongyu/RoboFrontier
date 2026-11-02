@@ -3,7 +3,7 @@ import argparse, json, math, sys, time
 from pathlib import Path
 import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from robofrontier.factory_playback import FactoryTimeline
+from robofrontier.factory.playback import FactoryTimeline
 from robofrontier.motion_recording import digest
 from robofrontier.run_setup import write_json
 ROOT=Path(__file__).resolve().parents[1]
@@ -110,7 +110,7 @@ def main():
  write_json(output/'release.json',release)
  manifest=json.loads((scene.parent/'manifest.json').read_text());cameras={x['id']:x for x in json.loads((args.cameras or prep/'cameras.json').read_text())};keys,visits=plan(manifest,cameras);write_json(output/'camera-plan.json',keys);placements={p['case_id']:p for p in manifest['placements']}
  if args.camera_plan:
-  from robofrontier.factory_editorial import camera_plan
+  from robofrontier.factory.editorial import camera_plan
   keys=camera_plan(args.camera_plan)
   if args.duration>keys[-1]['t']+1e-8:raise ValueError('Requested video exceeds the editorial camera timeline')
   write_json(output/'camera-plan.json',keys)

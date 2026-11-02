@@ -4,11 +4,11 @@ Give this prompt to a coding agent with terminal and repository access. The
 outer session can use any model. Claude CLI and the frozen profile select the
 inner measured model. This native entry is for unqualified engineering drafts;
 it does not produce formally qualified benchmark scores. Read
-[handoff status](../../docs/claude-handoff.md) before using it.
+[handoff status](../../docs/engines/claude-code.md) before using it.
 
 ```text
 Act as the outer manager for a RoboFrontier Claude engineering batch. First read
-docs/claude-handoff.md and docs/unified-cli.md.
+docs/engines/claude-code.md and docs/unified-cli.md.
 
 Parameters:
 - models: [opus]
@@ -33,7 +33,7 @@ Parameters:
    with their original operators.
 2. Run scripts.claude_benchmark doctor for the selected profiles, CLI and assets.
    Report missing credential variable names only. If .env is absent, copy the
-   empty .env.claude.example template with mode 0600; preserve existing .env and
+   empty .env.example template with mode 0600; preserve existing .env and
    credentials. Doctor establishes no account/provider compatibility claim.
 3. Run scripts.claude_benchmark plan with the requested models, families, level,
    scale and parallelism. Pass --min-arms only when requested. Report each exact

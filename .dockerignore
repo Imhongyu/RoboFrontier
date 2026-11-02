@@ -2,7 +2,6 @@
 .venv
 .env*
 !.env.example
-!.env.claude.example
 .codex-luna
 .codex-tools
 .robofrontier

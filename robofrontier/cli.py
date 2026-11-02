@@ -275,7 +275,7 @@ def argument_parser(*, prog=None):
     p.add_argument('arguments', nargs=argparse.REMAINDER)
     p = sub.add_parser('container', help='Run the native CLI in persistent local Docker volumes')
     p.add_argument('arguments', nargs=argparse.REMAINDER)
-    from .factory_workflow import add_arguments
+    from .factory.workflow import add_arguments
     add_arguments(sub)
     from .oracle_workflow import add_arguments as oracle_arguments
     oracle_arguments(sub)
@@ -300,7 +300,7 @@ def main(argv=None):
             return 0
         if args.command == 'factory':
             from contextlib import redirect_stdout
-            from .factory_workflow import execute
+            from .factory.workflow import execute
             # Native exporters can print progress. Keep the unified command's
             # stdout as one machine-readable result; diagnostics use stderr.
             with redirect_stdout(sys.stderr):
@@ -315,7 +315,7 @@ def main(argv=None):
             emit(report)
             return report['exit_code']
         if args.command == 'demo':
-            from .app import main as demo
+            from .demo.app import main as demo
             sys.argv = [sys.argv[0], *args.arguments]
             return demo()
         if args.command == 'bootstrap':

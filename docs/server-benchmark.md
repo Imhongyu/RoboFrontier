@@ -101,7 +101,7 @@ manual compaction, and fork checks do not establish the full context window,
 automatic compaction threshold, underlying provider identity, or long-term
 capacity. Recheck after relevant profile or CLI changes. Claude execution remains
 an explicitly unqualified engineering entry requiring `run --engineering`;
-see its [native standing-team guide](claude-standing-teams.md).
+see its [native standing-team guide](engines/claude-code.md#standing-teams).
 
 For queue execution, use `slurm-submit` as documented in the Slurm guide rather
 than running policy simulation on a login node. Parallel task slots count whole

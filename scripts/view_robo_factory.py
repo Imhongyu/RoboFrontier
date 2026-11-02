@@ -1,9 +1,9 @@
 """Inspect or export the static Robo Factory without task simulation."""
 import argparse
 from pathlib import Path
-from robofrontier.factory_scene import ROOT
-from robofrontier.factory_view import serve
-from robofrontier.factory_playback import current_scene
+from robofrontier.factory.scene import ROOT
+from robofrontier.factory.view import serve
+from robofrontier.factory.playback import current_scene
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
