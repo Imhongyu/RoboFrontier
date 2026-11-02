@@ -5,7 +5,7 @@ frozen inputs and sessions are not migrated automatically. The normal task clock
 is 24 hours from persisted START; an engineering stop is separate. Evaluation is
 independent of policy execution: accepting `finish` begins closure/evaluation and
 does not establish task success. Current implementation and hardware/provider
-qualification are tracked in the [acceptance ledger](development/unified-main.md).
+qualification are tracked in the [acceptance ledger](archive/unified-main.md).
 
 ## Files and responsibilities
 

@@ -68,4 +68,4 @@ its own explicit scope and verification.
 The early `config.json` and single-arm demo remain legacy application inputs.
 They are not the unified benchmark configuration. Historical docs and plan files
 must be read with their date/source context; current defaults and acceptance are
-stated in the unified guides and [integration ledger](development/unified-main.md).
+stated in the unified guides and [integration ledger](archive/unified-main.md).

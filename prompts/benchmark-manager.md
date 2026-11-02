@@ -4,7 +4,7 @@ Give the following prompt to a coding agent with terminal access to this checkou
 The outer agent can use any model or desktop application. The measured policy
 model runs inside Codex CLI and is selected by the frozen profile and effort.
 For provider-specific setup, read `docs/multimodel-handoff.md`; historical prices
-in `docs/model-pricing-20261028.md` are dated observations, not current quotes.
+in `docs/archive/model-pricing-20261028.md` are dated observations, not current quotes.
 
 ```text
 Manage a RoboFrontier Codex benchmark through the unified command line.

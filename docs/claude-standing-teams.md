@@ -10,7 +10,7 @@ standing Worker is represented as an Adaptive fork.
 These are **engineering entries**, not qualified scored Claude benchmarks. A
 configured provider/profile and a local synthetic test do not prove a real
 provider's capability, throughput, billing or task success. See the
-[acceptance ledger](development/unified-main.md) for current evidence.
+[acceptance ledger](archive/unified-main.md) for current evidence.
 
 ## Select and prepare
 

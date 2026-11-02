@@ -98,7 +98,7 @@ new current-source qualification:
 
 Original 60-Hz streams, appearance events, failure/recovery/control-correction
 hashes, reports and videos remain evidence. See [recording and replay](relay-recorded-video.md),
-[merge notes](plans/suite-v2/relay-merge-handoff.md) and the
+[merge notes](archive/plans/suite-v2/relay-merge-handoff.md) and the
 [current task-family entry](gpt-policy.md). Historical Factory presentations use
 independent per-table loops at 20x/30 fps; static neighboring tables do not imply
 simultaneous task completion.

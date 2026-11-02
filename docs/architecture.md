@@ -27,7 +27,7 @@ benchmark-wide configuration. Current task inputs are selected through
 policy inputs have separate purposes and qualification records. New unified
 Oracle executions select current released scenes; Factory playback uses each
 recording's own frozen source. See [Oracle](oracle.md), [Factory](factory.md)
-and the [integration ledger](development/unified-main.md).
+and the [integration ledger](archive/unified-main.md).
 
 ## Native engines and topologies
 
@@ -258,7 +258,7 @@ are separate steps. Observations use JPEG 896 x 560, quality 85; offline video
 size is independent. Motion retains actual times, float32 poses, appearance
 events and XOR/ZIP compression. Compression after float32 conversion is
 bit-exact; float64-to-float32 conversion and PNG-to-JPEG migration are lossy and
-must be identified. See [evidence storage](evidence-storage-validation-20261030.md).
+must be identified. See [evidence storage](archive/evidence-storage-validation-20261030.md).
 
 Process memory, integral state, queues and model context are not a complete
 restartable physics checkpoint. Interruptions retain unknown actions and

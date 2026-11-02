@@ -27,7 +27,7 @@ Original non-English filenames stay in the immutable evidence, not current
 configuration strings. No historical file is renamed or rewritten.
 New R14 Oracle attempts have separate qualification; the old success does not
 transfer automatically. See [Oracle execution](../oracle.md) and the
-[integration ledger](../development/unified-main.md).
+[integration ledger](../archive/unified-main.md).
 
 At its original release, R14 changed stock color identities/RGB only: stock
 positions/count, total color inventory, target pattern, robots, tabletop, cameras,
@@ -145,6 +145,6 @@ edit tables and the historical review of 135 candidates/five slow-motion
 segments remain preserved. Classification protects directed movement and semantic
 events; missing measured contact-force data cannot establish zero force. See
 [Factory design](../robo-factory.md). The
-[Legacy merge handoff](../plans/suite-v2/mosaic-merge-handoff.md) records the
+[Legacy merge handoff](../archive/plans/suite-v2/mosaic-merge-handoff.md) records the
 original asset materialization, public-input loading, and shared merge gates;
 its pending-state statements do not override current integration evidence.

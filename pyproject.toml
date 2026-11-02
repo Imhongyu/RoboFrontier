@@ -3,6 +3,8 @@ name = "robofrontier"
 version = "0.1.0"
 description = "Benchmarking how LLM agents organize, communicate, and collaborate in a multi-robot world"
 requires-python = ">=3.12,<3.13"
+license = "MIT"
+license-files = ["LICENSE", "LICENSE-DATA.md"]
 dependencies = [
     "mujoco>=3.3,<4",
     "numpy>=2,<3",

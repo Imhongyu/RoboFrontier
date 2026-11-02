@@ -42,4 +42,4 @@ def build(directory):
     print(json.dumps({'preview':str(directory/'rocket-targets.png'),'targets':specs}))
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--output',type=Path,default=ROOT/'docs/plans/suite-v1');build(p.parse_args().output)
+    p=argparse.ArgumentParser();p.add_argument('--output',type=Path,default=ROOT/'docs/archive/plans/suite-v1');build(p.parse_args().output)

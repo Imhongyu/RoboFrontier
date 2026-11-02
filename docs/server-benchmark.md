@@ -1,7 +1,7 @@
 # Linux policy benchmark handoff
 
 This page describes the current unified integration checkout. It has not yet
-replaced the GitHub default branch; the [acceptance ledger](development/unified-main.md)
+replaced the GitHub default branch; the [acceptance ledger](archive/unified-main.md)
 records remaining qualification work. For new runs, use the unified CLI and its
 frozen configuration rather than a mixture of older branch-specific commands.
 

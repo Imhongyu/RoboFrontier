@@ -199,7 +199,7 @@ Stopped unified collection gathers task-associated native sessions and required
 motion/evidence, then optionally creates a verified ZIP. Original sources remain
 by default. Authentication stores are not evidence exports. See
 [verification boundaries](harness-v2-verification.md) and
-[storage validation](evidence-storage-validation-20261030.md).
+[storage validation](archive/evidence-storage-validation-20261030.md).
 
 ## Adaptive native forks
 

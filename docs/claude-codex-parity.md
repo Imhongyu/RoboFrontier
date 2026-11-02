@@ -5,7 +5,7 @@ START timing, terminal-outcome scoring, process records and evidence formats.
 Their native session/tool interfaces are different. Use
 [harness alignment](harness-alignment.md) for current IDs, recovery and reporting,
 [architecture](architecture.md) for shared contracts, and the
-[acceptance ledger](development/unified-main.md) for actual integration evidence.
+[acceptance ledger](archive/unified-main.md) for actual integration evidence.
 
 New Single/Adaptive runs use direct Controller START; both engines use direct
 team START for initial standing-team roles. `ready` is a capability query in those runs.

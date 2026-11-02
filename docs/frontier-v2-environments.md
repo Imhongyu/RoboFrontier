@@ -21,5 +21,5 @@ station loops and 30 fps, superseding the old play-once/stop instruction. See
 [Factory](robo-factory.md).
 
 Historical catalogs, generators and packages explain old experiments; they do
-not directly select the current release. The [earlier environment guide](history/frontier-v2-environments-before-cleanup-20261027.md)
+not directly select the current release. The [earlier environment guide](archive/history/frontier-v2-environments-before-cleanup-20261027.md)
 preserves revision history.

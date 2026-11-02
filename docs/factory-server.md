@@ -7,7 +7,7 @@ They replay frozen motion, appearance events and reviewed edits using FK and
 Blender Cycles. They do not call models, issue robot commands, simulate contact
 or produce new benchmark scores. Policy execution has different SQLite and
 Slurm requirements: see [policy Slurm staging](slurm.md). Dated native acceptance
-is recorded in [Factory server validation](factory-server-validation.md).
+is recorded in [Factory server validation](archive/factory-server-validation.md).
 
 ## Install software and data
 

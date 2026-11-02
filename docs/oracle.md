@@ -255,5 +255,5 @@ Focused tests cover actual R14 serial/parallel endpoint equivalence, unchanged
 live state, worker initialization failures, frozen imports, revision mismatches,
 changed stock colors, protected goals, recovery ownership and uncertain actions.
 Passing these tests does not establish every full-case Oracle or a new physical
-release. See the [integration ledger](development/unified-main.md) for actual
+release. See the [integration ledger](archive/unified-main.md) for actual
 checks and remaining unified-entry and operational gates.

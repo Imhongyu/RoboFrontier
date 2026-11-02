@@ -132,8 +132,8 @@ attempts, recovery provenance, private pairings, frozen source, and required
 assets. Delivered videos keep their actual edit/scene/frame maps; new manifests
 do not imply that old videos were rerendered.
 
-Historical detail is in the [Oracle continuation](../history/dial-oracle-continuation-20261027.md),
-[old handoff](../history/dial-oracle-handoff-20261026.md), and
-[render history](../history/dial-motion-render-history-20261027.md). Their pauses,
+Historical detail is in the [Oracle continuation](../archive/history/dial-oracle-continuation-20261027.md),
+[old handoff](../archive/history/dial-oracle-handoff-20261026.md), and
+[render history](../archive/history/dial-motion-render-history-20261027.md). Their pauses,
 pending tasks, and local paths are historical, not current operator instructions.
 Use current review receipts and the integration ledger for acceptance scope.
