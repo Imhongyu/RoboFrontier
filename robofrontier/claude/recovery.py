@@ -9,6 +9,14 @@ from robofrontier import run_layout
 MAX_CAPACITY_RETRIES = 3
 BASE_DELAY_SECONDS = 10
 MAX_DELAY_SECONDS = 60
+# The same policy as the Codex host (scripts/codex_policy_host.js): 10/20/40 s plus a
+# 0-5 s jitter fixed by the session ID, so many runs do not retry together.
+JITTER_SECONDS = 5
+
+
+def capacity_delay(attempt, session_id):
+    jitter = sum(map(ord, str(session_id))) % (JITTER_SECONDS*1000) / 1000
+    return min(MAX_DELAY_SECONDS, BASE_DELAY_SECONDS * 2**attempt) + jitter
 CAPACITY_CODES = frozenset(('rate_limit', 'rate_limit_error', 'overloaded_error', 'server_overloaded'))
 CONTINUE_PROMPT = ('The previous model turn ended with a confirmed capacity or rate-limit error. '
                    'Continue the same running task and saved work. Inspect pending and original job IDs '
@@ -57,7 +65,7 @@ def recover(host, store, now=None):
         # A tool-free creation turn must not be retried through this mechanism.
         if any(b['status'] == 'creating' for b in store.get('delegations', {}).values()): return False
         if host.capacity_retry_due is None:
-            host.capacity_retry_due = now + min(MAX_DELAY_SECONDS, BASE_DELAY_SECONDS * 2**host.capacity_retry_count)
+            host.capacity_retry_due = now + capacity_delay(host.capacity_retry_count, host.session_id)
             host.event('capacity_wait', retry_number=host.capacity_retry_count+1,
                        error_code=(host.last_result or {}).get('summary', {}).get('capacity_error_code'),
                        max_retries=host.max_capacity_retries,

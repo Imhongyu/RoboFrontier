@@ -68,7 +68,8 @@ class CodexRpc {
 function capacityFailure(error) {
   const text = typeof error === 'string' ? error : JSON.stringify(error);
   return /model[_ ]?capacity|capacity[_ ]?limit|rate[_ ]?limit|too many requests|\b429\b|overloaded|server[_ ]?overloaded|insufficient[_ ]?capacity/i.test(text)
-    && !/insufficient[_ ]quota|billing|invalid[_ ]api[_ ]key/i.test(text);
+    // A plan's usage limit lasts hours or days; retrying within a task cannot help.
+    && !/insufficient[_ ]quota|billing|invalid[_ ]api[_ ]key|usage[_ ]limit|weekly[_ ]limit|monthly[_ ]limit/i.test(text);
 }
 async function requireNoMcpServers(rpc) {
   const result = await rpc.call('config/read',{});

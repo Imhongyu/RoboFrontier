@@ -11,6 +11,11 @@ const read = file=>JSON.parse(fs.readFileSync(file,'utf8'));
 // Frozen at preparation by robofrontier/policy_bootstrap.py; absent from runs prepared earlier.
 const frozenText=(run,name)=>{const file=path.join(run,'private/inputs/bootstrap',name);
   return fs.existsSync(file)?fs.readFileSync(file,'utf8'):null;};
+// Capacity recovery, the same policy as robofrontier/claude/recovery.py: at most 3
+// consecutive resumes of a session, 10/20/40 s apart plus a 0-5 s jitter fixed by the
+// session ID (so many runs do not retry together); a completed turn resets the count.
+const MAX_CAPACITY_RETRIES=3;
+const capacityDelayMs=(attempt,id)=>10000*2**attempt+[...String(id)].reduce((n,c)=>n+c.charCodeAt(0),0)%5000;
 const LEGACY_SYSTEM_PROMPT='You are a RoboFrontier policy agent running in Codex. Follow the frozen public task, current role, tool protocol and evidence boundaries. Use your assigned robot tools. Preserve original call IDs across uncertain results. Do not manage the model host, modify the benchmark, or read private evaluation data.';
 function toolFailure(callId, stdout) {
   let detail;
@@ -113,6 +118,7 @@ class PolicyHost {
       const began=this.turnStarted.get(turnKey);
       if (m.method==='turn/completed') {
         this.turns.set(p.threadId,p.turn);
+        if (p.turn.status==='completed') this.capacityAttempts?.delete(p.threadId);
         if (p.turn.status==='failed' && capacityFailure(p.turn.error)) {
           const key=p.threadId+':'+p.turn.id;
           if (!this.failures.has(key)) this.failures.set(key,Date.now());
@@ -152,16 +158,29 @@ class PolicyHost {
       const state=await this.observe(id),t=state.latestTurn;
       if (state.thread.status.type!=='systemError' || t?.status!=='failed' || !capacityFailure(t.error)) continue;
       const key=id+':'+t.id;
-      if (!this.failures.has(key)) this.failures.set(key,Date.now());
-      if (this.retries.has(key) || Date.now()-this.failures.get(key)<10000) continue;
+      if (this.retries.has(key)) continue;
+      this.capacityAttempts??=new Map();
+      const attempt=this.capacityAttempts.get(id)||0;
+      if (attempt>=MAX_CAPACITY_RETRIES) {
+        // Exhausted: pause the run for review rather than keep resuming.
+        await this.admin('pause',{reason:'Model capacity recovery attempts exhausted',actor,thread_id:id});
+        this.event({event:'capacity_recovery_exhausted',actor,thread_id:id,failed_turn_id:t.id});
+        return;
+      }
+      if (!this.failures.has(key)) {
+        this.failures.set(key,Date.now());
+        this.event({event:'capacity_wait',actor,thread_id:id,failed_turn_id:t.id,attempt:attempt+1,delay_s:capacityDelayMs(attempt,id)/1000});
+      }
+      if (Date.now()-this.failures.get(key)<capacityDelayMs(attempt,id)) continue;
       // Physical uncertainty blocks retries; retrying a model never replays its tools.
       const code="from robofrontier.runtime_store import RuntimeStore;import sys,json;s=RuntimeStore(sys.argv[1]);a=sys.argv[2];print(json.dumps(any(v['status'] in ('pending','running','uncertain') for v in s.actions(a).values()) or any(True for r in s.db.execute(\"SELECT 1 FROM calls WHERE actor=? AND status='accepted' AND op IN ('move','gripper','action_batch','delegate')\",(a,)))));s.close()";
       const {stdout}=await execFileAsync(this.python,['-c',code,path.join(this.run,'private/state/runtime.sqlite'),actor],{cwd:this.cwd});
       if (JSON.parse(stdout)) continue;
       this.retries.add(key); // An unknown turn/start acknowledgement is never repeated.
+      this.capacityAttempts.set(id,attempt+1);
       const phase=snapshot.lifecycle==='running' ? 'The experiment has started: obtain any needed capability information and continue without waiting for another START.' : 'The legacy startup barrier has not opened; continue the existing startup instructions.';
       await this.send(id,'The previous model turn failed because of a capacity or rate limit. Continue this task and its saved work. First inspect pending/job using original action IDs and read your inbox. Preserve submitted actions, the current world and the original deadline. '+phase);
-      this.event({event:'capacity_retry',thread_id:id,failed_turn_id:t.id});
+      this.event({event:'capacity_retry',thread_id:id,failed_turn_id:t.id,attempt:attempt+1});
     }
   }
   bootstrap(actor, startupProtocol='direct_controller_v2') {

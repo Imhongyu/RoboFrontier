@@ -18,7 +18,7 @@ test('native subscription tool admission accepts empty or disabled MCP configura
 });
 test('capacity retry distinguishes quota/auth/permanent errors',()=>{
   for(const message of ['model_capacity_limit','429 Too Many Requests','server_overloaded'])assert.equal(capacityFailure({message}),true);
-  for(const message of ['insufficient_quota 429','invalid_api_key','Bad Request 400'])assert.equal(capacityFailure({message}),false);
+  for(const message of ['insufficient_quota 429','invalid_api_key','Bad Request 400',"429 You've hit your usage limit"])assert.equal(capacityFailure({message}),false);
 });
 test('an active turn cannot be steered by the scheduler',async()=>{
   let called=false;
@@ -66,4 +66,20 @@ test('initialize waits for the startup acknowledgement limit unless told otherwi
   let waited;const fake={call:async(method,params,timeoutMs)=>{waited=timeoutMs;return {};},write(){}};
   await CodexRpc.prototype.initialize.call(fake);assert.equal(waited,STARTUP_ACK_MS);assert.equal(STARTUP_ACK_MS,180000);
   await CodexRpc.prototype.initialize.call(fake,5000);assert.equal(waited,5000);
+});
+test('capacity recovery stops after three consecutive retries and pauses for review',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'capacity-limit-'));
+  try {
+    const fakePython=path.join(dir,'python');
+    fs.writeFileSync(fakePython,'#!/bin/sh\nprintf "false\\n"\n',{mode:0o755});
+    const prompts=[],admin=[];let turn=0;
+    const host={stopped:false,run:dir,cwd:dir,python:fakePython,actors:new Map([['thread','Controller']]),
+      failures:new Map(),retries:new Set(),capacityAttempts:new Map([['thread',3]]),
+      admin:async(op,data)=>{admin.push([op,data]);return {paused:false,lifecycle:'running'};},
+      observe:async()=>({thread:{status:{type:'systemError'}},latestTurn:{id:'turn-'+turn,status:'failed',error:{message:'429 Too Many Requests'}}}),
+      send:async(id,prompt)=>prompts.push(prompt),event:()=>{}};
+    await PolicyHost.prototype.retryCapacity.call(host);
+    assert.equal(prompts.length,0);
+    assert.equal(admin.at(-1)[0],'pause');
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
