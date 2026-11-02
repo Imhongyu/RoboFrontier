@@ -85,6 +85,7 @@ class CliBenchmarkTests(unittest.TestCase):
             with patch.object(benchmark,'ROOT',Path(tmp)),patch.object(benchmark,'profile',return_value=selected),\
                     patch.object(benchmark,'launch_config',return_value={}),\
                     patch('sys.argv',['benchmark','preflight','--models','astra']),\
+                    patch.dict(os.environ),\
                     patch.object(benchmark.subprocess,'run',return_value=SimpleNamespace(returncode=1)):
                 with self.assertRaises(SystemExit):benchmark.main()
             self.assertFalse(json.loads((target/'report.json').read_text())['passed'])
