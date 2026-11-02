@@ -7,11 +7,14 @@ the runtime and is never inferred here.
 """
 import json
 import os
+import queue
 import signal
 import subprocess
 import tempfile
+import threading
 import time
 import uuid
+import weakref
 from pathlib import Path
 from urllib.parse import urlsplit
 from robofrontier.claude.recovery import capacity_code
@@ -116,7 +119,7 @@ def _oauth_endpoint_allowed(base):
 
 def build_command(model, effort, mcp_config, prompt, session_id=None, max_budget_usd=None, binary='claude', resume=None,
                   fork_from=None, enable_robot=True, auth_mode='api_key', prompt_via_stdin=False, settings=None,
-                  system_prompt=None):
+                  system_prompt=None, stream_input=False):
     """Return argv for one headless turn.
 
     With `settings` (see `policy_settings`) a policy turn gets the bound robot tool plus
@@ -159,6 +162,9 @@ def build_command(model, effort, mcp_config, prompt, session_id=None, max_budget
         cmd += ['--max-budget-usd', str(max_budget_usd)]
     # Native runners stream the complete prompt to avoid per-argument OS limits.
     # Keep positional construction for existing direct build_command callers.
+    if stream_input:
+        # One long-lived process reads user messages as stream-json (PersistentSession).
+        return cmd + ['--input-format', 'stream-json']
     if prompt_via_stdin:
         cmd += ['--input-format', 'text', '--']
     else:
@@ -410,3 +416,154 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
         'stderr_tail': _redact(stderr, secret)[-1000:],
         'events_path': str(raw.relative_to(run_dir)),
     }
+
+
+def _stop_process(process):
+    if process is None or process.poll() is not None: return
+    try: process.stdin.close()
+    except (OSError, ValueError): pass
+    try: process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        try: os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError: pass
+        process.wait()
+
+
+# An interrupted turn has this long to end before its CLI process is closed (and, after
+# another 10 s, killed). Hosts wait up to STOP_WAIT_S for every role to stop.
+INTERRUPT_GRACE_S = 30
+STOP_WAIT_S = INTERRUPT_GRACE_S + 15
+
+
+class PersistentSession:
+    """Run one policy session's turns through a single long-lived CLI process.
+
+    `claude -p --input-format stream-json` keeps the session and its robot MCP server
+    alive between turns, as the Codex app-server does. Each call writes one user
+    message, reads events until that turn's result and returns a record shaped like
+    run_turn's. A stop or deadline interrupts the turn instead of killing the process;
+    its outcome is still unknown. A dead process is replaced on the next turn with
+    --resume, continuing the same transcript.
+
+    --max-budget-usd binds at process launch, so a turn with a per-turn budget, a
+    fork-creation turn and a tool-free turn close the live process and use run_turn.
+    Reported cost is cumulative for the session: each turn is charged its increase
+    over the previous report of the same process (the first turn of a process over
+    the native transcript's recorded total, as run_turn does).
+    """
+    def __init__(self, interrupt_grace_s=INTERRUPT_GRACE_S):
+        self.interrupt_grace_s = interrupt_grace_s
+        self.process = None; self.events = None; self.stderr = []; self.secret = None
+        self.reported_total = None
+        self.lock = threading.Lock()
+        self._finalizer = None
+
+    def close(self):
+        with self.lock:
+            _stop_process(self.process); self.process = None
+
+    def _start(self, profile, model, effort, mcp_config, run_dir, base_env, binary, session_id, resume):
+        config_dir = config_directory(run_dir, profile)
+        if profile.get('auth_mode') != 'native_login':
+            config_dir.mkdir(parents=True, exist_ok=True)
+        cmd = build_command(model, effort, mcp_config, None, session_id, None, binary, resume,
+                            auth_mode=profile.get('auth_mode', 'api_key'), settings=policy_settings(run_dir),
+                            system_prompt=policy_system_prompt(run_dir), stream_input=True)
+        env = build_env(profile, base_env, config_dir)
+        launch = Path(run_dir)/'private/inputs/claude.json'
+        frozen = json.loads(launch.read_text()) if launch.is_file() else {}
+        if frozen.get('auto_compact_token_limit'):
+            env['CLAUDE_CODE_AUTO_COMPACT_WINDOW'] = str(int(frozen['auto_compact_token_limit'])+CLAUDE_COMPACT_BUFFER)
+        try:
+            self.reported_total = baseline(config_dir, resume) if resume else amount(0)
+        except ValueError:
+            self.reported_total = None
+        self.process = subprocess.Popen(cmd, cwd=policy_cwd(run_dir), env=env, text=True,
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        start_new_session=True, bufsize=1)
+        self.events, self.stderr = queue.Queue(), []
+        process, events, stderr = self.process, self.events, self.stderr
+        def read_stdout():
+            with process.stdout:
+                for line in process.stdout: events.put(line)
+            events.put(None)
+        def read_stderr():
+            with process.stderr:
+                for line in process.stderr: stderr.append(line); del stderr[:-200]
+        threading.Thread(target=read_stdout, daemon=True).start()
+        threading.Thread(target=read_stderr, daemon=True).start()
+        if self._finalizer: self._finalizer.detach()
+        self._finalizer = weakref.finalize(self, _stop_process, process)
+
+    def _write(self, message):
+        self.process.stdin.write(json.dumps(message) + '\n'); self.process.stdin.flush()
+
+    def __call__(self, profile, model, effort, mcp_config, prompt, run_dir, base_env, session_id=None, timeout=None,
+                 max_budget_usd=None, binary='claude', resume=None, events_name='events.jsonl', cancel_event=None,
+                 actor=None, phase='policy', **one_shot):
+        if (max_budget_usd is not None or one_shot.get('fork_from') or one_shot.get('enable_robot') is False
+                or policy_settings(run_dir) is None):
+            self.close()
+            return run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env, session_id=session_id,
+                            timeout=timeout, max_budget_usd=max_budget_usd, binary=binary, resume=resume,
+                            events_name=events_name, cancel_event=cancel_event, actor=actor, phase=phase, **one_shot)
+        run_dir = Path(run_dir).resolve()
+        evidence = run_layout.path(run_dir, 'engine_turns', 'claude'); evidence.mkdir(parents=True, exist_ok=True)
+        if cancel_event is not None and cancel_event.is_set():
+            raise PreLaunchCancelled('Claude turn cancelled before launch')
+        with self.lock:
+            self.secret = base_env.get(profile.get('env_key')) if profile.get('env_key') else None
+            if self.process is None or self.process.poll() is not None:
+                # A new process continues the transcript; only the first turn creates it.
+                self._start(profile, model, effort, mcp_config, run_dir, base_env, binary,
+                            session_id, None if session_id else resume)
+            before = self.reported_total
+            began = time.monotonic()
+            host_event(run_dir, 'cli_turn_started', actor=actor, session_id=session_id or resume,
+                       events_name=events_name, phase=phase, transport='persistent', pid=self.process.pid)
+            self._write({'type': 'user', 'message': {'role': 'user', 'content': prompt}})
+            lines, status, interrupted_at = [], None, None
+            deadline = None if timeout is None else began + timeout
+            while status is None:
+                stopping = (cancel_event is not None and cancel_event.is_set()) or (deadline and time.monotonic() >= deadline)
+                if stopping and interrupted_at is None:
+                    interrupted_at = time.monotonic()
+                    try: self._write({'type': 'control_request', 'request_id': uuid.uuid4().hex, 'request': {'subtype': 'interrupt'}})
+                    except (OSError, ValueError): pass
+                if interrupted_at and time.monotonic() - interrupted_at > self.interrupt_grace_s:
+                    _stop_process(self.process)
+                    status = 'cancelled' if cancel_event is not None and cancel_event.is_set() else 'timeout'
+                    break
+                try: line = self.events.get(timeout=.25)
+                except queue.Empty: continue
+                if line is None:
+                    status = 'process_exited'; break
+                lines.append(line)
+                try: event = json.loads(line)
+                except ValueError: continue
+                if event.get('type') == 'result':
+                    status = 'exited' if interrupted_at is None else (
+                        'cancelled' if cancel_event is not None and cancel_event.is_set() else 'timeout')
+            text = _redact(''.join(lines), self.secret)
+            raw = evidence / events_name
+            fd = os.open(raw, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, 'w') as output:
+                os.fchmod(output.fileno(), 0o600); output.write(text)
+            summary = summarize(text.splitlines())
+            invocation_cost(summary, before)
+            raw_total = amount(summary.get('native_session_total_cost_usd'))
+            self.reported_total = raw_total if raw_total is not None and status == 'exited' else None
+            if status != 'exited': summary['turn_status'] = 'unknown'
+            duration = time.monotonic() - began
+            # 'exited' with exit code 0 means this turn's result arrived; the process stays up.
+            exit_code = 0 if status == 'exited' else self.process.poll()
+            host_event(run_dir, 'cli_turn_completed', actor=actor, session_id=summary.get('session_id'),
+                       events_name=events_name, phase=phase, duration_s=duration, usage=summary.get('usage'),
+                       reported_cost_usd=summary.get('total_cost_usd'),
+                       native_session_total_cost_usd=summary.get('native_session_total_cost_usd'),
+                       cost_scope=summary.get('cost_scope'), model_usage=summary.get('model_usage'),
+                       process=status, exit_code=exit_code, transport='persistent')
+            return {'duration_s': duration, 'process': status, 'exit_code': exit_code, 'transport': 'persistent',
+                    'requested_session_id': session_id or resume, 'summary': summary,
+                    'stderr_tail': _redact(''.join(self.stderr), self.secret)[-1000:],
+                    'events_path': str(raw.relative_to(run_dir))}

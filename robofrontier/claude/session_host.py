@@ -15,7 +15,7 @@ import sys
 import threading
 import uuid
 
-from robofrontier.claude.runner import PreLaunchCancelled, run_turn
+from robofrontier.claude.runner import PersistentSession, PreLaunchCancelled, policy_settings, run_turn
 from robofrontier.run_setup import verify_inputs, write_json
 from robofrontier.claude.recovery import MAX_CAPACITY_RETRIES, recover, recover_model_loss
 from robofrontier import run_layout
@@ -62,7 +62,7 @@ class ClaudeSessionHost:
     """Own one policy role's CLI turns; lifecycle events are never task results."""
     def __init__(self, run_dir, actor, profile, base_env, *, python=sys.executable,
                  binary='claude', turn_timeout=None, max_budget_usd=None, total_budget_usd=None,
-                 budget_ledger=None, runner=run_turn, _validated_delegate=False,
+                 budget_ledger=None, runner=None, _validated_delegate=False,
                  max_capacity_retries=MAX_CAPACITY_RETRIES):
         self.run = Path(run_dir).resolve()
         self.actor = actor
@@ -85,6 +85,10 @@ class ClaudeSessionHost:
         self.reported_spend = Decimal('0')
         self.unreported_cost_count = 0
         self.budget_status = 'tracking' if total_budget is not None or budget_ledger is not None else 'not_set'
+        # Runs with the frozen policy contract keep one CLI process per session, as the
+        # Codex app-server does; earlier runs start one process per turn.
+        if runner is None:
+            runner = PersistentSession() if policy_settings(self.run) is not None else run_turn
         self.runner = runner
         self.mcp = role_mcp_config(self.run, actor, python, _validated_delegate=_validated_delegate)
         self.session_id = str(uuid.uuid4())
@@ -246,8 +250,9 @@ class ClaudeSessionHost:
             summary = record.get('summary') or {}
             # The CLI died mid-turn (not a stop or deadline): it exited without a result. In
             # a run prepared with a restart notice that is a failed turn the session may resume.
-            self.cli_lost = (not self.cancel_event.is_set() and record.get('process') == 'exited'
-                             and record.get('exit_code') not in (0, None)
+            self.cli_lost = (not self.cancel_event.is_set()
+                             and (record.get('process') == 'process_exited'
+                                  or record.get('process') == 'exited' and record.get('exit_code') not in (0, None))
                              and summary.get('turn_status') not in ('ended', 'failed')
                              and (self.run/'private/inputs/bootstrap/model-restart.md').is_file())
             if self.cli_lost: state = 'error'
@@ -338,6 +343,10 @@ class ClaudeSessionHost:
         if worker:
             worker.join(timeout)
         return self.observe()
+
+    def close_process(self):
+        """Close a persistent CLI process, if any; its transcript stays resumable."""
+        if hasattr(self.runner, 'close'): self.runner.close()
 
     def stop(self):
         """Request termination of an active turn; physical state still needs sealing."""

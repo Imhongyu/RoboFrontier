@@ -190,10 +190,14 @@ class StandingTeamPolicyHost:
                 host.stop()
             except Exception as error:
                 errors.append(type(error).__name__)
-        try:
-            self.host.wait(timeout=5)
-        except Exception as error:
-            errors.append(type(error).__name__)
+        # One absolute deadline for every standing role (runner.STOP_WAIT_S).
+        from robofrontier.claude.runner import STOP_WAIT_S
+        deadline = time.monotonic() + STOP_WAIT_S
+        for host in self.hosts.values():
+            try:
+                host.wait(timeout=max(0, deadline - time.monotonic()))
+            except Exception as error:
+                errors.append(type(error).__name__)
         if errors or any(h.observe()['status'] == 'active' for h in self.hosts.values()):
             raise RuntimeError('At least one standing role did not stop; review before closure')
         return {'stop_requested': True, 'roles': len(self.hosts)}
@@ -201,4 +205,6 @@ class StandingTeamPolicyHost:
     def close(self):
         if any(h.observe()['status'] == 'active' for h in self.hosts.values()):
             raise ValueError('Stop and wait for every standing role before closing')
+        for host in self.hosts.values():
+            if hasattr(host, 'close_process'): host.close_process()
         self.store.close()

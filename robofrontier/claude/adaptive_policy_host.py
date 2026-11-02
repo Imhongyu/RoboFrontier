@@ -85,7 +85,10 @@ class AdaptivePolicyHost:
         for host in hosts:
             try: host.stop()
             except Exception as error: errors.append(type(error).__name__)
-        deadline=time.monotonic()+5
+        # One absolute deadline for every role: an interrupted persistent turn has
+        # INTERRUPT_GRACE_S to end, then its process closes (runner.STOP_WAIT_S).
+        from robofrontier.claude.runner import STOP_WAIT_S
+        deadline=time.monotonic()+STOP_WAIT_S
         if self.dispatcher and not self.dispatcher.wait_setup(timeout=max(0,deadline-time.monotonic())):
             errors.append('ForkSetupStillActive')
         for host in hosts:
@@ -102,4 +105,6 @@ class AdaptivePolicyHost:
         hosts=[self.host]+list(self.setup.hosts.values() if self.setup else [])
         if any(host.observe()['status']=='active' for host in hosts):
             raise ValueError('Stop and wait for every role before closing')
+        for host in hosts:
+            if hasattr(host,'close_process'): host.close_process()
         self.store.close()

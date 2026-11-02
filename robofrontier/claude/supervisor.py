@@ -130,7 +130,8 @@ class CentralizedSupervisor:
             try:
                 self.policy.stop()
                 if hasattr(self.policy.host, 'wait'):
-                    self.policy.host.wait(timeout=5)
+                    from robofrontier.claude.runner import STOP_WAIT_S
+                    self.policy.host.wait(timeout=STOP_WAIT_S)
             except Exception as error:
                 error_type = error_type or type(error).__name__
             try:

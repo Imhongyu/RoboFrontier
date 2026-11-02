@@ -81,4 +81,5 @@ class CentralizedPolicyHost:
     def close(self):
         if self.host.observe()['status'] == 'active':
             raise ValueError('Stop and wait for the active policy turn before closing')
+        if hasattr(self.host, 'close_process'): self.host.close_process()
         self.store.close()
