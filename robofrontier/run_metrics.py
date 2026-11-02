@@ -165,6 +165,55 @@ def _union(intervals):
     return total
 
 
+def claude_pricing():
+    """List prices from configs/claude-models.json, for estimates only."""
+    from .task_config import ROOT
+    return json.loads((ROOT/'configs/claude-models.json').read_text()).get('pricing') or {}
+
+
+def claude_transcript_cost(run, pricing=None):
+    """A list-price estimate of every Claude request in the run's own transcripts.
+
+    The CLI reports cost only when a turn completes, so a turn cut off by the wall limit
+    or a stop has none. Each assistant message's usage is priced once (transcripts repeat
+    it per content block), main sessions and their sub-agent transcripts alike."""
+    pricing = claude_pricing() if pricing is None else pricing
+    try: folder = run_layout.path(run, 'engine_config', 'claude')/'projects'
+    except KeyError: return None
+    if not folder.is_dir(): return None
+    messages = {}
+    for path in session_glob(folder, '*.jsonl'):
+        with open_session(path) as stream:
+            for line in stream:
+                if '"usage"' not in line: continue
+                try: message = json.loads(line).get('message') or {}
+                except ValueError: continue
+                if isinstance(message.get('usage'), dict) and message.get('id'):
+                    messages[message['id']] = (message.get('model'), message['usage'])
+    total, unpriced, tokens = 0., set(), Counter()
+    for model, used in messages.values():
+        rates = (pricing.get('models') or {}).get(model)
+        reads = used.get('cache_read_input_tokens') or 0
+        writes = used.get('cache_creation') or {}
+        w5 = writes.get('ephemeral_5m_input_tokens', used.get('cache_creation_input_tokens') or 0) or 0
+        w1 = writes.get('ephemeral_1h_input_tokens') or 0
+        fresh, out = used.get('input_tokens') or 0, used.get('output_tokens') or 0
+        tokens.update(input_tokens=fresh, cache_read_input_tokens=reads, cache_write_5m_input_tokens=w5,
+                      cache_write_1h_input_tokens=w1, output_tokens=out)
+        if not rates:
+            unpriced.add(model); continue
+        prompt = fresh+reads+w5+w1
+        long = prompt > rates.get('long_prompt_threshold_tokens', float('inf'))
+        scale = rates['long_prompt_input']/rates['input'] if long else 1.
+        base = rates['long_prompt_input'] if long else rates['input']
+        output = rates['long_prompt_output'] if long else rates['output']
+        total += (fresh*base + reads*rates['cache_read']*scale + w5*base*pricing.get('cache_write_5m_multiplier', 1.25)
+                  + w1*base*pricing.get('cache_write_1h_multiplier', 2.) + out*output)/1e6
+    return {'estimated_cost_usd': round(total, 6) if not unpriced else None, 'priced_requests': len(messages),
+            'tokens': dict(tokens), 'unpriced_models': sorted(m for m in unpriced if m) or [],
+            'basis': 'Transcript token usage at list price ('+pricing.get('source', 'no price source')+'); an estimate, not a provider bill'}
+
+
 def export_metrics(run, engine):
     """Count actual host events, including setup; deduplicate terminal event identities."""
     events = _records(run_layout.path(run, 'host_log', engine))
@@ -237,13 +286,22 @@ def export_metrics(run, engine):
     started = {e.get('events_name') for e in events if e.get('event') == 'cli_turn_started'}
     unfinished = len(started-seen) if engine == 'claude' else None
     complete = not legacy and not malformed and not unfinished
+    reported = sum(costs) if costs else None
+    estimate = claude_transcript_cost(run) if engine == 'claude' else None
+    cost_complete = bool(rows) and len(costs) == len(rows) and complete
     return {'schema': 'robofrontier.run-metrics.v1', 'engine': engine, 'usage': totals,
             'known_usage_subtotals': known_usage,
             'by_actor': by_actor, 'evidence_scope': 'legacy_policy_only' if legacy else 'host_observed',
             'cache_hit_rate': totals['cached_input_tokens']/totals['input_tokens']
                 if totals['input_tokens'] and totals['cached_input_tokens'] is not None else None,
-            'reported_cost_usd': sum(costs) if costs else None,
-            'cost_complete': bool(rows) and len(costs) == len(rows) and complete,
+            'reported_cost_usd': reported,
+            'cost_complete': cost_complete,
+            # Turns cut off by the wall limit or a stop report no cost; the transcripts still
+            # record their tokens. The estimate covers every request, so the unreported part
+            # is what it adds beyond the reported cost.
+            'transcript_cost_estimate': estimate,
+            'estimated_unreported_cost_usd': (max(0., round(estimate['estimated_cost_usd']-(reported or 0.), 6))
+                                              if not cost_complete and estimate and estimate['estimated_cost_usd'] is not None else None),
             'rows': rows, 'phase_counts': {p: sum(r['phase'] == p for r in rows) for p in sorted({r['phase'] for r in rows})},
             'row_unit': 'cli_turn' if engine == 'claude' else 'token_usage_update',
             'unfinished_cli_turns': unfinished,
