@@ -161,6 +161,10 @@ def execute(store, op, data, owner, now):
         if data['outcome']=='sent':
             health=store.get('dispatcher_health',{});health['last_delivery_at']=now;store.put('dispatcher_health',health)
         return {'recorded':True}
+    if op=='model-restart':
+        from .policy_bootstrap import MAX_MODEL_RESTARTS
+        count=store.claim_model_restart(data.get('actor',cfg['manager']),data.get('engine','codex'),MAX_MODEL_RESTARTS)
+        return {'allowed':count is not None,'restart':count}
     if op=='pause':
         store.put('dispatch_paused',True);store.event('DISPATCH_PAUSED',cfg['manager'],data)
         return {'paused':True}
@@ -178,7 +182,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--run-dir',type=Path,required=True)
     p.add_argument('--owner',default='Meta')
-    p.add_argument('op',choices=['snapshot','observe-sessions','request-start','plan','claim','dispatch-result','pause','resume-dispatch','export',
+    p.add_argument('op',choices=['snapshot','observe-sessions','request-start','plan','claim','dispatch-result','pause','resume-dispatch','export','model-restart',
                                'delegate-claim','delegate-snapshot-bind','delegate-bind','delegate-activate','delegate-started','delegate-uncertain','session-unavailable','seal'])
     p.add_argument('--data',default='{}')
     args=p.parse_args()

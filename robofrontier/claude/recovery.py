@@ -82,3 +82,36 @@ def recover(host, store, now=None):
             host.state = 'unknown'
             raise
         return True
+
+
+def recover_model_loss(host, store):
+    """Resume a session whose CLI died mid-turn while the world kept running.
+
+    The robot calls that turn started keep running in the world, so the same session
+    resumes once this role has no action in flight, with the frozen restart notice the
+    Codex route also sends. The run allows MAX_MODEL_RESTARTS in total.
+    """
+    from robofrontier.policy_bootstrap import MAX_MODEL_RESTARTS
+    notice = host.run/'private/inputs/bootstrap/model-restart.md'
+    with host.lock:
+        if (host.state != 'error' or not getattr(host, 'cli_lost', False) or not notice.is_file()
+                or host.cancel_event.is_set() or run_layout.path(host.run, 'stop', 'claude').exists()
+                or store.get('lifecycle') != 'running' or store.get('dispatch_paused', False)):
+            return False
+        if host.budget_status not in ('tracking', 'not_set'): return False
+        busy = any(a['status'] in ('pending', 'running', 'uncertain') for a in store.actions(host.actor).values())
+        busy = busy or bool(store.db.execute("SELECT 1 FROM calls WHERE actor=? AND status='accepted' LIMIT 1",
+                                            (host.actor,)).fetchone())
+        if busy: return True
+        restart = store.claim_model_restart(host.actor, 'claude', MAX_MODEL_RESTARTS)
+        if restart is None:
+            return False
+        host.cli_lost = False
+        host.state = 'idle'  # The same session resumes; it is never recreated.
+        host.event('model_host_restart', attempt=restart)
+        try:
+            host.send(notice.read_text())
+        except Exception:
+            host.state = 'unknown'
+            raise
+        return True

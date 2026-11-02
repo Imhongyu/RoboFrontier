@@ -17,7 +17,7 @@ import uuid
 
 from robofrontier.claude.runner import PreLaunchCancelled, run_turn
 from robofrontier.run_setup import verify_inputs, write_json
-from robofrontier.claude.recovery import MAX_CAPACITY_RETRIES, recover
+from robofrontier.claude.recovery import MAX_CAPACITY_RETRIES, recover, recover_model_loss
 from robofrontier import run_layout
 
 ACTOR_NAME = re.compile(r'[A-Za-z][A-Za-z0-9_-]{0,63}')
@@ -98,6 +98,7 @@ class ClaudeSessionHost:
             raise ValueError('Capacity retries must be 0..10')
         self.max_capacity_retries = max_capacity_retries
         self.capacity_retry_count = 0
+        self.cli_lost = False
         self.capacity_retry_due = None
         self.retryable_capacity = False
 
@@ -106,7 +107,8 @@ class ClaudeSessionHost:
         host_event(self.run, event, actor=self.actor, session_id=self.session_id, turn_id=self.turn_id, **fields)
 
     def recover_capacity(self, store, now=None):
-        return recover(self, store, now)
+        """Resume after a capacity failure or a lost CLI; False leaves ordinary handling."""
+        return recover(self, store, now) or recover_model_loss(self, store)
 
     @classmethod
     def adopt_verified_fork(cls, run_dir, actor, profile, base_env, *, budget_ledger, max_budget_usd,
@@ -242,6 +244,13 @@ class ClaudeSessionHost:
             if self.cancel_event.is_set():
                 state = 'unknown'
             summary = record.get('summary') or {}
+            # The CLI died mid-turn (not a stop or deadline): it exited without a result. In
+            # a run prepared with a restart notice that is a failed turn the session may resume.
+            self.cli_lost = (not self.cancel_event.is_set() and record.get('process') == 'exited'
+                             and record.get('exit_code') not in (0, None)
+                             and summary.get('turn_status') not in ('ended', 'failed')
+                             and (self.run/'private/inputs/bootstrap/model-restart.md').is_file())
+            if self.cli_lost: state = 'error'
             retryable = (state == 'error' and record.get('process') == 'exited'
                          and summary.get('session_id') == self.session_id
                          and summary.get('turn_status') == 'failed'
@@ -249,7 +258,8 @@ class ClaudeSessionHost:
                          and not summary.get('malformed_lines') and bool(summary.get('capacity_error_code')))
             if self.budget_ledger is not None:
                 summary = record.get('summary') or {}
-                known = (not self.cancel_event.is_set() and record.get('process') == 'exited'
+                # A lost CLI's turn has ended; only its cost is unknown (counted as unreported).
+                known = self.cli_lost or (not self.cancel_event.is_set() and record.get('process') == 'exited'
                          and (record.get('exit_code') == 0 or retryable)
                          and summary.get('session_id') == self.session_id
                          and summary.get('turn_status') in ('ended', 'failed')

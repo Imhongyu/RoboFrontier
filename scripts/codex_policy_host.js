@@ -114,7 +114,9 @@ class PolicyHost {
   }
   async startServer() {
     const log=fs.openSync(this.hostPath('server_log'),'a');
-    this.rpc=new CodexRpc(this.launch.args,{stderr:log,onRequest:(m,p)=>this.toolRequest(m,p),onEvent:m=>{
+    this.rpcLost=false;
+    this.rpc=new CodexRpc(this.launch.args,{stderr:log,onRequest:(m,p)=>this.toolRequest(m,p),
+      onExit:(code,signal)=>{this.rpcLost=true;this.event({event:'model_host_exited',exit_code:code,signal});},onEvent:m=>{
       const p=m.params||{};
       const turnId=p.turnId || p.turn?.id, turnKey=p.threadId+':'+turnId;
       if (m.method==='turn/started') this.turnStarted.set(turnKey,Date.now());
@@ -250,6 +252,22 @@ Use your assigned native session and bound robot tools. Read public task evidenc
       }
     }
   }
+  // Only the app-server stopped; the world never did. Start a new one, reopen every
+  // role's own thread and send each working role the frozen restart notice.
+  async restartModelHost() {
+    await this.startServer();
+    const notice=fs.readFileSync(path.join(this.run,'private/inputs/bootstrap/model-restart.md'),'utf8');
+    const snapshot=await this.admin('snapshot');
+    for (const [actor,agent] of Object.entries(snapshot.agents)) {
+      if (agent.kind==='manager' || !agent.thread_id) continue;
+      await this.rpc.call('thread/resume',{threadId:agent.thread_id,cwd:this.hostPath('policy_cwd'),model:this.launch.model,
+        modelProvider:this.launch.provider,approvalPolicy:'never',baseInstructions:frozenText(this.run,'system.md')??undefined,
+        config:{web_search:'disabled','features.multi_agent':false}},STARTUP_ACK_MS);
+      this.actors.set(agent.thread_id,actor);
+      this.event({event:'role_resumed',actor,thread_id:agent.thread_id});
+      if (agent.kind!=='delegate' || agent.delegation_state==='active') await this.send(agent.thread_id,notice);
+    }
+  }
   async bindInitialRole(actor, id) {
     const connection=path.join(this.run,'private/state/connections/Meta.json');
     const {stdout}=await execFileAsync(this.python,['-m','robofrontier.pipeline_client','--quiet',
@@ -301,10 +319,25 @@ Use your assigned native session and bound robot tools. Read public task evidenc
         mcp__codex_app__send_message_to_thread:async p=>wrap(await this.send(p.threadId,p.prompt)),
         mcp__codex_app__set_thread_title:async p=>{await this.rpc.call('thread/name/set',{threadId:p.threadId,name:p.title});return wrap({threadId:p.threadId});},
         mcp__codex_app__fork_thread:async p=>createNativeFork(p)};
-      return await runMetaDispatcher({runDir:this.run,python:this.python,cwd:this.cwd,tools,
-        startWhenReady:true,observationSource:'codex.app-server',onEvent:e=>this.event(e),
-        createSnapshot:async p=>JSON.parse((await createNativeFork(p,true)).content[0].text),
-        stopRequested:()=>this.stopRequested()});
+      // A run prepared with a restart notice survives its app-server stopping, up to the
+      // run's allowance (runtime model-restart, shared with the Claude route); the world
+      // keeps running throughout and the dispatcher keeps one owner.
+      const restartable=frozenText(this.run,'model-restart.md')!==null;
+      const owner='meta-'+Date.now()+'-'+Math.random().toString(16).slice(2);
+      for (;;) {
+        let outcome;
+        try {
+          outcome=await runMetaDispatcher({runDir:this.run,python:this.python,cwd:this.cwd,tools,owner,
+            startWhenReady:true,observationSource:'codex.app-server',onEvent:e=>this.event(e),
+            createSnapshot:async p=>JSON.parse((await createNativeFork(p,true)).content[0].text),
+            stopRequested:()=>this.stopRequested()||this.rpcLost});
+        } catch (error) { if (!this.rpcLost) throw error; }
+        if (!this.rpcLost || this.stopRequested()) return outcome;
+        const claim=restartable?await this.admin('model-restart',{actor:'Meta',engine:'codex'}):{allowed:false};
+        if (!claim.allowed) throw new Error('Codex app-server stopped; model restarts unavailable or exhausted');
+        this.event({event:'model_host_restart',attempt:claim.restart});
+        await this.restartModelHost();
+      }
     } catch(error) {
       // Kept for the report: a failing seal below would otherwise replace this error.
       failure=error;this.event({event:'host_error',message:error.message});throw error;

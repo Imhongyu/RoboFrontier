@@ -33,9 +33,10 @@ function codexAdapter(tools) {
     adapter.title = async params => decode(await tools.mcp__codex_app__set_thread_title(params));
   return adapter;
 }
-async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAdapter(tools), onEvent = () => {}, stopRequested = () => false, maxCycles = Infinity, startWhenReady = false, observationSource = 'codex.wait_threads', createSnapshot}) {
+async function runMetaDispatcher({runDir, python, cwd, tools, adapter = codexAdapter(tools), onEvent = () => {}, stopRequested = () => false, maxCycles = Infinity, startWhenReady = false, observationSource = 'codex.wait_threads', createSnapshot, owner: givenOwner = null}) {
   const quote = value => "'" + String(value).replaceAll("'", "'\\''") + "'";
-  const owner = 'meta-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  // A host that restarts its model process keeps one owner, so it keeps its scheduler lease.
+  const owner = givenOwner || 'meta-' + Date.now() + '-' + Math.random().toString(16).slice(2);
   const cursors = new Map();
   const failures = new Map();
   let statusPaused = false;

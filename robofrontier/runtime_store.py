@@ -410,6 +410,20 @@ class RuntimeStore:
             self.event('EXECUTION_OUTCOME_UNCERTAIN','Meta',value)
             return value
 
+    def claim_model_restart(self, actor, engine, maximum):
+        """Count one restart of a lost model process; None once the run's allowance is used.
+
+        The count belongs to the run, not to a role or host process, so every role,
+        both engines and any later segment share one allowance.
+        """
+        with self.transaction():
+            count = self.get('model_restarts', 0)
+            if count >= maximum:
+                return None
+            self.put('model_restarts', count+1)
+            self.event('MODEL_RESTARTED', actor, {'engine': engine, 'restart': count+1, 'maximum': maximum})
+            return count+1
+
     def isolate_stopping_action(self, call_id, reason):
         """Keep the live world running while one known stopped command settles."""
         with self.transaction():

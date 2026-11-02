@@ -9,7 +9,7 @@ class RpcError extends Error {
   constructor(value) { super(value.message); this.detail = value; }
 }
 class CodexRpc {
-  constructor(args = [], {stderr = 'ignore', onEvent = () => {}, onRequest} = {}) {
+  constructor(args = [], {stderr = 'ignore', onEvent = () => {}, onRequest, onExit = () => {}} = {}) {
     this.next = 0; this.pending = new Map(); this.onEvent = onEvent;
     this.process = spawn('codex', ['app-server', ...args, '--listen', 'stdio://'],
       {stdio:['pipe','pipe',stderr]});
@@ -18,7 +18,11 @@ class CodexRpc {
       this.pending.clear(); this.closed = true;
     };
     this.process.on('error', fail);
-    this.process.on('exit', code => fail(new Error('Codex app-server exited: '+code)));
+    this.process.on('exit', (code, signal) => {
+      // onExit reports only an exit the host did not ask for.
+      const unexpected = !this.closing; fail(new Error('Codex app-server exited: '+code));
+      if (unexpected) onExit(code, signal);
+    });
     readline.createInterface({input:this.process.stdout}).on('line', async line => {
       let message;
       try { message = JSON.parse(line); } catch { return; }
@@ -58,6 +62,7 @@ class CodexRpc {
     this.write({method:'initialized'}); return result;
   }
   async close() {
+    this.closing = true;
     if (this.closed) return;
     const exited = new Promise(resolve => this.process.once('exit',resolve));
     this.process.kill('SIGTERM');
