@@ -17,6 +17,19 @@ from scripts import benchmark
 
 
 class CliBenchmarkTests(unittest.TestCase):
+    def test_native_subscription_launch_disables_inherited_mcp_without_changing_home(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); home = root/'native'; home.mkdir()
+            config = home/'config.toml'
+            content = '[mcp_servers.personal]\ncommand="unused"\n[profiles.other.mcp_servers.extra]\ncommand="unused"\n'
+            config.write_text(content)
+            output = root/'preflight'; output.mkdir()
+            with patch.dict(os.environ, {'CODEX_HOME':str(home)}):
+                result = launch_config(profile('luna_subscription'), output)
+            self.assertIn('mcp_servers.personal.enabled=false', result['args'])
+            self.assertIn('profiles.other.mcp_servers.extra.enabled=false', result['args'])
+            self.assertEqual(config.read_text(), content)
+
     def test_profile_selected_standing_workers_use_direct_team_start(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary)

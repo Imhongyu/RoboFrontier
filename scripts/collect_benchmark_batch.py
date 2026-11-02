@@ -3,6 +3,8 @@
 Run in the same filesystem/container environment as the runner. This is an
 evidence collector, not a score validator or an authentication backup.
 """
+from robofrontier.claude.native_home import history_directory
+from robofrontier.run_setup import write_json
 import argparse
 from contextlib import ExitStack
 import fcntl
@@ -184,6 +186,13 @@ def collect_batch(batch_path, output, *, codex_home=None):
         status = state_jobs.get((job.get('profile'), case), job).get('status')
         if status not in TERMINAL:
             raise ValueError('Job may still be writing: ' + str(run))
+        if engine == 'claude':
+            launch_file = run/'private/inputs/claude.json'
+            selected = load(launch_file).get('profile', {}) if launch_file.is_file() else {}
+            auth_home = selected.get('native_config_dir')
+            if (selected.get('auth_mode') == 'native_login' and isinstance(auth_home, str)
+                    and Path(auth_home).resolve().is_relative_to(batch_path)):
+                raise ValueError('Keep the native authentication home outside the evidence batch')
         runs.append((job, run, status))
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix='.rf-collection-', dir=output.parent))
@@ -247,7 +256,7 @@ def collect_batch(batch_path, output, *, codex_home=None):
                     if not isinstance(tid, str) or not ID.fullmatch(tid):
                         issues.append(str(actor)+': missing or invalid session id')
                         continue
-                    config = run/'private/claude-config'
+                    config = history_directory(run)
                     matches = list(config.glob('projects/*/'+tid+'.jsonl')) if engine == 'claude' else list((home/'sessions').rglob('*'+tid+'.jsonl'))
                     native_queries.append((config if engine == 'claude' else home/'sessions', tid, sorted(matches)))
                     if len(matches) != 1:
@@ -280,6 +289,17 @@ def collect_batch(batch_path, output, *, codex_home=None):
                             hashes[original_rel.as_posix()] = copy_stable(extra, temporary/original_rel)
                 if not roles:
                     issues.append('no recorded policy role sessions')
+                if engine == 'claude':
+                    launch_file = run/'private/inputs/claude.json'
+                    launch = load(launch_file) if launch_file.is_file() else {}
+                    if launch.get('profile', {}).get('auth_mode') == 'native_login':
+                        relative = Path('batch')/run.relative_to(batch_path)/'private/state/claude-collected-sessions.json'
+                        marker = temporary/relative
+                        if not marker.exists():
+                            write_json(marker, {'schema':'robofrontier.claude-collected-sessions.v1',
+                                                'writers_stopped':True,
+                                                'session_ids':[role['thread_id'] for role in roles]})
+                        hashes[relative.as_posix()] = digest(marker)
                 # Snapshot anchors are not policy actors, but are required to
                 # reconstruct and audit the native lineage of their delegates.
                 if engine == 'codex':

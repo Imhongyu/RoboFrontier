@@ -18,6 +18,8 @@ from robofrontier.claude.policy_host import CentralizedPolicyHost
 from robofrontier.claude.adaptive_policy_host import AdaptivePolicyHost
 from robofrontier.claude.budget import BudgetLedger
 from robofrontier.claude.session_host import ClaudeSessionHost
+from robofrontier.claude.runner import build_env
+from robofrontier.claude.native_home import config_directory
 from robofrontier.claude.supervisor import CentralizedSupervisor
 from robofrontier.claude.standing_team import StandingTeamPolicyHost
 from robofrontier.run_seal import seal_run
@@ -68,7 +70,10 @@ def run_engineering(run_dir, base_env, *, turn_budget_usd=None, total_budget_usd
     topology = config.get('topology')
     if topology not in ('centralized', 'adaptive', 'hierarchical', 'peer') or config.get('engine') != 'claude':
         raise ValueError('Expected a supported Claude engineering draft')
-    if not base_env.get(profile['env_key']): raise ValueError('Missing credential variable: ' + profile['env_key'])
+    if profile.get('auth_mode') != 'native_login' and not base_env.get(profile['env_key']):
+        raise ValueError('Missing credential variable: ' + profile['env_key'])
+    if profile.get('auth_mode') == 'native_login':
+        build_env(profile, base_env, config_directory(run, profile))
     if (run / 'STOP').exists(): raise ValueError('Run was stopped before launch')
     host_factory = partial(ClaudeSessionHost, max_budget_usd=turn_budget_usd, total_budget_usd=total_budget_usd)
     policy = None

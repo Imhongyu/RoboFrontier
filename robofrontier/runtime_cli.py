@@ -51,8 +51,8 @@ def native_fork_provenance(store, parent, child):
     engine=store.get('config').get('engine','codex')
     if engine=='claude':
         from .claude.provenance import fork_provenance as claude_provenance
-        # One isolated Claude config directory per run, shared by every role session.
-        return claude_provenance(parent,child,store.path.parents[1]/'claude-config')
+        from .claude.native_home import history_directory
+        return claude_provenance(parent,child,history_directory(store.path.parents[2]))
     return fork_provenance(parent,child)
 
 

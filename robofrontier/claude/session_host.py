@@ -4,6 +4,7 @@ The supervisor creates one host per role. Native turns are asynchronous so the
 physical owner and deterministic scheduler can keep progressing. Unknown turn
 outcomes are terminal for this host: never issue another turn automatically.
 """
+from robofrontier.claude.native_home import history_directory
 import json
 import math
 import os
@@ -158,7 +159,7 @@ class ClaudeSessionHost:
                     raise ValueError('Delegate snapshot identity mismatch')
             elif source != claim['parent_session']:
                 raise ValueError('Delegate source identity mismatch')
-            if fork_provenance(source, claim['child_session'], run/'private/claude-config') != claim['proof']:
+            if fork_provenance(source, claim['child_session'], history_directory(run)) != claim['proof']:
                 raise ValueError('Fork history changed after verification')
             # A consumed claim survives crashes; an uncertain child is never resent.
             adopted = run/'private/claude-forks'/(actor+'.adopted')

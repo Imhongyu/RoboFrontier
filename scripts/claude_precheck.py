@@ -6,6 +6,7 @@ to answer, and a resumed turn on the same explicit session ID. Each check is
 judged from the turn result and robot-stub request count, not from the reply
 alone. A passing receipt covers only this profile, CLI version and cap.
 """
+from robofrontier.claude.native_home import history_directory, config_directory
 import argparse
 import http.server
 import json
@@ -144,7 +145,7 @@ def run_precheck(name, output, budget, base_env, binary='claude', check_fork=Fal
     run, mcp, server = setup_run(output, base_env)
     receipt = {'schema': 'robofrontier.claude-precheck.v1', 'profile': name, 'requested_model': prof['model'],
                'effort': prof['effort'], 'budget_usd': budget, 'claude_version': claude_version(binary),
-               'profile_sha256': fingerprint(prof),
+               'profile_sha256': fingerprint(prof), 'auth_mode': prof.get('auth_mode', 'api_key'),
                'started_at': time.time(), 'checks': [], 'stopped': None}
     spent = 0.0
     session = str(uuid.uuid4())
@@ -197,7 +198,7 @@ def run_precheck(name, output, budget, base_env, binary='claude', check_fork=Fal
                           'color_recalled':(summary.get('result_text') or '').strip().lower()==server.challenge_color,
                           'valid_events':summary.get('malformed_lines')==0}
                 try:
-                    proof=fork_provenance(session,child,run/'private/claude-config')
+                    proof=fork_provenance(session,child,history_directory(run, prof))
                     checks['native_history_prefix']=proof.get('source_thread_id')==session
                 except (ValueError,OSError):
                     checks['native_history_prefix']=False
@@ -243,7 +244,9 @@ def main():
         return 2
     if not math.isfinite(args.max_budget_usd) or args.max_budget_usd <= 0:
         raise SystemExit('Budget must be positive and finite')
-    if not os.environ.get(prof['env_key']):
+    if prof.get('auth_mode') == 'native_login':
+        config_directory('.', prof)
+    elif not os.environ.get(prof['env_key']):
         raise SystemExit('Missing credential variable: ' + prof['env_key'])
     stamp = time.strftime('%Y%m%d-%H%M%S')
     output = args.output or ROOT / 'runs/engineering/claude-precheck' / (args.profile + '-' + stamp)

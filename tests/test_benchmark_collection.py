@@ -93,6 +93,46 @@ class BenchmarkCollectionTests(unittest.TestCase):
             original=run/'private/evidence/turn.jsonl'
             self.assertEqual(original.read_bytes(),(root/'restored/batch/model/demo/private/evidence/turn.jsonl').read_bytes())
 
+    def test_managed_claude_home_collects_only_bound_native_sessions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); batch, run, sessions = self.make_batch(root, 'claude')
+            home = root / 'shared-native-home'
+            (run / 'private/claude-config').rename(home)
+            write(home / 'projects/another-project/unrelated.jsonl', {'private': 'UNRELATED_SESSION'})
+            write(run / 'private/inputs/claude.json', {'profile': {
+                'auth_mode': 'native_login', 'provider': 'anthropic', 'env_key': None,
+                'native_config_dir': str(home)}})
+            before = {p.relative_to(home): p.read_bytes() for p in home.rglob('*') if p.is_file()}
+            report = collect_batch(batch, root / 'export')
+            self.assertTrue(report['complete'])
+            self.assertEqual({r['thread_id'] for r in report['jobs'][0]['roles']}, {'parent', 'child'})
+            self.assertFalse(list((root / 'export').rglob('.credentials.json')))
+            self.assertFalse(list((root / 'export').rglob('unrelated.jsonl')))
+            self.assertEqual(before, {p.relative_to(home): p.read_bytes() for p in home.rglob('*') if p.is_file()})
+            create(root/'export', root/'archive')
+            verify(root/'archive', root/'restored')
+            # Archived provenance remains readable on a machine with no account.
+            from robofrontier.claude.native_home import history_directory, config_directory
+            home.rename(root/'retained-native-home')
+            restored = root/'restored/batch/model/demo'
+            copied = history_directory(restored)
+            self.assertEqual((copied/'projects/project/parent.jsonl').read_bytes(),
+                             before[Path('projects/project/parent.jsonl')])
+            with self.assertRaises(ValueError):
+                config_directory(restored)
+
+    def test_managed_auth_home_inside_batch_is_rejected_before_collection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); batch, run, _ = self.make_batch(root, 'claude')
+            home = batch/'native-auth'
+            (run/'private/claude-config').rename(home)
+            write(run/'private/inputs/claude.json', {'profile': {
+                'auth_mode':'native_login', 'provider':'anthropic', 'env_key':None,
+                'native_config_dir':str(home)}})
+            with self.assertRaisesRegex(ValueError, 'outside'):
+                collect_batch(batch, root/'export')
+            self.assertFalse((root/'export').exists())
+
     def test_snapshot_anchor_is_collected_without_becoming_a_policy_role(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);batch,run,sessions=self.make_batch(root)

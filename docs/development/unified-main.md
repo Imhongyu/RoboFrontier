@@ -2466,3 +2466,58 @@ provider invoice, and uncertain accounting is not automatically released for
 another paid trial. These real observations/actions are useful compatibility
 evidence, but they do not complete real delegation, handback, normal finish or
 formal scored qualification. No extra paid task is launched after this outcome.
+
+## Managed subscription login follow-up
+
+Main `8b75325` is published and clean. Its delivery image matches all 6,572
+tracked source files byte-for-byte in a read-only, network-disabled check;
+bootstrap verifies 3,467 assets. Atlas CI 41394281114 passes with publication
+disabled. Eleven prerelease attachments verify, with the original nine unchanged.
+Slurm 428948's 18,239 files also fully restore on the Mac. The separate 428931
+restore now completes all 20,487 files on Lustre, retaining 36 overlapping owners,
+72 bound native sessions and 16 overlapping motor actions. Its original
+needs_review/incomplete accounting status remains unchanged.
+
+The user explicitly extends the work to both local subscriptions and authorizes
+native login. Codex 0.165.0 is already signed in with ChatGPT Pro; its account
+catalog includes GPT-6 Luna. A zero-model-turn probe requests managed token
+refresh, verifies authenticated account access afterward, observes the native
+cache update, and verifies the same account in a fresh app-server process.
+No credentials are copied or returned in receipts. This is a local single-account
+refresh/persistence witness, not concurrent cluster or all-expiry qualification.
+
+Claude Code 2.1.312 initially has no native login. Its official subscription
+browser grant is explicitly approved by the user, and the unmodified CLI reports
+successful login with a Max account. A new native Haiku 5.5 text-only process
+reuses that login and reports a US$0.0008046 list-price estimate. No provider API
+key is supplied. The first login driver used unsuitable stdin; it is cancelled.
+A /dev/tty retry fails locally with Bun EINVAL; direct native CLI execution then
+completes the normal browser callback. Neither failed driver is a passing login
+or model check, and raw credentials are never extracted into the harness.
+
+Follow-up branch `codex/native-subscription-auth` adds distinct
+`luna_subscription` and `haiku_subscription` profiles. Native Claude login freezes
+an explicitly selected configuration directory, while API and explicit-token
+profiles retain their task-private directories. Launch, provenance and collection
+use the same selected native history. Stopped exports contain only bound sessions
+and a collection marker, so restored history remains readable without access to
+the account. Authentication homes inside evidence batches are rejected before
+collection. Formal Claude scoring remains closed.
+
+The new native-mode regressions first fail at unsupported mode/credential
+validation. Focused checks then pass, including a sentinel credential store left
+unchanged, exclusion of unrelated shared-home sessions, and account-independent
+archive restoration. Additional red cases reproduce an auth home inside a batch
+being collected and a runtime fork verifier reading the old private directory;
+both are repaired without changing native history assertions or original IDs.
+The source freeze automatically includes the new Python module.
+
+The authorized shared Codex home has configured MCP servers. A native zero-turn
+probe demonstrates that an empty-table override leaves them enabled. Preparation
+now supplies scoped disable overrides, and native subscription preflight/hosts
+verify the effective configuration before inference. A quoted-key experiment
+fails locally at CLI configuration parsing; the supported override syntax passes
+against the actual CLI and isolated layered configuration. User configuration
+files are unchanged. These are scope checks, not model turns or physical trials.
+Source-pinned genuine subscription prechecks and complete regression discovery
+remain required before this follow-up is published.

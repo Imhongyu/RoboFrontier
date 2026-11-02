@@ -4,7 +4,7 @@ const path = require('node:path');
 const {execFile,exec:execShell,spawn} = require('node:child_process');
 const {promisify} = require('node:util');
 const execFileAsync = promisify(execFile), execAsync = promisify(execShell);
-const {CodexRpc,capacityFailure} = require('./codex_rpc');
+const {CodexRpc,capacityFailure,requireNoMcpServers} = require('./codex_rpc');
 const {runMetaDispatcher} = require('./meta_dispatcher');
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const read = file=>JSON.parse(fs.readFileSync(file,'utf8'));
@@ -114,6 +114,7 @@ class PolicyHost {
       if (m.method==='turn/completed') this.turnStarted.delete(turnKey);
     }});
     fs.closeSync(log); await this.rpc.initialize();
+    if(this.launch.provider==='openai') await requireNoMcpServers(this.rpc);
   }
   async observe(threadId) {
     const result=await this.rpc.call('thread/read',{threadId});

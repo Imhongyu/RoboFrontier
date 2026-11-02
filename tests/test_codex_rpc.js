@@ -1,7 +1,21 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const {capacityFailure}=require('../scripts/codex_rpc');
+const {capacityFailure,requireNoMcpServers}=require('../scripts/codex_rpc');
 const {PolicyHost,robotTool}=require('../scripts/codex_policy_host');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+test('native subscription tool admission rejects inherited MCP before a model turn',async()=>{
+  for(const config of [{mcp_servers:{personal:{command:'unused'}}},
+                       {mcp_servers:{personal:{enabled:true}}}]) {
+    const calls=[];
+    await assert.rejects(requireNoMcpServers({call:async(method)=>{
+      calls.push(method);return {config};}}),/MCP servers/);
+    assert.deepEqual(calls,['config/read']);
+  }
+});
+test('native subscription tool admission accepts empty or disabled MCP configuration',async()=>{
+  for(const config of [{},{mcp_servers:{personal:{enabled:false}}}])
+    await requireNoMcpServers({call:async()=>({config})});
+  await assert.rejects(requireNoMcpServers({call:async()=>({})}),/could not be verified/);
+});
 test('capacity retry distinguishes quota/auth/permanent errors',()=>{
   for(const message of ['model_capacity_limit','429 Too Many Requests','server_overloaded'])assert.equal(capacityFailure({message}),true);
   for(const message of ['insufficient_quota 429','invalid_api_key','Bad Request 400'])assert.equal(capacityFailure({message}),false);

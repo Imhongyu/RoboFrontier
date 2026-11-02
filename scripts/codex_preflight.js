@@ -1,6 +1,6 @@
 // Explicitly invoked paid connectivity test, separate from scored robot trials.
 const fs=require('node:fs'),path=require('node:path');
-const {CodexRpc}=require('./codex_rpc');
+const {CodexRpc,requireNoMcpServers}=require('./codex_rpc');
 async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
   const launch=JSON.parse(fs.readFileSync(path.join(folder,'launch.json')));
   const waits=new Map();
@@ -33,6 +33,12 @@ async function preflight(folder, Rpc=CodexRpc, {smokeOnly=false}={}) {
   const nextTurn=thread=>new Promise(resolve=>waits.set(thread,resolve));
   try {
     await rpc.initialize();
+    if(launch.provider==='openai') {
+      await requireNoMcpServers(rpc);
+      report.native_mcp_config_verified=true;
+      report.auth_mode='native_managed_subscription';
+      report.scope=report.scope.replace('real API','native subscription');
+    }
     const a=await rpc.call('thread/start',{cwd:folder,model:launch.model,modelProvider:launch.provider,
       approvalPolicy:'never',sandbox:'read-only',dynamicTools:[{type:'function',name:'protocol_check',
         description:'Submit the two dominant image colors from left to right.',inputSchema:{type:'object',

@@ -1,4 +1,5 @@
 """Bounded capacity recovery; never resubmits robot requests or recreates forks."""
+from robofrontier.claude.native_home import history_directory
 import json
 import time
 
@@ -44,7 +45,7 @@ def recover(host, store, now=None):
                 or store.get('lifecycle') != 'running' or store.get('dispatch_paused', False)):
             return False
         try:
-            if not history(transcript_rows(host.run/'private/claude-config', host.session_id), host.session_id): return False
+            if not history(transcript_rows(history_directory(host.run), host.session_id), host.session_id): return False
         except ValueError:
             return False
         actions = store.actions(host.actor).values()

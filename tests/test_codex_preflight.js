@@ -1,13 +1,14 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {preflight}=require('../scripts/codex_preflight');
-function fakeRpc({badParent=false,badChild=false,badImage=false,noFork=false}={}) {
+function fakeRpc({badParent=false,badChild=false,badImage=false,noFork=false,inheritedMcp=false,onThreadStart=()=>{}}={}) {
   return class {
     constructor(args,handlers){this.handlers=handlers;}
     async initialize(){}
     async close(){}
     async call(method,p={}) {
-      if(method==='thread/start')return {thread:{id:'parent'}};
+      if(method==='config/read')return {config:{mcp_servers:inheritedMcp?{personal:{enabled:true}}:{}}};
+      if(method==='thread/start'){onThreadStart();return {thread:{id:'parent'}};}
       if(noFork && ['thread/fork','thread/compact/start'].includes(method))throw new Error('Smoke must not fork/compact');
       if(method==='thread/fork')return {thread:{id:'child',forkedFromId:badParent?'other':'parent'}};
       if(method==='thread/compact/start') {
@@ -24,10 +25,10 @@ function fakeRpc({badParent=false,badChild=false,badImage=false,noFork=false}={}
     }
   };
 }
-async function run(opts,mode={}) {
+async function run(opts,mode={},provider='sample') {
   const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rf-preflight-'));
   try {
-    fs.writeFileSync(path.join(folder,'launch.json'),JSON.stringify({args:[],model:'sample',provider:'sample',effort:'high',context_window:272000,auto_compact_token_limit:245000}));
+    fs.writeFileSync(path.join(folder,'launch.json'),JSON.stringify({args:[],model:'sample',provider,effort:'high',context_window:272000,auto_compact_token_limit:245000}));
     return await preflight(folder,fakeRpc(opts),mode);
   } finally {fs.rmSync(folder,{recursive:true,force:true});}
 }
@@ -48,4 +49,16 @@ test('smoke checks vision and tools without compaction or fork qualification',as
 });
 test('smoke rejects incorrect image interpretation',async()=>{
   const result=await run({badImage:true},{smokeOnly:true});assert.equal(result.passed,false);
+});
+test('subscription preflight rejects inherited MCP before starting a native thread',async()=>{
+  let starts=0;
+  const result=await run({inheritedMcp:true,onThreadStart:()=>starts++},{},'openai');
+  assert.equal(result.passed,false);assert.match(result.error,/MCP servers/);
+  assert.equal(starts,0);
+});
+test('subscription preflight retains full protocol checks after native tool admission',async()=>{
+  const result=await run({}, {}, 'openai');
+  assert.equal(result.passed,true);assert.equal(result.native_mcp_config_verified,true);
+  assert.equal(result.auth_mode,'native_managed_subscription');
+  assert.equal(result.fork_history_and_tool,true);
 });

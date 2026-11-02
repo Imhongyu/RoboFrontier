@@ -3,6 +3,7 @@
 The caller is the trusted process which owns the active parent and shared budget.
 This module does not start a world, schedule subsequent wakes, or qualify a batch.
 """
+from robofrontier.claude.native_home import history_directory
 import json
 import hashlib
 import math
@@ -103,7 +104,7 @@ class AdaptiveForkSetup:
                         or result.get('source_session') != snap['child_session']
                         or result['proof']['source_sha256'] != result['parent_history_sha256']
                         or fork_provenance(result['source_session'],result['child_session'],
-                                           Path(self.parent.run)/'private/claude-config') != result['proof']):
+                                           history_directory(self.parent.run)) != result['proof']):
                     raise ValueError('Trusted fork record does not match requested scope')
                 with self.store.transaction():
                     self.store.lease(self.owner,time.time(),self.store.get('config')['manager_lease_s'])

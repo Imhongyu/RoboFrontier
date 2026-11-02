@@ -3,6 +3,7 @@
 No real world is started. Without --confirm-spend no model request is made.
 CLI-reported costs are estimates, not a provider billing cap.
 """
+from robofrontier.claude.native_home import history_directory, config_directory
 import argparse
 import hashlib
 import json
@@ -56,7 +57,7 @@ def run_blocked_precheck(name, output, budget, base_env, *, binary='claude', wai
     run,mcp,server=setup_run(output,base_env)
     session=str(uuid.uuid4()); child=str(uuid.uuid4())
     receipt={'schema':'robofrontier.claude-blocked-precheck.v1','profile':name,'requested_model':prof['model'],
-             'profile_sha256':fingerprint(prof),
+             'profile_sha256':fingerprint(prof), 'auth_mode':prof.get('auth_mode','api_key'),
              'claude_version':claude_version(binary),'budget_usd':budget,'started_at':time.time(),
              'parent_session':session,'child_session':child,
              'passed':False,'checks':{},'reported_cost_usd':0,'cost_complete':False,'error_type':None}
@@ -70,7 +71,7 @@ def run_blocked_precheck(name, output, budget, base_env, *, binary='claude', wai
         if (not _ended(initial,session) or initial['summary'].get('tool_calls') != 0
                 or (initial['summary'].get('result_text') or '').strip().lower() != 'ready'):
             raise ValueError('Initial parent turn failed')
-        config=run/'private/claude-config'
+        config=history_directory(run, prof)
         baseline=history(transcript_rows(config,session),session)
         server.blocked_entered=threading.Event();server.blocked_release=threading.Event()
         remaining=budget-started
@@ -142,7 +143,10 @@ def main():
     if not args.confirm_spend:
         print(json.dumps({'status':'not_run','profile':args.profile,'model':selected['model'],
                           'potential_paid_cli_turns':3,'model_calls':0},indent=2));return 2
-    if not os.environ.get(selected['env_key']):raise SystemExit('Missing credential variable: '+selected['env_key'])
+    if selected.get('auth_mode') == 'native_login':
+        config_directory('.', selected)
+    elif not os.environ.get(selected['env_key']):
+        raise SystemExit('Missing credential variable: '+selected['env_key'])
     output=args.output or ROOT/'runs/engineering/claude-blocked-precheck'/(args.profile+'-'+time.strftime('%Y%m%d-%H%M%S'))
     result=run_blocked_precheck(args.profile,output,args.max_budget_usd,dict(os.environ))
     print(json.dumps({'profile':args.profile,'passed':result['passed'],'checks':result['checks'],

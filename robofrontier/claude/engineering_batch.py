@@ -8,6 +8,7 @@ import time
 
 from robofrontier.claude.engineering_run import _positive, run_engineering
 from robofrontier.claude.runner import build_env
+from robofrontier.claude.native_home import config_directory
 from robofrontier.run_setup import verify_inputs, write_json
 from robofrontier.launch_schedule import LaunchSchedule
 
@@ -49,12 +50,16 @@ def _preflight(jobs, env, verifier):
                 or config.get('topology') not in ('centralized', 'adaptive', 'hierarchical', 'peer') or config.get('model') != profile.get('model')
                 or config.get('effort') != profile.get('effort')):
             raise ValueError('Run does not match the engineering launch profile')
-        if not env.get(profile.get('env_key')): raise ValueError('Missing provider credential variable')
+        if profile.get('auth_mode') != 'native_login' and not env.get(profile.get('env_key')):
+            raise ValueError('Missing provider credential variable')
         if profile.get('provider') != 'anthropic' and not profile.get('base_url'):
             raise ValueError('Third-party provider base URL is missing')
         # Validate authentication for every job before claiming or launching any.
         # The returned environment is deliberately discarded and never logged.
-        build_env(profile, env, run / 'private/claude-config')
+        home = config_directory(run, profile)
+        if profile.get('auth_mode') == 'native_login' and home.is_relative_to(run.parents[1]):
+            raise ValueError('Keep the native authentication home outside the evidence batch')
+        build_env(profile, env, home)
 
 
 def status_batch(folder):

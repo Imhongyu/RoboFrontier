@@ -4,6 +4,13 @@
   "context_window": 272000,
   "auto_compact_token_limit": 245000,
   "profiles": {
+    "luna_subscription": {
+      "model": "gpt-6-luna",
+      "provider": "openai",
+      "effort": "high",
+      "vision": true,
+      "context_capacity": 272000
+    },
     "astra": {
       "model": "gpt-6-astra",
       "provider": "openai",

@@ -34,6 +34,10 @@ migration records below describe their original stages, not current defaults.
 
 ## Real qualification still required
 
+Managed subscription login profiles and evidence isolation are documented in
+[native subscription authentication](subscription-auth.md). Their scoped login
+and refresh checks remain separate from the real task conditions below.
+
 1. Obtain profile/account/current-CLI evidence for text, image/tool round trip,
    continuation and fork. Adaptive additionally needs a parent blocked in a tool
    call. Check intended batch use, model mapping, visual/tool support, concurrency

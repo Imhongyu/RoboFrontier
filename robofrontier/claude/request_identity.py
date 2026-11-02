@@ -1,4 +1,5 @@
 """Bind host-generated delegation IDs to unique, unfinished native tool uses."""
+from robofrontier.claude.native_home import history_directory
 import hashlib
 import json
 from pathlib import Path
@@ -42,7 +43,7 @@ def bind_delegate(run, actor, args, call_id, timeout=10):
     deadline = time.monotonic() + timeout
     while True:
         try:
-            source = history(transcript_rows(run/'private/claude-config', session), session)
+            source = history(transcript_rows(history_directory(run), session), session)
         except ValueError:
             source = []  # Native transcript creation/flush can lag tool dispatch.
         finished = {item.get('tool_use_id') for row in source

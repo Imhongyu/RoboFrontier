@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 import shlex
+import tomllib
 from robofrontier.launch_schedule import LaunchSchedule
 
 from robofrontier.task_families import ROOT, RELEASE, read, prepare
@@ -66,6 +67,28 @@ def launch_config(p, folder):
               'model_reasoning_effort':p['effort'], 'model_context_window':p['context_window'],
               'model_auto_compact_token_limit':p['auto_compact_token_limit'],
               'web_search':'disabled', 'features.multi_agent':False}
+    if p['provider'] == 'openai':
+        # Shared subscription homes retain native auth, but their MCP servers
+        # are not benchmark tools. Disable known layers without editing them;
+        # the host checks the effective configuration again before inference.
+        home = Path(os.environ.get('CODEX_HOME', Path.home()/'.codex'))
+        directory = Path(folder).resolve()
+        configs = {home/'config.toml', *(parent/'.codex/config.toml'
+                    for parent in (directory, *directory.parents))}
+        overrides = set()
+        for config in configs:
+            if not config.is_file():
+                continue
+            document = tomllib.loads(config.read_text())
+            overrides.update(('mcp_servers', name) for name in document.get('mcp_servers', {}))
+            for profile_name, layer in document.get('profiles', {}).items():
+                overrides.update(('profiles.'+profile_name+'.mcp_servers', name)
+                                 for name in layer.get('mcp_servers', {}))
+        for prefix, name in sorted(overrides):
+            import re
+            if not re.fullmatch(r'[A-Za-z0-9_-]+', name) or not re.fullmatch(r'[A-Za-z0-9_.-]+', prefix):
+                raise ValueError('Use a separate native home for MCP names that cannot be safely overridden')
+            values[prefix+'.'+name+'.enabled'] = False
     if p['provider'] != 'openai':
         prefix='model_providers.'+p['provider']+'.'
         values.update({prefix+'name':p['provider'], prefix+'base_url':p['base_url'],

@@ -15,6 +15,7 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 from robofrontier.claude.recovery import capacity_code
+from robofrontier.claude.native_home import config_directory
 from robofrontier.run_metrics import host_event
 
 ENV_PASSTHROUGH = ('PATH', 'LANG', 'LC_ALL', 'TMPDIR')
@@ -49,7 +50,7 @@ def build_command(model, effort, mcp_config, prompt, session_id=None, max_budget
     session_flags = (['--resume', fork_from, '--fork-session', '--session-id', session_id] if fork_from else
                      ['--resume', resume] if resume else ['--session-id', session_id or str(uuid.uuid4())])
     mcp_arg = str(mcp_config) if enable_robot else '{"mcpServers":{}}'
-    if auth_mode not in ('api_key','oauth_token'):
+    if auth_mode not in ('api_key','oauth_token','native_login'):
         raise ValueError('Unsupported Claude authentication mode')
     isolation = ['--bare'] if auth_mode == 'api_key' else ['--setting-sources', '']
     cmd = [binary, '-p'] + isolation + ['--model', model, '--effort', effort] + session_flags + [
@@ -74,14 +75,24 @@ def build_command(model, effort, mcp_config, prompt, session_id=None, max_budget
 
 def build_env(profile, base_env, config_dir):
     """Pass only this profile's endpoint and credential; never inherit other providers' keys."""
-    key = base_env.get(profile['env_key'])
-    if not key:
-        raise ValueError('Missing credential variable: ' + profile['env_key'])
+    auth_mode=profile.get('auth_mode','api_key')
+    key = base_env.get(profile.get('env_key')) if profile.get('env_key') else None
+    if auth_mode != 'native_login' and not key:
+        raise ValueError('Missing credential variable: ' + str(profile.get('env_key')))
     if profile.get('provider') not in (None, 'anthropic') and not profile.get('base_url'):
         raise ValueError('Non-Anthropic profiles require an explicit base URL before launch')
     env = {name: base_env[name] for name in ENV_PASSTHROUGH if name in base_env}
-    auth_mode=profile.get('auth_mode','api_key')
-    if auth_mode == 'oauth_token':
+    if auth_mode == 'native_login':
+        home = config_directory('.', profile)
+        if home != Path(config_dir).resolve():
+            raise ValueError('Native login directory differs from the selected profile')
+        config_dir = home
+        if not _oauth_endpoint_allowed(profile.get('base_url')):
+            raise ValueError('Native login may only use the Anthropic endpoint')
+        if base_env.get('HOME'):
+            env['HOME'] = base_env['HOME']
+        credential_name=None
+    elif auth_mode == 'oauth_token':
         if profile.get('provider') != 'anthropic' or profile['env_key'] != 'CLAUDE_CODE_OAUTH_TOKEN':
             raise ValueError('OAuth token mode is limited to the Anthropic subscription profile')
         if not _oauth_endpoint_allowed(profile.get('base_url')):
@@ -92,7 +103,6 @@ def build_env(profile, base_env, config_dir):
     else:
         raise ValueError('Unsupported Claude authentication mode')
     env.update({
-        credential_name: key,
         'CLAUDE_CONFIG_DIR': str(config_dir),
         'DISABLE_TELEMETRY': '1',
         'DISABLE_ERROR_REPORTING': '1',
@@ -102,6 +112,8 @@ def build_env(profile, base_env, config_dir):
         'ENABLE_TOOL_SEARCH': 'false',
         'ENABLE_CLAUDEAI_MCP_SERVERS': 'false',
     })
+    if credential_name is not None:
+        env[credential_name] = key
     if profile.get('base_url'):
         env['ANTHROPIC_BASE_URL'] = profile['base_url']
     return env
@@ -169,6 +181,8 @@ def summarize(lines):
 
 
 def _redact(text, secret):
+    if not secret:
+        return text
     # JSON escaping can change how a credential appears in the event stream.
     variants = {secret, json.dumps(secret, ensure_ascii=True)[1:-1],
                 json.dumps(secret, ensure_ascii=False)[1:-1]}
@@ -195,8 +209,9 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
     run_dir = Path(run_dir).resolve()
     evidence = run_dir / 'private/evidence'
     evidence.mkdir(parents=True, exist_ok=True)
-    config_dir = run_dir / 'private/claude-config'
-    config_dir.mkdir(parents=True, exist_ok=True)
+    config_dir = config_directory(run_dir, profile)
+    if profile.get('auth_mode') != 'native_login':
+        config_dir.mkdir(parents=True, exist_ok=True)
     cmd = build_command(model, effort, mcp_config, prompt, session_id, max_budget_usd, binary, resume,
                         fork_from=fork_from, enable_robot=enable_robot, auth_mode=profile.get('auth_mode','api_key'),
                         prompt_via_stdin=True)
@@ -239,7 +254,7 @@ def run_turn(profile, model, effort, mcp_config, prompt, run_dir, base_env,
             break
         except subprocess.TimeoutExpired:
             continue
-    secret = base_env[profile['env_key']]
+    secret = base_env.get(profile.get('env_key')) if profile.get('env_key') else None
     stdout = _redact(stdout, secret)
     # Evidence can contain model output and private task observations.
     fd = os.open(raw, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)

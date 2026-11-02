@@ -67,4 +67,13 @@ function capacityFailure(error) {
   return /model[_ ]?capacity|capacity[_ ]?limit|rate[_ ]?limit|too many requests|\b429\b|overloaded|server[_ ]?overloaded|insufficient[_ ]?capacity/i.test(text)
     && !/insufficient[_ ]quota|billing|invalid[_ ]api[_ ]key/i.test(text);
 }
-module.exports = {CodexRpc,RpcError,capacityFailure};
+async function requireNoMcpServers(rpc) {
+  const result = await rpc.call('config/read',{});
+  if (!result || !result.config || typeof result.config !== 'object')
+    throw new Error('Native benchmark tool configuration could not be verified');
+  const servers=result.config.mcp_servers || {};
+  if (typeof servers !== 'object' || Array.isArray(servers) ||
+      Object.values(servers).some(server=>!server || server.enabled!==false))
+    throw new Error('Native benchmark requires inherited MCP servers to be disabled');
+}
+module.exports = {CodexRpc,RpcError,capacityFailure,requireNoMcpServers};

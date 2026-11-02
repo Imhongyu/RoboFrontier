@@ -3,6 +3,7 @@
 Does not bind, activate, or grant a child any robot permission. Runtime admission
 for Claude delegation remains disabled until the complete protocol is qualified.
 """
+from robofrontier.claude.native_home import history_directory
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
@@ -89,7 +90,7 @@ def create_fork(store, parent_host, batch_id, actor, owner, *, max_budget_usd,
         raise ValueError('Setup budget must be a finite positive number or None')
     _boundary(store, parent_host, batch_id, actor, owner)
     run = Path(parent_host.run).resolve()
-    config = run / 'private/claude-config'
+    config = history_directory(run)
     batch = Delegations(store).batch(batch_id)
     if snapshot and source_session is not None:
         raise ValueError('Snapshot must come from the Controller')

@@ -29,13 +29,23 @@ def profile(name, catalog=CATALOG):
         selected = dict(document['profiles'][name])
     except KeyError as exc:
         raise ValueError('Unknown Claude model profile: ' + name) from exc
-    if not all(isinstance(selected.get(k), str) and selected[k] for k in ('provider', 'model', 'env_key', 'effort')):
+    if not all(isinstance(selected.get(k), str) and selected[k] for k in ('provider', 'model', 'effort')):
         raise ValueError('Incomplete model profile')
     if selected['effort'] not in ('low', 'medium', 'high', 'xhigh', 'max'):
         raise ValueError('Unsupported Claude effort')
     auth_mode=selected.get('auth_mode','api_key')
-    if auth_mode not in ('api_key','oauth_token'):
+    if auth_mode not in ('api_key','oauth_token','native_login'):
         raise ValueError('Unsupported Claude authentication mode')
+    if auth_mode == 'native_login':
+        if selected['provider'] != 'anthropic' or selected.get('env_key'):
+            raise ValueError('Native login requires Anthropic and no credential environment variable')
+        name = selected.get('native_config_dir_env')
+        if not isinstance(name, str) or not name.isidentifier():
+            raise ValueError('Native login requires an explicit configuration-directory environment variable')
+        value = os.environ.get(name)
+        selected['native_config_dir'] = str(Path(value).resolve()) if value and Path(value).is_absolute() else value
+    elif not isinstance(selected.get('env_key'), str) or not selected['env_key']:
+        raise ValueError('Incomplete model profile')
     if auth_mode=='oauth_token' and (selected['provider']!='anthropic' or selected['env_key']!='CLAUDE_CODE_OAUTH_TOKEN'):
         raise ValueError('OAuth token mode is limited to the Anthropic subscription profile')
     base = selected.get('base_url')
@@ -45,7 +55,7 @@ def profile(name, catalog=CATALOG):
         url = urlsplit(base)
         if url.scheme != 'https' or not url.hostname or url.username or url.password or url.query or url.fragment:
             raise ValueError('Base URL must be HTTPS without credentials, query or fragment')
-    if auth_mode == 'oauth_token' and not _oauth_endpoint_allowed(base):
+    if auth_mode in ('oauth_token', 'native_login') and not _oauth_endpoint_allowed(base):
         raise ValueError('OAuth token may only be sent to the Anthropic endpoint')
     selected['base_url'] = base
     return selected
@@ -79,6 +89,10 @@ def prepare_draft(output, names, families=None, cases=None, level=None, min_arms
     selection = plan(names, families, cases, level, min_arms, 1, catalog)
     profiles = {name: profile(name, catalog) for name in names}
     selected = list(dict.fromkeys(job['case_id'] for job in selection['jobs']))
+    for p in profiles.values():
+        if (p.get('auth_mode') == 'native_login' and p.get('native_config_dir')
+                and Path(p['native_config_dir']).resolve().is_relative_to(Path(output).resolve())):
+            raise ValueError('Keep the native authentication home outside the evidence batch')
     release = read(ROOT / RELEASE)
     released = {case['id']: case for family in release['families'].values() for case in family['gpt']}
     for case in selected:
@@ -168,7 +182,8 @@ def doctor(names, root=ROOT, catalog=CATALOG):
     for name in names:
         p = profile(name, catalog)
         profiles[name] = {'model': p['model'], 'provider': p['provider'], 'credential_env': p['env_key'],
-                          'credential_set': bool(os.environ.get(p['env_key'])),
+                          'credential_set': bool(p.get('native_config_dir')) if p.get('auth_mode') == 'native_login' else bool(os.environ.get(p['env_key'])),
+                          'native_login_home': p.get('native_config_dir'),
                           'base_url_configured': bool(p['base_url']), 'live_verified': False}
     assets = [check_case_assets(case, root) for family in read(root / RELEASE)['families'].values() for case in family['gpt']]
     return {'claude': cli, 'profiles': profiles, 'release_sha256': digest(root / RELEASE),
